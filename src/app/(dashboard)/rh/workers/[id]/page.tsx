@@ -318,7 +318,7 @@ export default function WorkerDetailPage() {
                   <p className="text-2xl font-bold text-green-600">
                     ${worker.defaultHourlyRate}/hr
                   </p>
-                  <p className="text-sm text-gray-500">Taxa Padrão</p>
+                  <p className="text-sm text-muted-foreground">Taxa Padrão</p>
                 </div>
               )}
               {worker.financialProfile && (
@@ -327,7 +327,7 @@ export default function WorkerDetailPage() {
                     {worker.financialProfile.paymentMethod}
                   </Badge>
                   {worker.financialProfile.accountLast4 && (
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       ****{worker.financialProfile.accountLast4}
                     </p>
                   )}
@@ -365,8 +365,8 @@ export default function WorkerDetailPage() {
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : assignments.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                   <p>Nenhuma atribuição encontrada</p>
                   <p className="text-sm">Este worker ainda não foi atribuído a nenhum job ou projeto.</p>
                 </div>
@@ -385,7 +385,7 @@ export default function WorkerDetailPage() {
                               ? `Projeto #${assignment.project.numeroProjeto} - ${assignment.project.titulo}`
                               : 'Sem vínculo'}
                         </div>
-                        <div className="text-sm text-gray-500 flex items-center gap-2">
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
                           <span>{assignment.role || 'Worker'}</span>
                           <span>•</span>
                           <span>
@@ -412,19 +412,19 @@ export default function WorkerDetailPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-green-600">{formatCurrency(totalPago)}</div>
-                <p className="text-sm text-gray-500">Total Pago</p>
+                <p className="text-sm text-muted-foreground">Total Pago</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-yellow-600">{formatCurrency(totalPendente)}</div>
-                <p className="text-sm text-gray-500">Pendente/Aprovado</p>
+                <p className="text-sm text-muted-foreground">Pendente/Aprovado</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">{payables.length}</div>
-                <p className="text-sm text-gray-500">Total de Payables</p>
+                <p className="text-sm text-muted-foreground">Total de Payables</p>
               </CardContent>
             </Card>
           </div>
@@ -442,8 +442,8 @@ export default function WorkerDetailPage() {
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : payables.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <DollarSign className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <DollarSign className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                   <p>Nenhum pagamento encontrado</p>
                   <p className="text-sm">Pagamentos serão exibidos aqui quando forem gerados.</p>
                 </div>
@@ -458,7 +458,7 @@ export default function WorkerDetailPage() {
                         <div className="font-medium">
                           Payable #{payable.id}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           {payable.paidAt
                             ? `Pago em ${new Date(payable.paidAt).toLocaleDateString('en-US')}`
                             : 'Aguardando pagamento'}

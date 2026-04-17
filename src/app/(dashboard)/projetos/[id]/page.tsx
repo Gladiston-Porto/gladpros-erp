@@ -383,10 +383,10 @@ export default function ProjetoDetailPage() {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   {timelineItems.map((item) => (
                     <div key={item.label} className="rounded-2xl border border-border p-4">
-                      <p className="text-xs uppercase tracking-wide text-gray-500">{item.label}</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.label}</p>
                       <p className="text-lg font-semibold text-foreground">{item.value}</p>
                       {item.helper && (
-                        <p className="text-xs text-gray-500">{item.helper}</p>
+                        <p className="text-xs text-muted-foreground">{item.helper}</p>
                       )}
                     </div>
                   ))}
@@ -412,7 +412,7 @@ export default function ProjetoDetailPage() {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   {financeSummary.map((metric) => (
                     <div key={metric.label} className="rounded-2xl border border-border p-4">
-                      <p className="text-xs uppercase tracking-wide text-gray-500">{metric.label}</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">{metric.label}</p>
                       <div className="flex items-center gap-2">
                         <p className="text-2xl font-bold text-foreground">{metric.value}</p>
                         {metric.trend === 'up' && (
@@ -454,13 +454,13 @@ export default function ProjetoDetailPage() {
                 <CardContent className="grid gap-4 md:grid-cols-2">
                   {projeto.localidade && (
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Localidade</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Localidade</p>
                       <p className="text-lg font-semibold text-foreground">{projeto.localidade}</p>
                     </div>
                   )}
                   {projeto.endereco && (
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Endereço</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Endereço</p>
                       <p className="text-lg font-semibold text-foreground">{projeto.endereco}</p>
                     </div>
                   )}
@@ -550,9 +550,9 @@ function MetricCard({ label, helper, value, positive }: MetricCardProps) {
 
   return (
     <div className="rounded-2xl border border-border p-4">
-      <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className={`text-2xl font-bold ${tone}`}>{value}</p>
-      {helper && <p className="text-xs text-gray-500">{helper}</p>}
+      {helper && <p className="text-xs text-muted-foreground">{helper}</p>}
     </div>
   );
 }

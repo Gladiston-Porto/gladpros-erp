@@ -127,7 +127,7 @@ export default function EditarProjetoPage() {
           </button>
 
           <div className="bg-card rounded-2xl shadow-sm p-8 text-center">
-            <AlertCircle size={48} className="mx-auto text-gray-400 mb-4" />
+            <AlertCircle size={48} className="mx-auto text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold text-foreground mb-2">
               Projeto Não Encontrado
             </h2>
