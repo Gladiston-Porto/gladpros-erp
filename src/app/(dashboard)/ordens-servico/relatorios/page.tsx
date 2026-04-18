@@ -37,12 +37,12 @@ export default async function RelatoriosOrdensServicoPage() {
       prisma.serviceOrder.groupBy({ by: ["status"], _count: { id: true }, orderBy: { _count: { id: "desc" } } }),
       prisma.serviceOrder.count({ where: { status: "SCHEDULED" } }),
       prisma.serviceOrder.count({ where: { status: "IN_PROGRESS" } }),
-      prisma.serviceOrder.count({ where: { criadoEm: { gte: startOfMonth } } }),
-      prisma.serviceOrder.count({ where: { status: "COMPLETED", criadoEm: { gte: startOfMonth } } }),
+      prisma.serviceOrder.count({ where: { createdAt: { gte: startOfMonth } } }),
+      prisma.serviceOrder.count({ where: { status: "COMPLETED", createdAt: { gte: startOfMonth } } }),
       prisma.serviceOrder.findMany({
-        where: { criadoEm: { gte: sixMonthsAgo } },
-        select: { criadoEm: true },
-        orderBy: { criadoEm: "asc" },
+        where: { createdAt: { gte: sixMonthsAgo } },
+        select: { createdAt: true },
+        orderBy: { createdAt: "asc" },
       }),
     ]);
 
@@ -53,7 +53,7 @@ export default async function RelatoriosOrdensServicoPage() {
     mesesMap[key] = 0;
   }
   for (const os of porMes) {
-    const key = os.criadoEm.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "America/Chicago" });
+    const key = os.createdAt.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "America/Chicago" });
     if (key in mesesMap) mesesMap[key] = (mesesMap[key] ?? 0) + 1;
   }
   const mesesLista = Object.entries(mesesMap);
