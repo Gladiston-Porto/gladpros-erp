@@ -21,7 +21,7 @@ async function postHandler(
     }
     const { id } = await params;
 
-    const timesheet = await submitTimesheet(parseInt(id), user.id);
+    const timesheet = await submitTimesheet(parseInt(id), Number(user.id));
 
     return successResponse(timesheet);
 }

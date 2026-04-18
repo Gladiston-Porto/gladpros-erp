@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     };
 
     // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console
     console.log(`[WEBHOOK] Teste enviado para ${mockWebhook.url}:`, testPayload);
 
     // In production, make actual HTTP request to webhook URL

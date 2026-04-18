@@ -33,11 +33,13 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     };
 
     // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console
     console.log(`[BACKUP] Backup iniciado: ${backupId}`);
 
     // Simulate backup completion (in production, this would be async)
     setTimeout(() => {
       // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console
     console.log(`[BACKUP] Backup concluído: ${backupId}`);
     }, 5000);
 

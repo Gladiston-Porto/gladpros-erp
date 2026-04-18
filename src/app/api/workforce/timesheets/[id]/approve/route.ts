@@ -22,7 +22,7 @@ async function postHandler(
     }
     const { id } = await params;
 
-    const result = await approveTimesheet(parseInt(id), user.id);
+    const result = await approveTimesheet(parseInt(id), Number(user.id));
 
     return successResponse(result);
 }

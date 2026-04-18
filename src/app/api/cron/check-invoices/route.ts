@@ -56,6 +56,7 @@ export async function POST(request: Request) {
                 });
                 results.closedServiceOrders.push(invoice.ServiceOrder.ticketNumber);
                 // eslint-disable-next-line no-console
+                // eslint-disable-next-line no-console
                 console.log(`[Cron] Auto-closed: ${invoice.ServiceOrder.ticketNumber}`);
             } catch (err) {
                 results.errors.push(`Failed to close ${invoice.ServiceOrder.ticketNumber}`);
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
             // await sendPaymentReminder(invoice);
         }
 
+        // eslint-disable-next-line no-console
         // eslint-disable-next-line no-console
         console.log(`[Cron] Check complete: ${results.closedServiceOrders.length} closed, ${results.overdueInvoices.length} overdue`);
 

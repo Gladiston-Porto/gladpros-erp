@@ -95,6 +95,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
 
     // Log da assinatura para auditoria
     // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console
     console.log(`[ASSINATURA] Proposta ${proposta.numeroProposta} assinada:`, {
       tipo: validatedData.assinaturaTipo,
       nome: validatedData.assinaturaNome,

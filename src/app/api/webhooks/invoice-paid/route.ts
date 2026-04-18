@@ -89,6 +89,7 @@ export const POST = withErrorHandler(async (request: Request) => {
         });
 
         // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console
         console.log(`[Invoice PAID Webhook] Service Order ${serviceOrder.ticketNumber} → CLOSED (source: ${source})`);
 
         return NextResponse.json({

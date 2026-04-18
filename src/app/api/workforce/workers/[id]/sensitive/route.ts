@@ -81,7 +81,7 @@ async function getHandler(
     // Audit log para acesso a dados sensíveis
     await prisma.auditoria.create({
         data: {
-            usuarioId: user.id,
+            usuarioId: Number(user.id),
             tabela: 'worker_financial_profiles',
             registroId: worker.financialProfile.id,
             acao: 'CREATE',
@@ -178,7 +178,7 @@ async function postHandler(
     // Audit log
     await prisma.auditoria.create({
         data: {
-            usuarioId: user.id,
+            usuarioId: Number(user.id),
             tabela: 'worker_financial_profiles',
             registroId: profile.id,
             acao: 'UPDATE',

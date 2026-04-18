@@ -43,7 +43,7 @@ async function postHandler(
         data: {
             status: 'APPROVED',
             approvedAt: new Date(),
-            approvedById: user.id
+            approvedById: Number(user.id)
         },
         include: {
             worker: { select: { id: true, name: true, email: true } },

@@ -34,7 +34,7 @@ async function postHandler(
 
     const result = await markPayableAsPaid({
         payableId: parseInt(id),
-        paidById: user.id,
+        paidById: Number(user.id),
         paymentMethod: body.paymentMethod,
         paymentRef: body.paymentRef
     });
