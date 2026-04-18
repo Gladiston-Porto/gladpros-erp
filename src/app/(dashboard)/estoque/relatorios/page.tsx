@@ -66,8 +66,8 @@ export default async function RelatoriosEstoquePage() {
 
   const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
-  const baixoEstoque = Number(baixoEstoqueResult[0]?.count ?? 0n);
-  const semEstoque = Number(semEstoqueResult[0]?.count ?? 0n);
+  const baixoEstoque = Number(baixoEstoqueResult[0]?.count ?? 0);
+  const semEstoque = Number(semEstoqueResult[0]?.count ?? 0);
   const valorTotal = Number(valorTotalResult[0]?.total ?? 0);
 
   return (
