@@ -4,6 +4,8 @@ import { withSentryConfig } from '@sentry/nextjs';
 const isDev = process.env.NODE_ENV === 'development';
 
 const nextConfig: NextConfig = {
+  // Standalone output para Docker (copia apenas o necessário para o container)
+  output: process.env.DOCKER_BUILD === '1' ? 'standalone' : undefined,
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   // E2E_BUILD=1 → build para suite E2E sem falhar em erros TS/ESLint herdados
   typescript: {

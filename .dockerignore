@@ -1,0 +1,47 @@
+# Ignorar no build Docker (reduz tamanho e evita vazar secrets)
+
+# Dependências — reinstaladas no build
+node_modules/
+packages/*/node_modules/
+
+# Arquivos de dev e test
+.env.local
+.env.development
+.env.test
+.env.e2e
+.env.corrupt.bak
+**/*.test.ts
+**/*.spec.ts
+tests/
+playwright-report/
+test-results/
+coverage/
+
+# Git e IDE
+.git/
+.github/
+.vscode/
+.idea/
+
+# Build artifacts
+.next/
+.turbo/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Secrets de produção (nunca entram na imagem)
+.env.production
+config/nginx/ssl/
+
+# Documentação
+docs/
+README.md
+
+# Scripts de dev
+scripts/dev/
+
+# Uploads locais (montados como volume em prod)
+uploads/
