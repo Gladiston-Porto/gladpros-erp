@@ -51,9 +51,7 @@ export default function ProjetosClient() {
   const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { fetchProjetos, deleteProjeto, loading: _loading, fetching } = useProjetoOperations({
-    onSuccess: (message) => {
-      // TODO: Implementar toast notification
-      console.log(message);
+    onSuccess: () => {
       // Recarregar lista após ação bem-sucedida
       loadProjetos();
     },

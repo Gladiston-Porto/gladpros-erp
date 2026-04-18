@@ -83,7 +83,6 @@ export default function ProjetoDetailPage() {
 
   const { fetchProjeto, deleteProjeto, fetching, loading } = useProjetoOperations({
     onSuccess: (message) => {
-      console.log(message);
       if (message.includes('excluído')) {
         router.push('/projetos');
       }
