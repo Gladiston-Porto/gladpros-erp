@@ -122,7 +122,8 @@ docs/modules/service-orders/
 ### ✅ Usuários *(novo)*
 ```
 docs/modules/usuarios/
-└── 00-spec.md                  # Gerenciamento de usuários, hierarquia de roles, RBAC, segurança
+├── 00-spec.md                  # Gerenciamento de usuários, hierarquia de roles, RBAC, segurança
+└── 01-audit.md                 # Auditoria production-ready — P1/P2/P3 corrigidos
 ```
 
 ### ✅ Workforce
