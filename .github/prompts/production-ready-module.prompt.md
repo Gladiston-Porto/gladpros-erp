@@ -845,3 +845,68 @@ Lista completa com caminhos absolutos
 
 ### 6. O que não foi corrigido (e por quê)
 Se algum P3 foi deixado para depois, documentar aqui com justificativa.
+
+---
+
+## Fase 6 — Commit (obrigatório ao final)
+
+Após todas as fases concluídas e checklist verificado, fazer **dois commits cirúrgicos**:
+
+### Commit 1 — correções e testes
+
+```bash
+git add \
+  src/app/api/<modulo>/**/*.ts \
+  src/app/(dashboard)/<modulo>/**/*.tsx \
+  src/components/<modulo>/**/*.tsx \
+  src/shared/lib/<arquivos-novos>.ts \
+  src/__tests__/api/<modulo>/**/*.test.ts
+
+git commit -m "fix(<modulo>): varredura completa — segurança, bugs e testes
+
+Vulnerabilidades corrigidas:
+- [P1-001] <descrição>
+- [P1-002] <descrição>
+- [P2-001] <descrição>
+
+Bugs corrigidos:
+- <descrição curta de cada bug>
+
+Testes:
+- <rota>.test.ts: X/X passando
+- Total: XX/XX testes unitários passando
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+```
+
+### Commit 2 — E2E e documentação
+
+```bash
+git add \
+  tests/e2e/<modulo>/*.spec.ts \
+  docs/modules/<modulo>/01-modulo-<modulo>-completo.md
+
+git commit -m "feat(<modulo>): E2E completo e documentação
+
+E2E — 6 spec files em tests/e2e/<modulo>/:
+- <modulo>-smoke.spec.ts: X testes
+- <modulo>-crud.spec.ts: X testes
+- <modulo>-rbac.spec.ts: X testes
+- <modulo>-security.spec.ts: X testes
+- <modulo>-edge-cases.spec.ts: X testes
+- <modulo>-regression.spec.ts: X guards (um por P1/P2)
+
+Documentação:
+- docs/modules/<modulo>/01-modulo-<modulo>-completo.md
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+```
+
+### Confirmar que está no repositório
+
+```bash
+git log --oneline -3
+```
+
+> ✅ Com os dois commits feitos, tudo está registrado no histórico do repositório.
+> Para enviar ao remoto (GitHub): `git push`
