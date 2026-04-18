@@ -9,6 +9,7 @@ import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { buildUsuarioSelect } from "@/shared/lib/usuario-query";
 import { UserRole, canManageRole } from "@/shared/lib/user-hierarchy";
+import { logger } from "@/lib/api/logger";
 
 /**
  * Campos permitidos quando um usuário edita o próprio perfil.
@@ -419,11 +420,11 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
         ip
       );
     } catch (error) {
-      console.error("Erro ao registrar auditoria:", error);
+      logger.error("Erro ao registrar auditoria", {}, error);
       // Não quebra o fluxo principal
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ data: { id }, success: true });
   });
 
 /* PUT /api/usuarios/:id - substitui (opcional) */
@@ -508,7 +509,7 @@ export const DELETE = withErrorHandler(async (req: Request,
         ip
       );
     } catch (auditError) {
-      console.error('[DELETE usuario] Erro ao registrar auditoria:', auditError);
+      logger.error('[DELETE usuario] Erro ao registrar auditoria', {}, auditError);
     }
 
     return NextResponse.json({ ok: true, message: "Usuário desativado com sucesso" });

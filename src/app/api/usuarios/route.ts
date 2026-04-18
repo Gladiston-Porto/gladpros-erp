@@ -14,6 +14,7 @@ import { UserRole, canManageRole, getManageableRoles } from "@/shared/lib/user-h
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { withBusinessCache } from "@/shared/lib/cache/business-cache";
 import { AuditoriaService } from "@/shared/lib/audit";
+import { logger } from "@/lib/api/logger";
 
 // Minimal shapes for raw SQL rows (A10: PII fica fora da listagem)
 type UserRow = {
@@ -484,27 +485,18 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           ip
         );
       } catch (auditError) {
-        console.error('[POST usuarios] Erro ao registrar auditoria:', auditError);
+        logger.error('[POST usuarios] Erro ao registrar auditoria', {}, auditError);
       }
 
       try {
-        // Ajuste a chamada conforme a assinatura real do seu sendMail.
-        // Se sendMail(to, subject, html) é a assinatura:
         await sendMail(created.email, subject, html);
-
-        // Se sua sendMail aceita texto também, use:
-        // await sendMail(email, subject, html, text);
-
-        // Se realmente tiver uma versão que aceita um objeto, ignore esta nota.
       } catch (err) {
-        console.warn("[SMTP MAILER ERROR]", err);
-        // não bloquear criação do usuário; opcional: adicionar _mailWarning no retorno
+        logger.warn("[SMTP MAILER ERROR]", {}, err);
       }
 
-      // Inclusão de metadados sem quebrar clientes: mantém campos do usuário no topo
-      return NextResponse.json({ ok: true, message: "Usuário criado com sucesso", ...created }, { status: 201 });
+      return NextResponse.json({ data: created, success: true, message: "Usuário criado com sucesso" }, { status: 201 });
     } catch (err: unknown) {
-      console.error("POST /api/usuarios error:", err);
+      logger.error("POST /api/usuarios error", {}, err);
       
       // Tratamento específico para erros de autenticação
       if (err instanceof Error && err.message === 'UNAUTHENTICATED') {

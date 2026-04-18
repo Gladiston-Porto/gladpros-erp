@@ -5,6 +5,8 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { UserRole, canManageRole } from "@/shared/lib/user-hierarchy";
 import { AuditoriaService } from "@/shared/lib/audit";
+import { can, type Role } from "@/shared/lib/rbac-core";
+import { logger } from "@/lib/api/logger";
 
 interface Params {
   id: string;
@@ -14,8 +16,8 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
   { params }: { params: Promise<Params> }) => {
     const authUser = await requireUser(request);
 
-    // Only ADMIN/GERENTE can change user status
-    if (!['ADMIN', 'GERENTE'].includes(authUser.role)) {
+    // Only roles with 'update' permission can change user status
+    if (!can(authUser.role as Role, 'usuarios', 'update')) {
       return NextResponse.json({ message: "Acesso negado" }, { status: 403 });
     }
 
@@ -98,11 +100,8 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
         ip
       );
     } catch (auditError) {
-      console.error('[PATCH /[id]/status] Erro ao registrar auditoria:', auditError);
+      logger.error('[PATCH /[id]/status] Erro ao registrar auditoria', {}, auditError);
     }
 
-    return NextResponse.json({
-      ok: true,
-      message: `Usuário ${ativo ? 'ativado' : 'desativado'} com sucesso`
-    });
+    return NextResponse.json({ data: { ativo }, success: true });
   });

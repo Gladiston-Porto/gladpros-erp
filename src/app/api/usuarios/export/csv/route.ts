@@ -105,7 +105,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 			const nome = r.nome ?? r.nomeCompleto ?? "";
 			const nivel = r.role ?? r.nivel ?? "";
 			const status = r.status ?? "";
-			const criado = r.criadoEm ? new Date(r.criadoEm).toLocaleDateString('pt-BR') : "";
+			const criado = r.criadoEm ? new Date(r.criadoEm).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }) : "";
 			const data = [r.id, nome, r.email, nivel, status, criado].map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",");
 			lines.push(data);
 		}

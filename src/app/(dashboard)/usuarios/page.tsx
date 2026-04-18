@@ -1,6 +1,7 @@
 // src/app/(dashboard)/usuarios/page.tsx
 "use client";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useConfirm } from "@gladpros/ui/confirm-dialog";
 import { useToast } from "@gladpros/ui/toast";
@@ -54,6 +55,7 @@ async function toggleUserStatus(id: string | number) {
 }
 
 export default function UsersPage() {
+  const router = useRouter();
   const { confirm, Dialog } = useConfirm();
   const toast = useToast();
   const [q, setQ] = useState("");
@@ -103,7 +105,6 @@ export default function UsersPage() {
       if (err instanceof DOMException && err.name === "AbortError") {
         return;
       }
-      console.error(err);
       toast.error("Erro", err.message || "Erro ao carregar usuários");
     } finally {
       if (!ac.signal.aborted) {
@@ -130,7 +131,6 @@ export default function UsersPage() {
       toast.success('Removido', 'Usuário removido com sucesso');
       load();
     } catch (error) {
-      console.error(error);
       toast.error('Erro', 'Falha ao remover usuário');
     }
   }
@@ -150,7 +150,6 @@ export default function UsersPage() {
       toast.success('Sucesso', 'Status atualizado');
       load();
     } catch (error) {
-      console.error(error);
       toast.error('Erro', (error as Error).message || 'Erro ao alterar status do usuário');
     }
   }
@@ -210,7 +209,6 @@ export default function UsersPage() {
       setSelectedIds([]);
       load();
     } catch (error) {
-      console.error(error);
       toast.error('Erro', 'Falha ao remover usuários');
     }
   };
@@ -234,7 +232,6 @@ export default function UsersPage() {
       setSelectedIds([]);
       load();
     } catch (error) {
-      console.error(error);
       toast.error('Erro', 'Erro ao alterar status dos usuários');
     }
   };
@@ -307,7 +304,6 @@ export default function UsersPage() {
               URL.revokeObjectURL(url);
               toast.success('Exportação', 'PDF baixado com sucesso');
             } catch (err: any) {
-              console.error(err);
               toast.error('Erro', err.message || 'Falha ao exportar PDF');
             } finally {
               setExporting(false);
@@ -323,7 +319,7 @@ export default function UsersPage() {
           ) : (
             <UsersTable
               data={data}
-              onEdit={(id) => (location.href = `/usuarios/${id}`)}
+              onEdit={(id) => router.push(`/usuarios/${id}`)}
               onDelete={onDelete}
               onToggleStatus={onToggleStatus}
               onSelectedChange={setSelectedIds}

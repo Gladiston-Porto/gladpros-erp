@@ -207,7 +207,7 @@ export default function UserEditClient({ id }: { id: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
       </div>
     );
   }
@@ -288,7 +288,7 @@ export default function UserEditClient({ id }: { id: string }) {
           {/* Papel e Status */}
           <Card className="rounded-2xl border border-border bg-card shadow-sm dark:bg-white/5">
             <CardContent className="space-y-4 p-6">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Acesso</h3>
+              <h3 className="text-lg font-semibold text-foreground">Acesso</h3>
 
               <FieldSelect
                 label="Nível"
@@ -306,10 +306,10 @@ export default function UserEditClient({ id }: { id: string }) {
                 ]}
               />
 
-              <div className="pt-4 text-sm text-slate-500 dark:text-white/60 space-y-1">
-                <p>Último login: {user.ultimoLoginEm ? new Date(user.ultimoLoginEm).toLocaleString("pt-BR") : "Nunca"}</p>
-                <p>Criado em: {user.criadoEm ? new Date(user.criadoEm).toLocaleString("pt-BR") : "—"}</p>
-                <p>Atualizado em: {user.atualizadoEm ? new Date(user.atualizadoEm).toLocaleString("pt-BR") : "—"}</p>
+              <div className="pt-4 text-sm text-muted-foreground space-y-1">
+                <p>Último login: {user.ultimoLoginEm ? new Date(user.ultimoLoginEm).toLocaleString("en-US", { timeZone: "America/Chicago" }) : "Nunca"}</p>
+                <p>Criado em: {user.criadoEm ? new Date(user.criadoEm).toLocaleString("en-US", { timeZone: "America/Chicago" }) : "—"}</p>
+                <p>Atualizado em: {user.atualizadoEm ? new Date(user.atualizadoEm).toLocaleString("en-US", { timeZone: "America/Chicago" }) : "—"}</p>
               </div>
             </CardContent>
           </Card>
@@ -317,7 +317,7 @@ export default function UserEditClient({ id }: { id: string }) {
           {/* Endereço */}
           <Card className="rounded-2xl border border-border bg-card shadow-sm dark:bg-white/5">
             <CardContent className="space-y-4 p-6">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Endereço</h3>
+              <h3 className="text-lg font-semibold text-foreground">Endereço</h3>
 
               <FieldInput
                 label="Endereço 1"
@@ -357,10 +357,10 @@ export default function UserEditClient({ id }: { id: string }) {
           {/* Anotações */}
           <Card className="rounded-2xl border border-border bg-card shadow-sm dark:bg-white/5">
             <CardContent className="space-y-4 p-6">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Anotações</h3>
+              <h3 className="text-lg font-semibold text-foreground">Anotações</h3>
 
               <textarea
-                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-white/20 dark:bg-white/5"
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary dark:border-white/20 dark:bg-white/5"
                 rows={6}
                 value={form.anotacoes}
                 onChange={(e) => handleChange("anotacoes", e.target.value)}
@@ -406,29 +406,31 @@ const ACAO_LABEL: Record<string, { label: string; color: string }> = {
   CREATE: { label: "Criou", color: "text-emerald-600 dark:text-emerald-400" },
   DELETE: { label: "Removeu/Desativou", color: "text-red-600 dark:text-red-400" },
   LOGIN:  { label: "Login", color: "text-purple-600 dark:text-purple-400" },
-  LOGOUT: { label: "Logout", color: "text-slate-500" },
+  LOGOUT: { label: "Logout", color: "text-muted-foreground" },
 };
 
 function AuditLogPanel({ userId, userRole }: { userId: string; userRole: string }) {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Apenas ADMIN e GERENTE veem o histórico
-  if (!['ADMIN', 'GERENTE'].includes(userRole)) return null;
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
+    if (!['ADMIN', 'GERENTE'].includes(userRole)) {
+      setLoading(false);
+      return;
+    }
     authenticatedFetch(`/api/usuarios/${userId}/auditoria`)
       .then((r) => r.json())
-      .then((data) => setLogs(Array.isArray(data) ? data : []))
+      .then((data) => setLogs(Array.isArray(data.data ?? data) ? (data.data ?? data) : []))
       .catch(() => setLogs([]))
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [userId, userRole]);
+
+  if (!['ADMIN', 'GERENTE'].includes(userRole)) return null;
 
   return (
     <Card className="rounded-2xl border border-border bg-card shadow-sm dark:bg-white/5">
       <CardContent className="p-6">
-        <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+        <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
           <History className="h-5 w-5 text-primary" />
           Histórico de Alterações
         </h3>
@@ -502,19 +504,19 @@ function FieldInput({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">{label}</label>
+      <label className="mb-1 block text-sm font-medium text-foreground">{label}</label>
       <input
         type={type}
         className={`w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-1 dark:bg-white/5 dark:text-white ${
           error
-            ? "border-red-400 focus:border-red-500 focus:ring-red-500"
-            : "border-slate-200 focus:border-blue-500 focus:ring-blue-500 dark:border-white/20"
+            ? "border-destructive focus:border-destructive focus:ring-destructive"
+            : "border-slate-200 focus:border-brand-primary focus:ring-brand-primary dark:border-white/20"
         }`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
       />
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
     </div>
   );
 }
@@ -532,10 +534,10 @@ function FieldSelect({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-white/80">{label}</label>
+      <label className="mb-1 block text-sm font-medium text-foreground">{label}</label>
       <select
         aria-label={label}
-        className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-white/20 dark:bg-white/5 dark:text-white"
+        className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary dark:border-white/20 dark:bg-white/5 dark:text-white"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >

@@ -5,14 +5,16 @@ import { requireUser } from "@/shared/lib/rbac";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { AuditoriaService } from "@/shared/lib/audit";
 import { UserRole, canManageRole } from "@/shared/lib/user-hierarchy";
+import { can, type Role } from "@/shared/lib/rbac-core";
+import { logger } from "@/lib/api/logger";
 
 export const PUT = withErrorHandler(async (req: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
     // Verificar autenticação
     const user = await requireUser(req);
 
-    // Verificar se usuário tem permissão (apenas ADMIN e GERENTE podem alterar status)
-    if (!['ADMIN', 'GERENTE'].includes(user.role)) {
+    // Verificar se usuário tem permissão via RBAC
+    if (!can(user.role as Role, 'usuarios', 'update')) {
       return NextResponse.json(
         { error: 'Acesso negado. Apenas administradores podem alterar status de usuários.' },
         { status: 403 }
@@ -92,12 +94,9 @@ export const PUT = withErrorHandler(async (req: NextRequest,
         ip
       );
     } catch (auditError) {
-      console.error('[toggle-status] Erro ao registrar auditoria:', auditError);
+      logger.error('[toggle-status] Erro ao registrar auditoria', {}, auditError);
     }
 
-    return NextResponse.json({
-      message: `Usuário ${newStatus === 'ATIVO' ? 'ativado' : 'desativado'} com sucesso`,
-      status: newStatus
-    });
+    return NextResponse.json({ data: { status: newStatus }, success: true });
 
   });

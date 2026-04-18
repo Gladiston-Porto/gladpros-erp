@@ -41,11 +41,11 @@ export const GET = withErrorHandler(async (request: NextRequest,
         u.email
       FROM Auditoria a
       LEFT JOIN Usuario u ON a.usuarioId = u.id
-      WHERE a.registroId = ${userId} AND a.tabela = 'Usuario'
-         OR a.usuarioId = ${userId}
+      WHERE (a.registroId = ${userId} AND a.tabela = 'Usuario')
+         OR (a.usuarioId = ${userId} AND a.tabela = 'Usuario')
       ORDER BY a.criadoEm DESC
       LIMIT 100
     `;
 
-    return NextResponse.json(auditorias);
+    return NextResponse.json({ data: auditorias, success: true });
   });
