@@ -69,4 +69,5 @@ Thumbs.db
 
 # Produção — nunca commitar
 .env.production
+!.env.production.example
 config/nginx/ssl/
