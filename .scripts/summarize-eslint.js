@@ -1,0 +1,7 @@
+const fs = require('fs')
+const data = JSON.parse(fs.readFileSync('eslint-report.json', 'utf8'))
+const files = data.map(f => ({ path: f.filePath, errors: f.errorCount, warnings: f.warningCount, total: f.errorCount + f.warningCount }))
+files.sort((a,b) => b.total - a.total)
+console.log('TOP ESLINT FILES BY PROBLEM COUNT:')
+files.slice(0, 30).forEach((f,i) => console.log(`${i+1}. ${f.path}  — errors:${f.errors} warnings:${f.warnings} total:${f.total}`))
+console.log('\nTOTAL FILES:', files.length)

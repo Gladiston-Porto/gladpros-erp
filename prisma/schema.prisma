@@ -1,0 +1,4510 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model AnexoProposta {
+  id         Int      @id @default(autoincrement())
+  propostaId Int
+  filename   String   @db.VarChar(255)
+  filepath   String   @db.VarChar(500)
+  mime       String   @db.VarChar(100)
+  uploadedBy Int
+  criadoEm   DateTime @default(now())
+  descricao  String?  @db.Text
+  privado    Boolean  @default(false)
+  Proposta   Proposta @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+
+  @@index([propostaId])
+}
+
+model AuditLog {
+  id         String   @id
+  userId     Int
+  entidade   String
+  entidadeId String
+  acao       String
+  diff       String?  @db.LongText
+  timestamp  DateTime @default(now())
+  Usuario    Usuario  @relation(fields: [userId], references: [id])
+
+  @@index([entidade, entidadeId])
+  @@index([timestamp])
+  @@index([userId])
+}
+
+model Auditoria {
+  id         Int            @id @default(autoincrement())
+  tabela     String         @db.VarChar(64)
+  registroId Int
+  acao       Auditoria_acao
+  usuarioId  Int?
+  ip         String?        @db.VarChar(45)
+  payload    String?        @db.LongText
+  criadoEm   DateTime       @default(now())
+  Usuario    Usuario?       @relation(fields: [usuarioId], references: [id])
+
+  @@index([tabela, registroId, criadoEm])
+  @@index([tabela, registroId])
+  @@index([usuarioId])
+}
+
+model Empresa {
+  id           Int      @id @default(autoincrement())
+  nome         String   @db.VarChar(200)
+  razaoSocial  String   @db.VarChar(200)
+  cnpj         String?  @unique @db.VarChar(18)
+  email        String?  @db.VarChar(255)
+  telefone     String?  @db.VarChar(32)
+  endereco     Json?
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  // Relations - Receitas
+  // Relations - Conteúdo existente...
+  revenues          Revenue[]
+  revenueCategories RevenueCategory[]
+
+  // Relations - Despesas
+  expenses          Expense[]
+  expenseCategories ExpenseCategory[]
+  purchaseOrders    PurchaseOrder[]
+
+  // Relations - Contas Bancárias
+  bankAccounts     BankAccount[]
+  bankTransactions BankTransaction[]
+  bankTransfers    BankTransfer[]
+
+  // Regime tributário (US Federal Tax)
+  tipoTributacao      TipoTributacao @default(LLC_DEFAULT)
+  tipoTributacaoDesde DateTime?      @map("tipo_tributacao_desde")
+
+  // US Address Standardization
+  addressStreet String? @db.VarChar(255)
+  addressUnit   String? @db.VarChar(50)
+  addressCity   String? @db.VarChar(100)
+  addressState  String? @default("TX") @db.VarChar(2)
+  addressZip    String? @db.VarChar(20)
+  addressCounty String? @db.VarChar(100)
+
+  // Relations - Tax Compliance
+  ownerCompensations    OwnerCompensation[]
+  estimatedTaxPayments  EstimatedTaxPayment[]
+
+  @@index([ativo])
+  @@map("empresas")
+}
+
+model Cliente {
+  id           Int          @id @default(autoincrement())
+  tipo         Cliente_tipo
+  nomeCompleto String?
+  razaoSocial  String?
+  nomeFantasia String?
+  email        String       @unique
+  telefone     String       @db.VarChar(32)
+  nomeChave    String
+  endereco     Json? // Deprecated: Use specific address fields below
+
+  // US Address Standardization
+  addressStreet String? @db.VarChar(255)
+  addressUnit   String? @db.VarChar(50)
+  addressCity   String? @db.VarChar(100)
+  addressState  String? @default("TX") @db.VarChar(2)
+  addressZip    String? @db.VarChar(20)
+  addressCounty String? @db.VarChar(100)
+
+  status          Cliente_status           @default(ATIVO)
+  tipoDocumentoPF Cliente_tipoDocumentoPF?
+  ssn             String?                  @db.VarChar(32)
+  itin            String?                  @db.VarChar(32)
+  ein             String?                  @db.VarChar(32)
+  documentoEnc    String?
+  docLast4        String?                  @db.VarChar(4)
+  docHash         String?                  @unique @db.Char(64)
+  observacoes     String?
+  ativo           Boolean                  @default(true)
+  criadoEm        DateTime                 @default(now())
+  atualizadoEm    DateTime
+  Proposta        Proposta[]
+  Projetos        Projeto[]
+  invoices        Invoice[]
+  revenues        Revenue[]
+  Estimations     Estimation[]
+  ServiceOrders   ServiceOrder[] // V3.1
+  warrantyTickets WarrantyTicket[]
+
+  @@index([ativo])
+  @@index([docLast4])
+  @@index([nomeChave, telefone])
+  @@index([status, tipo])
+  @@index([addressZip])
+  @@index([addressCounty])
+  @@index([addressCity])
+  @@index([addressState])
+  @@index([addressCity, addressState])
+}
+
+// ============================================
+// TAXATION MODULE (TEXAS COMPLIANCE)
+// ============================================
+
+enum TaxJurisdictionType {
+  STATE
+  COUNTY
+  CITY
+  SPECIAL_DISTRICT
+}
+
+model TaxRate {
+  id               Int                 @id @default(autoincrement())
+  name             String              @db.VarChar(100) // e.g., "Dallas County"
+  jurisdictionType TaxJurisdictionType
+  rate             Decimal             @db.Decimal(6, 4) // e.g., 0.0625, 0.0100
+  code             String?             @unique @db.VarChar(50) // External tax code if needed
+  active           Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([active])
+  @@index([jurisdictionType])
+}
+
+// ============================================
+// ESTIMATION & JOB COSTING (PRICEBOOK)
+// ============================================
+
+enum PricebookItemType {
+  MATERIAL
+  LABOR
+  SERVICE
+  EQUIPMENT
+  FEE
+}
+
+enum PricebookMarkupStrategy {
+  FIXED_MARGIN
+  FIXED_PRICE
+}
+
+model PricebookCategory {
+  id          Int                 @id @default(autoincrement())
+  name        String              @db.VarChar(100)
+  description String?             @db.Text
+  parentId    Int?
+  parent      PricebookCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    PricebookCategory[] @relation("CategoryHierarchy")
+  items       PricebookItem[]
+
+  @@map("pricebook_categories")
+}
+
+model PricebookItem {
+  id          Int               @id @default(autoincrement())
+  categoryId  Int?
+  sku         String            @unique @db.VarChar(50)
+  name        String            @db.VarChar(200)
+  description String?           @db.Text
+  type        PricebookItemType
+  unit        String            @default("EA") @db.VarChar(20)
+
+  // Costing
+  unitCost Decimal @default(0) @db.Decimal(12, 4)
+
+  // Pricing Strategy
+  markupStrategy PricebookMarkupStrategy @default(FIXED_MARGIN)
+  defaultMargin  Decimal                 @default(40.00) @db.Decimal(5, 2) // 40% margin default
+  fixedPrice     Decimal?                @db.Decimal(12, 2)
+
+  // Taxability
+  taxable Boolean @default(true)
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Category        PricebookCategory? @relation(fields: [categoryId], references: [id])
+  EstimationItems EstimationItem[] // Relation to Estimation Items
+
+  @@index([sku])
+  @@index([type])
+  @@index([active])
+  @@map("pricebook_items")
+}
+
+model Estimation {
+  id        Int    @id @default(autoincrement())
+  projetoId Int? // Optional link to a Project
+  clienteId Int // Link to Client
+  status    String @default("DRAFT") // DRAFT, CONVERTED, ARCHIVED
+  name      String @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  options EstimationOption[]
+  Cliente Cliente            @relation(fields: [clienteId], references: [id])
+  Projeto Projeto?           @relation(fields: [projetoId], references: [id])
+
+  @@index([clienteId])
+  @@map("estimations")
+}
+
+model EstimationOption {
+  id           Int    @id @default(autoincrement())
+  estimationId Int
+  name         String @db.VarChar(100) // "Good", "Better", "Best"
+
+  // Totals (Cached)
+  totalCost   Decimal @default(0) @db.Decimal(15, 2)
+  totalPrice  Decimal @default(0) @db.Decimal(15, 2)
+  grossMargin Decimal @default(0) @db.Decimal(5, 2)
+
+  items      EstimationItem[]
+  Estimation Estimation       @relation(fields: [estimationId], references: [id], onDelete: Cascade)
+
+  @@index([estimationId])
+  @@map("estimation_options")
+}
+
+model EstimationItem {
+  id                 Int  @id @default(autoincrement())
+  estimationOptionId Int
+  pricebookItemId    Int?
+
+  // Snapshot data (in case Pricebook changes)
+  sku         String? @db.VarChar(50)
+  name        String  @db.VarChar(200)
+  description String? @db.Text
+  quantity    Decimal @db.Decimal(12, 3)
+  unit        String  @db.VarChar(20)
+
+  // Costing (Internal)
+  unitCost  Decimal @db.Decimal(12, 2)
+  totalCost Decimal @db.Decimal(15, 2)
+
+  // Pricing (Customer Facing)
+  markup     Decimal @default(0) @db.Decimal(7, 2) // Markup %
+  margin     Decimal @default(0) @db.Decimal(7, 2) // Margin %
+  unitPrice  Decimal @db.Decimal(12, 2)
+  totalPrice Decimal @db.Decimal(15, 2)
+
+  taxable Boolean @default(true)
+
+  PricebookItem PricebookItem?   @relation(fields: [pricebookItemId], references: [id])
+  Option        EstimationOption @relation(fields: [estimationOptionId], references: [id], onDelete: Cascade)
+
+  @@index([estimationOptionId])
+  @@map("estimation_items")
+}
+
+model CodigoMFA {
+  id        Int                @id @default(autoincrement())
+  usuarioId Int
+  codigo    String             @db.Char(64)
+  tipoAcao  CodigoMFA_tipoAcao
+  expiresAt DateTime
+  usado     Boolean            @default(false)
+  criadoEm  DateTime           @default(now())
+  ip        String?            @db.VarChar(45)
+  userAgent String?            @db.VarChar(255)
+  Usuario   Usuario            @relation(fields: [usuarioId], references: [id])
+
+  @@index([criadoEm])
+  @@index([tipoAcao])
+  @@index([usuarioId])
+  @@index([usuarioId, tipoAcao], name: "idx_codigomfa_usuario_tipo")
+}
+
+model HistoricoSenha {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  senhaHash String
+  criadaEm  DateTime @default(now())
+  Usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  tokenHash String   @db.Char(64)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  Usuario   Usuario  @relation(fields: [userId], references: [id])
+
+  @@index([tokenHash])
+  @@index([userId])
+}
+
+model ProjetoLegacy {
+  id           Int            @id @default(autoincrement())
+  clienteId    Int
+  propostaId   Int?           @unique
+  origem       Projeto_origem @default(SEM_PROPOSTA)
+  nome         String?
+  status       String?        @default("INICIADO")
+  criadoEm     DateTime       @default(now())
+  atualizadoEm DateTime
+  Proposta     Proposta?      @relation(fields: [propostaId], references: [id])
+
+  @@index([clienteId])
+  @@index([origem])
+  @@map("Projeto")
+}
+
+model Proposta {
+  id                         Int                               @id @default(autoincrement())
+  numeroProposta             String                            @unique @db.VarChar(20)
+  clienteId                  Int
+  dataCriacao                DateTime                          @default(now())
+  tipoServico                String
+  permite                    Proposta_permite
+  quaisPermites              String?                           @db.Text
+  condicoesPagamento         String?                           @db.LongText
+  valorEstimado              Decimal?                          @db.Decimal(12, 2)
+  moeda                      String                            @default("USD") @db.VarChar(3)
+  status                     Proposta_status                   @default(RASCUNHO)
+  enviadaParaOCliente        DateTime?
+  assinaturaCliente          String?                           @db.VarChar(255)
+  assinaturaResponsavel      String?                           @db.VarChar(255)
+  assinadaEm                 DateTime?
+  tempoParaAceite            Int?
+  projetoId                  Int?                              @unique
+  historicoAlteracoes        String?                           @db.LongText
+  deletedAt                  DateTime?
+  deletedBy                  Int?
+  criadoEm                   DateTime                          @default(now())
+  atualizadoEm               DateTime
+  aprovacaoInternaFinanceira Boolean?                          @default(false)
+  aprovacaoInternaTecnica    Boolean?                          @default(false)
+  aprovadaEm                 DateTime?
+  assinaturaImagem           String?                           @db.Text
+  assinaturaIp               String?                           @db.VarChar(45)
+  assinaturaTipo             Proposta_assinaturaTipo?          @default(CANVAS)
+  assinaturaUserAgent        String?                           @db.Text
+  atualizadoPor              Int?
+  condicoesGerais            String?                           @db.Text
+  contatoEmail               String                            @default("nao-informado@temp.com") @db.VarChar(255)
+  contatoNome                String                            @default("Não informado") @db.VarChar(255)
+  contatoTelefone            String?                           @db.VarChar(50)
+  // End Client / On-site Contact
+  endClientName              String?                           @db.VarChar(150)
+  endClientPhone             String?                           @db.VarChar(30)
+  endClientEmail             String?                           @db.VarChar(150)
+  endClientNotes             String?                           @db.Text
+  criadoPor                  Int?
+  dataConversao              DateTime?
+  descontosCondicionais      String?                           @db.Text
+  descontosOfertados         Decimal?                          @db.Decimal(5, 2)
+  descricaoEscopo            String                            @default("Escopo não detalhado") @db.Text
+  exclusoes                  String?                           @db.Text
+  formaPagamentoPreferida    Proposta_formaPagamentoPreferida?
+  garantia                   String?                           @db.Text
+  gatilhoFaturamento         Proposta_gatilhoFaturamento?      @default(NA_APROVACAO)
+  inspecoesNecessarias       String?                           @db.Text
+  instrucoesPagamento        String?                           @db.Text
+  internalEstimate           String?                           @db.LongText
+  janelaExecucaoPreferencial String?                           @db.Text
+  localExecucaoEndereco      String                            @default("Endereço não informado") @db.Text
+  marcosPagamento            String?                           @db.LongText
+  motivo_cancelamento        String?                           @db.Text
+  multaAtraso                String?                           @db.VarChar(100)
+  normasReferencias          String?                           @db.Text
+  observacoesInternas        String?                           @db.Text
+  observacoesParaCliente     String?                           @db.Text
+  opcoesAlternativas         String?                           @db.LongText
+  percentualSinal            Decimal?                          @db.Decimal(5, 2)
+  prazoExecucaoEstimadoDias  Int?
+  precoPropostaCliente       Decimal?                          @db.Decimal(12, 2)
+  responsavelConversao       Int?
+  restricoesDeAcesso         String?                           @db.Text
+  riscosIdentificados        String?                           @db.Text
+  titulo                     String                            @default("Proposta sem título") @db.VarChar(500)
+  tokenExpiresAt             DateTime?
+  tokenPublico               String?                           @unique @db.VarChar(100)
+  validadeProposta           DateTime?
+  AnexoProposta              AnexoProposta[]
+  Projeto                    ProjetoLegacy?
+  Projetos                   Projeto[]                         @relation("PropostaProjetos")
+  Cliente                    Cliente                           @relation(fields: [clienteId], references: [id])
+  PropostaEtapa              PropostaEtapa[]
+  PropostaLog                PropostaLog[]
+  PropostaMaterial           PropostaMaterial[]
+
+  @@index([clienteId])
+  @@index([dataCriacao, id])
+  @@index([status, dataCriacao, id])
+  @@index([status])
+}
+
+model PropostaEtapa {
+  id                   Int                  @id @default(autoincrement())
+  propostaId           Int
+  servico              String
+  descricao            String               @db.Text
+  status               PropostaEtapa_status @default(PLANEJADA)
+  ordem                Int                  @default(0)
+  custoMaoObraEstimado Decimal?             @db.Decimal(12, 2)
+  dependencias         String?              @db.Text
+  duracaoEstimadaHoras Decimal?             @db.Decimal(8, 2)
+  quantidade           Decimal?             @db.Decimal(10, 2)
+  unidade              String?              @db.VarChar(20)
+  Proposta             Proposta             @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+  invoiceItems         InvoiceItem[]
+
+  @@index([propostaId])
+}
+
+model PropostaLog {
+  id            String             @id
+  propostaId    Int
+  actorId       Int?
+  action        PropostaLog_action
+  oldJson       String?            @db.LongText
+  newJson       String?            @db.LongText
+  ip            String?            @db.VarChar(45)
+  userAgent     String?            @db.Text
+  correlationId String?            @db.VarChar(100)
+  createdAt     DateTime           @default(now())
+  Proposta      Proposta           @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([propostaId])
+}
+
+model PropostaMaterial {
+  id                     Int                     @id @default(autoincrement())
+  propostaId             Int
+  codigo                 String?                 @db.VarChar(50)
+  nome                   String
+  quantidade             Decimal                 @default(0.000) @db.Decimal(12, 3)
+  unidade                String?                 @db.VarChar(20)
+  status                 PropostaMaterial_status @default(PLANEJADO)
+  observacao             String?                 @db.Text
+  precoUnitario          Decimal?                @db.Decimal(12, 2)
+  moeda                  String                  @default("USD") @db.VarChar(3)
+  totalItem              Decimal?                @db.Decimal(12, 2)
+  fornecedorPreferencial String?                 @db.VarChar(255)
+  Proposta               Proposta                @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+
+  @@index([propostaId])
+}
+
+model Projeto {
+  id                    Int                          @id @default(autoincrement())
+  propostaId            Int?                         @map("proposta_id")
+  clienteId             Int                          @map("cliente_id")
+  numeroProjeto         String                       @unique @map("numero_projeto") @db.VarChar(30)
+  titulo                String                       @db.VarChar(200)
+  descricao             String?                      @db.Text
+  budgetBaseline        Json?                        @map("budget_baseline")
+  baselineLockedAt      DateTime?                    @map("baseline_locked_at")
+  baselineLockedBy      Int?                         @map("baseline_locked_by")
+  status                Projeto_status               @default(planejado)
+  dataInicioPrevista    DateTime?                    @map("data_inicio_prevista") @db.Date
+  dataInicioReal        DateTime?                    @map("data_inicio_real") @db.Date
+  dataConclusaoPrevista DateTime?                    @map("data_conclusao_prevista") @db.Date
+  dataConclusaoReal     DateTime?                    @map("data_conclusao_real") @db.Date
+  portalTokenHash       String?                      @unique @map("portal_token_hash") @db.VarChar(64)
+  portalTokenCreatedAt  DateTime?                    @map("portal_token_created_at")
+  portalTokenRevokedAt  DateTime?                    @map("portal_token_revoked_at")
+  valorEstimado         Decimal?                     @map("valor_estimado") @db.Decimal(12, 2)
+  custoPrevisto         Decimal?                     @map("custo_previsto") @db.Decimal(12, 2)
+  custoReal             Decimal?                     @map("custo_real") @db.Decimal(12, 2)
+  margemPrevista        Decimal?                     @map("margem_prevista") @db.Decimal(7, 2)
+  margemReal            Decimal?                     @map("margem_real") @db.Decimal(7, 2)
+  lucroPrevisto         Decimal?                     @map("lucro_previsto") @db.Decimal(12, 2)
+  lucroReal             Decimal?                     @map("lucro_real") @db.Decimal(12, 2)
+  responsavelId         Int?                         @map("responsavel_id")
+  prioridade            Projeto_prioridade           @default(media)
+  localidade            String?                      @db.VarChar(150)
+  endereco              String?                      @db.Text
+  // End Client / On-site Contact
+  endClientName         String?                      @db.VarChar(150)
+  endClientPhone        String?                      @db.VarChar(30)
+  endClientEmail        String?                      @db.VarChar(150)
+  endClientNotes        String?                      @db.Text
+  criadoPor             Int                          @map("criado_por")
+  atualizadoPor         Int?                         @map("atualizado_por")
+  criadoEm              DateTime                     @default(now()) @map("criado_em")
+  atualizadoEm          DateTime?                    @map("atualizado_em")
+  Cliente               Cliente                      @relation(fields: [clienteId], references: [id])
+  Proposta              Proposta?                    @relation("PropostaProjetos", fields: [propostaId], references: [id])
+  Responsavel           Usuario?                     @relation("ProjetoResponsavel", fields: [responsavelId], references: [id], map: "projetos_responsavel_fk_custom")
+  BaselineLockedByUser  Usuario?                     @relation("ProjetoBaselineLockedBy", fields: [baselineLockedBy], references: [id])
+  CriadoPor             Usuario                      @relation("ProjetoCriadoPor", fields: [criadoPor], references: [id])
+  AtualizadoPor         Usuario?                     @relation("ProjetoAtualizadoPor", fields: [atualizadoPor], references: [id])
+  Etapas                ProjetoEtapa[]
+  Materiais             ProjetoMaterial[]
+  Anexos                ProjetoAnexo[]
+  Historico             ProjetoHistorico[]
+  Tarefas               ProjetoTarefa[]
+  MovimentacoesEstoque  ProjetoMovimentacaoEstoque[]
+
+  // Relações com módulo Estoque
+  materiaisEstoque              ProjetoMaterialEstoque[] @relation("ProjetoMateriaisEstoque")
+  equipamentosEstoque           ProjetoEquipamento[]
+  movimentacoesMateriaisEstoque MaterialMovimentacao[]
+  movimentacoesUnificadas       Movimentacao[]
+  equipamentosAlocados          Equipamento[]
+  alertasEstoque                AlertaEstoque[]
+  comprasEstoque                Compra[]
+  purchaseOrders                PurchaseOrder[]
+
+  // Relações com módulo Financeiro
+  invoices      Invoice[]
+  expenses      Expense[]      @relation("ProjetoExpenses") // F1.2
+  Estimations   Estimation[]
+  ServiceOrders ServiceOrder[] // V3.1
+
+  // Workforce Module (v2)
+  assignments Assignment[]
+
+  // F2.2: Subcontract Agreements
+  subcontracts SubcontractAgreement[]
+
+  // F2.3: Budget Alerts
+  budgetAlerts BudgetAlert[]
+
+  // F3.2A: Change Orders
+  changeOrders ChangeOrder[]
+
+  // F4.1A: Permits & Inspections
+  projectPermits        ProjectPermit[]
+  projectInspections    ProjectInspection[]
+  projectPunchItems     ProjectPunchItem[]
+  projectCloseout       ProjectCloseout?
+  projectClientFeedback ProjectClientFeedback?
+  checklistItems        ProjectChecklistItem[]
+  warrantyTickets       WarrantyTicket[]
+  triagens              Triagem[]
+
+  @@index([clienteId, status], name: "idx_projetos_cliente_status")
+  @@index([responsavelId], name: "idx_projetos_responsavel")
+  @@index([status], name: "idx_projetos_status")
+  @@index([baselineLockedAt], name: "idx_projetos_baseline_locked_at")
+  @@index([baselineLockedBy], name: "idx_projetos_baseline_locked_by")
+  @@map("projetos")
+}
+
+model ProjetoEtapa {
+  id                Int                 @id @default(autoincrement())
+  projetoId         Int                 @map("projeto_id")
+  servico           String              @db.VarChar(150)
+  descricao         String?             @db.Text
+  status            ProjetoEtapa_status @default(pendente)
+  ordem             Int                 @default(1)
+  inicioPrevisto    DateTime?           @map("inicio_previsto") @db.Date
+  fimPrevisto       DateTime?           @map("fim_previsto") @db.Date
+  baselineStartDate DateTime?           @map("baseline_start_date") @db.Date
+  baselineEndDate   DateTime?           @map("baseline_end_date") @db.Date
+  inicioReal        DateTime?           @map("inicio_real") @db.Date
+  fimReal           DateTime?           @map("fim_real") @db.Date
+  responsavelId     Int?                @map("responsavel_id")
+  approverId        Int?                @map("approver_id")
+  porcentagem       Decimal             @default(0) @db.Decimal(5, 2)
+  criadoEm          DateTime            @default(now()) @map("criado_em")
+  atualizadoEm      DateTime?           @map("atualizado_em")
+  Projeto           Projeto             @relation(fields: [projetoId], references: [id])
+  Responsavel       Usuario?            @relation("ProjetoEtapaResponsavel", fields: [responsavelId], references: [id])
+  Approver          Usuario?            @relation("ProjetoEtapaApprover", fields: [approverId], references: [id])
+  Tarefas           ProjetoTarefa[]
+
+  @@index([projetoId], name: "idx_petapas_projeto")
+  @@index([status], name: "idx_petapas_status")
+  @@index([approverId], name: "idx_petapas_approver")
+  @@index([baselineStartDate], name: "idx_petapas_baseline_start")
+  @@index([baselineEndDate], name: "idx_petapas_baseline_end")
+  @@map("projetos_etapas")
+}
+
+model ProjetoMaterial {
+  id                   Int                          @id @default(autoincrement())
+  projetoId            Int                          @map("projeto_id")
+  changeOrderId        Int?                         @map("change_order_id")
+  codigo               String?                      @db.VarChar(60)
+  nome                 String                       @db.VarChar(180)
+  unidade              String?                      @db.VarChar(20)
+  quantidadePlanejada  Decimal                      @default(0) @map("quantidade_planejada") @db.Decimal(12, 3)
+  quantidadeLiberada   Decimal                      @default(0) @map("quantidade_liberada") @db.Decimal(12, 3)
+  quantidadeUtilizada  Decimal                      @default(0) @map("quantidade_utilizada") @db.Decimal(12, 3)
+  quantidadeDevolvida  Decimal                      @default(0) @map("quantidade_devolvida") @db.Decimal(12, 3)
+  status               ProjetoMaterial_status       @default(planejado)
+  flowStatus           MaterialFlowStatus?          @map("flow_status")
+  plannedQty           Decimal                      @default(0) @db.Decimal(12, 4)
+  issuedQty            Decimal                      @default(0) @db.Decimal(12, 4)
+  consumedQty          Decimal                      @default(0) @db.Decimal(12, 4)
+  returnedQty          Decimal                      @default(0) @db.Decimal(12, 4)
+  wasteQty             Decimal                      @default(0) @db.Decimal(12, 4)
+  damagedQty           Decimal                      @default(0) @db.Decimal(12, 4)
+  lostQty              Decimal                      @default(0) @db.Decimal(12, 4)
+  plannedUnitCost      Decimal?                     @db.Decimal(12, 4)
+  actualUnitCost       Decimal?                     @db.Decimal(12, 4)
+  varianceCost         Decimal                      @default(0) @db.Decimal(14, 4)
+  leftoverQty          Decimal                      @default(0) @db.Decimal(12, 4)
+  centroCustoId        Int?                         @map("centro_custo_id")
+  repassarCustoCliente Boolean                      @default(true) @map("repassar_custo_cliente")
+  criadoEm             DateTime                     @default(now()) @map("criado_em")
+  atualizadoEm         DateTime?                    @map("atualizado_em")
+  Projeto              Projeto                      @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  ChangeOrder          ChangeOrder?                 @relation("ChangeOrderProjetoMateriais", fields: [changeOrderId], references: [id], onDelete: SetNull)
+  Movimentacoes        ProjetoMovimentacaoEstoque[]
+
+  @@index([projetoId], name: "idx_pmat_projeto")
+  @@index([changeOrderId], name: "idx_pmat_change_order")
+  @@index([status], name: "idx_pmat_status")
+  @@index([projetoId, flowStatus], name: "idx_pmat_projeto_flow")
+  @@map("projetos_materiais")
+}
+
+model ProjetoAnexo {
+  id             Int      @id @default(autoincrement())
+  projetoId      Int      @map("projeto_id")
+  arquivoUrl     String   @map("arquivo_url") @db.VarChar(500)
+  rotulo         String?  @db.VarChar(150)
+  publicoCliente Boolean  @default(true) @map("publico_cliente")
+  criadoPor      Int      @map("criado_por")
+  criadoEm       DateTime @default(now()) @map("criado_em")
+  Projeto        Projeto  @relation(fields: [projetoId], references: [id])
+  CriadoPor      Usuario  @relation("ProjetoAnexoCriadoPor", fields: [criadoPor], references: [id])
+
+  @@index([projetoId], name: "idx_panex_projeto")
+  @@map("projetos_anexos")
+}
+
+model ProjetoHistorico {
+  id        Int      @id @default(autoincrement())
+  projetoId Int      @map("projeto_id")
+  usuarioId Int      @map("usuario_id")
+  acao      String   @db.VarChar(100)
+  detalhes  Json?
+  criadoEm  DateTime @default(now()) @map("criado_em")
+  Projeto   Projeto  @relation(fields: [projetoId], references: [id])
+  Usuario   Usuario  @relation("ProjetoHistoricoUsuario", fields: [usuarioId], references: [id])
+
+  @@index([projetoId], name: "idx_phist_projeto")
+  @@map("projetos_historico")
+}
+
+model ProjetoMovimentacaoEstoque {
+  id                  Int                               @id @default(autoincrement())
+  projetoId           Int                               @map("projeto_id")
+  materialId          Int                               @map("material_id")
+  tipoMovimentacao    ProjetoMovimentacaoEstoque_tipo   @map("tipo_movimentacao")
+  quantidade          Decimal                           @db.Decimal(12, 3)
+  quantidadeAnterior  Decimal                           @default(0) @map("quantidade_anterior") @db.Decimal(12, 3)
+  observacao          String?                           @db.Text
+  usuarioId           Int                               @map("usuario_id")
+  estoqueExternoId    String?                           @map("estoque_externo_id") @db.VarChar(100)
+  statusIntegracao    ProjetoMovimentacaoEstoque_status @default(PENDENTE) @map("status_integracao")
+  erroIntegracao      String?                           @map("erro_integracao") @db.Text
+  metadadosIntegracao Json?                             @map("metadados_integracao")
+  criadoEm            DateTime                          @default(now()) @map("criado_em")
+  processadoEm        DateTime?                         @map("processado_em")
+  Projeto             Projeto                           @relation(fields: [projetoId], references: [id])
+  Material            ProjetoMaterial                   @relation(fields: [materialId], references: [id])
+  Usuario             Usuario                           @relation("ProjetoMovimentacaoEstoqueUsuario", fields: [usuarioId], references: [id])
+
+  @@index([projetoId], name: "idx_pmov_projeto")
+  @@index([projetoId, id], name: "idx_pmov_projeto_id")
+  @@index([materialId], name: "idx_pmov_material")
+  @@index([tipoMovimentacao], name: "idx_pmov_tipo")
+  @@index([statusIntegracao], name: "idx_pmov_status")
+  @@index([criadoEm], name: "idx_pmov_criado")
+  @@index([projetoId, criadoEm, materialId], name: "idx_pmov_projeto_criado_material")
+  @@index([projetoId, materialId, id], name: "idx_pmov_projeto_material_id")
+  @@index([projetoId, materialId, criadoEm], name: "idx_pmov_projeto_material")
+  @@map("projetos_movimentacoes_estoque")
+}
+
+model ProjetoTarefa {
+  id            Int                  @id @default(autoincrement())
+  projetoId     Int                  @map("projeto_id")
+  changeOrderId Int?                 @map("change_order_id")
+  etapaId       Int?                 @map("etapa_id")
+  titulo        String               @db.VarChar(200)
+  descricao     String?              @db.Text
+  status        ProjetoTarefa_status @default(aberta)
+  atribuidaPara Int?                 @map("atribuida_para")
+  prazo         DateTime?            @db.Date
+  prioridade    Projeto_prioridade   @default(media)
+  criadoPor     Int                  @map("criado_por")
+  criadoEm      DateTime             @default(now()) @map("criado_em")
+  atualizadoEm  DateTime?            @map("atualizado_em")
+  Projeto       Projeto              @relation(fields: [projetoId], references: [id])
+  ChangeOrder   ChangeOrder?         @relation("ChangeOrderProjetoTarefas", fields: [changeOrderId], references: [id], onDelete: SetNull)
+  Etapa         ProjetoEtapa?        @relation(fields: [etapaId], references: [id])
+  AtribuidaPara Usuario?             @relation("ProjetoTarefaAtribuida", fields: [atribuidaPara], references: [id])
+  CriadoPor     Usuario              @relation("ProjetoTarefaCriadoPor", fields: [criadoPor], references: [id])
+
+  @@index([projetoId], name: "idx_ptar_projeto")
+  @@index([changeOrderId], name: "idx_ptar_change_order")
+  @@index([etapaId], name: "idx_ptar_etapa")
+  @@map("projetos_tarefas")
+}
+
+model SessaoAtiva {
+  id              Int      @id @default(autoincrement())
+  usuarioId       Int
+  token           String   @unique @db.VarChar(64)
+  ip              String?  @db.VarChar(45)
+  userAgent       String?  @db.VarChar(255)
+  cidade          String?  @db.VarChar(64)
+  pais            String?  @db.VarChar(32)
+  ultimaAtividade DateTime @default(now())
+  criadoEm        DateTime @default(now())
+  Usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@index([token])
+  @@index([ultimaAtividade])
+  @@index([usuarioId])
+}
+
+model TentativaLogin {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int?
+  email     String
+  sucesso   Boolean
+  ip        String?  @db.VarChar(45)
+  userAgent String?  @db.VarChar(255)
+  motivo    String?  @db.VarChar(64)
+  criadaEm  DateTime @default(now())
+  Usuario   Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([criadaEm])
+  @@index([email])
+  @@index([sucesso])
+  @@index([usuarioId])
+  @@index([usuarioId, sucesso, criadaEm], name: "idx_tentativa_usuario_sucesso_data")
+}
+
+model Usuario {
+  id                           Int                          @id @default(autoincrement())
+  email                        String                       @unique
+  senha                        String
+  nivel                        String
+  endereco1                    String
+  endereco2                    String
+  cidade                       String
+  estado                       String?                      @db.VarChar(32)
+  zipcode                      String?                      @db.VarChar(16)
+  status                       Usuario_status               @default(ATIVO)
+  avatarUrl                    String?
+  criadoEm                     DateTime                     @default(now())
+  atualizadoEm                 DateTime
+  nomeCompleto                 String?
+  telefone                     String?                      @db.VarChar(32)
+  dataNascimento               DateTime?                    @db.Date
+  senhaProvisoria              Boolean                      @default(false)
+  primeiroAcesso               Boolean                      @default(false)
+  bloqueado                    Boolean                      @default(false)
+  bloqueadoEm                  DateTime?
+  pinSeguranca                 String?
+  perguntaSecreta              String?
+  respostaSecreta              String?
+  anotacoes                    String?                      @db.LongText
+  ultimoLoginEm                DateTime?
+  tokenVersion                 Int                          @default(0)
+  AuditLog                     AuditLog[]
+  Auditoria                    Auditoria[]
+  CodigoMFA                    CodigoMFA[]
+  HistoricoSenha               HistoricoSenha[]
+  PasswordResetToken           PasswordResetToken[]
+  SessaoAtiva                  SessaoAtiva[]
+  TentativaLogin               TentativaLogin[]
+  ProjetosResponsavel          Projeto[]                    @relation("ProjetoResponsavel")
+  ProjetosBaselineLocked       Projeto[]                    @relation("ProjetoBaselineLockedBy")
+  ProjetosCriados              Projeto[]                    @relation("ProjetoCriadoPor")
+  ProjetosAtualizados          Projeto[]                    @relation("ProjetoAtualizadoPor")
+  ProjetoEtapasComoResponsavel ProjetoEtapa[]               @relation("ProjetoEtapaResponsavel")
+  ProjetoEtapasComoApprover    ProjetoEtapa[]               @relation("ProjetoEtapaApprover")
+  ProjetoAnexosCriados         ProjetoAnexo[]               @relation("ProjetoAnexoCriadoPor")
+  ProjetoHistoricoRegistros    ProjetoHistorico[]           @relation("ProjetoHistoricoUsuario")
+  ProjetoTarefasAtribuidas     ProjetoTarefa[]              @relation("ProjetoTarefaAtribuida")
+  ProjetoTarefasCriadas        ProjetoTarefa[]              @relation("ProjetoTarefaCriadoPor")
+  ProjetoMovimentacoesEstoque  ProjetoMovimentacaoEstoque[] @relation("ProjetoMovimentacaoEstoqueUsuario")
+  RefreshTokens                RefreshToken[]               @relation("UsuarioRefreshTokens")
+  EncryptionKeysCriadas        EncryptionKey[]              @relation("EncryptionKeyCriadoPor")
+  KeyUsageAudits               KeyUsageAudit[]              @relation("KeyUsageAuditUsuario")
+
+  // Relations - Workforce
+  worker          Worker?
+
+  // Estoque - Materiais
+  MateriaisCriados               Material[]               @relation("MaterialCriador")
+  MateriaisAtualizados           Material[]               @relation("MaterialAtualizador")
+  MovimentacoesCriadas           MaterialMovimentacao[]   @relation("MaterialMovimentacaoCriador")
+  ProjetoMateriaisCriados        ProjetoMaterialEstoque[] @relation("ProjetoMaterialEstoqueCriador")
+  // Estoque - Equipamentos
+  EquipamentosCriados            Equipamento[]            @relation("EquipamentoCriador")
+  EquipamentosAtualizados        Equipamento[]            @relation("EquipamentoAtualizador")
+  ProjetoEquipamentosResponsavel ProjetoEquipamento[]     @relation("ProjetoEquipamentoResponsavel")
+  ProjetoEquipamentosVerificador ProjetoEquipamento[]     @relation("ProjetoEquipamentoVerificador")
+  ProjetoEquipamentosCriados     ProjetoEquipamento[]     @relation("ProjetoEquipamentoCriador")
+  ManutencoesCriadas             EquipamentoManutencao[]  @relation("EquipamentoManutencaoCriador")
+  // Estoque - Alertas
+  AlertasVisualizados            AlertaEstoque[]          @relation("AlertaVisualizador")
+  AlertasResolvidos              AlertaEstoque[]          @relation("AlertaResolvedor")
+  // Estoque - Compras
+  ComprasCriadas                 Compra[]                 @relation("CompraCriador")
+  ComprasItensRecebidos          CompraItem[]             @relation("CompraItemRecebedor")
+
+  // Financeiro - Purchase Orders (F2.5)
+  PurchaseOrdersCriadas    PurchaseOrder[] @relation("PurchaseOrderCriador")
+  PurchaseOrdersAprovadas  PurchaseOrder[] @relation("PurchaseOrderAprovador")
+  PurchaseOrdersSubmetidas PurchaseOrder[] @relation("PurchaseOrderSubmetidoPor")
+
+  // F3.2A - Change Orders
+  ChangeOrdersCriadas            ChangeOrder[]           @relation("ChangeOrderCriador")
+  ChangeOrdersEnviadas           ChangeOrder[]           @relation("ChangeOrderEnviadoPor")
+  ChangeOrdersAprovadas          ChangeOrder[]           @relation("ChangeOrderAprovadoPor")
+  ChangeOrdersAplicadas          ChangeOrder[]           @relation("ChangeOrderAplicadoPor")
+  ChangeOrdersRejeitadas         ChangeOrder[]           @relation("ChangeOrderRejeitadoPor")
+  ChangeOrdersAnuladas           ChangeOrder[]           @relation("ChangeOrderAnuladoPor")
+  ProjectCloseoutsGenerated      ProjectCloseout[]       @relation("ProjectCloseoutGeneratedBy")
+  ProjectCloseoutsDelivered      ProjectCloseout[]       @relation("ProjectCloseoutDeliveredBy")
+  CloseoutTemplatesCreated       CloseoutTemplate[]      @relation("CloseoutTemplateCreatedBy")
+  ProjectPunchItemsVerified      ProjectPunchItem[]      @relation("ProjectPunchItemVerifiedBy")
+  WarrantyTicketsResolved        WarrantyTicket[]        @relation("WarrantyTicketResolvedByUser")
+  ProjectClientFeedbackResponses ProjectClientFeedback[] @relation("ProjectClientFeedbackRespondedByUser")
+  // Estoque - Movimentações Unificadas
+  MovimentacoesUnificadas        Movimentacao[]          @relation("MovimentacaoUsuario")
+
+  // Financeiro - Invoices
+  InvoicesCriadas        Invoice[]        @relation("InvoiceCriador")
+  InvoicesAtualizadas    Invoice[]        @relation("InvoiceAtualizador")
+  InvoicePaymentsCriados InvoicePayment[]
+
+  // Financeiro - Despesas
+  ExpensesCriadas            Expense[]         @relation("ExpenseCriadoPor")
+  ExpensesParaAprovar        ExpenseApproval[] @relation("ExpenseAprovador")
+  ExpensesProximasAprovacoes ExpenseApproval[] @relation("ExpenseProximoAprovador")
+
+  // ServiceOrder Relations (V3.1)
+  ServiceOrdersCreated       ServiceOrder[]        @relation("ServiceOrdersCreated")
+  ServiceOrdersClosed        ServiceOrder[]        @relation("ServiceOrdersClosed")
+  ServiceOrdersCanceled      ServiceOrder[]        @relation("ServiceOrdersCanceled")
+  ServiceOrdersWrittenOff    ServiceOrder[]        @relation("ServiceOrdersWrittenOff")
+  ServiceOrderHistoryCreated ServiceOrderHistory[] @relation("ServiceOrderHistoryCreated")
+  ServiceOrderAttachments    ServiceOrderAttachment[]
+  techAdditions              ServiceOrderTechnician[] @relation("ServiceOrderTechnicianAddedBy")
+
+  // Tax Compliance
+  OwnerCompensationsCriadas  OwnerCompensation[]    @relation("OwnerCompensationCriadoPor")
+  EstimatedTaxPaymentsCriados EstimatedTaxPayment[] @relation("EstimatedTaxCriadoPor")
+
+  // Triagem
+  TriagensSolicitadas Triagem[] @relation("TriagemSolicitante")
+  TriagensResponsavel Triagem[] @relation("TriagemResponsavel")
+}
+
+enum Cliente_tipo {
+  PF
+  PJ
+}
+
+enum Auditoria_acao {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+}
+
+enum Projeto_origem {
+  SEM_PROPOSTA
+  DE_PROPOSTA
+}
+
+enum Projeto_status {
+  planejado             @map("planejado")
+  em_execucao           @map("em_execucao")
+  em_inspecao           @map("em_inspecao")
+  aguardando_devolucoes @map("aguardando_devolucoes")
+  concluido             @map("concluido")
+  arquivado             @map("arquivado")
+  suspenso              @map("suspenso")
+  cancelado             @map("cancelado")
+}
+
+enum Projeto_prioridade {
+  baixa   @map("baixa")
+  media   @map("media")
+  alta    @map("alta")
+  critica @map("critica")
+}
+
+enum ProjetoEtapa_status {
+  pendente     @map("pendente")
+  em_andamento @map("em_andamento")
+  em_validacao @map("em_validacao")
+  concluida    @map("concluida")
+  bloqueada    @map("bloqueada")
+  cancelada    @map("cancelada")
+}
+
+enum ProjetoMaterial_status {
+  planejado          @map("planejado")
+  liberado           @map("liberado")
+  em_uso             @map("em_uso")
+  devolucao_pendente @map("devolucao_pendente")
+  triagem_pendente   @map("triagem_pendente")
+  finalizado         @map("finalizado")
+}
+
+enum MaterialFlowStatus {
+  PLANNED
+  RESERVED
+  ISSUED
+  CONSUMED
+  RETURN_PENDING
+  RETURNED
+  DAMAGED
+  WASTE
+  LOST
+}
+
+enum ProjetoMovimentacaoEstoque_tipo {
+  LIBERACAO
+  DEVOLUCAO
+  AJUSTE
+  PERDA
+}
+
+enum ProjetoMovimentacaoEstoque_status {
+  PENDENTE
+  PROCESSANDO
+  CONCLUIDA
+  ERRO
+}
+
+enum ProjetoTarefa_status {
+  aberta       @map("aberta")
+  em_andamento @map("em_andamento")
+  bloqueada    @map("bloqueada")
+  concluida    @map("concluida")
+  cancelada    @map("cancelada")
+}
+
+enum PermitType {
+  ELECTRICAL
+  PLUMBING
+  MECHANICAL
+  STRUCTURAL
+  GENERAL_BUILDING
+  ROOFING
+  DEMOLITION
+  OTHER
+}
+
+enum PermitStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  IN_REVIEW
+  APPROVED
+  DENIED
+  EXPIRED
+}
+
+enum InspectionStatus {
+  REQUESTED
+  SCHEDULED
+  PASSED
+  FAILED
+  REINSPECT
+  CANCELLED
+}
+
+enum PunchItemStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  VERIFIED
+  WONT_FIX
+}
+
+enum PunchItemPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CloseoutStatus {
+  PENDING_ITEMS
+  READY
+  GENERATED
+  DELIVERED
+  ACCEPTED
+}
+
+enum WarrantyStatus {
+  REPORTED
+  EVALUATING
+  APPROVED
+  IN_REPAIR
+  RESOLVED
+  DENIED
+}
+
+enum ClientFeedbackStatus {
+  PENDING
+  SENT
+  RESPONDED
+  DISMISSED
+}
+
+enum CloseoutTemplateSectionKind {
+  TEXT
+  TABLE
+  GATE_SUMMARY
+  PERMITS_INSPECTIONS
+  PUNCH_LIST
+  CHANGE_ORDERS
+  CUSTOM_JSON
+}
+
+enum CodigoMFA_tipoAcao {
+  LOGIN
+  RESET
+  PRIMEIRO_ACESSO
+  DESBLOQUEIO
+}
+
+enum PropostaLog_action {
+  CREATED
+  UPDATED
+  SENT
+  SIGNED
+  APPROVED
+  CANCELLED
+  ATTACH_ADDED
+  ATTACH_REMOVED
+}
+
+enum PropostaEtapa_status {
+  PLANEJADA
+  EM_ANDAMENTO
+  CONCLUIDA
+}
+
+enum Proposta_permite {
+  SIM
+  NAO
+}
+
+enum PropostaMaterial_status {
+  PLANEJADO
+  SUBSTITUIDO
+  REMOVIDO
+}
+
+enum Usuario_status {
+  ATIVO
+  INATIVO
+}
+
+enum Proposta_status {
+  RASCUNHO
+  ENVIADA
+  ASSINADA
+  APROVADA
+  CANCELADA
+}
+
+enum Cliente_status {
+  ATIVO
+  INATIVO
+}
+
+enum Cliente_tipoDocumentoPF {
+  SSN
+  ITIN
+}
+
+enum Proposta_assinaturaTipo {
+  CANVAS
+  CHECKBOX
+  NOME_CHECKBOX
+}
+
+enum Proposta_formaPagamentoPreferida {
+  PIX
+  CARTAO
+  BOLETO
+  TRANSFERENCIA
+  DINHEIRO
+  CHEQUE
+}
+
+enum Proposta_gatilhoFaturamento {
+  NA_APROVACAO
+  POR_MARCOS
+  NA_ENTREGA
+  CUSTOMIZADO
+}
+
+// ============================================
+// TOKEN ROTATION - VUL-003
+// ============================================
+
+model RefreshToken {
+  id        Int    @id @default(autoincrement())
+  token     String @unique @db.VarChar(500)
+  usuarioId Int
+
+  // Relacionamento
+  usuario Usuario @relation("UsuarioRefreshTokens", fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  // Metadata de segurança
+  jti             String  @unique @db.VarChar(36) // JWT ID único
+  revogado        Boolean @default(false)
+  motivoRevogacao String? @db.VarChar(255)
+
+  // Timestamps
+  criadoEm   DateTime  @default(now())
+  expiraEm   DateTime
+  usadoEm    DateTime?
+  revogadoEm DateTime?
+
+  // Tracking de uso
+  ip        String? @db.VarChar(45)
+  userAgent String? @db.VarChar(500)
+
+  // Relacionamento com token pai (rotation chain)
+  tokenPaiId   Int?
+  tokenPai     RefreshToken?  @relation("TokenRotation", fields: [tokenPaiId], references: [id], onDelete: SetNull)
+  tokensFilhos RefreshToken[] @relation("TokenRotation")
+
+  @@index([usuarioId])
+  @@index([token])
+  @@index([jti])
+  @@index([expiraEm])
+  @@index([revogado])
+  @@index([tokenPaiId])
+  @@index([usuarioId, revogado, expiraEm], name: "idx_refresh_usuario_ativo")
+  @@map("refresh_tokens")
+}
+
+// ==================================
+// KMS - Key Management System (VUL-004)
+// ==================================
+
+model EncryptionKey {
+  id Int @id @default(autoincrement())
+
+  // Tipo de chave
+  keyType EncryptionKey_tipo
+  version Int
+
+  // Chave encriptada com master key
+  encryptedKey String @db.Text
+
+  // Metadados
+  fingerprint String @db.VarChar(64)
+  algorithm   String @db.VarChar(50)
+  keyLength   Int
+
+  // Status
+  status EncryptionKey_status @default(ACTIVE)
+
+  // Lifecycle
+  criadoEm   DateTime  @default(now())
+  ativadoEm  DateTime?
+  expiraEm   DateTime?
+  retiradoEm DateTime?
+
+  // Auditoria
+  criadoPorUsuarioId Int?
+  motivoRotacao      String? @db.VarChar(255)
+
+  // Relações
+  criadoPor   Usuario?        @relation("EncryptionKeyCriadoPor", fields: [criadoPorUsuarioId], references: [id], onDelete: SetNull)
+  usageAudits KeyUsageAudit[] @relation("KeyUsageAuditKey")
+
+  @@unique([keyType, version])
+  @@index([keyType, status])
+  @@index([expiraEm])
+  @@map("encryption_keys")
+}
+
+model KeyUsageAudit {
+  id BigInt @id @default(autoincrement())
+
+  // Referência à chave
+  keyId      Int
+  keyVersion Int
+  keyType    String @db.VarChar(50)
+
+  // Operação
+  operacao     KeyUsageAudit_operacao
+  tipoEntidade String?                @db.VarChar(50)
+  entidadeId   Int?
+
+  // Resultado
+  sucesso      Boolean
+  mensagemErro String? @db.VarChar(500)
+
+  // Contexto
+  usuarioId Int?
+  ip        String? @db.VarChar(45)
+  userAgent String? @db.VarChar(500)
+
+  // Timestamp
+  timestamp DateTime @default(now())
+
+  // Relações
+  key     EncryptionKey @relation("KeyUsageAuditKey", fields: [keyId], references: [id], onDelete: Cascade)
+  usuario Usuario?      @relation("KeyUsageAuditUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([keyId])
+  @@index([timestamp])
+  @@index([operacao])
+  @@index([sucesso])
+  @@index([keyType])
+  @@map("key_usage_audit")
+}
+
+// Enums para KMS
+enum EncryptionKey_tipo {
+  JWT_SIGNING
+  DOC_ENCRYPTION
+  SESSION
+  BACKUP
+}
+
+enum EncryptionKey_status {
+  ACTIVE
+  READ_ONLY
+  RETIRED
+  ARCHIVED
+}
+
+enum KeyUsageAudit_operacao {
+  ENCRYPT
+  DECRYPT
+  SIGN
+  VERIFY
+  DERIVE
+  ROTATE
+}
+
+// ============================================================================
+// MÓDULO ESTOQUE - MODELS
+// ============================================================================
+
+// ============================================================================
+// BASE: Tabelas de Suporte
+// ============================================================================
+
+model Unidade {
+  id           Int       @id @default(autoincrement())
+  codigo       String    @unique @db.VarChar(20)
+  nome         String    @db.VarChar(50)
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime? @updatedAt @map("atualizado_em")
+
+  materiais Material[]
+
+  @@index([codigo])
+  @@map("unidades")
+}
+
+model Categoria {
+  id           Int            @id @default(autoincrement())
+  nome         String         @db.VarChar(100)
+  tipo         Categoria_tipo
+  paiId        Int?           @map("pai_id")
+  descricao    String?        @db.Text
+  criadoEm     DateTime       @default(now()) @map("criado_em")
+  atualizadoEm DateTime?      @updatedAt @map("atualizado_em")
+
+  pai          Categoria?    @relation("CategoriaPai", fields: [paiId], references: [id], onDelete: SetNull)
+  filhos       Categoria[]   @relation("CategoriaPai")
+  materiais    Material[]
+  equipamentos Equipamento[]
+
+  @@index([tipo])
+  @@index([paiId])
+  @@map("categorias")
+}
+
+model Localizacao {
+  id           Int              @id @default(autoincrement())
+  nome         String           @db.VarChar(100)
+  codigo       String           @unique @db.VarChar(50)
+  tipo         Localizacao_tipo
+  descricao    String?          @db.VarChar(255)
+  ativo        Boolean          @default(true)
+  criadoEm     DateTime         @default(now()) @map("criado_em")
+  atualizadoEm DateTime?        @updatedAt @map("atualizado_em")
+
+  saldosMateriais      MaterialSaldo[]
+  movimentacoesOrigem  MaterialMovimentacao[] @relation("MovimentacaoOrigem")
+  movimentacoesDestino MaterialMovimentacao[] @relation("MovimentacaoDestino")
+
+  @@index([codigo])
+  @@index([ativo])
+  @@map("localizacoes")
+}
+
+model Fornecedor {
+  id            Int                       @id @default(autoincrement())
+  nome          String                    @db.VarChar(150)
+  tipoDocumento Fornecedor_tipoDocumento? @map("tipo_documento")
+  documento     String?                   @db.VarChar(30)
+  email         String?                   @db.VarChar(120)
+  telefone      String?                   @db.VarChar(40)
+  endereco      String?                   @db.VarChar(200)
+  cidade        String?                   @db.VarChar(80)
+  estado        String?                   @db.VarChar(40)
+  pais          String                    @default("USA") @db.VarChar(60)
+  ativo         Boolean                   @default(true)
+  observacoes   String?                   @db.Text
+  criadoEm      DateTime                  @default(now()) @map("criado_em")
+  atualizadoEm  DateTime?                 @updatedAt @map("atualizado_em")
+
+  // Relations - Estoque
+  equipamentos   Equipamento[]
+  manutencoes    EquipamentoManutencao[]
+  compras        Compra[]
+  purchaseOrders PurchaseOrder[]
+
+  // Relations - Financeiro
+  despesas Expense[]
+
+  // Relations - Compliance (F1.3)
+  taxProfiles VendorTaxProfile[] @relation("FornecedorTaxProfiles")
+  insurances  VendorInsurance[]  @relation("FornecedorInsurances")
+  licenses    VendorLicense[]    @relation("FornecedorLicenses")
+
+  @@index([documento])
+  @@index([ativo])
+  @@map("fornecedores")
+}
+
+// ============================================================================
+// SISTEMA A: MATERIAIS CONSUMÍVEIS
+// ============================================================================
+
+model Material {
+  id           Int      @id @default(autoincrement())
+  codigo       String   @unique @db.VarChar(60)
+  nome         String   @db.VarChar(150)
+  descricao    String?  @db.Text
+  categoriaId  Int?     @map("categoria_id")
+  unidadeId    Int      @map("unidade_id")
+  fabricante   String?  @db.VarChar(100)
+  modelo       String?  @db.VarChar(80)
+  ncm          String?  @db.VarChar(20)
+  pesoUnitario Decimal? @map("peso_unitario") @db.Decimal(10, 3)
+  dimensoes    String?  @db.VarChar(100)
+  fotoUrl      String?  @map("foto_url") @db.VarChar(255)
+
+  // Novos campos: UPC/Barcode
+  barcodeInternal String? @unique @map("barcode_internal") @db.VarChar(60)
+  atributos       Json?   @map("atributos")
+
+  estoqueMinimo         Decimal                @default(0) @map("estoque_minimo") @db.Decimal(14, 3)
+  pontoReposicao        Decimal                @default(0) @map("ponto_reposicao") @db.Decimal(14, 3)
+  rastreioLote          Boolean                @default(true) @map("rastreio_lote")
+  serviceOrderMaterials ServiceOrderMaterial[] // V3.1
+  possuiValidade        Boolean                @default(false) @map("possui_validade")
+
+  ultimoCusto    Decimal?  @map("ultimo_custo") @db.Decimal(14, 2)
+  custoMedio     Decimal?  @map("custo_medio") @db.Decimal(14, 2)
+  ultimaCompraEm DateTime? @map("ultima_compra_em")
+
+  ativo         Boolean   @default(true)
+  criadoEm      DateTime  @default(now()) @map("criado_em")
+  atualizadoEm  DateTime? @updatedAt @map("atualizado_em")
+  criadoPor     Int?      @map("criado_por")
+  atualizadoPor Int?      @map("atualizado_por")
+
+  categoria   Categoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  unidade     Unidade    @relation(fields: [unidadeId], references: [id], onDelete: Restrict)
+  criador     Usuario?   @relation("MaterialCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
+  atualizador Usuario?   @relation("MaterialAtualizador", fields: [atualizadoPor], references: [id], onDelete: SetNull)
+
+  lotes                   MaterialLote[]
+  saldos                  MaterialSaldo[]
+  movimentacoes           MaterialMovimentacao[]
+  movimentacoesUnificadas Movimentacao[]
+  projetoMateriais        ProjetoMaterialEstoque[]
+  comprasItens            CompraItem[]
+  purchaseOrderItems      PurchaseOrderItem[]
+  alertas                 AlertaEstoque[]
+  invoiceItems            InvoiceItem[]
+  embalagens              MaterialEmbalagem[]
+
+  @@index([codigo])
+  @@index([categoriaId])
+  @@index([ativo])
+  @@index([estoqueMinimo])
+  @@fulltext([nome, descricao, codigo])
+  @@map("materiais")
+}
+
+model MaterialEmbalagem {
+  id             Int      @id @default(autoincrement())
+  materialId     Int      @map("material_id")
+  upcEan         String   @unique @db.VarChar(20)
+  brand          String?  @db.VarChar(100)
+  model          String?  @db.VarChar(80)
+  packageType    String   @db.VarChar(30)
+  baseQtyPerUnit Decimal  @db.Decimal(14, 3)
+  purchaseUnit   String   @default("EA") @db.VarChar(10)
+  ativo          Boolean  @default(true)
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  material     Material     @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  comprasItens CompraItem[]
+
+  @@index([materialId])
+  @@index([upcEan])
+  @@map("materiais_embalagens")
+}
+
+model MaterialLote {
+  id             Int       @id @default(autoincrement())
+  materialId     Int       @map("material_id")
+  codigoLote     String    @map("codigo_lote") @db.VarChar(80)
+  dataFabricacao DateTime? @map("data_fabricacao") @db.Date
+  dataValidade   DateTime? @map("data_validade") @db.Date
+  observacoes    String?   @db.VarChar(255)
+  criadoEm       DateTime  @default(now()) @map("criado_em")
+  atualizadoEm   DateTime? @updatedAt @map("atualizado_em")
+
+  material         Material                 @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  saldos           MaterialSaldo[]
+  movimentacoes    MaterialMovimentacao[]
+  projetoMateriais ProjetoMaterialEstoque[]
+  comprasItens     CompraItem[]
+
+  @@unique([materialId, codigoLote])
+  @@index([dataValidade])
+  @@map("materiais_lotes")
+}
+
+model MaterialSaldo {
+  id            Int      @id @default(autoincrement())
+  materialId    Int      @map("material_id")
+  loteId        Int?     @map("lote_id")
+  localizacaoId Int      @map("localizacao_id")
+  quantidade    Decimal  @default(0) @db.Decimal(14, 3)
+  reservado     Decimal  @default(0) @db.Decimal(14, 3)
+  disponivel    Decimal? @db.Decimal(14, 3) // Computed column
+  atualizadoEm  DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  material    Material      @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  lote        MaterialLote? @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  localizacao Localizacao   @relation(fields: [localizacaoId], references: [id], onDelete: Restrict)
+
+  @@unique([materialId, loteId, localizacaoId])
+  @@index([disponivel])
+  @@index([materialId])
+  @@index([localizacaoId])
+  @@map("materiais_saldo")
+}
+
+model MaterialMovimentacao {
+  id                   BigInt                    @id @default(autoincrement())
+  tipo                 MaterialMovimentacao_tipo
+  materialId           Int                       @map("material_id")
+  loteId               Int?                      @map("lote_id")
+  localizacaoOrigemId  Int?                      @map("localizacao_origem_id")
+  localizacaoDestinoId Int?                      @map("localizacao_destino_id")
+  quantidade           Decimal                   @db.Decimal(14, 3)
+  custoUnitario        Decimal?                  @map("custo_unitario") @db.Decimal(14, 2)
+  projetoId            Int?                      @map("projeto_id")
+  compraId             Int?                      @map("compra_id")
+  motivo               String?                   @db.VarChar(200)
+  referenciaExterna    String?                   @map("referencia_externa") @db.VarChar(120)
+  criadoEm             DateTime                  @default(now()) @map("criado_em")
+  criadoPor            Int?                      @map("criado_por")
+
+  material           Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  lote               MaterialLote? @relation(fields: [loteId], references: [id], onDelete: Restrict)
+  localizacaoOrigem  Localizacao?  @relation("MovimentacaoOrigem", fields: [localizacaoOrigemId], references: [id], onDelete: Restrict)
+  localizacaoDestino Localizacao?  @relation("MovimentacaoDestino", fields: [localizacaoDestinoId], references: [id], onDelete: Restrict)
+  projeto            Projeto?      @relation(fields: [projetoId], references: [id], onDelete: Restrict)
+  criador            Usuario?      @relation("MaterialMovimentacaoCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
+
+  @@index([materialId])
+  @@index([projetoId])
+  @@index([tipo])
+  @@index([criadoEm])
+  @@map("materiais_movimentacoes")
+}
+
+// Modelo unificado de movimentações (para interface simplificada)
+model Movimentacao {
+  id               BigInt                    @id @default(autoincrement())
+  tipo             MaterialMovimentacao_tipo
+  materialId       Int?                      @map("material_id")
+  equipamentoId    Int?                      @map("equipamento_id")
+  quantidade       Decimal                   @db.Decimal(14, 3)
+  projetoId        Int?                      @map("projeto_id")
+  dataMovimentacao DateTime                  @map("data_movimentacao") @db.Date
+  observacao       String?                   @db.Text
+  criadoEm         DateTime                  @default(now()) @map("criado_em")
+  criadoPor        Int?                      @map("criado_por")
+
+  material    Material?    @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  equipamento Equipamento? @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
+  projeto     Projeto?     @relation(fields: [projetoId], references: [id], onDelete: SetNull)
+  usuario     Usuario?     @relation("MovimentacaoUsuario", fields: [criadoPor], references: [id], onDelete: SetNull)
+
+  @@index([tipo])
+  @@index([materialId])
+  @@index([equipamentoId])
+  @@index([projetoId])
+  @@index([dataMovimentacao])
+  @@index([criadoEm])
+  @@map("movimentacoes")
+}
+
+model ProjetoMaterialEstoque {
+  id                  Int       @id @default(autoincrement())
+  projetoId           Int       @map("projeto_id")
+  materialId          Int       @map("material_id")
+  loteId              Int?      @map("lote_id")
+  quantidadeReservada Decimal   @default(0) @map("quantidade_reservada") @db.Decimal(14, 3)
+  quantidadeUsada     Decimal   @default(0) @map("quantidade_usada") @db.Decimal(14, 3)
+  custoUnitario       Decimal?  @map("custo_unitario") @db.Decimal(14, 2)
+  custoTotal          Decimal?  @map("custo_total") @db.Decimal(14, 2) // Computed column
+  cobrarCliente       Boolean   @default(false) @map("cobrar_cliente")
+  dataReserva         DateTime? @map("data_reserva")
+  dataUso             DateTime? @map("data_uso")
+  observacoes         String?   @db.Text
+  criadoEm            DateTime  @default(now()) @map("criado_em")
+  atualizadoEm        DateTime? @updatedAt @map("atualizado_em")
+  criadoPor           Int?      @map("criado_por")
+
+  projeto  Projeto       @relation("ProjetoMateriaisEstoque", fields: [projetoId], references: [id], onDelete: Cascade)
+  material Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  lote     MaterialLote? @relation(fields: [loteId], references: [id], onDelete: Restrict)
+  criador  Usuario?      @relation("ProjetoMaterialEstoqueCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
+
+  @@index([projetoId])
+  @@index([materialId])
+  @@index([cobrarCliente])
+  @@map("projeto_materiais")
+}
+
+// ============================================================================
+// SISTEMA B: EQUIPAMENTOS/FERRAMENTAS
+// ============================================================================
+
+model Equipamento {
+  id            Int              @id @default(autoincrement())
+  codigo        String           @unique @db.VarChar(60)
+  nome          String           @db.VarChar(150)
+  tipo          Equipamento_tipo
+  categoriaId   Int?             @map("categoria_id")
+  marca         String?          @db.VarChar(100)
+  modelo        String?          @db.VarChar(80)
+  numeroSerie   String?          @unique @map("numero_serie") @db.VarChar(120)
+  anoFabricacao Int?             @map("ano_fabricacao")
+
+  dataAquisicao  DateTime @map("data_aquisicao") @db.Date
+  valorAquisicao Decimal  @map("valor_aquisicao") @db.Decimal(14, 2)
+  fornecedorId   Int?     @map("fornecedor_id")
+  notaFiscal     String?  @map("nota_fiscal") @db.VarChar(60)
+
+  status           Equipamento_status @default(DISPONIVEL)
+  localizacaoAtual String?            @map("localizacao_atual") @db.VarChar(200)
+  projetoAtualId   Int?               @map("projeto_atual_id")
+
+  requerCalibracao            Boolean   @default(false) @map("requer_calibracao")
+  periodicidadeCalibracaoDias Int?      @map("periodicidade_calibracao_dias")
+  ultimaCalibracao            DateTime? @map("ultima_calibracao") @db.Date
+  proximaCalibracao           DateTime? @map("proxima_calibracao") @db.Date
+
+  requerManutencaoPeriodica   Boolean   @default(false) @map("requer_manutencao_periodica")
+  periodicidadeManutencaoDias Int?      @map("periodicidade_manutencao_dias")
+  ultimaManutencao            DateTime? @map("ultima_manutencao") @db.Date
+  proximaManutencao           DateTime? @map("proxima_manutencao") @db.Date
+
+  fotoUrl     String? @map("foto_url") @db.VarChar(255)
+  manualUrl   String? @map("manual_url") @db.VarChar(255)
+  observacoes String? @db.Text
+
+  // Novo campo: Asset Tag
+  barcodeInternal String? @unique @map("barcode_internal") @db.VarChar(60)
+
+  ativo         Boolean   @default(true)
+  criadoEm      DateTime  @default(now()) @map("criado_em")
+  atualizadoEm  DateTime? @updatedAt @map("atualizado_em")
+  criadoPor     Int?      @map("criado_por")
+  atualizadoPor Int?      @map("atualizado_por")
+
+  categoria    Categoria?  @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  fornecedor   Fornecedor? @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
+  projetoAtual Projeto?    @relation(fields: [projetoAtualId], references: [id], onDelete: SetNull)
+  criador      Usuario?    @relation("EquipamentoCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
+  atualizador  Usuario?    @relation("EquipamentoAtualizador", fields: [atualizadoPor], references: [id], onDelete: SetNull)
+
+  projetoEquipamentos     ProjetoEquipamento[]
+  manutencoes             EquipamentoManutencao[]
+  movimentacoesUnificadas Movimentacao[]
+  comprasItens            CompraItem[]
+  alertas                 AlertaEstoque[]
+
+  @@index([codigo])
+  @@index([status])
+  @@index([tipo])
+  @@index([numeroSerie])
+  @@index([proximaCalibracao])
+  @@index([proximaManutencao])
+  @@index([projetoAtualId])
+  @@fulltext([nome, marca, modelo, codigo])
+  @@map("equipamentos")
+}
+
+model ProjetoEquipamento {
+  id            BigInt @id @default(autoincrement())
+  projetoId     Int    @map("projeto_id")
+  equipamentoId Int    @map("equipamento_id")
+  responsavelId Int    @map("responsavel_id")
+
+  dataAlocacao          DateTime  @default(now()) @map("data_alocacao")
+  dataDevolucaoPrevista DateTime? @map("data_devolucao_prevista") @db.Date
+  dataDevolucaoReal     DateTime? @map("data_devolucao_real")
+
+  status ProjetoEquipamento_status @default(ALOCADO)
+
+  condicaoSaida    ProjetoEquipamento_condicao @default(BOM) @map("condicao_saida")
+  condicaoSaidaObs String?                     @map("condicao_saida_obs") @db.Text
+
+  condicaoRetorno    ProjetoEquipamento_condicaoRetorno? @map("condicao_retorno")
+  condicaoRetornoObs String?                             @map("condicao_retorno_obs") @db.Text
+
+  verificadoPor Int?      @map("verificado_por")
+  verificadoEm  DateTime? @map("verificado_em")
+
+  custoDiaria   Decimal? @map("custo_diaria") @db.Decimal(10, 2)
+  diasUso       Int?     @map("dias_uso")
+  valorTotal    Decimal? @map("valor_total") @db.Decimal(14, 2)
+  cobrarCliente Boolean  @default(false) @map("cobrar_cliente")
+
+  observacoes  String?   @db.Text
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime? @updatedAt @map("atualizado_em")
+  criadoPor    Int?      @map("criado_por")
+
+  projeto     Projeto     @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  equipamento Equipamento @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
+  responsavel Usuario     @relation("ProjetoEquipamentoResponsavel", fields: [responsavelId], references: [id], onDelete: Restrict)
+  verificador Usuario?    @relation("ProjetoEquipamentoVerificador", fields: [verificadoPor], references: [id], onDelete: SetNull)
+  criador     Usuario?    @relation("ProjetoEquipamentoCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
+
+  @@index([projetoId])
+  @@index([equipamentoId])
+  @@index([status])
+  @@index([responsavelId])
+  @@index([dataDevolucaoPrevista])
+  @@map("projeto_equipamentos")
+}
+
+model EquipamentoManutencao {
+  id                 Int                        @id @default(autoincrement())
+  equipamentoId      Int                        @map("equipamento_id")
+  tipo               EquipamentoManutencao_tipo
+  dataInicio         DateTime                   @map("data_inicio") @db.Date
+  dataConclusao      DateTime?                  @map("data_conclusao") @db.Date
+  fornecedorId       Int?                       @map("fornecedor_id")
+  custo              Decimal?                   @db.Decimal(14, 2)
+  notaFiscal         String?                    @map("nota_fiscal") @db.VarChar(60)
+  descricao          String                     @db.Text
+  servicosRealizados String?                    @map("servicos_realizados") @db.Text
+  pecasTrocadas      String?                    @map("pecas_trocadas") @db.Text
+  proximaManutencao  DateTime?                  @map("proxima_manutencao") @db.Date
+  proximaCalibracao  DateTime?                  @map("proxima_calibracao") @db.Date
+  criadoEm           DateTime                   @default(now()) @map("criado_em")
+  atualizadoEm       DateTime?                  @updatedAt @map("atualizado_em")
+  criadoPor          Int?                       @map("criado_por")
+
+  equipamento Equipamento @relation(fields: [equipamentoId], references: [id], onDelete: Cascade)
+  fornecedor  Fornecedor? @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
+  criador     Usuario?    @relation("EquipamentoManutencaoCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
+
+  @@index([equipamentoId])
+  @@index([tipo])
+  @@index([dataInicio])
+  @@map("equipamentos_manutencao")
+}
+
+// ============================================================================
+// SISTEMA DE ALERTAS E COMPRAS
+// ============================================================================
+
+model AlertaEstoque {
+  id              BigInt                   @id @default(autoincrement())
+  tipo            AlertaEstoque_tipo
+  prioridade      AlertaEstoque_prioridade @default(MEDIA)
+  materialId      Int?                     @map("material_id")
+  equipamentoId   Int?                     @map("equipamento_id")
+  projetoId       Int?                     @map("projeto_id")
+  titulo          String                   @db.VarChar(150)
+  mensagem        String                   @db.Text
+  dataAlerta      DateTime                 @default(now()) @map("data_alerta")
+  dataVisualizado DateTime?                @map("data_visualizado")
+  visualizadoPor  Int?                     @map("visualizado_por")
+  dataResolvido   DateTime?                @map("data_resolvido")
+  resolvidoPor    Int?                     @map("resolvido_por")
+  solucao         String?                  @db.Text
+  ativo           Boolean                  @default(true)
+
+  material     Material?    @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  equipamento  Equipamento? @relation(fields: [equipamentoId], references: [id], onDelete: Cascade)
+  projeto      Projeto?     @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  visualizador Usuario?     @relation("AlertaVisualizador", fields: [visualizadoPor], references: [id], onDelete: SetNull)
+  resolvedor   Usuario?     @relation("AlertaResolvedor", fields: [resolvidoPor], references: [id], onDelete: SetNull)
+
+  @@index([ativo, prioridade, dataAlerta])
+  @@index([tipo])
+  @@index([materialId])
+  @@index([equipamentoId])
+  @@index([projetoId])
+  @@map("alertas_estoque")
+}
+
+model Compra {
+  id              Int           @id @default(autoincrement())
+  fornecedorId    Int?          @map("fornecedor_id")
+  numeroNf        String?       @map("numero_nf") @db.VarChar(60)
+  dataCompra      DateTime      @map("data_compra") @db.Date
+  dataEntrega     DateTime?     @map("data_entrega") @db.Date
+  tipo            Compra_tipo
+  projetoId       Int?          @map("projeto_id")
+  valorTotal      Decimal       @default(0) @map("valor_total") @db.Decimal(14, 2)
+  desconto        Decimal?      @db.Decimal(14, 2)
+  frete           Decimal?      @db.Decimal(14, 2)
+  formaPagamento  String?       @map("forma_pagamento") @db.VarChar(60)
+  status          Compra_status @default(PENDENTE)
+  observacoes     String?       @db.Text
+  criadoEm        DateTime      @default(now()) @map("criado_em")
+  atualizadoEm    DateTime?     @updatedAt @map("atualizado_em")
+  criadoPor       Int?          @map("criado_por")
+  purchaseOrderId Int?          @map("purchase_order_id")
+
+  fornecedor    Fornecedor?    @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
+  projeto       Projeto?       @relation(fields: [projetoId], references: [id], onDelete: SetNull)
+  criador       Usuario?       @relation("CompraCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+
+  itens   CompraItem[]
+  expense Expense? // Despesa gerada ao receber a compra
+
+  @@index([fornecedorId])
+  @@index([projetoId])
+  @@index([status])
+  @@index([dataCompra])
+  @@index([purchaseOrderId])
+  @@map("compras")
+}
+
+model CompraItem {
+  id                  Int             @id @default(autoincrement())
+  compraId            Int             @map("compra_id")
+  tipoItem            CompraItem_tipo @map("tipo_item")
+  materialId          Int?            @map("material_id")
+  equipamentoId       Int?            @map("equipamento_id")
+  materialEmbalagemId Int?            @map("material_embalagem_id")
+  loteId              Int?            @map("lote_id")
+  quantidade          Decimal         @db.Decimal(14, 3)
+  custoUnitario       Decimal         @map("custo_unitario") @db.Decimal(14, 2)
+  custoTotal          Decimal?        @map("custo_total") @db.Decimal(14, 2) // Computed column
+  dataRecebimento     DateTime?       @map("data_recebimento")
+  recebidoPor         Int?            @map("recebido_por")
+
+  compra            Compra             @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  material          Material?          @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  equipamento       Equipamento?       @relation(fields: [equipamentoId], references: [id], onDelete: SetNull)
+  materialEmbalagem MaterialEmbalagem? @relation(fields: [materialEmbalagemId], references: [id], onDelete: SetNull)
+  lote              MaterialLote?      @relation(fields: [loteId], references: [id], onDelete: SetNull)
+  recebedor         Usuario?           @relation("CompraItemRecebedor", fields: [recebidoPor], references: [id], onDelete: SetNull)
+
+  @@index([compraId])
+  @@index([tipoItem])
+  @@map("compras_itens")
+}
+
+// ============================================================================
+// ENUMS DO MÓDULO ESTOQUE
+// ============================================================================
+
+enum Categoria_tipo {
+  MATERIAL
+  EQUIPAMENTO
+}
+
+enum Localizacao_tipo {
+  DEPOSITO
+  PRATELEIRA
+  BIN
+  ARMARIO
+}
+
+enum Fornecedor_tipoDocumento {
+  CNPJ
+  EIN
+  CPF
+}
+
+enum MaterialMovimentacao_tipo {
+  ENTRADA
+  RESERVA
+  CANCELAMENTO_RESERVA
+  SAIDA
+  DEVOLUCAO
+  AJUSTE_POSITIVO
+  AJUSTE_NEGATIVO
+  PERDA
+  TRANSFERENCIA
+}
+
+enum Equipamento_tipo {
+  FERRAMENTA_MANUAL
+  FERRAMENTA_ELETRICA
+  EQUIPAMENTO_MEDICAO
+  EQUIPAMENTO_SEGURANCA
+  ANDAIME
+  ESCADA
+  VEICULO
+  OUTRO
+}
+
+enum Equipamento_status {
+  DISPONIVEL
+  EM_USO
+  EM_MANUTENCAO
+  CALIBRACAO
+  PERDIDO
+  DANIFICADO
+  DESCARTADO
+}
+
+enum ProjetoEquipamento_status {
+  ALOCADO
+  EM_USO
+  DEVOLVIDO
+  PERDIDO
+  DANIFICADO
+}
+
+enum ProjetoEquipamento_condicao {
+  EXCELENTE
+  BOM
+  REGULAR
+  RUIM
+}
+
+enum ProjetoEquipamento_condicaoRetorno {
+  EXCELENTE
+  BOM
+  REGULAR
+  RUIM
+  DANIFICADO
+  PERDIDO
+}
+
+enum EquipamentoManutencao_tipo {
+  PREVENTIVA
+  CORRETIVA
+  CALIBRACAO
+  REVISAO
+}
+
+enum AlertaEstoque_tipo {
+  ESTOQUE_MINIMO
+  ESTOQUE_ZERO
+  VALIDADE_PROXIMA
+  VALIDADE_VENCIDA
+  CALIBRACAO_PROXIMA
+  CALIBRACAO_VENCIDA
+  MANUTENCAO_PROXIMA
+  MANUTENCAO_VENCIDA
+  EQUIPAMENTO_NAO_DEVOLVIDO
+  EQUIPAMENTO_DANIFICADO
+}
+
+enum AlertaEstoque_prioridade {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum Compra_tipo {
+  MATERIAL
+  EQUIPAMENTO
+  AMBOS
+}
+
+enum Compra_status {
+  PENDENTE
+  PARCIAL
+  RECEBIDA
+  CANCELADA
+}
+
+enum CompraItem_tipo {
+  MATERIAL
+  EQUIPAMENTO
+}
+
+// ============================================================================
+// MÓDULO FINANCEIRO - INVOICE SYSTEM (Semana 0)
+// ============================================================================
+
+model Invoice {
+  id                  Int            @id @default(autoincrement())
+  numeroInvoice       String         @unique @db.VarChar(50)
+  projetoId           Int?
+  clienteId           Int
+  dataEmissao         DateTime       @default(now())
+  dataVencimento      DateTime
+  dataPagamento       DateTime?
+  subtotal            Decimal        @default(0) @db.Decimal(15, 2)
+  descontoValor       Decimal        @default(0) @db.Decimal(15, 2)
+  descontoPercentual  Decimal        @default(0) @db.Decimal(5, 2)
+  // taxRateId removed
+  taxRate             Decimal        @default(0.0825) @db.Decimal(5, 4)
+  taxAmount           Decimal        @default(0) @db.Decimal(15, 2)
+  valorTotal          Decimal        @default(0) @db.Decimal(15, 2)
+  valorPago           Decimal        @default(0) @db.Decimal(15, 2)
+  saldo               Decimal        @default(0) @db.Decimal(15, 2)
+  status              Invoice_status @default(DRAFT)
+  notas               String?        @db.Text
+  termos              String?        @db.Text
+  ledgerTransactionId Int?           @unique
+  criadoPor           Int
+  atualizadoPor       Int?
+  criadoEm            DateTime       @default(now())
+  atualizadoEm        DateTime       @updatedAt
+  pdfStorageKey       String?        @db.VarChar(255)
+  pdfFileName         String?        @db.VarChar(255)
+  pdfGeneratedAt      DateTime?      @db.DateTime(3)
+  pdfSizeBytes        Int?
+  pdfMimeType         String?        @db.VarChar(100)
+  pdfSha256           String?        @db.Char(64)
+
+  // Relations
+  projeto     Projeto?          @relation(fields: [projetoId], references: [id])
+  cliente     Cliente           @relation(fields: [clienteId], references: [id])
+  // taxRateRel removed
+  criador     Usuario           @relation("InvoiceCriador", fields: [criadoPor], references: [id])
+  atualizador Usuario?          @relation("InvoiceAtualizador", fields: [atualizadoPor], references: [id])
+  itens       InvoiceItem[]
+  pagamentos  InvoicePayment[]
+  lembretes   InvoiceReminder[]
+
+  // ServiceOrder Link (V3.1)
+  ServiceOrder ServiceOrder?
+
+  @@index([numeroInvoice])
+  @@index([clienteId])
+  @@index([projetoId])
+  @@index([status])
+  @@index([dataVencimento])
+  @@index([criadoEm])
+}
+
+model InvoiceItem {
+  id              Int              @id @default(autoincrement())
+  invoiceId       Int
+  tipo            InvoiceItem_tipo @default(SERVICE)
+  descricao       String           @db.VarChar(500)
+  quantidade      Decimal          @default(1) @db.Decimal(15, 4)
+  unidade         String           @db.VarChar(50)
+  precoUnitario   Decimal          @db.Decimal(15, 2)
+  desconto        Decimal          @default(0) @db.Decimal(15, 2)
+  subtotal        Decimal          @db.Decimal(15, 2)
+  taxavel         Boolean          @default(true)
+  propostaEtapaId Int?
+  materialId      Int?
+  ordem           Int              @default(0)
+
+  // Relations
+  invoice       Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  propostaEtapa PropostaEtapa? @relation(fields: [propostaEtapaId], references: [id])
+  material      Material?      @relation(fields: [materialId], references: [id])
+
+  @@index([invoiceId])
+  @@index([propostaEtapaId])
+  @@index([materialId])
+}
+
+model InvoicePayment {
+  id                   Int                   @id @default(autoincrement())
+  invoiceId            Int
+  valor                Decimal               @db.Decimal(15, 2)
+  dataPagamento        DateTime
+  metodoPagamento      InvoicePayment_metodo @default(BANK_TRANSFER)
+  bankAccountId        Int?
+  referencia           String?               @db.VarChar(100)
+  notas                String?               @db.Text
+  ledgerTransactionId  Int?                  @unique
+  gatewayId            String?               @db.VarChar(100)
+  gatewayTransactionId String?               @db.VarChar(255)
+  criadoPor            Int
+  criadoEm             DateTime              @default(now())
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  criador Usuario @relation(fields: [criadoPor], references: [id])
+
+  @@index([invoiceId])
+  @@index([dataPagamento])
+  @@index([gatewayTransactionId])
+}
+
+model InvoiceReminder {
+  id                 Int                    @id @default(autoincrement())
+  invoiceId          Int
+  tipo               InvoiceReminder_tipo   @default(REMINDER)
+  diasAposVencimento Int                    @default(0)
+  dataEnvio          DateTime?
+  metodo             InvoiceReminder_metodo @default(EMAIL)
+  destinatario       String                 @db.VarChar(255)
+  assunto            String?                @db.VarChar(255)
+  mensagem           String?                @db.Text
+  status             InvoiceReminder_status @default(SENT)
+  erro               String?                @db.Text
+  criadoEm           DateTime               @default(now())
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([tipo])
+  @@index([status])
+  @@index([dataEnvio])
+}
+
+enum Invoice_status {
+  DRAFT
+  SENT
+  VIEWED
+  PARTIAL_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum InvoiceItem_tipo {
+  SERVICE
+  MATERIAL
+  EQUIPMENT
+  OTHER
+}
+
+enum InvoicePayment_metodo {
+  BANK_TRANSFER
+  CHECK
+  CARD
+  CASH
+  STRIPE
+  SQUARE
+  OTHER
+}
+
+enum InvoiceReminder_tipo {
+  INITIAL_SEND
+  REMINDER
+  OVERDUE_NOTICE
+  ESCALATION
+}
+
+enum InvoiceReminder_metodo {
+  EMAIL
+  SMS
+  PHONE_CALL
+  LETTER
+}
+
+enum InvoiceReminder_status {
+  SENT
+  DELIVERED
+  OPENED
+  FAILED
+}
+
+enum TaxRate_tipo {
+  SALES_TAX
+  SERVICE_TAX
+  WITHHOLDING
+  VAT
+}
+
+// ============================================================================
+// MÓDULO: RECEITAS (REVENUE) - SEMANA 1
+// ============================================
+
+model Revenue {
+  id             Int            @id @default(autoincrement())
+  empresaId      Int
+  categoriaId    Int
+  clienteId      Int?
+  descricao      String         @db.VarChar(255)
+  valor          Decimal        @db.Decimal(10, 2)
+  dataEmissao    DateTime
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+  tipo           TipoReceita
+  formaPagamento FormaPagamento
+  status         StatusReceita
+  observacoes    String?        @db.Text
+  recorrente     Boolean        @default(false)
+  recorrenciaId  Int?           @unique
+  criadoEm       DateTime       @default(now())
+  atualizadoEm   DateTime       @updatedAt
+
+  empresa          Empresa             @relation(fields: [empresaId], references: [id])
+  categoria        RevenueCategory     @relation(fields: [categoriaId], references: [id])
+  cliente          Cliente?            @relation(fields: [clienteId], references: [id])
+  recorrencia      RevenueRecurrence?  @relation("RevenueToRecurrence", fields: [recorrenciaId], references: [id])
+  recorrencias     RevenueRecurrence[] @relation("RecurrenceOrigin")
+  bankTransactions BankTransaction[]
+
+  @@index([empresaId])
+  @@index([categoriaId])
+  @@index([clienteId])
+  @@index([dataVencimento])
+  @@index([status])
+  @@map("revenues")
+}
+
+model RevenueCategory {
+  id        Int      @id @default(autoincrement())
+  empresaId Int
+  nome      String   @db.VarChar(100)
+  descricao String?  @db.Text
+  cor       String?  @db.VarChar(7)
+  icone     String?  @db.VarChar(50)
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+
+  empresa  Empresa   @relation(fields: [empresaId], references: [id])
+  receitas Revenue[]
+
+  @@unique([empresaId, nome])
+  @@map("revenue_categories")
+}
+
+model RevenueRecurrence {
+  id             Int                   @id @default(autoincrement())
+  revenueId      Int                   @unique
+  frequencia     FrequenciaRecorrencia
+  diaVencimento  Int
+  dataInicio     DateTime
+  dataFim        DateTime?
+  proximaGeracao DateTime
+  ativo          Boolean               @default(true)
+  criadoEm       DateTime              @default(now())
+
+  receita Revenue?  @relation("RevenueToRecurrence")
+  geradas Revenue[] @relation("RecurrenceOrigin")
+
+  @@index([proximaGeracao])
+  @@map("revenue_recurrences")
+}
+
+// Enums para Revenue
+
+enum TipoReceita {
+  SERVICO
+  VENDA_PRODUTO
+  CONSULTORIA
+  MENSALIDADE
+  COMISSAO
+  OUTROS
+}
+
+enum FormaPagamento {
+  DINHEIRO
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  PIX
+  TRANSFERENCIA
+  BOLETO
+  CHEQUE
+}
+
+enum StatusReceita {
+  PENDENTE
+  RECEBIDA
+  VENCIDA
+  CANCELADA
+}
+
+enum FrequenciaRecorrencia {
+  SEMANAL
+  QUINZENAL
+  MENSAL
+  BIMESTRAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+}
+
+// ==========================================
+// MÓDULO: DESPESAS (Expenses)
+// ==========================================
+
+model Expense {
+  id             Int            @id @default(autoincrement())
+  empresaId      Int
+  categoriaId    Int
+  fornecedorId   Int? // Opcional - fornecedor/prestador
+  descricao      String         @db.VarChar(255)
+  valor          Decimal        @db.Decimal(10, 2)
+  tipo           TipoDespesa
+  formaPagamento FormaPagamento
+  status         StatusDespesa  @default(PENDENTE)
+
+  // Datas
+  dataEmissao    DateTime
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+
+  // F1.2: Vínculo com Projeto e OS (Job Costing)
+  projetoId          Int?                 @map("projeto_id")
+  serviceOrderId     Int?                 @map("service_order_id")
+  projectPermitId    Int?                 @unique @map("project_permit_id")
+  isBillableToClient Boolean              @default(false) @map("is_billable_to_client")
+  costCategory       ExpenseCostCategory? @map("cost_category")
+
+  // Aprovação
+  requerAprovacao Boolean @default(false)
+  aprovacaoId     Int?    @unique
+
+  // Anexos
+  anexoUrl        String? @db.VarChar(500)
+  numeroDocumento String? @db.VarChar(100)
+
+  // Observações
+  observacoes String? @db.Text
+
+  // Vínculo com Compra (para despesas geradas de compras recebidas)
+  compraId Int? @unique @map("compra_id")
+
+  // F2.5: Link com Purchase Order (commitment tracking)
+  purchaseOrderId Int? @map("purchase_order_id")
+
+  // Metadata
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+  criadoPor    Int?
+
+  // Recorrência
+  recorrente    Boolean             @default(false)
+  recorrenciaId Int?                @unique
+  recorrencia   ExpenseRecurrence?  @relation("ExpenseToRecurrence", fields: [recorrenciaId], references: [id])
+  recorrencias  ExpenseRecurrence[] @relation("ExpenseRecurrenceOrigin")
+
+  // Relations
+  empresa          Empresa           @relation(fields: [empresaId], references: [id])
+  categoria        ExpenseCategory   @relation(fields: [categoriaId], references: [id])
+  fornecedor       Fornecedor?       @relation(fields: [fornecedorId], references: [id])
+  projeto          Projeto?          @relation("ProjetoExpenses", fields: [projetoId], references: [id], onDelete: SetNull)
+  serviceOrder     ServiceOrder?     @relation("ServiceOrderExpenses", fields: [serviceOrderId], references: [id], onDelete: SetNull)
+  projectPermit    ProjectPermit?    @relation(fields: [projectPermitId], references: [id], onDelete: SetNull)
+  aprovacao        ExpenseApproval?
+  usuario          Usuario?          @relation("ExpenseCriadoPor", fields: [criadoPor], references: [id])
+  bankTransactions BankTransaction[]
+  compra           Compra?           @relation(fields: [compraId], references: [id])
+  purchaseOrder    PurchaseOrder?    @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  fieldPurchaseMaterials ServiceOrderMaterial[] @relation("FieldPurchaseExpense")
+
+  // Refund tracking (when field-purchased materials are returned to store)
+  refundAmount Decimal?  @map("refund_amount") @db.Decimal(10, 2)
+  refundDate   DateTime? @map("refund_date")
+  refundNotes  String?   @map("refund_notes") @db.VarChar(500)
+
+  // Tax Compliance: Deductibility
+  dedutivel           Boolean @default(true)
+  percentualDedutivel Int?    @map("percentual_dedutivel") // null = 100%, 50 = meals, etc.
+
+  // Indexes
+  @@index([empresaId, status, dataVencimento])
+  @@index([categoriaId])
+  @@index([fornecedorId])
+  @@index([status])
+  @@index([dataVencimento])
+  @@index([projetoId])
+  @@index([serviceOrderId])
+  @@index([projectPermitId])
+  @@index([purchaseOrderId])
+  @@map("expenses")
+}
+
+model ExpenseCategory {
+  id        Int     @id @default(autoincrement())
+  empresaId Int
+  nome      String  @db.VarChar(100)
+  descricao String? @db.Text
+  cor       String  @default("#EF4444") @db.VarChar(7) // Vermelho para despesas
+  icone     String? @db.VarChar(50)
+  ativo     Boolean @default(true)
+
+  // Budget (opcional)
+  orcamentoMensal Decimal? @db.Decimal(10, 2)
+
+  // Tax Compliance: Schedule C mapping
+  scheduleCLine String?  @map("schedule_c_line") @db.VarChar(20)
+  slug          String?  @unique @db.VarChar(50)
+  dedutivel     Boolean  @default(true)
+
+  // Metadata
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  // Relations
+  empresa  Empresa   @relation(fields: [empresaId], references: [id])
+  despesas Expense[]
+
+  @@unique([empresaId, nome])
+  @@map("expense_categories")
+}
+
+model ExpenseApproval {
+  id        Int @id @default(autoincrement())
+  expenseId Int @unique
+
+  // Status da aprovação
+  status StatusAprovacao @default(PENDENTE)
+
+  // Aprovadores
+  aprovadorId   Int // Usuário responsável por aprovar
+  tipoAprovador TipoAprovador @default(GERENTE)
+
+  // Workflow
+  nivelAprovacao     Int     @default(1) // Para aprovações multi-nível
+  requerProximoNivel Boolean @default(false)
+  proximoAprovadorId Int?
+
+  // Datas
+  solicitadoEm DateTime  @default(now())
+  revisadoEm   DateTime?
+
+  // Justificativas
+  justificativa String? @db.Text // Da solicitação
+  comentario    String? @db.Text // Do aprovador
+
+  // Metadata
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  // Relations
+  expense          Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  aprovador        Usuario  @relation("ExpenseAprovador", fields: [aprovadorId], references: [id])
+  proximoAprovador Usuario? @relation("ExpenseProximoAprovador", fields: [proximoAprovadorId], references: [id])
+
+  @@index([status, solicitadoEm])
+  @@index([aprovadorId])
+  @@map("expense_approvals")
+}
+
+// Enums para Despesas
+
+enum TipoDespesa {
+  OPERACIONAL // Despesas do dia-a-dia
+  ADMINISTRATIVA // Administrativas
+  PESSOAL // Salários, benefícios
+  MARKETING // Marketing e publicidade
+  TECNOLOGIA // Software, hardware, infraestrutura
+  IMPOSTOS // Impostos e taxas
+  ALUGUEL // Aluguel e condomínio
+  SERVIÇOS // Serviços terceirizados
+  FORNECEDORES // Compra de produtos/materiais
+  OUTROS
+}
+
+enum StatusDespesa {
+  PENDENTE // Aguardando processamento
+  AGUARDANDO_APROVACAO // Enviada para aprovação
+  APROVADA // Aprovada pelo gestor
+  REJEITADA // Rejeitada pelo gestor
+  PAGA // Pagamento efetuado
+  CANCELADA // Cancelada
+}
+
+// F1.2: Classificação de custo por job (construction ERP)
+enum ExpenseCostCategory {
+  PERMIT_FEE // Permits & inspection fees
+  DUMPSTER // Dumpster / waste disposal
+  FUEL // Fuel / mileage
+  TOOL_RENTAL // Tool & equipment rental
+  SUBCONTRACTOR // Subcontractor payments
+  MATERIAL // Materials & supplies
+  LABOR // Direct labor costs
+  INSURANCE // Insurance premiums
+  OVERHEAD // General overhead
+  OTHER // Other / uncategorized
+}
+
+enum StatusAprovacao {
+  PENDENTE // Aguardando análise
+  EM_ANALISE // Sendo analisada
+  APROVADA // Aprovada
+  REJEITADA // Rejeitada
+  CANCELADA // Cancelada
+}
+
+enum TipoAprovador {
+  GERENTE // Gerente imediato
+  DIRETOR // Diretor/executivo
+  FINANCEIRO // Departamento financeiro
+  ADMINISTRADOR // Administrador do sistema
+}
+
+// ============================================================================
+// MÓDULO: CONTAS BANCÁRIAS
+// ============================================================================
+
+model BankAccount {
+  id        Int @id @default(autoincrement())
+  empresaId Int
+
+  // Informações da Conta
+  nome    String // Nome identificador da conta
+  banco   String // Nome do banco
+  agencia String // Número da agência
+  conta   String // Número da conta
+  digito  String? // Dígito verificador
+  tipo    TipoConta @default(CORRENTE)
+
+  // Saldos e Controle
+  saldoAtual    Decimal  @default(0.00) @db.Decimal(15, 2)
+  saldoInicial  Decimal  @default(0.00) @db.Decimal(15, 2) // Saldo na abertura
+  limiteCredito Decimal? @db.Decimal(15, 2) // Limite para contas com cheque especial
+
+  // Status
+  ativo     Boolean @default(true)
+  principal Boolean @default(false) // Conta principal da empresa
+
+  // Informações Adicionais
+  observacoes       String?   @db.Text
+  ultimaConciliacao DateTime? // Última vez que foi reconciliada
+
+  // Metadata
+  metadata     Json? // Dados extras (API banco, tokens, etc)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  // Relations
+  empresa       Empresa           @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  transactions  BankTransaction[]
+  transfersFrom BankTransfer[]    @relation("TransferFrom")
+  transfersTo   BankTransfer[]    @relation("TransferTo")
+  ownerCompensations OwnerCompensation[]
+
+  @@unique([empresaId, banco, agencia, conta])
+  @@index([empresaId, ativo])
+  @@index([tipo])
+  @@map("bank_accounts")
+}
+
+model BankTransaction {
+  id        Int @id @default(autoincrement())
+  accountId Int
+  empresaId Int
+
+  // Informações da Transação
+  tipo      TipoTransacao
+  categoria String? // Categoria da transação
+  valor     Decimal       @db.Decimal(15, 2)
+  descricao String
+
+  // Dados Bancários
+  documento      String? // Número documento/cheque
+  dataTransacao  DateTime // Data efetiva da transação
+  dataLancamento DateTime @default(now()) // Data registro no sistema
+
+  // Controle e Reconciliação
+  saldoAnterior     Decimal   @db.Decimal(15, 2)
+  saldoPosterior    Decimal   @db.Decimal(15, 2)
+  reconciliada      Boolean   @default(false)
+  dataReconciliacao DateTime?
+
+  // Integrações
+  revenueId  Int? // Link para Receita (se aplicável)
+  expenseId  Int? // Link para Despesa (se aplicável)
+  transferId Int? // Link para Transferência (se aplicável)
+
+  // Metadata
+  comprovante  String? // URL do comprovante
+  observacoes  String?  @db.Text
+  metadata     Json? // Dados extras da API bancária
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  // Relations
+  account  BankAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  empresa  Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  revenue  Revenue?      @relation(fields: [revenueId], references: [id], onDelete: SetNull)
+  expense  Expense?      @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  transfer BankTransfer? @relation(fields: [transferId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, dataTransacao])
+  @@index([empresaId, dataTransacao])
+  @@index([tipo, reconciliada])
+  @@index([categoria])
+  @@map("bank_transactions")
+}
+
+model BankTransfer {
+  id        Int @id @default(autoincrement())
+  empresaId Int
+
+  // Contas Envolvidas
+  fromAccountId Int
+  toAccountId   Int
+
+  // Informações da Transferência
+  valor     Decimal             @db.Decimal(15, 2)
+  descricao String
+  status    StatusTransferencia @default(PENDENTE)
+
+  // Datas
+  dataAgendamento DateTime  @default(now())
+  dataExecucao    DateTime? // Quando foi efetivamente executada
+  dataConclusao   DateTime? // Quando foi concluída/confirmada
+
+  // Controle
+  tentativas     Int     @default(0)
+  ultimaResposta String? @db.Text // Resposta da última tentativa
+  processadoPor  Int? // Usuário que processou
+
+  // Metadata
+  comprovante  String? // URL do comprovante
+  observacoes  String?  @db.Text
+  metadata     Json? // Dados extras
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  // Relations
+  empresa      Empresa           @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  fromAccount  BankAccount       @relation("TransferFrom", fields: [fromAccountId], references: [id], onDelete: Restrict)
+  toAccount    BankAccount       @relation("TransferTo", fields: [toAccountId], references: [id], onDelete: Restrict)
+  transactions BankTransaction[]
+
+  @@index([empresaId, status])
+  @@index([fromAccountId, dataAgendamento])
+  @@index([toAccountId, dataAgendamento])
+  @@index([status, dataAgendamento])
+  @@map("bank_transfers")
+}
+
+// Enums para Contas Bancárias
+
+enum TipoConta {
+  CORRENTE // Conta corrente
+  POUPANCA // Conta poupança
+  INVESTIMENTO // Conta investimento
+  CAIXA // Caixa físico (não é banco)
+  CARTEIRA_DIGITAL // PicPay, Mercado Pago, etc
+}
+
+enum TipoTransacao {
+  CREDITO // Entrada de dinheiro
+  DEBITO // Saída de dinheiro
+  TRANSFERENCIA_ENTRADA // Recebimento de transferência
+  TRANSFERENCIA_SAIDA // Envio de transferência
+  TAXA // Taxa bancária
+  JUROS // Juros (crédito ou débito)
+  ESTORNO // Estorno de transação
+}
+
+enum StatusTransferencia {
+  PENDENTE // Aguardando processamento
+  PROCESSANDO // Em processamento
+  CONCLUIDA // Concluída com sucesso
+  CANCELADA // Cancelada pelo usuário
+  FALHOU // Falhou no processamento
+  ESTORNADA // Estornada
+}
+
+
+
+// ============================================================================
+// MÓDULO: HABILIDADES & DOCUMENTOS (vinculados ao Worker)
+// ============================================================================
+
+model HabilidadeColaborador {
+  id Int @id @default(autoincrement())
+
+  workerId Int? @map("worker_id")
+
+  habilidade  String
+  nivel       String?
+  certificado Boolean?  @default(false)
+  certExpiry  DateTime? @map("cert_expiry")
+
+  worker Worker? @relation("WorkerHabilidades", fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([workerId])
+  @@map("habilidades_colaborador")
+}
+
+model DocumentoColaborador {
+  id Int @id @default(autoincrement())
+
+  workerId Int? @map("worker_id")
+
+  nome      String
+  url       String
+  tipo      String?
+  expiresAt DateTime? @map("expires_at")
+
+  criadoEm DateTime @default(now())
+
+  worker Worker? @relation("WorkerDocumentos", fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([workerId])
+  @@map("documentos_colaborador")
+}
+
+// ============================================================================
+// MÓDULO: WORKFORCE - WORKERS (1099 Contractors / Vendors)
+// ============================================================================
+
+model Worker {
+  id Int @id @default(autoincrement())
+
+  // Login (opcional)
+  usuarioId Int? @unique @map("usuario_id")
+
+  // Dados cadastrais
+  name            String  @db.VarChar(200)
+  email           String? @db.VarChar(200)
+  emailNormalized String? @unique @map("email_normalized") @db.VarChar(200)
+  phone           String? @db.VarChar(30)
+
+  // Endereço
+  addressLine1 String? @map("address_line1") @db.VarChar(200)
+  addressLine2 String? @map("address_line2") @db.VarChar(100)
+  city         String? @db.VarChar(100)
+  state        String? @db.VarChar(50)
+  zip          String? @db.VarChar(20)
+
+  // Tipo: INDIVIDUAL ou COMPANY
+  type WorkerType @default(INDIVIDUAL)
+
+  // Campos para COMPANY (LLC, Corp, etc)
+  companyName String? @map("company_name") @db.VarChar(200)
+  ein         String? @unique @db.VarChar(20)
+
+  // Status
+  status WorkerStatus @default(ACTIVE)
+
+  // F2.1: Classificação fiscal
+  classification WorkerClassification @default(CONTRACTOR_1099) @map("classification")
+
+  // Taxa padrão (pode ser sobrescrita no Assignment)
+  defaultHourlyRate Decimal? @map("default_hourly_rate") @db.Decimal(10, 2)
+
+  // Audit
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  usuario          Usuario?                @relation(fields: [usuarioId], references: [id])
+  financialProfile WorkerFinancialProfile?
+  assignments      Assignment[]
+  payables         Payable[]
+  // Reutiliza tabelas existentes com FK adicional
+  habilidades      HabilidadeColaborador[] @relation("WorkerHabilidades")
+  documentos       DocumentoColaborador[]  @relation("WorkerDocumentos")
+
+  // Relations - Compliance (F1.3)
+  taxProfiles VendorTaxProfile[] @relation("WorkerTaxProfiles")
+  insurances  VendorInsurance[]  @relation("WorkerInsurances")
+  licenses    VendorLicense[]    @relation("WorkerLicenses")
+
+  // F2.2: Subcontract Agreements
+  subcontracts SubcontractAgreement[] @relation("WorkerSubcontracts")
+
+  // F2.3: Lien Waivers
+  lienWaivers LienWaiver[] @relation("WorkerLienWaivers")
+
+  // F4.2A: Punch List
+  projectPunchItemsAssigned ProjectPunchItem[] @relation("ProjectPunchItemAssignedWorker")
+  warrantyTicketsAssigned   WarrantyTicket[]   @relation("WarrantyTicketAssignedWorker")
+
+  // Tax Compliance: Owner Compensation
+  ownerCompensations OwnerCompensation[]
+
+  // Service Orders
+  serviceOrdersAssigned  ServiceOrder[]           @relation("ServiceOrdersAssignedWorker")
+  serviceOrderTeam       ServiceOrderTechnician[] @relation("ServiceOrderTechniciansWorker")
+  workEntries            WorkEntry[]              @relation("WorkerWorkEntries")
+
+  @@index([status])
+  @@index([type])
+  @@map("workers")
+}
+
+model WorkerFinancialProfile {
+  id       Int @id @default(autoincrement())
+  workerId Int @unique @map("worker_id")
+
+  // Dados NÃO sensíveis (sempre retornados no GET padrão)
+  paymentMethod PaymentMethod @default(CHECK) @map("payment_method")
+  payeeName     String?       @map("payee_name") @db.VarChar(200)
+  accountLast4  String?       @map("account_last4") @db.VarChar(4)
+  taxIdLast4    String?       @map("tax_id_last4") @db.VarChar(4)
+  notes         String?       @db.Text
+
+  // Dados sensíveis (CRIPTOGRAFADOS, nullable)
+  // Só retornados via /api/workforce/workers/:id/sensitive
+  encryptedRouting String? @map("encrypted_routing") @db.Text
+  encryptedAccount String? @map("encrypted_account") @db.Text
+  encryptedTaxId   String? @map("encrypted_tax_id") @db.Text
+
+  // Preferências de pagamento
+  preferredPayday String? @map("preferred_payday") @db.VarChar(20)
+
+  // Audit
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@map("worker_financial_profiles")
+}
+
+enum WorkerType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum WorkerStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum WorkerClassification {
+  W2_EMPLOYEE
+  CONTRACTOR_1099
+  SUBCONTRACTOR
+  OWNER_OPERATOR
+}
+
+// ============================================================================
+// MÓDULO: WORKFORCE - ASSIGNMENTS & TIMESHEETS (v2)
+// ============================================================================
+
+model Assignment {
+  id Int @id @default(autoincrement())
+
+  // workerId OBRIGATÓRIO (Etapa 2 concluída)
+  workerId Int @map("worker_id")
+
+  // Alvo (pelo menos 1 deve estar preenchido)
+  jobId     Int? @map("job_id") // ServiceOrder ID
+  projectId Int? @map("project_id") // Projeto ID
+
+  // Tipo e Rate
+  payType         PayType  @default(HOURLY) @map("pay_type")
+  costRateHourly  Decimal? @map("cost_rate_hourly") @db.Decimal(10, 2)
+  fixedCostAmount Decimal? @map("fixed_cost_amount") @db.Decimal(12, 2)
+
+  // Período (effectiveFrom na unique para histórico de rates)
+  effectiveFrom DateTime  @default(now()) @map("effective_from")
+  effectiveTo   DateTime? @map("effective_to")
+
+  // Status
+  status AssignmentStatus @default(ACTIVE)
+
+  // Metadados
+  role  String? @db.VarChar(100)
+  notes String? @db.Text
+
+  // Audit
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  createdById Int?             @map("created_by_id")
+  source      AssignmentSource @default(MANUAL)
+
+  worker     Worker        @relation(fields: [workerId], references: [id])
+  job        ServiceOrder? @relation(fields: [jobId], references: [id])
+  project    Projeto?      @relation(fields: [projectId], references: [id])
+  timesheets Timesheet[]
+  milestones Milestone[]
+
+  // CHAVE ÚNICA
+  // Nota: índice composto precisa de pelo menos um não-null
+  @@index([workerId])
+  @@index([jobId])
+  @@index([projectId])
+  @@index([status])
+  @@map("assignments")
+}
+
+model Timesheet {
+  id           Int @id @default(autoincrement())
+  assignmentId Int @map("assignment_id")
+
+  // Período
+  periodStart DateTime @map("period_start") @db.Date
+  periodEnd   DateTime @map("period_end") @db.Date
+
+  // Workflow
+  status TimesheetStatus @default(DRAFT)
+
+  // Submissão
+  submittedAt   DateTime? @map("submitted_at")
+  submittedById Int?      @map("submitted_by_id")
+
+  // Aprovação
+  approvedAt   DateTime? @map("approved_at")
+  approvedById Int?      @map("approved_by_id")
+
+  // Totais (calculados)
+  totalHours Decimal @default(0) @map("total_hours") @db.Decimal(8, 2)
+  totalCost  Decimal @default(0) @map("total_cost") @db.Decimal(12, 2)
+
+  // Audit
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  assignment Assignment       @relation(fields: [assignmentId], references: [id])
+  entries    TimesheetEntry[]
+
+  @@unique([assignmentId, periodStart, periodEnd])
+  @@index([status])
+  @@index([periodStart])
+  @@map("timesheets")
+}
+
+model TimesheetEntry {
+  id          Int @id @default(autoincrement())
+  timesheetId Int @map("timesheet_id")
+
+  // Dados
+  date      DateTime @db.Date
+  hours     Decimal  @db.Decimal(5, 2)
+  jobId     Int?     @map("job_id")
+  projectId Int?     @map("project_id")
+  note      String?  @db.Text
+
+  // Status individual
+  status TimesheetEntryStatus @default(DRAFT)
+
+  // Migração (para backfill de WorkEntry)
+  migratedFrom String? @map("migrated_from") @db.VarChar(50)
+  migratedId   Int?    @map("migrated_id")
+
+  // Audit
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  timesheet Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+
+  @@index([timesheetId])
+  @@index([date])
+  @@map("timesheet_entries")
+}
+
+model Milestone {
+  id           Int @id @default(autoincrement())
+  assignmentId Int @map("assignment_id")
+
+  // Alvo
+  jobId     Int? @map("job_id")
+  projectId Int? @map("project_id")
+
+  // Dados
+  description String  @db.VarChar(500)
+  amount      Decimal @db.Decimal(12, 2)
+
+  // Workflow
+  status MilestoneStatus @default(DRAFT)
+
+  // Aprovação
+  approvedAt   DateTime? @map("approved_at")
+  approvedById Int?      @map("approved_by_id")
+
+  // Audit
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by_id")
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id])
+
+  @@index([assignmentId])
+  @@index([status])
+  @@map("milestones")
+}
+
+model Payable {
+  id Int @id @default(autoincrement())
+
+  // workerId OBRIGATÓRIO (Etapa 2 concluída)
+  workerId Int @map("worker_id")
+
+  // Período
+  periodStart DateTime? @map("period_start")
+  periodEnd   DateTime? @map("period_end")
+
+  // Status
+  status      PayableStatus @default(PENDING)
+  totalAmount Decimal       @map("total_amount") @db.Decimal(12, 2)
+
+  // Origem
+  createdFrom PayableSource @map("created_from")
+  description String?       @db.VarChar(500)
+
+  // Pagamento
+  paidAt        DateTime?      @map("paid_at")
+  paidById      Int?           @map("paid_by_id")
+  paymentMethod PaymentMethod? @map("payment_method")
+  paymentRef    String?        @map("payment_ref") @db.VarChar(100)
+
+  // Link com Expense (1:1 após PAID)
+  expenseId Int? @unique @map("expense_id")
+
+  // Audit
+  createdAt    DateTime  @default(now()) @map("created_at")
+  createdById  Int?      @map("created_by_id")
+  approvedAt   DateTime? @map("approved_at")
+  approvedById Int?      @map("approved_by_id")
+
+  // Relations
+  worker    Worker            @relation(fields: [workerId], references: [id])
+  lineItems PayableLineItem[]
+
+  @@index([workerId])
+  @@index([status])
+  @@map("payables")
+}
+
+model PayableLineItem {
+  id        Int @id @default(autoincrement())
+  payableId Int @map("payable_id")
+
+  // Alvo
+  jobId     Int? @map("job_id")
+  projectId Int? @map("project_id")
+
+  // Dados
+  description String  @db.VarChar(300)
+  quantity    Decimal @db.Decimal(8, 2)
+  unitCost    Decimal @map("unit_cost") @db.Decimal(10, 2)
+  lineTotal   Decimal @map("line_total") @db.Decimal(12, 2)
+
+  // Origem
+  sourceType PayableSourceType @map("source_type")
+  sourceId   Int               @map("source_id")
+
+  payable Payable @relation(fields: [payableId], references: [id], onDelete: Cascade)
+
+  @@index([payableId])
+  @@map("payable_line_items")
+}
+
+// ENUMS WORKFORCE
+
+enum PayType {
+  HOURLY
+  FIXED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum AssignmentSource {
+  MANUAL
+  COMPAT_LAYER
+}
+
+enum TimesheetStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  LOCKED
+}
+
+enum TimesheetEntryStatus {
+  DRAFT
+  APPROVED
+  LOCKED
+}
+
+enum MilestoneStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  LOCKED
+}
+
+enum PayableStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+enum PayableSource {
+  TIMESHEET
+  MILESTONE
+  MANUAL
+}
+
+enum PayableSourceType {
+  TIMESHEET_ENTRY
+  MILESTONE
+}
+
+enum PaymentMethod {
+  CHECK
+  ZELLE
+  ACH
+  CASH
+  WIRE
+  OTHER
+}
+
+model ExpenseRecurrence {
+  id             Int                   @id @default(autoincrement())
+  expenseId      Int                   @unique
+  frequencia     FrequenciaRecorrencia
+  diaVencimento  Int
+  dataInicio     DateTime
+  dataFim        DateTime?
+  proximaGeracao DateTime
+  ativo          Boolean               @default(true)
+  criadoEm       DateTime              @default(now())
+
+  despesa Expense?  @relation("ExpenseToRecurrence")
+  geradas Expense[] @relation("ExpenseRecurrenceOrigin")
+
+  @@index([proximaGeracao])
+  @@map("expense_recurrences")
+}
+
+// ===================================
+// SERVICE ORDERS MODULE (V3.1)
+// ===================================
+
+enum ServiceOrderStatus {
+  DRAFT // Rascunho
+  SCHEDULED // Agendado, materiais reservados
+  IN_PROGRESS // Técnico executando
+  COMPLETED // Serviço feito
+  AWAITING_PAYMENT // Invoice gerado
+  CLOSED // Pagamento confirmado
+  WRITE_OFF // Perda contábil
+  CANCELED // Cancelada
+}
+
+enum ServiceOrderMaterialStatus {
+  PENDING // Aguardando alocação
+  NEEDS_PURCHASE // Sem estoque
+  RESERVED // Bloqueado (decrementado)
+  CONSUMED // Baixado contabilmente
+  RETURNED // Devolvido
+}
+
+enum MaterialSupplyType {
+  CLIENT_PROVIDES // Cliente fornece
+  COMPANY_PROVIDES // Empresa fornece
+}
+
+enum ScheduleType {
+  FIXED // Data fixa
+  FLEXIBLE // Janela de datas
+}
+
+enum ChecklistItemStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  NOT_APPLICABLE
+}
+
+// S1: Canonical priority values — must match frontend enum everywhere
+enum ServiceOrderPriority {
+  LOW
+  MEDIUM
+  HIGH
+  EMERGENCY
+}
+
+model ServiceOrder {
+  id           Int    @id @default(autoincrement())
+  ticketNumber String @unique @db.VarChar(50)
+
+  // Client and Location
+  clienteId           Int
+  sameClientAddress   Boolean @default(true)
+  serviceAddressLine1 String? @db.VarChar(200)
+  serviceAddressLine2 String? @db.VarChar(200)
+  serviceCity         String? @db.VarChar(100)
+  serviceState        String? @db.VarChar(50)
+  serviceZip          String? @db.VarChar(20)
+  servicePhone        String? @db.VarChar(30)
+  serviceContactName  String? @db.VarChar(100)
+
+  // End Client / On-site Contact (e.g. homeowner when client is a GC)
+  endClientName  String? @db.VarChar(150)
+  endClientPhone String? @db.VarChar(30)
+  endClientEmail String? @db.VarChar(150)
+  endClientNotes String? @db.Text
+
+  // Scheduling
+  scheduleType      ScheduleType @default(FIXED)
+  scheduledDate     DateTime?
+  scheduleDateStart DateTime?
+  scheduleDateEnd   DateTime?
+
+  // Scope and Estimate
+  title          String   @db.VarChar(200)
+  description    String?  @db.Text
+  estimatedHours Decimal? @db.Decimal(5, 2)
+  hourlyRate     Decimal? @db.Decimal(10, 2)
+
+  // Materials
+  materialSupply MaterialSupplyType @default(COMPANY_PROVIDES)
+
+  // Assigned Worker
+  assignedWorkerId Int? @map("assigned_worker_id")
+
+  // Status and Lifecycle
+  status   ServiceOrderStatus @default(DRAFT)
+  priority ServiceOrderPriority?
+
+  // Timestamps
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  scheduledAt  DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  closedAt     DateTime?
+  canceledAt   DateTime?
+  writtenOffAt DateTime?
+
+  // Audit
+  createdById        Int?
+  closedById         Int?
+  canceledById       Int?
+  writtenOffById     Int?
+  cancellationReason String? @db.VarChar(500)
+  writeOffReason     String? @db.VarChar(500)
+
+  // Notes
+  techNotes   String? @db.Text
+  clientNotes String? @db.Text
+
+  // Client Signature
+  clientSignatureUrl String? @map("client_signature_url") @db.VarChar(500)
+
+  // Financial
+  invoiceId     Int?    @unique
+  total         Decimal @default(0) @db.Decimal(12, 2)
+  laborTotal    Decimal @default(0) @db.Decimal(12, 2)
+  materialTotal Decimal @default(0) @db.Decimal(12, 2)
+
+  // Project link
+  projetoId        Int?
+  warrantyTicketId Int? @unique @map("warranty_ticket_id")
+
+  // Relations
+  Cliente              Cliente         @relation(fields: [clienteId], references: [id])
+  Invoice              Invoice?        @relation(fields: [invoiceId], references: [id])
+  Projeto              Projeto?        @relation(fields: [projetoId], references: [id])
+  warrantyTicketOrigin WarrantyTicket? @relation("ServiceOrderWarrantyOrigin", fields: [warrantyTicketId], references: [id], onDelete: SetNull)
+  AssignedWorker       Worker?         @relation("ServiceOrdersAssignedWorker", fields: [assignedWorkerId], references: [id])
+
+  CreatedBy    Usuario? @relation("ServiceOrdersCreated", fields: [createdById], references: [id])
+  ClosedBy     Usuario? @relation("ServiceOrdersClosed", fields: [closedById], references: [id])
+  CanceledBy   Usuario? @relation("ServiceOrdersCanceled", fields: [canceledById], references: [id])
+  WrittenOffBy Usuario? @relation("ServiceOrdersWrittenOff", fields: [writtenOffById], references: [id])
+
+  materials                  ServiceOrderMaterial[]
+  workEntries                WorkEntry[]
+  scopeItems                 ServiceOrderScopeItem[]
+  history                    ServiceOrderHistory[]
+  attachments                ServiceOrderAttachment[]
+  expenses                   Expense[]               @relation("ServiceOrderExpenses") // F1.2
+  purchaseOrders             PurchaseOrder[]
+  changeOrders               ChangeOrder[]
+  warrantyTickets            WarrantyTicket[]        @relation("WarrantyTicketServiceOrder")
+  warrantyTicketsCreatedFrom WarrantyTicket[]        @relation("WarrantyTicketServiceOrderCreated")
+
+  // Workforce Module (v2)
+  assignments    Assignment[]
+  checklistItems ServiceOrderChecklistItem[]
+  technicians    ServiceOrderTechnician[]
+
+  @@index([clienteId])
+  @@index([status])
+  @@index([assignedWorkerId])
+  @@index([scheduledDate])
+  @@index([createdAt])
+  @@index([clienteId, status])
+  @@index([assignedWorkerId, status])
+  @@map("service_orders")
+}
+
+model ServiceOrderMaterial {
+  id             Int  @id @default(autoincrement())
+  serviceOrderId Int
+  changeOrderId  Int?
+  materialId     Int?
+
+  // Identification
+  name        String  @db.VarChar(200)
+  unit        String? @db.VarChar(20)
+  externalSku String? @db.VarChar(50)
+
+  // Quantities
+  quantityPlanned  Decimal @db.Decimal(12, 3)
+  quantityUsed     Decimal @default(0) @db.Decimal(12, 3)
+  quantityReturned Decimal @default(0) @db.Decimal(12, 3)
+
+  // Costs (V3.1 #1)
+  unitCostEstimated Decimal? @db.Decimal(12, 2)
+  unitCostActual    Decimal? @db.Decimal(12, 2)
+  unitPrice         Decimal? @db.Decimal(12, 2)
+
+  // Status
+  status     ServiceOrderMaterialStatus @default(PENDING)
+  flowStatus MaterialFlowStatus?        @map("flow_status")
+
+  // Timestamps
+  reservedAt DateTime?
+  consumedAt DateTime?
+  returnedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relations
+  ServiceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  ChangeOrder  ChangeOrder? @relation("ChangeOrderServiceOrderMaterials", fields: [changeOrderId], references: [id], onDelete: SetNull)
+  Material     Material?    @relation(fields: [materialId], references: [id])
+  attachments  ServiceOrderAttachment[]
+  receiptLinks AttachmentMaterial[]
+  // Field purchase tracking: links to the Expense created when technician purchases externally
+  fieldExpenseId Int?     @map("field_expense_id")
+  fieldExpense   Expense? @relation("FieldPurchaseExpense", fields: [fieldExpenseId], references: [id], onDelete: SetNull)
+
+  // Return tracking
+  returnDestination ReturnDestination? @map("return_destination")
+  refundAmount      Decimal?           @map("refund_amount") @db.Decimal(12, 2)
+
+  @@index([serviceOrderId])
+  @@index([changeOrderId])
+  @@index([materialId])
+  @@index([fieldExpenseId])
+  @@index([status])
+  @@index([serviceOrderId, flowStatus], name: "idx_somat_service_order_flow")
+  @@index([name, unit])
+  @@map("service_order_materials")
+}
+
+model ServiceOrderTechnician {
+  serviceOrderId Int
+  workerId       Int      @map("worker_id")
+  addedAt        DateTime @default(now())
+  addedById      Int?
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  worker       Worker       @relation("ServiceOrderTechniciansWorker", fields: [workerId], references: [id])
+  addedBy      Usuario?     @relation("ServiceOrderTechnicianAddedBy", fields: [addedById], references: [id])
+
+  @@id([serviceOrderId, workerId])
+  @@index([serviceOrderId])
+  @@index([workerId])
+  @@map("service_order_technicians")
+}
+
+model WorkEntry {
+  id             Int @id @default(autoincrement())
+  serviceOrderId Int
+  workerId       Int @map("worker_id")
+
+  // DateTime precision (V3.1)
+  startedAt DateTime
+  endedAt   DateTime
+
+  // Values
+  hourlyRate   Decimal @db.Decimal(10, 2)
+  totalMinutes Int
+  totalCost    Decimal @db.Decimal(10, 2)
+
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+
+  // Relations
+  ServiceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  Worker       Worker       @relation("WorkerWorkEntries", fields: [workerId], references: [id])
+
+  @@index([serviceOrderId])
+  @@index([workerId])
+  @@map("work_entries")
+}
+
+// === V3.2 NEW MODELS ===
+
+model ServiceOrderScopeItem {
+  id             Int             @id @default(autoincrement())
+  serviceOrderId Int
+  changeOrderId  Int?
+  sortOrder      Int             @default(0)
+  description    String          @db.VarChar(500)
+  status         ScopeItemStatus @default(PENDING)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  ServiceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  ChangeOrder  ChangeOrder? @relation("ChangeOrderServiceOrderScopeItems", fields: [changeOrderId], references: [id], onDelete: SetNull)
+
+  @@unique([serviceOrderId, sortOrder])
+  @@index([serviceOrderId])
+  @@index([changeOrderId])
+  @@map("service_order_scope_items")
+}
+
+model ServiceOrderHistory {
+  id             Int                 @id @default(autoincrement())
+  serviceOrderId Int
+  eventType      HistoryEventType
+  fromStatus     ServiceOrderStatus?
+  toStatus       ServiceOrderStatus?
+  reason         String?             @db.VarChar(500)
+  metadata       Json?
+  createdById    Int?
+  createdAt      DateTime            @default(now())
+
+  ServiceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  CreatedBy    Usuario?     @relation("ServiceOrderHistoryCreated", fields: [createdById], references: [id])
+
+  @@index([serviceOrderId])
+  @@index([createdAt])
+  @@index([serviceOrderId, createdAt(sort: Desc)])
+  @@map("service_order_history")
+}
+
+enum ScopeItemStatus {
+  PENDING
+  DONE
+  BLOCKED
+}
+
+enum HistoryEventType {
+  CREATED
+  STATUS_CHANGED
+  CANCELED
+  REOPENED
+  TECH_ASSIGNED
+  MATERIAL_ADDED
+  WORK_ENTRY_ADDED
+  // S2: new events for audit trail completeness
+  INVOICE_GENERATED
+  MATERIAL_RESERVED
+  MATERIAL_CONSUMED
+  MATERIAL_RETURNED
+  TECHNICIAN_ADDED
+  TECHNICIAN_REMOVED
+}
+
+// ============================================================================
+// MÓDULO: VENDOR COMPLIANCE (F1.3)
+// ============================================================================
+
+// ---- Enums ----
+
+enum W9Status {
+  NOT_REQUESTED
+  REQUESTED
+  RECEIVED
+  VERIFIED
+  EXPIRED
+}
+
+enum TinType {
+  SSN
+  EIN
+}
+
+enum InsuranceType {
+  GL // General Liability
+  WC // Workers Compensation
+  AUTO // Commercial Auto
+  UMBRELLA
+}
+
+enum InsuranceStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  NOT_PROVIDED
+}
+
+enum ComplianceStatus {
+  COMPLIANT
+  EXPIRING_SOON
+  NON_COMPLIANT
+  BLOCKED
+}
+
+// ---- Models ----
+
+model VendorTaxProfile {
+  id Int @id @default(autoincrement())
+
+  // Polimórfico: exatamente um deve ser preenchido
+  fornecedorId Int? @map("fornecedor_id")
+  workerId     Int? @map("worker_id")
+
+  w9Status      W9Status  @default(NOT_REQUESTED) @map("w9_status")
+  tinType       TinType?  @map("tin_type")
+  tinLast4      String?   @map("tin_last4") @db.VarChar(4)
+  w9DocumentUrl String?   @map("w9_document_url") @db.VarChar(500)
+  businessName  String?   @map("business_name") @db.VarChar(200)
+  validFrom     DateTime? @map("valid_from")
+  validUntil    DateTime? @map("valid_until")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  fornecedor Fornecedor? @relation("FornecedorTaxProfiles", fields: [fornecedorId], references: [id], onDelete: Cascade)
+  worker     Worker?     @relation("WorkerTaxProfiles", fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([fornecedorId])
+  @@index([workerId])
+  @@index([w9Status])
+  @@map("vendor_tax_profiles")
+}
+
+model VendorInsurance {
+  id Int @id @default(autoincrement())
+
+  // Polimórfico: exatamente um deve ser preenchido
+  fornecedorId Int? @map("fornecedor_id")
+  workerId     Int? @map("worker_id")
+
+  type           InsuranceType   @map("insurance_type")
+  policyNumber   String?         @map("policy_number") @db.VarChar(100)
+  carrier        String?         @db.VarChar(200)
+  coverageAmount Decimal?        @map("coverage_amount") @db.Decimal(12, 2)
+  expiresAt      DateTime        @map("expires_at")
+  documentUrl    String?         @map("document_url") @db.VarChar(500)
+  status         InsuranceStatus @default(NOT_PROVIDED)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  fornecedor Fornecedor? @relation("FornecedorInsurances", fields: [fornecedorId], references: [id], onDelete: Cascade)
+  worker     Worker?     @relation("WorkerInsurances", fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([fornecedorId])
+  @@index([workerId])
+  @@index([expiresAt])
+  @@index([status])
+  @@map("vendor_insurances")
+}
+
+model VendorLicense {
+  id Int @id @default(autoincrement())
+
+  // Polimórfico: exatamente um deve ser preenchido
+  fornecedorId Int? @map("fornecedor_id")
+  workerId     Int? @map("worker_id")
+
+  licenseType   String   @map("license_type") @db.VarChar(100) // electrical, plumbing, general_contractor, etc.
+  licenseNumber String?  @map("license_number") @db.VarChar(100)
+  issuingState  String?  @map("issuing_state") @db.VarChar(50)
+  expiresAt     DateTime @map("expires_at")
+  documentUrl   String?  @map("document_url") @db.VarChar(500)
+  verified      Boolean  @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  fornecedor Fornecedor? @relation("FornecedorLicenses", fields: [fornecedorId], references: [id], onDelete: Cascade)
+  worker     Worker?     @relation("WorkerLicenses", fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([fornecedorId])
+  @@index([workerId])
+  @@index([expiresAt])
+  @@map("vendor_licenses")
+}
+
+// ============================================================================
+// MÓDULO: EMPLOYER BURDEN RATES (F2.1)
+// ============================================================================
+
+model EmployerBurdenRate {
+  id Int @id @default(autoincrement())
+
+  classification WorkerClassification
+
+  // Taxas como percentuais (ex: 7.65 = 7.65%)
+  ficaRate        Decimal @default(7.65) @map("fica_rate") @db.Decimal(5, 2) // Social Security + Medicare (employer portion)
+  futaRate        Decimal @default(0.60) @map("futa_rate") @db.Decimal(5, 2) // Federal Unemployment
+  sutaRate        Decimal @default(2.70) @map("suta_rate") @db.Decimal(5, 2) // State Unemployment (varies by state)
+  workersCompRate Decimal @default(5.00) @map("workers_comp_rate") @db.Decimal(5, 2) // Workers Comp (varies by trade/state)
+  glInsuranceRate Decimal @default(2.00) @map("gl_insurance_rate") @db.Decimal(5, 2) // GL Insurance allocation
+  otherBurdenRate Decimal @default(0.00) @map("other_burden_rate") @db.Decimal(5, 2) // Benefits, PTO, etc.
+
+  // Vigência
+  effectiveFrom DateTime  @map("effective_from")
+  effectiveTo   DateTime? @map("effective_to")
+
+  // Config scope
+  empresaId Int?    @map("empresa_id")
+  notes     String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([classification])
+  @@index([effectiveFrom])
+  @@map("employer_burden_rates")
+}
+
+// ============================================================================
+// MÓDULO: SUBCONTRACTS & LIEN WAIVERS (F2.2 + F2.3)
+// ============================================================================
+
+// ---- Enums ----
+
+enum SubcontractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+enum SubcontractMilestoneStatus {
+  PENDING
+  READY // Todos os gates pass
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+enum MilestoneGateType {
+  INSPECTION_OK
+  PHOTOS_UPLOADED
+  CHECKLIST_COMPLETE
+  LIEN_WAIVER_SIGNED
+  COI_VALID
+  MATERIAL_RETURNED
+  CUSTOM
+}
+
+enum LienWaiverType {
+  CONDITIONAL_PARTIAL
+  UNCONDITIONAL_PARTIAL
+  CONDITIONAL_FINAL
+  UNCONDITIONAL_FINAL
+}
+
+enum BudgetAlertSeverity {
+  WARNING // >80% budget
+  ALERT // >100% budget
+  CRITICAL // >110% budget
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum ChangeOrderJobType {
+  PROJECT
+  SERVICE_ORDER
+}
+
+enum ChangeOrderType {
+  CLIENT_REQUEST
+  UNFORESEEN
+  COMPANY_ERROR
+  CODE_REQUIREMENT
+}
+
+enum ChangeOrderStatus {
+  DRAFT
+  SENT
+  APPROVED
+  APPLIED
+  REJECTED
+  VOIDED
+}
+
+enum ChangeOrderItemType {
+  LABOR
+  MATERIAL
+  FEE
+  DISCOUNT
+}
+
+// ---- Models ----
+
+model SubcontractAgreement {
+  id Int @id @default(autoincrement())
+
+  projectId Int @map("project_id")
+  workerId  Int @map("worker_id")
+
+  scope            String  @db.Text
+  contractValue    Decimal @map("contract_value") @db.Decimal(12, 2)
+  retainagePercent Decimal @default(10.00) @map("retainage_percent") @db.Decimal(5, 2) // US construction 5-10%
+
+  startDate DateTime          @map("start_date")
+  endDate   DateTime?         @map("end_date")
+  status    SubcontractStatus @default(DRAFT)
+
+  notes String? @db.Text
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by_id")
+
+  project    Projeto                @relation(fields: [projectId], references: [id])
+  worker     Worker                 @relation("WorkerSubcontracts", fields: [workerId], references: [id])
+  milestones SubcontractMilestone[]
+
+  @@index([projectId])
+  @@index([workerId])
+  @@index([status])
+  @@map("subcontract_agreements")
+}
+
+model SubcontractMilestone {
+  id          Int @id @default(autoincrement())
+  agreementId Int @map("agreement_id")
+
+  title     String  @db.VarChar(200)
+  sortOrder Int     @default(0) @map("sort_order")
+  percent   Decimal @db.Decimal(5, 2) // ex: 40.00 para 40%
+  amount    Decimal @db.Decimal(12, 2) // valor calculado
+  dueRule   String? @map("due_rule") @db.VarChar(200) // "30 days after start", etc.
+
+  status SubcontractMilestoneStatus @default(PENDING)
+
+  // Link com Payable quando pagamento é gerado
+  payableId Int? @unique @map("payable_id")
+
+  completedAt  DateTime? @map("completed_at")
+  approvedAt   DateTime? @map("approved_at")
+  approvedById Int?      @map("approved_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  agreement SubcontractAgreement       @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  gates     SubcontractMilestoneGate[]
+
+  @@index([agreementId])
+  @@index([status])
+  @@map("subcontract_milestones")
+}
+
+model SubcontractMilestoneGate {
+  id          Int @id @default(autoincrement())
+  milestoneId Int @map("milestone_id")
+
+  gateType   MilestoneGateType @map("gate_type")
+  label      String?           @db.VarChar(200)
+  required   Boolean           @default(true)
+  passed     Boolean           @default(false)
+  passedAt   DateTime?         @map("passed_at")
+  passedById Int?              @map("passed_by_id")
+  notes      String?           @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  milestone SubcontractMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@index([milestoneId])
+  @@map("subcontract_milestone_gates")
+}
+
+// F2.3: Lien Waivers
+
+model LienWaiver {
+  id Int @id @default(autoincrement())
+
+  workerId  Int @map("worker_id")
+  projectId Int @map("project_id")
+
+  type        LienWaiverType
+  amount      Decimal        @db.Decimal(12, 2)
+  throughDate DateTime       @map("through_date") // Coberto até esta data
+  signedAt    DateTime?      @map("signed_at")
+  documentUrl String?        @map("document_url") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  worker Worker @relation("WorkerLienWaivers", fields: [workerId], references: [id])
+
+  @@index([workerId])
+  @@index([projectId])
+  @@index([type])
+  @@map("lien_waivers")
+}
+
+// F2.3: Budget Alerts
+
+model BudgetAlert {
+  id Int @id @default(autoincrement())
+
+  projectId    Int                 @map("project_id")
+  severity     BudgetAlertSeverity
+  thresholdPct Decimal             @map("threshold_pct") @db.Decimal(5, 2) // 80, 100, 110
+  custoAtual   Decimal             @map("custo_atual") @db.Decimal(12, 2)
+  budgetTotal  Decimal             @map("budget_total") @db.Decimal(12, 2)
+  percentUsed  Decimal             @map("percent_used") @db.Decimal(7, 2)
+  message      String?             @db.VarChar(500)
+
+  triggeredAt    DateTime  @default(now()) @map("triggered_at")
+  acknowledgedBy Int?      @map("acknowledged_by")
+  acknowledgedAt DateTime? @map("acknowledged_at")
+
+  project Projeto @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([severity])
+  @@index([triggeredAt])
+  @@map("budget_alerts")
+}
+
+// F2.5: Commitments / Purchase Orders
+
+model PurchaseOrder {
+  id Int @id @default(autoincrement())
+
+  empresaId      Int  @map("empresa_id")
+  projectId      Int? @map("project_id")
+  serviceOrderId Int? @map("service_order_id")
+  vendorId       Int  @map("vendor_id")
+
+  status         PurchaseOrderStatus @default(DRAFT)
+  totalAmount    Decimal             @map("total_amount") @db.Decimal(12, 2)
+  receivedAmount Decimal             @default(0) @map("received_amount") @db.Decimal(12, 2)
+
+  approvedBy Int?      @map("approved_by")
+  approvedAt DateTime? @map("approved_at")
+
+  submittedBy Int?      @map("submitted_by")
+  submittedAt DateTime? @map("submitted_at")
+
+  notes String? @db.Text
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by_id")
+
+  empresa      Empresa       @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  project      Projeto?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  serviceOrder ServiceOrder? @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+  vendor       Fornecedor    @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+
+  approver  Usuario? @relation("PurchaseOrderAprovador", fields: [approvedBy], references: [id], onDelete: SetNull)
+  submitter Usuario? @relation("PurchaseOrderSubmetidoPor", fields: [submittedBy], references: [id], onDelete: SetNull)
+  creator   Usuario? @relation("PurchaseOrderCriador", fields: [createdById], references: [id], onDelete: SetNull)
+
+  items    PurchaseOrderItem[]
+  expenses Expense[]
+  compras  Compra[]
+
+  @@index([empresaId])
+  @@index([projectId])
+  @@index([serviceOrderId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([approvedAt])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id Int @id @default(autoincrement())
+
+  poId       Int  @map("po_id")
+  materialId Int? @map("material_id")
+
+  description String  @db.VarChar(255)
+  quantity    Decimal @db.Decimal(14, 3)
+  unitCost    Decimal @map("unit_cost") @db.Decimal(12, 2)
+  lineTotal   Decimal @map("line_total") @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  material      Material?     @relation(fields: [materialId], references: [id], onDelete: SetNull)
+
+  @@index([poId])
+  @@index([materialId])
+  @@map("purchase_order_items")
+}
+
+// F3.2A: Change Orders
+
+model ChangeOrder {
+  id Int @id @default(autoincrement())
+
+  jobType        ChangeOrderJobType @map("job_type")
+  projectId      Int?               @map("project_id")
+  serviceOrderId Int?               @map("service_order_id")
+
+  type        ChangeOrderType
+  status      ChangeOrderStatus @default(DRAFT)
+  description String            @db.Text
+
+  priceDelta Decimal @default(0) @map("price_delta") @db.Decimal(12, 2)
+  costDelta  Decimal @default(0) @map("cost_delta") @db.Decimal(12, 2)
+  taxDelta   Decimal @default(0) @map("tax_delta") @db.Decimal(12, 2)
+
+  rootCause            String? @map("root_cause") @db.VarChar(500)
+  clientApprovalMethod String? @map("client_approval_method") @db.VarChar(50)
+  signatureUrl         String? @map("signature_url") @db.VarChar(500)
+
+  sentAt            DateTime? @map("sent_at")
+  sentBy            Int?      @map("sent_by")
+  approvedAt        DateTime? @map("approved_at")
+  approvedByName    String?   @map("approved_by_name") @db.VarChar(120)
+  approvedIp        String?   @map("approved_ip") @db.VarChar(64)
+  approvedUserAgent String?   @map("approved_user_agent") @db.VarChar(255)
+  approvedBy        Int?      @map("approved_by")
+  appliedAt         DateTime? @map("applied_at")
+  appliedBy         Int?      @map("applied_by")
+  rejectedAt        DateTime? @map("rejected_at")
+  rejectedByName    String?   @map("rejected_by_name") @db.VarChar(120)
+  rejectedIp        String?   @map("rejected_ip") @db.VarChar(64)
+  rejectedUserAgent String?   @map("rejected_user_agent") @db.VarChar(255)
+  rejectedBy        Int?      @map("rejected_by")
+  rejectedReason    String?   @map("rejected_reason") @db.VarChar(500)
+  voidedAt          DateTime? @map("voided_at")
+  voidedBy          Int?      @map("voided_by")
+  voidedReason      String?   @map("voided_reason") @db.VarChar(500)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by_id")
+
+  project      Projeto?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  serviceOrder ServiceOrder? @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+
+  createdByUser  Usuario? @relation("ChangeOrderCriador", fields: [createdById], references: [id], onDelete: SetNull)
+  sentByUser     Usuario? @relation("ChangeOrderEnviadoPor", fields: [sentBy], references: [id], onDelete: SetNull)
+  approvedByUser Usuario? @relation("ChangeOrderAprovadoPor", fields: [approvedBy], references: [id], onDelete: SetNull)
+  appliedByUser  Usuario? @relation("ChangeOrderAplicadoPor", fields: [appliedBy], references: [id], onDelete: SetNull)
+  rejectedByUser Usuario? @relation("ChangeOrderRejeitadoPor", fields: [rejectedBy], references: [id], onDelete: SetNull)
+  voidedByUser   Usuario? @relation("ChangeOrderAnuladoPor", fields: [voidedBy], references: [id], onDelete: SetNull)
+
+  items                  ChangeOrderItem[]
+  projetoMateriais       ProjetoMaterial[]       @relation("ChangeOrderProjetoMateriais")
+  projetoTarefas         ProjetoTarefa[]         @relation("ChangeOrderProjetoTarefas")
+  serviceOrderMaterials  ServiceOrderMaterial[]  @relation("ChangeOrderServiceOrderMaterials")
+  serviceOrderScopeItems ServiceOrderScopeItem[] @relation("ChangeOrderServiceOrderScopeItems")
+
+  @@index([jobType])
+  @@index([projectId])
+  @@index([serviceOrderId])
+  @@index([status])
+  @@index([type])
+  @@index([appliedAt])
+  @@index([appliedBy])
+  @@index([createdAt])
+  @@map("change_orders")
+}
+
+model ChangeOrderItem {
+  id Int @id @default(autoincrement())
+
+  changeOrderId Int                 @map("change_order_id")
+  type          ChangeOrderItemType
+  description   String              @db.VarChar(500)
+
+  qty       Decimal @db.Decimal(12, 3)
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+  unitCost  Decimal @map("unit_cost") @db.Decimal(12, 2)
+  lineTotal Decimal @map("line_total") @db.Decimal(12, 2)
+  sortOrder Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  changeOrder ChangeOrder @relation(fields: [changeOrderId], references: [id], onDelete: Cascade)
+
+  @@index([changeOrderId])
+  @@index([type])
+  @@index([sortOrder])
+  @@map("change_order_items")
+}
+
+// F4.1A: Permits + Inspections
+
+model ProjectPermit {
+  id Int @id @default(autoincrement())
+
+  projectId Int @map("project_id")
+
+  jurisdiction String       @db.VarChar(255)
+  permitType   PermitType   @map("permit_type")
+  permitNumber String?      @map("permit_number") @db.VarChar(100)
+  status       PermitStatus @default(NOT_SUBMITTED)
+
+  submittedAt DateTime? @map("submitted_at")
+  approvedAt  DateTime? @map("approved_at")
+  expiresAt   DateTime? @map("expires_at")
+
+  feeEstimated Decimal  @default(0) @map("fee_estimated") @db.Decimal(12, 2)
+  feeActual    Decimal? @map("fee_actual") @db.Decimal(12, 2)
+
+  documentUrl String? @map("document_url") @db.VarChar(500)
+  notes       String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project     Projeto             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  expense     Expense?
+  inspections ProjectInspection[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([permitType])
+  @@map("project_permits")
+}
+
+model ProjectInspection {
+  id Int @id @default(autoincrement())
+
+  projectId Int  @map("project_id")
+  permitId  Int? @map("permit_id")
+
+  inspectionType String           @map("inspection_type") @db.VarChar(150)
+  scheduledFor   DateTime         @map("scheduled_for")
+  status         InspectionStatus @default(REQUESTED)
+
+  inspectorName  String? @map("inspector_name") @db.VarChar(150)
+  inspectorPhone String? @map("inspector_phone") @db.VarChar(32)
+  notes          String? @db.Text
+
+  resultDocumentUrl String? @map("result_document_url") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project Projeto        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  permit  ProjectPermit? @relation(fields: [permitId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([permitId])
+  @@index([status])
+  @@index([scheduledFor])
+  @@map("project_inspections")
+}
+
+model ProjectPunchItem {
+  id Int @id @default(autoincrement())
+
+  projectId Int @map("project_id")
+
+  location    String?           @db.VarChar(255)
+  description String            @db.Text
+  priority    PunchItemPriority @default(MEDIUM)
+  status      PunchItemStatus   @default(OPEN)
+
+  assignedToWorkerId Int? @map("assigned_to_worker_id")
+
+  photos         Json?
+  resolvedPhotos Json? @map("resolved_photos")
+
+  dueDate    DateTime? @map("due_date")
+  resolvedAt DateTime? @map("resolved_at")
+  verifiedAt DateTime? @map("verified_at")
+  verifiedBy Int?      @map("verified_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project          Projeto  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedToWorker Worker?  @relation("ProjectPunchItemAssignedWorker", fields: [assignedToWorkerId], references: [id], onDelete: SetNull)
+  verifiedByUser   Usuario? @relation("ProjectPunchItemVerifiedBy", fields: [verifiedBy], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@index([projectId, priority])
+  @@index([assignedToWorkerId])
+  @@map("project_punch_items")
+}
+
+model ProjectCloseout {
+  id Int @id @default(autoincrement())
+
+  projectId Int            @unique @map("project_id")
+  status    CloseoutStatus @default(PENDING_ITEMS)
+
+  generatedAt      DateTime? @map("generated_at")
+  generatedBy      Int?      @map("generated_by")
+  documentUrl      String?   @map("document_url") @db.VarChar(500)
+  deliveredAt      DateTime? @map("delivered_at")
+  deliveredBy      Int?      @map("delivered_by")
+  templateId       Int?      @map("template_id")
+  templateSnapshot Json?     @map("template_snapshot")
+
+  clientAcceptedAt         DateTime? @map("client_accepted_at")
+  clientSignatureUrl       String?   @map("client_signature_url") @db.VarChar(500)
+  clientSatisfactionRating Int?      @map("client_satisfaction_rating")
+  notes                    String?   @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project         Projeto           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  generatedByUser Usuario?          @relation("ProjectCloseoutGeneratedBy", fields: [generatedBy], references: [id], onDelete: SetNull)
+  deliveredByUser Usuario?          @relation("ProjectCloseoutDeliveredBy", fields: [deliveredBy], references: [id], onDelete: SetNull)
+  template        CloseoutTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([generatedBy])
+  @@index([deliveredBy])
+  @@index([templateId])
+  @@index([clientAcceptedAt])
+  @@map("project_closeouts")
+}
+
+model WarrantyTicket {
+  id Int @id @default(autoincrement())
+
+  projectId      Int? @map("project_id")
+  serviceOrderId Int? @map("service_order_id")
+
+  clienteId Int @map("cliente_id")
+
+  title       String @db.VarChar(200)
+  description String @db.Text
+
+  status     WarrantyStatus @default(REPORTED)
+  reportedAt DateTime       @default(now()) @map("reported_at")
+
+  photos Json?
+
+  costToRepair      Decimal?  @map("cost_to_repair") @db.Decimal(12, 2)
+  coveredByWarranty Boolean?  @map("covered_by_warranty")
+  warrantyExpiresAt DateTime? @map("warranty_expires_at")
+
+  assignedToWorkerId    Int? @map("assigned_to_worker_id")
+  serviceOrderCreatedId Int? @map("service_order_created_id")
+
+  resolvedAt DateTime? @map("resolved_at")
+  resolvedBy Int?      @map("resolved_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project             Projeto?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  serviceOrder        ServiceOrder? @relation("WarrantyTicketServiceOrder", fields: [serviceOrderId], references: [id], onDelete: SetNull)
+  cliente             Cliente       @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  assignedToWorker    Worker?       @relation("WarrantyTicketAssignedWorker", fields: [assignedToWorkerId], references: [id], onDelete: SetNull)
+  serviceOrderCreated ServiceOrder? @relation("WarrantyTicketServiceOrderCreated", fields: [serviceOrderCreatedId], references: [id], onDelete: SetNull)
+  createdServiceOrder ServiceOrder? @relation("ServiceOrderWarrantyOrigin")
+  resolvedByUser      Usuario?      @relation("WarrantyTicketResolvedByUser", fields: [resolvedBy], references: [id], onDelete: SetNull)
+
+  @@index([clienteId, status])
+  @@index([projectId])
+  @@index([serviceOrderId])
+  @@index([reportedAt])
+  @@map("warranty_tickets")
+}
+
+model ProjectClientFeedback {
+  id Int @id @default(autoincrement())
+
+  projectId Int                  @unique @map("project_id")
+  status    ClientFeedbackStatus @default(PENDING)
+
+  sentAt      DateTime? @map("sent_at")
+  respondedAt DateTime? @map("responded_at")
+
+  rating  Int?
+  comment String? @db.Text
+
+  publicTestimonialAllowed Boolean @default(false) @map("public_testimonial_allowed")
+  signatureUrl             String? @map("signature_url") @db.VarChar(500)
+  respondedByEmail         String? @map("responded_by_email") @db.VarChar(191)
+  respondedByUserId        Int?    @map("responded_by_user_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project         Projeto  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  respondedByUser Usuario? @relation("ProjectClientFeedbackRespondedByUser", fields: [respondedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([respondedAt])
+  @@index([respondedByUserId])
+  @@map("project_client_feedbacks")
+}
+
+model CloseoutTemplate {
+  id Int @id @default(autoincrement())
+
+  name            String  @db.VarChar(150)
+  serviceType     String  @map("service_type") @db.VarChar(100)
+  isActive        Boolean @default(true) @map("is_active")
+  version         Int     @default(1)
+  createdByUserId Int?    @map("created_by_user_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  createdByUser    Usuario?                  @relation("CloseoutTemplateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  sections         CloseoutTemplateSection[]
+  projectCloseouts ProjectCloseout[]
+
+  @@index([serviceType, isActive])
+  @@index([isActive])
+  @@index([createdByUserId])
+  @@map("closeout_templates")
+}
+
+model CloseoutTemplateSection {
+  id Int @id @default(autoincrement())
+
+  templateId Int @map("template_id")
+  sortOrder  Int @map("sort_order")
+
+  title       String                      @db.VarChar(200)
+  kind        CloseoutTemplateSectionKind
+  contentJson Json?                       @map("content_json")
+  isRequired  Boolean                     @default(true) @map("is_required")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  template CloseoutTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, sortOrder])
+  @@index([templateId])
+  @@map("closeout_template_sections")
+}
+
+model ChecklistTemplate {
+  id Int @id @default(autoincrement())
+
+  name        String  @db.VarChar(150)
+  serviceType String  @map("service_type") @db.VarChar(100)
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items ChecklistTemplateItem[]
+
+  @@index([serviceType, isActive])
+  @@index([isActive])
+  @@map("checklist_templates")
+}
+
+model ChecklistTemplateItem {
+  id Int @id @default(autoincrement())
+
+  templateId Int @map("template_id")
+  sortOrder  Int @map("sort_order")
+
+  description String  @db.Text
+  isRequired  Boolean @default(true) @map("is_required")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  template                   ChecklistTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  projectChecklistItems      ProjectChecklistItem[]
+  serviceOrderChecklistItems ServiceOrderChecklistItem[]
+
+  @@unique([templateId, sortOrder])
+  @@index([templateId])
+  @@map("checklist_template_items")
+}
+
+model ProjectChecklistItem {
+  id Int @id @default(autoincrement())
+
+  projectId      Int @map("project_id")
+  templateItemId Int @map("template_item_id")
+
+  sortOrder   Int                 @map("sort_order")
+  description String              @db.Text
+  isRequired  Boolean             @default(true) @map("is_required")
+  status      ChecklistItemStatus @default(PENDING)
+  completedAt DateTime?           @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project      Projeto               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  templateItem ChecklistTemplateItem @relation(fields: [templateItemId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, templateItemId], map: "pci_project_template_uq")
+  @@index([projectId, status], map: "pci_project_status_idx")
+  @@index([templateItemId], map: "pci_template_item_idx")
+  @@map("project_checklist_items")
+}
+
+model ServiceOrderChecklistItem {
+  id Int @id @default(autoincrement())
+
+  serviceOrderId Int @map("service_order_id")
+  templateItemId Int @map("template_item_id")
+
+  sortOrder   Int                 @map("sort_order")
+  description String              @db.Text
+  isRequired  Boolean             @default(true) @map("is_required")
+  status      ChecklistItemStatus @default(PENDING)
+  completedAt DateTime?           @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  serviceOrder ServiceOrder          @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  templateItem ChecklistTemplateItem @relation(fields: [templateItemId], references: [id], onDelete: Restrict)
+
+  @@unique([serviceOrderId, templateItemId], map: "soci_service_template_uq")
+  @@index([serviceOrderId, status], map: "soci_service_status_idx")
+  @@index([templateItemId], map: "soci_template_item_idx")
+  @@map("service_order_checklist_items")
+}
+
+// ─── Domain Events ──────────────────────────────────────────────────────────
+model DomainEvent {
+  id             String   @id @default(uuid()) @db.VarChar(36)
+  name           String   @db.VarChar(100) // e.g. proposal.approved
+  aggregateType  String   @map("aggregate_type") @db.VarChar(50)
+  aggregateId    String   @map("aggregate_id") @db.VarChar(50)
+  correlationId  String?  @map("correlation_id") @db.VarChar(36)
+  payload        String   @db.LongText // JSON
+  status         String   @default("PENDING") @db.VarChar(20) // PENDING, PROCESSED, FAILED
+  error          String?  @db.Text
+  occurredAt     DateTime @default(now()) @map("occurred_at")
+  processedAt    DateTime? @map("processed_at")
+
+  @@index([name, status], map: "de_name_status_idx")
+  @@index([aggregateType, aggregateId], map: "de_aggregate_idx")
+  @@index([correlationId], map: "de_correlation_idx")
+  @@index([occurredAt], map: "de_occurred_idx")
+  @@map("domain_events")
+}
+
+// ─── Triagem (Triage/Inspection of materials, equipment, tools) ─────
+enum TriagemTipo {
+  MATERIAL
+  EQUIPAMENTO
+  FERRAMENTA
+  INSPECAO
+}
+
+enum TriagemStatus {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum TriagemPrioridade {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+model Triagem {
+  id              Int               @id @default(autoincrement())
+  projetoId       Int               @map("projeto_id")
+  tipo            TriagemTipo
+  status          TriagemStatus     @default(PENDENTE)
+  prioridade      TriagemPrioridade @default(MEDIA)
+  itemId          Int?              @map("item_id")
+  motivo          String            @db.Text
+  resultado       String?           @db.Text
+  observacoes     String?           @db.Text
+  acoesCorretivas String?           @map("acoes_corretivas") @db.Text // JSON array
+  prazoEstimado   DateTime?         @map("prazo_estimado")
+
+  usuarioSolicitanteId Int  @map("usuario_solicitante_id")
+  usuarioResponsavelId Int? @map("usuario_responsavel_id")
+
+  aberturaEm  DateTime  @default(now()) @map("abertura_em")
+  conclusaoEm DateTime? @map("conclusao_em")
+
+  projeto     Projeto  @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  solicitante Usuario  @relation("TriagemSolicitante", fields: [usuarioSolicitanteId], references: [id])
+  responsavel Usuario? @relation("TriagemResponsavel", fields: [usuarioResponsavelId], references: [id])
+
+  @@index([projetoId, status], map: "triagem_projeto_status_idx")
+  @@index([tipo], map: "triagem_tipo_idx")
+  @@index([prazoEstimado], map: "triagem_prazo_idx")
+  @@map("triagens")
+}
+
+// === V3.3 SERVICE ORDER ATTACHMENTS ===
+
+enum ServiceOrderAttachmentType {
+  BEFORE_PHOTO    // Foto do local/equipamento antes do serviço
+  AFTER_PHOTO     // Foto após conclusão do serviço
+  RECEIPT         // Nota fiscal de compra em campo
+  RETURN_RECEIPT  // Comprovante de devolução na loja
+  INVOICE_DOC     // Documento de faturamento/contrato
+  OTHER           // Outro documento
+}
+
+enum ReturnDestination {
+  STORE          // Devolvido na loja com reembolso
+  COMPANY_STOCK  // Devolvido ao estoque da empresa
+}
+
+model ServiceOrderAttachment {
+  id             Int    @id @default(autoincrement())
+  serviceOrderId Int
+  materialItemId Int?   // FK opcional: NF vinculada a um material específico
+
+  type        ServiceOrderAttachmentType
+  filename    String  @db.VarChar(255)  // Nome original do arquivo
+  filepath    String  @db.VarChar(500)  // Caminho relativo em uploads/
+  mime        String  @db.VarChar(100)
+  sizeBytes   Int?
+
+  // Contexto adicional
+  caption      String?  @db.VarChar(500)  // Legenda ou descrição
+  vendorName   String?  @db.VarChar(200)  // Para NF: nome da loja (Home Depot, etc.)
+  receiptTotal Decimal? @db.Decimal(12, 2) // Para NF: valor total da nota
+
+  uploadedBy Int
+  createdAt  DateTime @default(now())
+
+  // Relations
+  ServiceOrder ServiceOrder          @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  MaterialItem ServiceOrderMaterial? @relation(fields: [materialItemId], references: [id], onDelete: SetNull)
+  UploadedBy   Usuario               @relation(fields: [uploadedBy], references: [id])
+  materialItems AttachmentMaterial[]
+
+  @@index([serviceOrderId])
+  @@index([materialItemId])
+  @@index([type])
+  @@map("service_order_attachments")
+}
+
+// Junction table: many-to-many between attachments and materials
+model AttachmentMaterial {
+  attachmentId   Int
+  materialItemId Int
+
+  attachment   ServiceOrderAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  materialItem ServiceOrderMaterial   @relation(fields: [materialItemId], references: [id], onDelete: Cascade)
+
+  @@id([attachmentId, materialItemId])
+  @@index([materialItemId])
+  @@map("attachment_materials")
+}
+
+// ============================================================================
+// MÓDULO: TAX COMPLIANCE — Owner Compensation & Estimated Tax
+// ============================================================================
+
+enum TipoTributacao {
+  LLC_DEFAULT // Single-member LLC → Schedule C
+  S_CORP      // S-Corp election → Form 1120-S + K-1
+}
+
+enum TipoCompensacao {
+  OWNER_DRAW   // LLC: withdrawal of profit (not deductible)
+  SALARY       // S-Corp: W-2 salary (deductible for company)
+  DISTRIBUTION // S-Corp: K-1 distribution (not deductible)
+}
+
+enum QuarterLabel {
+  Q1 // Jan–Mar, due Apr 15
+  Q2 // Apr–May, due Jun 15
+  Q3 // Jun–Aug, due Sep 15
+  Q4 // Sep–Dec, due Jan 15 next year
+}
+
+enum EstimatedTaxStatus {
+  PENDING
+  PAID
+  PARTIAL
+  OVERDUE
+}
+
+model OwnerCompensation {
+  id            Int             @id @default(autoincrement())
+  empresaId     Int
+  workerId      Int
+  tipo          TipoCompensacao
+  valor         Decimal         @db.Decimal(14, 2)
+  data          DateTime
+  descricao     String?         @db.VarChar(255)
+  referencia    String?         @db.VarChar(100) // check number, transaction ref
+  bankAccountId Int?
+  criadoPor     Int?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  // Relations
+  empresa     Empresa      @relation(fields: [empresaId], references: [id])
+  worker      Worker       @relation(fields: [workerId], references: [id])
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
+  usuario     Usuario?     @relation("OwnerCompensationCriadoPor", fields: [criadoPor], references: [id])
+
+  @@index([empresaId, data])
+  @@index([workerId])
+  @@index([tipo])
+  @@map("owner_compensations")
+}
+
+model EstimatedTaxPayment {
+  id              Int                @id @default(autoincrement())
+  empresaId       Int
+  taxYear         Int
+  quarter         QuarterLabel
+  dueDate         DateTime
+  estimatedAmount Decimal            @db.Decimal(14, 2)
+  paidAmount      Decimal            @default(0) @db.Decimal(14, 2)
+  paidDate        DateTime?
+  status          EstimatedTaxStatus @default(PENDING)
+  notas           String?            @db.Text
+  criadoPor       Int?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  // Relations
+  empresa Empresa  @relation(fields: [empresaId], references: [id])
+  usuario Usuario? @relation("EstimatedTaxCriadoPor", fields: [criadoPor], references: [id])
+
+  @@unique([empresaId, taxYear, quarter])
+  @@index([empresaId, taxYear])
+  @@index([status])
+  @@map("estimated_tax_payments")
+}

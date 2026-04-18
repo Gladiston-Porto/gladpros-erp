@@ -1,0 +1,121 @@
+name: Smoke Tests
+
+on:
+  push:
+    branches: [ main, develop, 'fix/*' ]
+  pull_request:
+    branches: [ main, develop ]
+
+concurrency:
+  group: smoke-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gladpros_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # Segredos gerados em runtime (evita hardcode e garante disponibilidade cedo)
+      - name: Generate test secrets
+        run: |
+          echo "JWT_SECRET=$(openssl rand -base64 48)" >> $GITHUB_ENV
+          echo "NEXTAUTH_SECRET=$(openssl rand -base64 48)" >> $GITHUB_ENV
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent; then
+              echo "MySQL is ready"
+              exit 0
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+          echo "MySQL did not become ready in time"
+          exit 1
+
+      - name: Setup Environment
+        run: |
+          # Exporta no ambiente do runner
+          echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/gladpros_test" >> $GITHUB_ENV
+          echo "ADMIN_PASSWORD_TEST=ChangeMe_123!" >> $GITHUB_ENV
+          echo "DISABLE_MFA_FOR_TESTS=false" >> $GITHUB_ENV
+          echo "CLIENT_DOC_ENCRYPTION_KEY_BASE64=YmFzZTY0cGxhY2Vob2xkZXJmb3J0ZXN0aW5ncHVycG9zZXM=" >> $GITHUB_ENV
+          echo "TEST_MODE=true" >> $GITHUB_ENV
+          echo "NODE_ENV=test" >> $GITHUB_ENV
+
+          # Mantém também .env.test caso sua suíte carregue por arquivo
+          cat > .env.test <<EOF
+          DATABASE_URL=mysql://root:root@127.0.0.1:3306/gladpros_test
+          ADMIN_PASSWORD_TEST=ChangeMe_123!
+          DISABLE_MFA_FOR_TESTS=false
+          NEXTAUTH_SECRET=$NEXTAUTH_SECRET
+          JWT_SECRET=$JWT_SECRET
+          CLIENT_DOC_ENCRYPTION_KEY_BASE64=YmFzZTY0cGxhY2Vob2xkZXJmb3J0ZXN0aW5ncHVycG9zZXM=
+          TEST_MODE=true
+          NODE_ENV=test
+          EOF
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Apply DB migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed Database
+        run: npx prisma db seed
+
+      - name: Build Project
+        run: npm run build
+
+      - name: Start Server (Background)
+        run: nohup npm run dev:test > server.log 2>&1 &
+
+      - name: Wait for Server
+        run: npx wait-on http://localhost:3001
+
+      - name: Run Smoke Test
+        run: npm run test:smoke
+        env:
+          CI: true
+
+      - name: Server logs
+        if: always()
+        run: tail -n 200 server.log || true
+
+      - name: Upload server logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs-${{ github.run_id }}
+          path: server.log
+          if-no-files-found: ignore
+          retention-days: 7

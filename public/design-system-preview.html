@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GladPros — Design System v3.0 Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    /* ============================================================
+       DESIGN TOKENS — espelho fiel do globals.css
+    ============================================================ */
+    :root {
+      --brand-primary: #0098DA;
+      --brand-primary-light: #4AC4F5;
+      --brand-primary-dark: #00569E;
+      --brand-secondary: #FF8C00;
+      --brand-secondary-light: #FFB84D;
+      --brand-secondary-dark: #E67300;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --error: #EF4444;
+      --info: #3B82F6;
+
+      /* Light Mode */
+      --bg: #FAFBFC;
+      --bg-card: #FFFFFF;
+      --fg: #1A1A2E;
+      --fg-muted: #6B7280;
+      --border: #E5E7EB;
+      --input-bg: #FFFFFF;
+      --sidebar-bg: #F4F5F7;
+      --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-hover: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+      --radius: 16px;
+      --radius-sm: 8px;
+    }
+
+    .dark {
+      --bg: oklch(0.14 0.01 260);
+      --bg-card: oklch(0.19 0.012 260);
+      --bg-card-2: oklch(0.22 0.014 260);
+      --fg: oklch(0.96 0.005 250);
+      --fg-muted: oklch(0.65 0.01 260);
+      --border: oklch(1 0 0 / 12%);
+      --input-bg: oklch(0.22 0.014 260);
+      --sidebar-bg: oklch(0.16 0.012 260);
+      --shadow-card: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-hover: 0 4px 16px rgba(0,0,0,0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      font-size: 16px;
+      line-height: 1.6;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* Layout */
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 260px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .main { flex: 1; padding: 32px 40px; max-width: 1100px; overflow-x: hidden; }
+
+    /* Sidebar */
+    .sidebar-logo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+    .sidebar-logo-icon {
+      width: 32px; height: 32px;
+      background: var(--brand-primary);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 900; font-size: 14px;
+    }
+    .sidebar-logo-text {
+      font-family: 'Neuropol', Impact, 'Arial Black', sans-serif;
+      font-size: 15px; font-weight: bold;
+      color: var(--brand-primary);
+      letter-spacing: 0.03em;
+    }
+    .sidebar-section { margin-bottom: 20px; }
+    .sidebar-section-title {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--fg-muted);
+      padding: 0 12px; margin-bottom: 6px;
+    }
+    .sidebar-item {
+      display: block; padding: 8px 12px; border-radius: 8px;
+      color: var(--fg-muted); text-decoration: none; font-size: 14px;
+      transition: all 0.15s;
+    }
+    .sidebar-item:hover { background: var(--border); color: var(--fg); }
+    .sidebar-item.active {
+      background: rgba(0, 152, 218, 0.12);
+      color: var(--brand-primary); font-weight: 500;
+    }
+
+    /* Seções */
+    .section { margin-bottom: 56px; }
+    .section-title {
+      font-family: 'Neuropol', Impact, 'Arial Black', sans-serif;
+      font-size: 22px; font-weight: bold;
+      color: var(--brand-primary);
+      margin-bottom: 4px; letter-spacing: 0.02em;
+    }
+    .section-sub {
+      font-size: 14px; color: var(--fg-muted); margin-bottom: 24px;
+      padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    }
+    .subsection { margin-bottom: 32px; }
+    .subsection-title {
+      font-size: 13px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--fg-muted); margin-bottom: 12px;
+    }
+
+    /* ModulePageHeader — padrão atual */
+    .module-header {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+    }
+    .module-header::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--brand-primary);
+    }
+    .module-header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .module-header-left { display: flex; align-items: center; gap: 16px; }
+    .module-header-icon {
+      width: 44px; height: 44px;
+      background: rgba(0, 152, 218, 0.1);
+      border: 1px solid rgba(0, 152, 218, 0.25);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--brand-primary); font-size: 20px;
+    }
+    .module-header-title {
+      font-family: 'Neuropol', Impact, 'Arial Black', sans-serif;
+      font-size: 20px; font-weight: bold; letter-spacing: 0.02em;
+      color: var(--fg);
+    }
+    .module-header-desc { font-size: 13px; color: var(--fg-muted); margin-top: 2px; }
+    .breadcrumbs { display: flex; align-items: center; gap: 6px; margin-top: 12px; }
+    .breadcrumb-item { font-size: 12px; color: var(--fg-muted); }
+    .breadcrumb-item a { color: var(--brand-primary); text-decoration: none; }
+    .breadcrumb-sep { font-size: 10px; color: var(--fg-muted); }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-card);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .card:hover { box-shadow: var(--shadow-hover); }
+    .card-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
+    .card-title { font-size: 15px; font-weight: 600; }
+    .card-content { padding: 20px; }
+
+    /* StatCards */
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      box-shadow: var(--shadow-card);
+      position: relative; overflow: hidden;
+    }
+    .stat-card::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    }
+    .stat-card.blue::after { background: var(--brand-primary); }
+    .stat-card.orange::after { background: var(--brand-secondary); }
+    .stat-card.green::after { background: var(--success); }
+    .stat-card.amber::after { background: var(--warning); }
+    .stat-label { font-size: 12px; color: var(--fg-muted); font-weight: 500; margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+    .stat-trend { font-size: 12px; margin-top: 4px; }
+    .stat-trend.up { color: var(--success); }
+    .stat-trend.down { color: var(--error); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 18px; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      border: 1px solid transparent; transition: all 0.15s;
+      text-decoration: none; white-space: nowrap;
+    }
+    .btn-primary { background: var(--brand-primary); color: white; border-color: var(--brand-primary-dark); }
+    .btn-primary:hover { background: var(--brand-primary-dark); }
+    .btn-secondary { background: var(--brand-secondary); color: white; border-color: var(--brand-secondary-dark); }
+    .btn-secondary:hover { background: var(--brand-secondary-dark); }
+    .btn-outline { background: transparent; color: var(--brand-primary); border-color: var(--brand-primary); }
+    .btn-outline:hover { background: rgba(0, 152, 218, 0.08); }
+    .btn-ghost { background: transparent; color: var(--fg); border-color: var(--border); }
+    .btn-ghost:hover { background: var(--border); }
+    .btn-destructive { background: var(--error); color: white; border-color: #dc2626; }
+    .btn-destructive:hover { background: #dc2626; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+    .btn-lg { padding: 12px 24px; font-size: 15px; min-height: 48px; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 9999px;
+      font-size: 12px; font-weight: 500; border: 1px solid transparent;
+    }
+    .badge-blue { background: rgba(0,152,218,0.12); color: var(--brand-primary); border-color: rgba(0,152,218,0.25); }
+    .badge-orange { background: rgba(255,140,0,0.12); color: var(--brand-secondary); border-color: rgba(255,140,0,0.25); }
+    .badge-green { background: rgba(16,185,129,0.12); color: var(--success); border-color: rgba(16,185,129,0.25); }
+    .badge-amber { background: rgba(245,158,11,0.12); color: var(--warning); border-color: rgba(245,158,11,0.25); }
+    .badge-red { background: rgba(239,68,68,0.12); color: var(--error); border-color: rgba(239,68,68,0.25); }
+    .badge-muted { background: var(--border); color: var(--fg-muted); }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    /* Inputs */
+    .input-group { display: flex; flex-direction: column; gap: 4px; }
+    .input-label { font-size: 13px; font-weight: 500; color: var(--fg); }
+    .input-field {
+      background: var(--input-bg); color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 14px;
+      font-size: 14px; font-family: inherit;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none; width: 100%;
+    }
+    .input-field:focus {
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 3px rgba(0,152,218,0.15);
+    }
+    .input-field::placeholder { color: var(--fg-muted); }
+
+    /* Table */
+    .table-wrapper {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+    }
+    .table-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+    }
+    .table-title { font-size: 15px; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: rgba(0,152,218,0.06); border-bottom: 1px solid var(--border); }
+    th {
+      padding: 11px 16px; text-align: left;
+      font-size: 12px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--fg-muted);
+    }
+    td { padding: 13px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(0,152,218,0.04); }
+
+    /* Colors palette */
+    .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+    .color-swatch {
+      border-radius: 8px; overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-card);
+    }
+    .color-swatch-block { height: 60px; }
+    .color-swatch-info { padding: 8px 10px; background: var(--bg-card); }
+    .color-swatch-name { font-size: 12px; font-weight: 600; }
+    .color-swatch-value { font-size: 11px; color: var(--fg-muted); font-family: monospace; }
+
+    /* Typography showcase */
+    .type-example { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .type-example:last-child { border-bottom: none; }
+    .type-meta { font-size: 11px; color: var(--fg-muted); margin-top: 4px; }
+
+    /* Form layout */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* Alerts */
+    .alert {
+      padding: 12px 16px; border-radius: var(--radius-sm);
+      border: 1px solid; margin-bottom: 10px;
+      font-size: 14px; display: flex; align-items: flex-start; gap: 10px;
+    }
+    .alert-info { background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.3); color: #3b82f6; }
+    .alert-success { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.3); color: #10b981; }
+    .alert-warning { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); color: #f59e0b; }
+    .alert-error { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.3); color: #ef4444; }
+
+    /* Toggle theme */
+    .theme-toggle {
+      position: fixed; top: 20px; right: 20px; z-index: 99;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 9999px; padding: 8px 16px;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      color: var(--fg); display: flex; align-items: center; gap: 6px;
+      box-shadow: var(--shadow-hover); transition: all 0.2s;
+    }
+    .theme-toggle:hover { background: var(--brand-primary); color: white; border-color: var(--brand-primary); }
+
+    /* Divider */
+    hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+    /* Flex/Grid helpers */
+    .flex { display: flex; }
+    .gap-3 { gap: 12px; }
+    .gap-4 { gap: 16px; }
+    .items-center { align-items: center; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .mt-4 { margin-top: 16px; }
+    .mb-4 { margin-bottom: 16px; }
+    .text-muted { color: var(--fg-muted); font-size: 14px; }
+
+    /* Dark mode text fix */
+    .dark .module-header-title { color: oklch(0.96 0.005 250); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Neuropol font fallback (sem o arquivo, usa Impact) */
+    @font-face {
+      font-family: 'Neuropol';
+      src: local('Impact'), local('Arial Black');
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()">
+  <span id="theme-icon">☀️</span> <span id="theme-label">Modo Claro</span>
+</button>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">G</div>
+      <span class="sidebar-logo-text">GLADPROS</span>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Design System</div>
+      <a href="#cores" class="sidebar-item active">🎨 Cores & Tokens</a>
+      <a href="#tipografia" class="sidebar-item">✏️ Tipografia</a>
+      <a href="#componentes" class="sidebar-item">🧩 Componentes</a>
+      <a href="#layout" class="sidebar-item">📐 Layout & Padrões</a>
+      <a href="#tabelas" class="sidebar-item">📋 Tabelas</a>
+      <a href="#formularios" class="sidebar-item">📝 Formulários</a>
+      <a href="#estados" class="sidebar-item">⚡ Estados & Alertas</a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Módulos</div>
+      <a href="#modulo-exemplo" class="sidebar-item">🏗️ Página de Módulo</a>
+      <a href="#dark-light" class="sidebar-item">🌓 Dark vs Light</a>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- Hero -->
+    <div style="margin-bottom: 40px; padding: 32px; background: linear-gradient(135deg, #0098DA 0%, #00569E 100%); border-radius: 16px; color: white;">
+      <div style="font-family: 'Neuropol', Impact, 'Arial Black', sans-serif; font-size: 28px; font-weight: bold; letter-spacing: 0.03em; margin-bottom: 6px;">
+        GLADPROS ERP
+      </div>
+      <div style="font-size: 15px; opacity: 0.85; margin-bottom: 16px;">
+        Design System v3.0 — Preview Interativo
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 500;">Tailwind v4</span>
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 500;">oklch colors</span>
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 500;">Dark + Light Mode</span>
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 500;">48 componentes</span>
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 500;">Tablet-first</span>
+      </div>
+    </div>
+
+    <!-- ===================== CORES ===================== -->
+    <section class="section" id="cores">
+      <div class="section-title">Cores & Tokens</div>
+      <div class="section-sub">Paleta oficial GladPros. Nunca usar cores hardcoded — sempre via CSS variables ou classes utilitárias.</div>
+
+      <div class="subsection">
+        <div class="subsection-title">Cores da Marca</div>
+        <div class="color-grid">
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#0098DA;"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">Brand Primary</div><div class="color-swatch-value">#0098DA</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#4AC4F5;"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">Primary Light</div><div class="color-swatch-value">#4AC4F5</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#00569E;"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">Primary Dark</div><div class="color-swatch-value">#00569E</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#FF8C00;"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">Brand Secondary</div><div class="color-swatch-value">#FF8C00</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#FFB84D;"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">Secondary Light</div><div class="color-swatch-value">#FFB84D</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#E67300;"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">Secondary Dark</div><div class="color-swatch-value">#E67300</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-title">Cores Semânticas</div>
+        <div class="color-grid">
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#10B981;"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">Success</div><div class="color-swatch-value">#10B981</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#F59E0B;"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">Warning</div><div class="color-swatch-value">#F59E0B</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#EF4444;"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">Error</div><div class="color-swatch-value">#EF4444</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#3B82F6;"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">Info</div><div class="color-swatch-value">#3B82F6</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-title">Superfícies — Dark Mode (atual padrão)</div>
+        <div class="color-grid">
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background: oklch(0.14 0.01 260); border: 1px solid rgba(255,255,255,0.1);"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">--background</div><div class="color-swatch-value">oklch(0.14)</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background: oklch(0.19 0.012 260); border: 1px solid rgba(255,255,255,0.1);"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">--card</div><div class="color-swatch-value">oklch(0.19)</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background: oklch(0.22 0.014 260); border: 1px solid rgba(255,255,255,0.1);"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">--card-raised</div><div class="color-swatch-value">oklch(0.22)</div></div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background: oklch(0.16 0.012 260); border: 1px solid rgba(255,255,255,0.1);"></div>
+            <div class="color-swatch-info"><div class="color-swatch-name">--sidebar</div><div class="color-swatch-value">oklch(0.16)</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TIPOGRAFIA ===================== -->
+    <section class="section" id="tipografia">
+      <div class="section-title">Tipografia</div>
+      <div class="section-sub">Neuropol para títulos de módulo/marca. Roboto para todo o resto da interface.</div>
+
+      <div class="type-example">
+        <div style="font-family: 'Neuropol', Impact, 'Arial Black', sans-serif; font-size: 32px; font-weight: bold; color: var(--brand-primary); letter-spacing: 0.02em;">GLADPROS ERP</div>
+        <div class="type-meta">Neuropol Bold — Logo / Título principal de módulo — <code>font-display</code></div>
+      </div>
+      <div class="type-example">
+        <div style="font-family: 'Roboto', sans-serif; font-size: 24px; font-weight: 700;">Título de Página H1</div>
+        <div class="type-meta">Roboto 700 — 24px — Cabeçalhos de seção principais</div>
+      </div>
+      <div class="type-example">
+        <div style="font-family: 'Roboto', sans-serif; font-size: 18px; font-weight: 600;">Subtítulo de Seção H2</div>
+        <div class="type-meta">Roboto 600 — 18px — Seções internas de página</div>
+      </div>
+      <div class="type-example">
+        <div style="font-family: 'Roboto', sans-serif; font-size: 15px; font-weight: 600;">Card Title / Table Header</div>
+        <div class="type-meta">Roboto 600 — 15px — Títulos de cards e tabelas</div>
+      </div>
+      <div class="type-example">
+        <div style="font-family: 'Roboto', sans-serif; font-size: 14px; font-weight: 400;">Texto de corpo padrão. Roboto 16px com line-height 1.6 para máxima legibilidade em tablets e desktops. Operações do dia a dia em Dallas, Texas.</div>
+        <div class="type-meta">Roboto 400 — 14-16px — Texto de corpo padrão</div>
+      </div>
+      <div class="type-example">
+        <div style="font-family: 'Roboto', sans-serif; font-size: 12px; font-weight: 400; color: var(--fg-muted);">Texto secundário, labels, metadados, datas, timestamps</div>
+        <div class="type-meta">Roboto 400 — 12px — <code>text-muted</code></div>
+      </div>
+      <div class="type-example">
+        <div style="font-family: 'Courier New', monospace; font-size: 13px; background: var(--input-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); display: inline-block;">$ npm run dev</div>
+        <div class="type-meta">Monospace — Código, IDs, valores técnicos</div>
+      </div>
+    </section>
+
+    <!-- ===================== COMPONENTES ===================== -->
+    <section class="section" id="componentes">
+      <div class="section-title">Componentes</div>
+      <div class="section-sub">Todos disponíveis via <code>@gladpros/ui</code>. Usar sub-path imports: <code>from '@gladpros/ui/button'</code></div>
+
+      <div class="subsection">
+        <div class="subsection-title">Botões</div>
+        <div class="btn-row">
+          <button class="btn btn-primary">+ Nova Proposta</button>
+          <button class="btn btn-secondary">Exportar</button>
+          <button class="btn btn-outline">Ver Detalhes</button>
+          <button class="btn btn-ghost">Cancelar</button>
+          <button class="btn btn-destructive">🗑 Excluir</button>
+        </div>
+        <div class="btn-row mt-4">
+          <button class="btn btn-primary btn-sm">Pequeno</button>
+          <button class="btn btn-primary">Padrão (44px)</button>
+          <button class="btn btn-primary btn-lg">Grande (48px min)</button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-title">Badges — Status</div>
+        <div class="badge-row">
+          <span class="badge badge-blue">✓ Aprovado</span>
+          <span class="badge badge-orange">◉ Em Andamento</span>
+          <span class="badge badge-green">● Pago</span>
+          <span class="badge badge-amber">⚠ Pendente</span>
+          <span class="badge badge-red">✕ Cancelado</span>
+          <span class="badge badge-muted">— Rascunho</span>
+        </div>
+        <div class="badge-row mt-4">
+          <span class="badge badge-blue">Proposta</span>
+          <span class="badge badge-green">Invoice</span>
+          <span class="badge badge-amber">Projeto</span>
+          <span class="badge badge-orange">Estoque Baixo</span>
+          <span class="badge badge-red">Vencido</span>
+          <span class="badge badge-muted">Inativo</span>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-title">StatCards — KPIs</div>
+        <div class="stat-grid">
+          <div class="stat-card blue">
+            <div class="stat-label">Total de Projetos</div>
+            <div class="stat-value">47</div>
+            <div class="stat-trend up">↑ +3 este mês</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-label">Receita Total</div>
+            <div class="stat-value">$128,450</div>
+            <div class="stat-trend up">↑ +12.4% vs mês anterior</div>
+          </div>
+          <div class="stat-card orange">
+            <div class="stat-label">Propostas Ativas</div>
+            <div class="stat-value">12</div>
+            <div class="stat-trend">→ Estável</div>
+          </div>
+          <div class="stat-card amber">
+            <div class="stat-label">Invoices Pendentes</div>
+            <div class="stat-value">8</div>
+            <div class="stat-trend down">↓ -2 esta semana</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-title">Cards</div>
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Projeto Elétrico</div></div>
+            <div class="card-content">
+              <div class="text-muted mb-4">Casa Residencial — Dallas, TX</div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="badge badge-green">Em Andamento</span>
+                <span style="font-size: 18px; font-weight: 700; color: var(--brand-primary);">$4,200</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Hidráulica Comercial</div></div>
+            <div class="card-content">
+              <div class="text-muted mb-4">Loja — Irving, TX</div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="badge badge-amber">Aguardando</span>
+                <span style="font-size: 18px; font-weight: 700; color: var(--brand-secondary);">$8,900</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Remodeling Bath</div></div>
+            <div class="card-content">
+              <div class="text-muted mb-4">Cond. Royal — Plano, TX</div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="badge badge-blue">Proposta</span>
+                <span style="font-size: 18px; font-weight: 700;">$12,500</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== LAYOUT ===================== -->
+    <section class="section" id="layout">
+      <div class="section-title">Layout & Padrões</div>
+      <div class="section-sub">Padrão atual: ModulePageHeader + StatCards + conteúdo. Hero gradient pesado foi descontinuado.</div>
+
+      <div class="subsection" id="modulo-exemplo">
+        <div class="subsection-title">ModulePageHeader — Padrão v3.1</div>
+
+        <div class="module-header">
+          <div class="module-header-top">
+            <div class="module-header-left">
+              <div class="module-header-icon">📋</div>
+              <div>
+                <div class="module-header-title">Propostas</div>
+                <div class="module-header-desc">Gerenciar propostas comerciais — Dallas, TX</div>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost btn-sm">Exportar</button>
+              <button class="btn btn-primary btn-sm">+ Nova Proposta</button>
+            </div>
+          </div>
+          <div class="breadcrumbs">
+            <span class="breadcrumb-item"><a href="#">Dashboard</a></span>
+            <span class="breadcrumb-sep">›</span>
+            <span class="breadcrumb-item" style="color: var(--fg);">Propostas</span>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-grid">
+          <div class="stat-card blue"><div class="stat-label">Total</div><div class="stat-value">34</div><div class="stat-trend up">↑ +5 este mês</div></div>
+          <div class="stat-card green"><div class="stat-label">Aprovadas</div><div class="stat-value">18</div><div class="stat-trend up">↑ 53% taxa</div></div>
+          <div class="stat-card orange"><div class="stat-label">Em Avaliação</div><div class="stat-value">9</div><div class="stat-trend">→ 3 esta semana</div></div>
+          <div class="stat-card amber"><div class="stat-label">Expiradas</div><div class="stat-value">7</div><div class="stat-trend down">↓ Atenção</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TABELAS ===================== -->
+    <section class="section" id="tabelas">
+      <div class="section-title">Tabelas</div>
+      <div class="section-sub">Padrão com cabeçalho em gradiente sutil, hover, paginação e badges de status.</div>
+
+      <div class="table-wrapper">
+        <div class="table-header">
+          <div class="table-title">Propostas Recentes</div>
+          <div class="flex gap-3 items-center">
+            <input class="input-field" style="width: 200px; padding: 7px 12px;" placeholder="🔍 Buscar..." />
+            <button class="btn btn-outline btn-sm">Filtros</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Proposta</th>
+              <th>Cliente</th>
+              <th>Valor</th>
+              <th>Status</th>
+              <th>Data</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code style="font-size: 12px;">#PRO-2024-047</code></td>
+              <td>Smith Residence</td>
+              <td style="font-weight: 600; color: var(--brand-primary);">$4,200.00</td>
+              <td><span class="badge badge-green">Aprovada</span></td>
+              <td style="color: var(--fg-muted); font-size: 13px;">Abr 15, 2026</td>
+              <td><button class="btn btn-ghost btn-sm">Ver</button></td>
+            </tr>
+            <tr>
+              <td><code style="font-size: 12px;">#PRO-2024-046</code></td>
+              <td>Johnson Corp</td>
+              <td style="font-weight: 600; color: var(--brand-primary);">$18,500.00</td>
+              <td><span class="badge badge-amber">Aguardando</span></td>
+              <td style="color: var(--fg-muted); font-size: 13px;">Abr 12, 2026</td>
+              <td><button class="btn btn-ghost btn-sm">Ver</button></td>
+            </tr>
+            <tr>
+              <td><code style="font-size: 12px;">#PRO-2024-045</code></td>
+              <td>Martinez LLC</td>
+              <td style="font-weight: 600; color: var(--brand-primary);">$7,800.00</td>
+              <td><span class="badge badge-blue">Enviada</span></td>
+              <td style="color: var(--fg-muted); font-size: 13px;">Abr 10, 2026</td>
+              <td><button class="btn btn-ghost btn-sm">Ver</button></td>
+            </tr>
+            <tr>
+              <td><code style="font-size: 12px;">#PRO-2024-044</code></td>
+              <td>Williams Home</td>
+              <td style="font-weight: 600; color: var(--brand-primary);">$2,350.00</td>
+              <td><span class="badge badge-red">Rejeitada</span></td>
+              <td style="color: var(--fg-muted); font-size: 13px;">Abr 08, 2026</td>
+              <td><button class="btn btn-ghost btn-sm">Ver</button></td>
+            </tr>
+            <tr>
+              <td><code style="font-size: 12px;">#PRO-2024-043</code></td>
+              <td>Davis & Sons</td>
+              <td style="font-weight: 600; color: var(--brand-primary);">$31,000.00</td>
+              <td><span class="badge badge-muted">Rascunho</span></td>
+              <td style="color: var(--fg-muted); font-size: 13px;">Abr 06, 2026</td>
+              <td><button class="btn btn-ghost btn-sm">Ver</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 13px; color: var(--fg-muted);">Mostrando 5 de 34 resultados</span>
+          <div class="btn-row">
+            <button class="btn btn-ghost btn-sm">← Anterior</button>
+            <button class="btn btn-primary btn-sm">1</button>
+            <button class="btn btn-ghost btn-sm">2</button>
+            <button class="btn btn-ghost btn-sm">3</button>
+            <button class="btn btn-ghost btn-sm">Próximo →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FORMULÁRIOS ===================== -->
+    <section class="section" id="formularios">
+      <div class="section-title">Formulários</div>
+      <div class="section-sub">react-hook-form + Zod. Labels obrigatórias, feedback inline, touch targets ≥ 48px.</div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Nova Proposta</div></div>
+        <div class="card-content">
+          <div class="form-grid">
+            <div class="input-group">
+              <label class="input-label">Nome do Cliente *</label>
+              <input class="input-field" placeholder="Ex: Smith Residence" />
+            </div>
+            <div class="input-group">
+              <label class="input-label">Tipo de Serviço *</label>
+              <select class="input-field">
+                <option>Elétrica</option>
+                <option>Hidráulica</option>
+                <option>Remodeling</option>
+                <option>Manutenção</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label class="input-label">Valor Estimado (USD) *</label>
+              <input class="input-field" placeholder="0.00" type="number" />
+            </div>
+            <div class="input-group">
+              <label class="input-label">Endereço</label>
+              <input class="input-field" placeholder="Ex: 123 Main St, Dallas TX 75201" />
+            </div>
+            <div class="input-group" style="grid-column: 1 / -1;">
+              <label class="input-label">Descrição do Serviço</label>
+              <textarea class="input-field" rows="3" placeholder="Descreva o serviço a ser realizado..."></textarea>
+            </div>
+          </div>
+          <div class="btn-row mt-4">
+            <button class="btn btn-primary btn-lg">Criar Proposta</button>
+            <button class="btn btn-ghost">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ESTADOS ===================== -->
+    <section class="section" id="estados">
+      <div class="section-title">Estados & Alertas</div>
+      <div class="section-sub">Feedback claro para o usuário. Nunca deixar o sistema sem resposta visível.</div>
+
+      <div class="subsection">
+        <div class="subsection-title">Alertas</div>
+        <div class="alert alert-info">ℹ️ <span>A proposta #PRO-047 foi enviada com sucesso para o cliente.</span></div>
+        <div class="alert alert-success">✅ <span>Pagamento confirmado — Invoice #INV-089 marcada como paga.</span></div>
+        <div class="alert alert-warning">⚠️ <span>Estoque de material elétrico abaixo do mínimo: 3 itens críticos.</span></div>
+        <div class="alert alert-error">❌ <span>Falha ao processar pagamento. Verifique os dados do cartão.</span></div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-title">Estado Vazio (EmptyState)</div>
+        <div class="card">
+          <div class="card-content" style="text-align: center; padding: 48px 20px;">
+            <div style="font-size: 48px; margin-bottom: 12px;">📋</div>
+            <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Nenhuma proposta encontrada</div>
+            <div class="text-muted" style="margin-bottom: 24px;">Crie sua primeira proposta para começar a fechar negócios.</div>
+            <button class="btn btn-primary btn-lg">+ Criar Proposta</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-title">Estado de Carregamento (Skeleton)</div>
+        <div class="stat-grid">
+          <div class="stat-card" style="background: var(--border); animation: pulse 1.5s ease-in-out infinite;">
+            <div style="height: 12px; background: var(--fg-muted); border-radius: 4px; opacity: 0.3; margin-bottom: 8px; width: 60%;"></div>
+            <div style="height: 28px; background: var(--fg-muted); border-radius: 4px; opacity: 0.3; width: 80%;"></div>
+          </div>
+          <div class="stat-card" style="background: var(--border); animation: pulse 1.5s ease-in-out infinite 0.2s;">
+            <div style="height: 12px; background: var(--fg-muted); border-radius: 4px; opacity: 0.3; margin-bottom: 8px; width: 60%;"></div>
+            <div style="height: 28px; background: var(--fg-muted); border-radius: 4px; opacity: 0.3; width: 80%;"></div>
+          </div>
+          <div class="stat-card" style="background: var(--border); animation: pulse 1.5s ease-in-out infinite 0.4s;">
+            <div style="height: 12px; background: var(--fg-muted); border-radius: 4px; opacity: 0.3; margin-bottom: 8px; width: 60%;"></div>
+            <div style="height: 28px; background: var(--fg-muted); border-radius: 4px; opacity: 0.3; width: 80%;"></div>
+          </div>
+          <div class="stat-card" style="background: var(--border); animation: pulse 1.5s ease-in-out infinite 0.6s;">
+            <div style="height: 12px; background: var(--fg-muted); border-radius: 4px; opacity: 0.3; margin-bottom: 8px; width: 60%;"></div>
+            <div style="height: 28px; background: var(--fg-muted); border-radius: 4px; opacity: 0.3; width: 80%;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== DARK vs LIGHT ===================== -->
+    <section class="section" id="dark-light">
+      <div class="section-title">Dark vs Light Mode</div>
+      <div class="section-sub">Use o botão no canto superior direito para alternar. Ambos os modos são suportados nativamente.</div>
+
+      <div class="card">
+        <div class="card-content" style="text-align: center; padding: 32px;">
+          <div style="font-size: 40px; margin-bottom: 12px;">🌓</div>
+          <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Alterne o tema agora</div>
+          <div class="text-muted" style="margin-bottom: 20px;">Clique no botão "Modo Claro / Modo Escuro" no canto superior direito</div>
+          <button class="btn btn-primary btn-lg" onclick="toggleTheme()">Alternar Tema</button>
+        </div>
+      </div>
+
+      <div class="mt-4 grid-2">
+        <div>
+          <div class="subsection-title">Dark Mode — Superfícies</div>
+          <div style="background: oklch(0.14 0.01 260); border-radius: 8px; padding: 16px; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="color: oklch(0.96 0.005 250); font-weight: 600; margin-bottom: 8px;">Background Principal</div>
+            <div style="background: oklch(0.19 0.012 260); border-radius: 6px; padding: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px;">
+              <div style="color: oklch(0.65 0.01 260); font-size: 12px;">Card Surface</div>
+            </div>
+            <div style="background: oklch(0.22 0.014 260); border-radius: 6px; padding: 12px; border: 1px solid rgba(255,255,255,0.1);">
+              <div style="color: oklch(0.65 0.01 260); font-size: 12px;">Raised Surface</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="subsection-title">Light Mode — Superfícies</div>
+          <div style="background: #FAFBFC; border-radius: 8px; padding: 16px; border: 1px solid #E5E7EB;">
+            <div style="color: #1A1A2E; font-weight: 600; margin-bottom: 8px;">Background Principal</div>
+            <div style="background: #FFFFFF; border-radius: 6px; padding: 12px; border: 1px solid #E5E7EB; margin-bottom: 8px;">
+              <div style="color: #6B7280; font-size: 12px;">Card Surface</div>
+            </div>
+            <div style="background: #F4F5F7; border-radius: 6px; padding: 12px; border: 1px solid #E5E7EB;">
+              <div style="color: #6B7280; font-size: 12px;">Muted Surface</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer style="border-top: 1px solid var(--border); padding-top: 24px; margin-top: 40px; text-align: center; color: var(--fg-muted); font-size: 13px;">
+      GladPros ERP — Design System v3.0 Preview · Dallas, Texas · Abril 2026
+    </footer>
+
+  </main>
+</div>
+
+<style>
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+</style>
+
+<script>
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.classList.contains('dark');
+    if (isDark) {
+      html.classList.remove('dark');
+      document.getElementById('theme-icon').textContent = '🌙';
+      document.getElementById('theme-label').textContent = 'Modo Escuro';
+    } else {
+      html.classList.add('dark');
+      document.getElementById('theme-icon').textContent = '☀️';
+      document.getElementById('theme-label').textContent = 'Modo Claro';
+    }
+  }
+
+  // Smooth scroll para links da sidebar
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = document.querySelector(this.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

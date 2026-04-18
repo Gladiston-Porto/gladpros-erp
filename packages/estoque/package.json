@@ -1,0 +1,56 @@
+{
+  "name": "@gladpros/estoque",
+  "version": "1.0.0",
+  "description": "GladPros Estoque Module - Inventory Management System",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "test:watch": "jest --watch",
+    "dev": "next dev",
+    "lint": "eslint .",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  },
+  "exports": {
+    "./components": "./src/components/index.ts",
+    "./api": "./src/api/index.ts",
+    "./lib": "./src/lib/index.ts",
+    "./types": "./src/lib/estoque/types.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.14.0",
+    "next": "^15.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-table": "^8.21.3",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^14.3.1",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "jest": "^29.0.0",
+    "jsdom": "^27.1.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.6"
+  },
+  "peerDependencies": {
+    "next": "^15.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "keywords": [
+    "gladpros",
+    "estoque",
+    "inventory",
+    "management"
+  ],
+  "author": "Gladiston Porto",
+  "license": "MIT"
+}

@@ -1,0 +1,137 @@
+/**
+ * Playbook: invoice.overdue
+ * Triggered by a scheduled job or manual check when an invoice passes its due date
+ * 
+ * Steps:
+ * 1. Validate the invoice is indeed overdue
+ * 2. Update invoice status to OVERDUE
+ * 3. Notify project responsible and admin
+ */
+import { PlaybookStep, PlaybookContext } from './types';
+import { prisma } from '@/lib/prisma';
+import { NotificationService } from '@/shared/lib/notifications';
+
+export interface InvoiceOverdueContext extends PlaybookContext {
+  invoiceId: number;
+  // Populated by steps
+  projetoId?: number;
+}
+
+export function createInvoiceOverdueSteps(ctx: InvoiceOverdueContext): PlaybookStep[] {
+  return [
+    {
+      name: 'validate-invoice',
+      async run() {
+        const invoice = await prisma.invoice.findUnique({
+          where: { id: ctx.invoiceId },
+          select: {
+            id: true,
+            status: true,
+            dataVencimento: true,
+            projetoId: true,
+            valorTotal: true,
+            saldo: true,
+          },
+        });
+
+        if (!invoice) {
+          throw new Error(`Invoice ${ctx.invoiceId} não encontrada`);
+        }
+
+        // Already in a terminal state — skip
+        if (['PAID', 'CANCELLED', 'OVERDUE'].includes(invoice.status)) {
+          throw new Error(`Invoice ${ctx.invoiceId} já está ${invoice.status} — ignorando`);
+        }
+
+        // Not yet due
+        if (invoice.dataVencimento && new Date(invoice.dataVencimento) > new Date()) {
+          throw new Error(`Invoice ${ctx.invoiceId} ainda não está vencida`);
+        }
+
+        ctx.projetoId = invoice.projetoId ?? undefined;
+      },
+    },
+    {
+      name: 'mark-overdue',
+      async run() {
+        await prisma.invoice.update({
+          where: { id: ctx.invoiceId },
+          data: { status: 'OVERDUE' },
+        });
+      },
+    },
+    {
+      name: 'notify-overdue',
+      async run() {
+        const invoice = await prisma.invoice.findUnique({
+          where: { id: ctx.invoiceId },
+          select: {
+            numeroInvoice: true,
+            valorTotal: true,
+            saldo: true,
+            dataVencimento: true,
+            projetoId: true,
+          },
+        });
+
+        if (!invoice) return;
+
+        const valor = Number(invoice.saldo ?? invoice.valorTotal ?? 0);
+        const dataVenc = invoice.dataVencimento
+          ? new Date(invoice.dataVencimento).toLocaleDateString('pt-BR')
+          : 'N/A';
+
+        // Fetch project info separately if linked
+        let projeto: { numeroProjeto: string; titulo: string; responsavelId: number | null; criadoPor: number } | null = null;
+        if (invoice.projetoId) {
+          projeto = await prisma.projeto.findUnique({
+            where: { id: invoice.projetoId },
+            select: { numeroProjeto: true, titulo: true, responsavelId: true, criadoPor: true },
+          });
+        }
+
+        const msg = `Invoice ${invoice.numeroInvoice ?? ctx.invoiceId} (R$ ${valor.toFixed(2)}) venceu em ${dataVenc}${projeto ? ` — Projeto ${projeto.numeroProjeto}` : ''}`;
+
+        // Notify project responsible
+        if (projeto?.responsavelId) {
+          await NotificationService.create({
+            userId: projeto.responsavelId,
+            type: 'warning',
+            title: 'Invoice vencida',
+            message: msg,
+            data: { type: 'invoice_overdue', invoiceId: ctx.invoiceId, projetoId: ctx.projetoId },
+          }).catch(() => {});
+        }
+
+        // Notify project creator as fallback
+        if (projeto?.criadoPor && projeto.criadoPor !== projeto.responsavelId) {
+          await NotificationService.create({
+            userId: projeto.criadoPor,
+            type: 'warning',
+            title: 'Invoice vencida',
+            message: msg,
+            data: { type: 'invoice_overdue', invoiceId: ctx.invoiceId, projetoId: ctx.projetoId },
+          }).catch(() => {});
+        }
+
+        // Notify all admins
+        const admins = await prisma.usuario.findMany({
+          where: { nivel: 'ADMIN', status: 'ATIVO' },
+          select: { id: true },
+        });
+
+        for (const admin of admins) {
+          if (admin.id !== projeto?.responsavelId && admin.id !== projeto?.criadoPor) {
+            await NotificationService.create({
+              userId: admin.id,
+              type: 'warning',
+              title: 'Invoice vencida',
+              message: msg,
+              data: { type: 'invoice_overdue', invoiceId: ctx.invoiceId, projetoId: ctx.projetoId },
+            }).catch(() => {});
+          }
+        }
+      },
+    },
+  ];
+}

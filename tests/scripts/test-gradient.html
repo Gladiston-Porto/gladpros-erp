@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Teste Gradiente</title>
+</head>
+<body style="padding: 40px; background: #f3f4f6;">
+    <h1>Teste de Gradientes CSS</h1>
+    
+    <div style="display: flex; gap: 20px; margin-top: 20px;">
+        <!-- Neutral (Blue) -->
+        <div style="
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(0, 152, 218, 0.8) 0%, rgb(0, 152, 218) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        ">📦</div>
+        
+        <!-- Income (Green) -->
+        <div style="
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgb(74, 222, 128) 0%, rgb(22, 163, 74) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        ">✅</div>
+        
+        <!-- Error (Orange) -->
+        <div style="
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(255, 140, 0, 0.8) 0%, rgb(255, 140, 0) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        ">⚠️</div>
+        
+        <!-- Expense (Red) -->
+        <div style="
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgb(248, 113, 113) 0%, rgb(220, 38, 38) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        ">❌</div>
+    </div>
+    
+    <p style="margin-top: 40px; font-family: system-ui;">
+        Se você vê 4 caixas coloridas com gradientes (azul, verde, laranja, vermelho),
+        então os estilos inline de gradiente CSS funcionam no seu navegador.
+    </p>
+    
+    <p style="margin-top: 20px; font-family: system-ui; color: #dc2626;">
+        <strong>IMPORTANTE:</strong> Abra este arquivo no Chrome/Edge e verifique se os gradientes aparecem.
+    </p>
+</body>
+</html>

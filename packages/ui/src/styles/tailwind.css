@@ -1,0 +1,29 @@
+/**
+ * GladPros UI - Tailwind Base Styles
+ * Classes necessárias para os componentes funcionarem
+ */
+
+/* Garantir que o Tailwind gere essas classes */
+@import "tailwindcss";
+
+/* Classes customizadas dos componentes */
+@layer components {
+  /* PageHeader */
+  .page-header-container {
+    @apply space-y-4 pb-6;
+  }
+  
+  .page-header-breadcrumb {
+    @apply flex items-center space-x-2 text-sm;
+  }
+  
+  .page-header-title {
+    @apply text-3xl font-bold text-gray-900 tracking-wide;
+    font-family: 'Neuropol', Impact, 'Arial Black', sans-serif;
+  }
+  
+  /* FinanceCard */
+  .finance-card {
+    @apply rounded-xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow;
+  }
+}

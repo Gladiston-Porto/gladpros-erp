@@ -1,0 +1,223 @@
+# GladPros ERP — Documentação Técnica
+
+Sistema ERP para GladPros LLC — empresa de construção e serviços em Dallas, Texas.
+
+> **Convenção de nomes**: todos os arquivos seguem o padrão `NN-slug.md` (número de ordem + slug descritivo).  
+> **Arquivos obsoletos** (fases concluídas, duplicatas) estão em `docs/archive/` — preservados para referência.
+
+---
+
+## Índice Rápido
+
+| Seção | Conteúdo |
+|-------|---------|
+| [Architecture](#architecture) | Visão geral do sistema, RBAC, TypeScript, escalabilidade |
+| [Modules](#modules) | Documentação técnica de cada módulo (✅ produção) |
+| [Security](#security) | Relatórios de segurança, vulnerabilidades, análises |
+| [Design System](#design-system) | Status, spec de redesign |
+| [Runbooks](#runbooks) | Deploy, incidentes, KMS |
+| [Archive](#archive) | Docs de fases concluídas e duplicatas removidas |
+
+---
+
+## Architecture
+
+Documentação da arquitetura geral do sistema.
+
+```
+docs/architecture/
+├── 00-audit-2025.md            # Auditoria de arquitetura (2025)
+├── 01-system-overview.md       # Visão completa do sistema
+├── 02-scalability.md           # Estratégia de escalabilidade
+├── 03-quality-standards.md     # Padrões de qualidade de código
+├── 04-rbac.md                  # Modelo de controle de acesso (RBAC)
+└── 05-typescript-guide.md      # Guia TypeScript do projeto
+```
+
+---
+
+## Modules
+
+Documentação técnica de cada módulo em produção.  
+Cada módulo segue o template de 10 seções: Visão Geral, Arquitetura, Modelo de Dados, API REST, Regras de Negócio, RBAC, Estados, Integrações, Problemas Conhecidos, Roadmap.
+
+### ✅ Auth
+```
+docs/modules/auth/
+├── 00-spec.md                  # Especificação completa do módulo
+└── 01-security-review.md       # Auditoria de segurança e correções
+```
+
+### ✅ Clientes
+```
+docs/modules/clientes/
+├── 00-spec.md                  # Especificação completa do módulo
+├── 01-audit.md                 # Revisão completa (qualidade + RBAC)
+└── 02-security-fixes.md        # Correções de segurança implementadas
+```
+
+### ✅ Estoque
+```
+docs/modules/estoque/
+├── 00-spec.md                  # Status final e especificação
+├── 01-api-reference.md         # Referência de endpoints da API
+├── 02-user-guide.md            # Guia do usuário
+└── 03-quality-audit.md         # Auditoria de qualidade
+```
+
+### ✅ Financeiro
+```
+docs/modules/financeiro/
+├── 00-overview.md              # Visão geral e resumo
+├── 01-decisions.md             # Decisões de design confirmadas
+├── 02-schema-invoice.md        # Schema do modelo Invoice
+├── 03-schema-ledger.md         # Schema do Ledger / contabilidade
+├── 04-chart-of-accounts.md     # Plano de contas (Texas)
+├── 05-api-reference.md         # Referência da API
+├── 06-reports.md               # Relatórios financeiros
+├── 07-automation-hooks.md      # Automações e hooks
+└── 08-executive-summary.md     # Sumário executivo
+```
+
+### ✅ Invoices *(novo)*
+```
+docs/modules/invoices/
+└── 00-spec.md                  # Especificação completa: ciclo de vida, PDF, pagamentos, RBAC
+```
+
+### ✅ Projetos
+```
+docs/modules/projetos/
+├── 00-spec.md                  # Especificação do módulo
+├── 01-implementation-plan.md   # Plano de implementação
+├── 02-stages-integration.md    # Integração de etapas
+└── 03-bugfix-infinite-loop.md  # Fix: loop infinito
+```
+
+### ✅ Propostas
+```
+docs/modules/propostas/
+├── 00-spec.md                  # Especificação e sumário de implementação
+└── 01-layout-patterns.md       # Padrões de layout e padronização
+```
+
+### ✅ Reports (Relatórios) *(novo)*
+```
+docs/modules/reports/
+└── 00-spec.md                  # Hub de relatórios, tipos, API, RBAC
+```
+
+### ✅ RH
+```
+docs/modules/rh/
+└── 00-spec.md                  # Especificação completa do módulo RH
+```
+
+### ✅ Service Orders (Ordens de Serviço) *(novo)*
+```
+docs/modules/service-orders/
+└── 00-spec.md                  # Ciclo completo: criação → execução → invoice, máquina de estados, RBAC
+```
+
+### ✅ Usuários *(novo)*
+```
+docs/modules/usuarios/
+└── 00-spec.md                  # Gerenciamento de usuários, hierarquia de roles, RBAC, segurança
+```
+
+### ✅ Workforce
+```
+docs/modules/workforce/
+└── 00-spec.md                  # Especificação completa do módulo Workforce
+```
+
+---
+
+## Security
+
+Relatórios de segurança, análises de vulnerabilidades e correções.
+
+```
+docs/security/
+├── 00-overview.md                  # Relatório geral de segurança
+├── 01-vulnerabilities-fixed.md     # Correções implementadas
+├── 02-vul-003-token-rotation.md    # Checklist VUL-003: Token Rotation
+├── 03-vul-004-kms.md               # VUL-004: KMS — conclusão final
+└── 04-login-security-analysis.md   # Análise de segurança do login
+```
+
+---
+
+## Design System
+
+```
+docs/design-system/
+├── 00-status-report.md         # Status atual do design system
+└── 01-redesign-spec.md         # Proposta de redesign geral
+```
+
+> Preview interativo: [`public/design-system-preview.html`](../public/design-system-preview.html)
+
+---
+
+## Runbooks
+
+Procedimentos operacionais para deploy, incidentes e operações de KMS.
+
+```
+docs/runbooks/
+├── 00-deploy.md                # Checklist de deploy
+├── 01-incident-response.md     # Resposta a incidentes
+└── 02-kms-operations.md        # Operações de KMS (rotação de chaves)
+```
+
+---
+
+## Outros
+
+```
+docs/gate-pre-beta-provas.md    # Critérios de qualidade pré-beta (gates)
+```
+
+---
+
+## Archive
+
+Documentos de fases concluídas, duplicatas e análises históricas.  
+**Não deletados** — preservados para auditoria e referência.
+
+```
+docs/archive/
+├── design-system/
+│   ├── 2025-q4-execution-plan.md       # Plano de execução Q4/2025 (concluído)
+│   ├── 2025-q4-sumario-executivo.md    # Sumário executivo Q4/2025
+│   └── 2025-q4-gap-analysis.md         # Gap analysis Q4/2025
+└── audits/
+    ├── 2025-security-senior-review.md  # Senior review de módulos (Nov/2025)
+    ├── 2025-vul-003-token-rotation.md  # Relatório VUL-003 original
+    ├── 2025-financeiro-analise-completa.md
+    ├── 2025-financeiro-contas-bancarias.md
+    ├── 2025-financeiro-despesas-apis.md
+    ├── 2025-financeiro-invoice-system.md
+    ├── 2025-financeiro-receitas.md
+    └── 2025-financeiro-despesas.md
+```
+
+---
+
+## Módulos em Produção (resumo rápido)
+
+| Módulo | Status | Doc principal |
+|--------|--------|--------------|
+| Auth / MFA | ✅ Produção | `modules/auth/00-spec.md` |
+| Clientes | ✅ Produção | `modules/clientes/00-spec.md` |
+| Estoque | ✅ Produção | `modules/estoque/00-spec.md` |
+| Financeiro | ✅ Produção | `modules/financeiro/00-overview.md` |
+| Invoices | ✅ Produção | `modules/invoices/00-spec.md` |
+| Projetos | ✅ Produção | `modules/projetos/00-spec.md` |
+| Propostas | ✅ Produção | `modules/propostas/00-spec.md` |
+| Reports | ✅ Produção | `modules/reports/00-spec.md` |
+| RH | ✅ Produção | `modules/rh/00-spec.md` |
+| Service Orders | ✅ Produção | `modules/service-orders/00-spec.md` |
+| Usuários | ✅ Produção | `modules/usuarios/00-spec.md` |
+| Workforce | ✅ Produção | `modules/workforce/00-spec.md` |

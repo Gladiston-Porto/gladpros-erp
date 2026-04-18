@@ -20,9 +20,9 @@
     "test:all": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug",
+    "test:e2e": "playwright test --config playwright.config.ts",
+    "test:e2e:ui": "playwright test --ui --config playwright.config.ts",
+    "test:e2e:debug": "playwright test --debug --config playwright.config.ts",
     "test:e2e:headed": "playwright test --headed",
     "test:integration:json": "jest -c config/jest.integration.config.js --runInBand --passWithNoTests --json --outputFile=tests/.reports/jest-integration.json",
     "test:changed:pr": "node scripts/jest-changed-pr.js",
@@ -78,7 +78,11 @@
     "audit:css": "node scripts/find-dead-css.mjs",
     "doc:update": "node scripts/update-doc-section.mjs",
     "format": "prettier --write .",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "build:e2e": "cross-env E2E_BUILD=1 NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "start:e2e": "next start -p 3007",
+    "serve:e2e": "npm run build:e2e && next start -p 3007",
+    "test:e2e:built": "PLAYWRIGHT_SKIP_SERVER=1 BASE_URL=http://127.0.0.1:3007 playwright test --config playwright.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

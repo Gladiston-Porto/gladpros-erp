@@ -1,0 +1,115 @@
+import prisma from '@/lib/prisma';
+import { ProjectNumberService } from './ProjectNumberService';
+import { validateProposalCompleteness } from '@/domains/proposals/services';
+
+export class ProjectProposalConversionServiceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProjectProposalConversionServiceError';
+  }
+}
+
+export class ProjectProposalConversionService {
+  private prisma = prisma;
+  private numberService = new ProjectNumberService();
+
+  async convertFromProposal(propostaId: number, usuarioId: number) {
+    const proposta = await this.prisma.proposta.findUnique({
+      where: { id: propostaId },
+      include: {
+        Cliente: true,
+        PropostaMaterial: true,
+        PropostaEtapa: true,
+      },
+    });
+
+    if (!proposta) {
+      throw new ProjectProposalConversionServiceError('Proposta não encontrada');
+    }
+
+    if (proposta.projetoId) {
+      throw new ProjectProposalConversionServiceError('Esta proposta já foi convertida em projeto');
+    }
+
+    const validation = validateProposalCompleteness(proposta);
+    if (!validation.valid) {
+      throw new ProjectProposalConversionServiceError(validation.errors.join('; '));
+    }
+
+    const numeroProjeto = await this.numberService.gerarNumeroProjeto();
+
+    return this.prisma.$transaction(async (tx) => {
+      const novoProjeto = await tx.projeto.create({
+        data: {
+          numeroProjeto,
+          titulo: proposta.titulo,
+          descricao: proposta.descricaoEscopo,
+          clienteId: proposta.clienteId,
+          propostaId: proposta.id,
+          status: 'planejado',
+          valorEstimado: proposta.valorEstimado,
+          criadoPor: usuarioId,
+          Etapas: {
+            create: proposta.PropostaEtapa.map((etapa) => ({
+              titulo: etapa.servico,
+              servico: etapa.servico,
+              descricao: etapa.descricao,
+              ordem: etapa.ordem,
+              status: 'pendente',
+              inicioPrevisto: new Date(),
+              fimPrevisto: new Date(new Date().setDate(new Date().getDate() + Number(etapa.duracaoEstimadaHoras || 0) / 8)),
+            })),
+          },
+          Materiais: {
+            create: proposta.PropostaMaterial.map((material) => ({
+              nome: material.nome,
+              codigo: material.codigo,
+              unidade: material.unidade,
+              quantidadePlanejada: material.quantidade,
+              quantidadeLiberada: 0,
+              quantidadeUtilizada: 0,
+            })),
+          },
+        },
+      });
+
+      await tx.proposta.update({
+        where: { id: proposta.id },
+        data: {
+          status: 'APROVADA',
+          projetoId: novoProjeto.id,
+          aprovadaEm: new Date(),
+          atualizadoPor: usuarioId,
+        },
+      });
+
+      for (const material of proposta.PropostaMaterial) {
+        if (!material.codigo) {
+          continue;
+        }
+
+        const materialEstoque = await tx.material.findUnique({
+          where: { codigo: material.codigo },
+        });
+
+        if (!materialEstoque) {
+          continue;
+        }
+
+        await tx.projetoMaterialEstoque.create({
+          data: {
+            projetoId: novoProjeto.id,
+            materialId: materialEstoque.id,
+            quantidadeReservada: material.quantidade,
+            quantidadeUsada: 0,
+            cobrarCliente: true,
+            dataReserva: new Date(),
+            observacoes: `Reservado via conversão da proposta ${proposta.numeroProposta}`,
+          },
+        });
+      }
+
+      return novoProjeto;
+    });
+  }
+}

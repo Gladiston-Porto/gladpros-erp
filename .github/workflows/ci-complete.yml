@@ -1,0 +1,386 @@
+name: CI Complete
+
+on:
+  push:
+    branches: [main, develop, 'feature/**', 'fix/**', 'chore/**']
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Executa diariamente às 6h UTC (3h BRT) para detectar flakiness
+    - cron: '0 6 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Job 1: Qualidade de Código (rápido, sem DB)
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gladpros_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env from example
+        run: cp .env.example .env
+
+      - name: Generate test secrets
+        run: echo "JWT_SECRET=$(openssl rand -base64 48)" >> $GITHUB_ENV
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -u root -proot --silent; then
+              echo "MySQL is ready"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Setup database for unit tests
+        run: |
+          echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/gladpros_test" > .env
+          npx prisma generate
+          npx prisma migrate deploy || npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: "mysql://root:root@127.0.0.1:3306/gladpros_test"
+
+      - name: Setup upstream remote (fork-safe)
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.event.pull_request.base.repo.full_name }}" ]; then
+            git remote add upstream https://github.com/${{ github.event.pull_request.base.repo.full_name }}.git || true
+            git fetch upstream ${{ github.base_ref }} --prune
+          else
+            git fetch origin ${{ github.base_ref }} --prune
+          fi
+
+      - name: Fetch base ref (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.event.pull_request.base.repo.full_name }}" ]; then
+            echo "BASE_REF=upstream/${{ github.base_ref }}" >> $GITHUB_ENV
+          else
+            echo "BASE_REF=origin/${{ github.base_ref }}" >> $GITHUB_ENV
+          fi
+
+      - name: Run changed tests (fast feedback)
+        if: github.event_name == 'pull_request'
+        env:
+          CHANGED_SINCE: ${{ env.BASE_REF }}
+        run: npm run test:changed:pr
+
+      - name: Run related tests (impact analysis)
+        if: github.event_name == 'pull_request'
+        run: |
+          set -e
+          CHANGED=$(mktemp)
+          git diff --name-only -z ${{ env.BASE_REF }}...HEAD -- 'src/**' > "$CHANGED"
+
+          if [ ! -s "$CHANGED" ]; then
+            echo "No src/ changes detected"
+            rm "$CHANGED"
+            exit 0
+          fi
+
+          echo "Changed files:"
+          tr '\0' '\n' < "$CHANGED"
+
+          echo "Related tests:"
+          xargs -0 -r npx jest --findRelatedTests --listTests --passWithNoTests < "$CHANGED" | tee related-tests.log
+
+          echo "Running related tests..."
+          xargs -0 -r npx jest --findRelatedTests --passWithNoTests < "$CHANGED"
+
+          rm "$CHANGED"
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run type-check
+        run: npm run type-check
+
+      - name: Run unit tests
+        run: npm run test:unit
+        env:
+          CI: true
+          NODE_ENV: test
+          DATABASE_URL: "mysql://root:root@127.0.0.1:3306/gladpros_test"
+
+      - name: Upload related tests list (on failure)
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: related-tests-list-${{ github.run_id }}
+          path: |
+            related-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Job 2: Testes de Integração (com DB)
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: quality
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gladpros_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -u root -proot --silent; then
+              echo "MySQL is ready"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Setup test environment
+        run: |
+          echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/gladpros_test" >> .env.test
+          echo "ADMIN_PASSWORD_TEST=ChangeMe_123!" >> .env.test
+          echo "DISABLE_MFA_FOR_TESTS=true" >> .env.test
+          echo "NEXTAUTH_SECRET=supersecret" >> .env.test
+          echo "CLIENT_DOC_ENCRYPTION_KEY_BASE64=YmFzZTY0cGxhY2Vob2xkZXJmb3J0ZXN0aW5ncHVycG9zZXM=" >> .env.test
+          echo "TEST_MODE=true" >> .env.test
+          echo "JWT_SECRET=ci_dummy_jwt_secret_key_that_is_at_least_32_characters_long_for_testing" >> .env.test
+          echo "NODE_ENV=test" >> .env.test
+
+      - name: Setup test database
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/gladpros_test
+
+      - name: Seed Database
+        run: npx prisma db seed
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/gladpros_test
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          CI: true
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/gladpros_test
+
+      - name: Run database tests
+        run: npm run test:database
+        env:
+          CI: true
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/gladpros_test
+
+  # Job 3: Build (depende dos testes passarem)
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+    needs: [quality, integration-tests]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+        env:
+          CI: true
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci_dummy_jwt_secret' }}
+          CLIENT_DOC_ENCRYPTION_KEY_BASE64: ${{ secrets.CLIENT_DOC_ENCRYPTION_KEY_BASE64 || 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' }}
+          CLIENT_DOC_ENCRYPTION_KEY_FALLBACKS: ${{ secrets.CLIENT_DOC_ENCRYPTION_KEY_FALLBACKS || '' }}
+          KMS_MASTER_KEY: ${{ secrets.KMS_MASTER_KEY || 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'mysql://root:root@localhost:3306/gladpros_ci' }}
+
+      - name: Check build artifacts
+        run: |
+          if [ ! -d ".next" ]; then
+            echo "❌ Build failed - .next directory not found"
+            exit 1
+          fi
+          echo "✅ Build successful!"
+
+      - name: Upload build artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            .next/
+            *.log
+          if-no-files-found: ignore
+
+  # Job 4: Testes E2E (opcional, só em PRs principais)
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'develop')
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gladpros_e2e
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -u root -proot --silent; then
+              echo "MySQL is ready"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Setup E2E environment
+        run: |
+          echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/gladpros_e2e" >> .env.e2e
+          echo "ADMIN_PASSWORD_TEST=ChangeMe_123!" >> .env.e2e
+          echo "DISABLE_MFA_FOR_TESTS=true" >> .env.e2e
+          echo "NEXTAUTH_SECRET=supersecret" >> .env.e2e
+          echo "CLIENT_DOC_ENCRYPTION_KEY_BASE64=YmFzZTY0cGxhY2Vob2xkZXJmb3J0ZXN0aW5ncHVycG9zZXM=" >> .env.e2e
+          echo "TEST_MODE=true" >> .env.e2e
+          echo "JWT_SECRET=ci_dummy_jwt_secret_key_that_is_at_least_32_characters_long_for_testing" >> .env.e2e
+          echo "KMS_MASTER_KEY=BfQBcY8gxwi+Vrg+LJQ0uaaSnm9wp8rTFifRwq+RHDk=" >> .env.e2e
+          echo "NODE_ENV=test" >> .env.e2e
+          echo "SEED_ADMIN_EMAIL=admin@gladpros.com" >> .env.e2e
+          echo "SEED_ADMIN_PASS=Admin123!@#" >> .env.e2e
+
+      - name: Reset E2E database
+        run: npm run test:db:reset
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/gladpros_e2e
+          SEED_ADMIN_EMAIL: admin@gladpros.com
+          SEED_ADMIN_PASS: Admin123!@#
+          KMS_MASTER_KEY: BfQBcY8gxwi+Vrg+LJQ0uaaSnm9wp8rTFifRwq+RHDk=
+          NODE_ENV: test
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          CI: true
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/gladpros_e2e
+          JWT_SECRET: ci_dummy_jwt_secret_key_that_is_at_least_32_characters_long_for_testing
+          KMS_MASTER_KEY: BfQBcY8gxwi+Vrg+LJQ0uaaSnm9wp8rTFifRwq+RHDk=
+          TEST_MODE: true
+          NODE_ENV: test
+          DISABLE_MFA_FOR_TESTS: true
+          SEED_ADMIN_EMAIL: admin@gladpros.com
+          SEED_ADMIN_PASS: Admin123!@#
+          RBAC_TRUST_JWT: "1"
+
+  # Job 5: Relatório Final
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [quality, integration-tests, build, e2e-tests]
+    if: always()
+
+    steps:
+      - name: Generate test report
+        run: |
+          echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Quality | ${{ needs.quality.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.quality.result }}" == "success" ] && [ "${{ needs.integration-tests.result }}" == "success" ] && [ "${{ needs.build.result }}" == "success" ]; then
+            echo "✅ All critical checks passed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Some checks failed. Please review the logs." >> $GITHUB_STEP_SUMMARY
+          fi

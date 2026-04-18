@@ -1,0 +1,103 @@
+// src/app/api/usuarios/[id]/toggle-status/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/shared/lib/rbac";
+import { withErrorHandler } from '@/lib/api/error-handler';
+import { AuditoriaService } from "@/shared/lib/audit";
+import { UserRole, canManageRole } from "@/shared/lib/user-hierarchy";
+
+export const PUT = withErrorHandler(async (req: NextRequest,
+  context: { params: Promise<{ id: string }> }) => {
+    // Verificar autenticação
+    const user = await requireUser(req);
+
+    // Verificar se usuário tem permissão (apenas ADMIN e GERENTE podem alterar status)
+    if (!['ADMIN', 'GERENTE'].includes(user.role)) {
+      return NextResponse.json(
+        { error: 'Acesso negado. Apenas administradores podem alterar status de usuários.' },
+        { status: 403 }
+      );
+    }
+
+    const params = await context.params;
+    const id = Number(params.id);
+
+    if (!id || isNaN(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
+    // Verificar se o usuário existe
+    const existingUser = await prisma.usuario.findUnique({
+      where: { id },
+      select: { id: true, status: true, email: true, nivel: true }
+    });
+
+    if (!existingUser) {
+      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+    }
+
+    // Impedir que usuário desative a si mesmo
+    if (Number(user.id) === id) {
+      return NextResponse.json(
+        { error: "Não é possível alterar o status da própria conta" },
+        { status: 400 }
+      );
+    }
+
+    // Hierarquia: só pode gerenciar quem está abaixo na pirâmide
+    const targetRoleRaw = String(existingUser.nivel ?? '').toUpperCase();
+    if ((Object.values(UserRole) as string[]).includes(targetRoleRaw)) {
+      if (!canManageRole(user.role as UserRole, targetRoleRaw as UserRole)) {
+        return NextResponse.json(
+          { error: "Você não pode gerenciar este usuário." },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Toggle status
+    const newStatus = existingUser.status === 'ATIVO' ? 'INATIVO' : 'ATIVO';
+
+    // Dead-man ADMIN: impedir desativar o último ADMIN
+    if (targetRoleRaw === 'ADMIN' && newStatus === 'INATIVO') {
+      const otherActiveAdmins = (await prisma.$queryRaw<Array<{ cnt: bigint | number }>>`
+        SELECT COUNT(*) AS cnt FROM Usuario
+        WHERE nivel = 'ADMIN' AND status = 'ATIVO' AND id <> ${id}
+      `)[0];
+      if (Number(otherActiveAdmins?.cnt ?? 0) === 0) {
+        return NextResponse.json(
+          { error: "Não é possível desativar o último ADMIN ativo do sistema." },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Atualizar usuário
+    await prisma.usuario.update({
+      where: { id },
+      data: {
+        status: newStatus,
+        atualizadoEm: new Date()
+      }
+    });
+
+    // Registrar auditoria
+    try {
+      const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+      await AuditoriaService.registrarAtualizacaoUsuario(
+        id,
+        { status: existingUser.status },
+        { status: newStatus },
+        Number(user.id),
+        ip
+      );
+    } catch (auditError) {
+      console.error('[toggle-status] Erro ao registrar auditoria:', auditError);
+    }
+
+    return NextResponse.json({
+      message: `Usuário ${newStatus === 'ATIVO' ? 'ativado' : 'desativado'} com sucesso`,
+      status: newStatus
+    });
+
+  });

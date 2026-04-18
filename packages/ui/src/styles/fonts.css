@@ -1,0 +1,45 @@
+/**
+ * GladPros Design System - Font Loading
+ * v2.0 - Nova identidade visual
+ * 
+ * Neuropol: Display font (H1, títulos principais)
+ * Roboto: Heading (H2-H6) + Body text
+ */
+
+/* ==================== NEUROPOL ==================== */
+/* Fonte local da marca - já existe em /public/fonts/ */
+@font-face {
+  font-family: 'Neuropol';
+  src: url('/fonts/NEUROPOL.ttf') format('truetype'),
+       url('/fonts/neuropol.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap; /* Evita FOIT (Flash of Invisible Text) */
+}
+
+/* ==================== ROBOTO ==================== */
+/* Google Fonts - Múltiplos pesos para flexibilidade */
+
+/* Roboto Regular (400) */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;900&display=swap');
+
+/* Roboto Mono (para código, se necessário) */
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap');
+
+/* ==================== FALLBACKS ==================== */
+/* Garantir que sempre há uma fonte disponível */
+body {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* H1 usa Neuropol (identidade da marca) */
+h1 {
+  font-family: 'Neuropol', Impact, 'Arial Black', sans-serif;
+}
+
+/* H2-H6 usam Roboto */
+h2, h3, h4, h5, h6 {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}

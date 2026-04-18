@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for pkg:*)",
+      "Bash(do echo:*)",
+      "Read(//Users/gladistonporto/dev-root/gladpros-portable/projeto/packages/**)",
+      "Bash(done)",
+      "Bash(ls -la /Users/gladistonporto/dev-root/gladpros-portable/projeto/src/app/\\\\\\(dashboard\\\\\\)/)",
+      "Bash(ls -la /Users/gladistonporto/dev-root/gladpros-portable/projeto/src/app/\\\\\\(protected\\\\\\)/)",
+      "Bash(cat /Users/gladistonporto/dev-root/gladpros-portable/projeto/src/app/\\\\\\(dashboard\\\\\\)/layout.tsx)",
+      "Bash(ls /Users/gladistonporto/dev-root/gladpros-portable/projeto/.env*)",
+      "Read(//Users/gladistonporto/.claude/plugins/**)",
+      "Read(//Users/gladistonporto/.claude/**)"
+    ]
+  }
+}

@@ -1,0 +1,214 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireUser, can, type Role } from "@/shared/lib/rbac";
+import { prisma } from "@/lib/prisma";
+import { withErrorHandler } from "@/lib/api/error-handler";
+import { writeFile, mkdir } from "fs/promises";
+import { resolve, join, extname } from "path";
+
+export const runtime = "nodejs";
+
+const UPLOADS_BASE = resolve(process.cwd(), "uploads", "service-orders");
+
+const ALLOWED_MIME = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/heic",
+    "application/pdf",
+]);
+
+const MAX_SIZE = 15 * 1024 * 1024; // 15MB — PDFs e fotos de alta resolução
+
+const VALID_TYPES = new Set([
+    "BEFORE_PHOTO",
+    "AFTER_PHOTO",
+    "RECEIPT",
+    "RETURN_RECEIPT",
+    "INVOICE_DOC",
+    "OTHER",
+]);
+
+// ──────────────────────────────────────────────────────────────────────────────
+// GET /api/service-orders/[id]/attachments
+// Returns all attachments for the order, with linked materials via junction
+// ──────────────────────────────────────────────────────────────────────────────
+export const GET = withErrorHandler(async (
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) => {
+    const user = await requireUser(req);
+    if (!can(user.role as Role, 'service-orders', 'read')) {
+        return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
+    const { id } = await params;
+    const orderId = parseInt(id);
+    if (isNaN(orderId)) return NextResponse.json({ error: "Validation failed", message: "ID inválido", success: false }, { status: 400 });
+
+    const attachments = await prisma.serviceOrderAttachment.findMany({
+        where: { serviceOrderId: orderId },
+        orderBy: { createdAt: "asc" },
+        select: {
+            id: true,
+            type: true,
+            filename: true,
+            filepath: true,
+            mime: true,
+            sizeBytes: true,
+            caption: true,
+            vendorName: true,
+            receiptTotal: true,
+            materialItemId: true,
+            createdAt: true,
+            UploadedBy: { select: { id: true, nomeCompleto: true } },
+            materialItems: {
+                select: {
+                    materialItemId: true,
+                    materialItem: {
+                        select: { id: true, name: true, unit: true, quantityPlanned: true },
+                    },
+                },
+            },
+        },
+    });
+
+    return NextResponse.json({ data: attachments, success: true });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// POST /api/service-orders/[id]/attachments
+// Multipart form with: file, type, caption?, vendorName?, receiptTotal?,
+//   materialItemId? (legacy singular), materialItemIds? (comma-separated)
+// ──────────────────────────────────────────────────────────────────────────────
+export const POST = withErrorHandler(async (
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) => {
+    const user = await requireUser(req);
+    if (!can(user.role as Role, 'service-orders', 'update')) {
+        return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão para enviar anexos', success: false }, { status: 403 });
+    }
+    const { id } = await params;
+    const orderId = parseInt(id);
+    if (isNaN(orderId)) return NextResponse.json({ error: "Validation failed", message: "ID inválido", success: false }, { status: 400 });
+
+    // Verify the service order exists
+    const order = await prisma.serviceOrder.findUnique({
+        where: { id: orderId },
+        select: { id: true },
+    });
+    if (!order) return NextResponse.json({ error: "Not found", message: "Ordem não encontrada", success: false }, { status: 404 });
+
+    // Parse multipart form
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+    const type = (formData.get("type") as string | null)?.toUpperCase();
+    const caption = (formData.get("caption") as string | null)?.trim() || null;
+    const vendorName = (formData.get("vendorName") as string | null)?.trim() || null;
+    const receiptTotalRaw = formData.get("receiptTotal") as string | null;
+
+    // Parse material IDs: support both singular (legacy) and plural (new)
+    const materialItemIdsRaw = formData.get("materialItemIds") as string | null;
+    const materialItemIdRaw = formData.get("materialItemId") as string | null;
+
+    let materialIds: number[] = [];
+    if (materialItemIdsRaw) {
+        materialIds = materialItemIdsRaw
+            .split(",")
+            .map((s) => parseInt(s.trim()))
+            .filter((n) => !isNaN(n) && n > 0);
+    } else if (materialItemIdRaw) {
+        const single = parseInt(materialItemIdRaw);
+        if (!isNaN(single) && single > 0) materialIds = [single];
+    }
+
+    if (!file) return NextResponse.json({ error: "Validation failed", message: "Nenhum arquivo enviado", success: false }, { status: 400 });
+    if (!type || !VALID_TYPES.has(type)) {
+        return NextResponse.json(
+            { error: "Validation failed", message: `Tipo inválido. Use: ${[...VALID_TYPES].join(", ")}`, success: false },
+            { status: 400 }
+        );
+    }
+
+    if (!ALLOWED_MIME.has(file.type)) {
+        return NextResponse.json(
+            { error: "Validation failed", message: "Formato não suportado. Use JPG, PNG, WEBP ou PDF.", success: false },
+            { status: 400 }
+        );
+    }
+
+    if (file.size > MAX_SIZE) {
+        return NextResponse.json({ error: "Validation failed", message: "Arquivo muito grande. Máximo 15MB.", success: false }, { status: 400 });
+    }
+
+    // Sanitize original filename — keep extension only
+    const originalExt = extname(file.name).toLowerCase().replace("jpeg", "jpg") || ".bin";
+    const safeFilename = `${type.toLowerCase()}-${orderId}-${Date.now()}${originalExt}`;
+
+    // Build upload dir: uploads/service-orders/{orderId}/{type}/
+    const typeDir = type.toLowerCase().replace("_", "-");
+    const orderDir = resolve(UPLOADS_BASE, String(orderId), typeDir);
+    await mkdir(orderDir, { recursive: true });
+
+    const filePath = resolve(join(orderDir, safeFilename));
+
+    // Path traversal check
+    if (!filePath.startsWith(UPLOADS_BASE)) {
+        return NextResponse.json({ error: "Validation failed", message: "Caminho inválido", success: false }, { status: 400 });
+    }
+
+    const bytes = await file.arrayBuffer();
+    await writeFile(filePath, Buffer.from(bytes));
+
+    // Relative path for DB + serving via /api/uploads/
+    const relPath = `service-orders/${orderId}/${typeDir}/${safeFilename}`;
+
+    const receiptTotal = receiptTotalRaw ? parseFloat(receiptTotalRaw) : null;
+
+    const attachment = await prisma.serviceOrderAttachment.create({
+        data: {
+            serviceOrderId: orderId,
+            materialItemId: null, // Legacy FK kept null — use junction table
+            type: type as "BEFORE_PHOTO" | "AFTER_PHOTO" | "RECEIPT" | "RETURN_RECEIPT" | "INVOICE_DOC" | "OTHER",
+            filename: file.name.slice(0, 255),
+            filepath: relPath,
+            mime: file.type,
+            sizeBytes: file.size,
+            caption,
+            vendorName: vendorName?.slice(0, 200) || null,
+            receiptTotal: receiptTotal && !isNaN(receiptTotal) ? receiptTotal : null,
+            uploadedBy: parseInt(user.id as string),
+            // Create junction records inline
+            materialItems: materialIds.length > 0
+                ? {
+                    createMany: {
+                        data: materialIds.map((mid) => ({ materialItemId: mid })),
+                    },
+                }
+                : undefined,
+        },
+        select: {
+            id: true,
+            type: true,
+            filename: true,
+            filepath: true,
+            mime: true,
+            sizeBytes: true,
+            caption: true,
+            vendorName: true,
+            receiptTotal: true,
+            materialItemId: true,
+            createdAt: true,
+            UploadedBy: { select: { id: true, nomeCompleto: true } },
+            materialItems: {
+                select: {
+                    materialItemId: true,
+                    materialItem: {
+                        select: { id: true, name: true, unit: true },
+                    },
+                },
+            },
+        },
+    });
+
+    return NextResponse.json({ data: attachment, success: true }, { status: 201 });
+});

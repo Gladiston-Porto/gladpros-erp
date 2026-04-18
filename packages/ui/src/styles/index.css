@@ -1,0 +1,10 @@
+/**
+ * GladPros UI Package - Main Stylesheet
+ * Importar no projeto principal para garantir que todos os estilos sejam processados
+ */
+
+/* Fontes do Design System */
+@import './fonts.css';
+
+/* Estilos dos componentes */
+@import './components.css';

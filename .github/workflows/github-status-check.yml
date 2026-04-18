@@ -1,0 +1,48 @@
+name: GitHub Status Check
+
+on:
+  workflow_dispatch: # Permite execução manual
+  schedule:
+    - cron: '0 8 * * 1' # Toda segunda-feira às 8h UTC
+  
+jobs:
+  status-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Run GitHub Status Check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Executando verificação de status do GitHub..."
+          node scripts/check-github-status.js
+          
+      - name: Create Status Report
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "📋 Gerando relatório de status..."
+          echo "# Relatório de Status do GitHub - $(date)" > status-report.md
+          echo "" >> status-report.md
+          echo "## Resumo Executivo" >> status-report.md
+          echo "Este relatório foi gerado automaticamente em $(date -u)" >> status-report.md
+          echo "" >> status-report.md
+          echo "## Detalhes" >> status-report.md
+          echo "\`\`\`" >> status-report.md
+          node scripts/check-github-status.js >> status-report.md 2>&1 || echo "Erro na execução do script" >> status-report.md
+          echo "\`\`\`" >> status-report.md
+          
+      - name: Upload Status Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-status-report
+          path: status-report.md
+          if-no-files-found: ignore
+          retention-days: 30

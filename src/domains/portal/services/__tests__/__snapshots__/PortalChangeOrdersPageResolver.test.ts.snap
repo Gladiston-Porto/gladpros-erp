@@ -1,0 +1,17 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`PortalChangeOrdersPageResolver list view render ok (snapshot simples) 1`] = `
+{
+  "changeOrders": [
+    {
+      "code": null,
+      "createdAt": 2026-02-22T10:00:00.000Z,
+      "id": 1,
+      "status": "SENT",
+      "summary": "Resumo curto",
+      "title": "Mudança de escopo de elétrica",
+      "updatedAt": 2026-02-22T11:00:00.000Z,
+    },
+  ],
+}
+`;

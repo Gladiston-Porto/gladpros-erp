@@ -1,0 +1,22 @@
+{
+  "folders": [
+    {
+      "name": "gladpros-nextjs",
+      "path": "."
+    },
+    {
+      "name": "auth-core",
+      "path": "packages/auth-core"
+    },
+    {
+      "name": "proposals-core",
+      "path": "packages/proposals-core"
+    }
+  ],
+  "settings": {
+    "typescript.preferences.includePackageJsonAutoImports": "auto",
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "powershell.cwd": "gladpros-nextjs",
+    "prisma.pinToPrisma6": true
+  }
+}

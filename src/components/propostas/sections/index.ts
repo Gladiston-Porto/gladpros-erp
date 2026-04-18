@@ -1,0 +1,11 @@
+// Index file for all form sections - makes imports cleaner
+export { IdentificacaoSection } from './IdentificacaoSection'
+export { EscopoSection } from './EscopoSection'
+export { PrazosSection } from './PrazosSection'
+export { PermitsSection } from './PermitsSection'
+export { MaterialSection } from './MaterialSection'
+export { EtapasSection } from './EtapasSection'
+export { ComercialSection } from './ComercialSection'
+export { FaturamentoSection } from './FaturamentoSection'
+export { ObservacoesSection } from './ObservacoesSection'
+export { ResumoPrecoSidebar } from './ResumoPrecoSidebar'
