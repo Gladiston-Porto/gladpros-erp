@@ -1,0 +1,241 @@
+// src/app/api/auth/login/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { PasswordService } from "@/shared/lib/password";
+import { MFAService } from "@/shared/lib/mfa";
+import { BlockingService } from "@/shared/lib/blocking";
+import { loginRateLimit } from "@/shared/lib/rate-limit";
+import { AuditLogger } from "@/shared/lib/audit";
+import { loginSchema } from "@/shared/lib/validation";
+import { withErrorHandler } from '@/lib/api/error-handler';
+
+function getClientIP(req: NextRequest): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0] || 
+         req.headers.get("x-real-ip") || 
+         req.headers.get("cf-connecting-ip") || 
+         "unknown";
+}
+
+export const POST = withErrorHandler(async (req: NextRequest) => {
+  // Aplicar rate limiting
+  const rateLimitResult = await loginRateLimit.isAllowed(req);
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { 
+        error: rateLimitResult.message,
+        success: false,
+        retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)
+      },
+      { 
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': '5',
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'X-RateLimit-Reset': Math.ceil(rateLimitResult.resetTime / 1000).toString(),
+          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
+        }
+      }
+    );
+  }
+
+  const ip = getClientIP(req);
+  const userAgent = req.headers.get("user-agent") || undefined;
+  
+  const body = await req.json().catch(() => ({}));
+  const parsed = loginSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Email e senha são obrigatórios", success: false }, 
+      { status: 400 }
+    );
+  }
+  const { email, password } = parsed.data;
+
+  // Buscar usuário
+  const rows: Array<{
+    id: number;
+    email: string;
+    nomeCompleto: string;
+    senha: string;
+    senhaProvisoria: boolean;
+    primeiroAcesso: boolean;
+    criadoEm: Date;
+    status: string;
+    nivel: string | null;
+    tokenVersion: number | null;
+  }> = await prisma.$queryRaw`
+    SELECT id, email, nomeCompleto, senha, senhaProvisoria, primeiroAcesso, criadoEm, status, nivel, tokenVersion
+    FROM Usuario 
+    WHERE email = ${email}
+    LIMIT 1
+  `;
+
+  const user = rows[0];
+
+  // Verificar se usuário existe
+  if (!user) {
+    await BlockingService.recordFailedAttempt({ email, ip, userAgent, motivo: 'INVALID_EMAIL' });
+    return NextResponse.json(
+      { error: "Credenciais inválidas", success: false }, 
+      { status: 401 }
+    );
+  }
+
+  // Verificar status do usuário — 403 Forbidden (conta desativada pelo admin, não erro de credenciais)
+  if (user.status !== "ATIVO") {
+    return NextResponse.json(
+      { error: "Conta inativa. Entre em contato com o administrador.", success: false }, 
+      { status: 403 }
+    );
+  }
+
+  // Verificar se usuário está bloqueado
+  const blockInfo = await BlockingService.checkUserBlock(user.id);
+  if (blockInfo.blocked) {
+    let errorMsg = "Conta temporariamente bloqueada devido a múltiplas tentativas incorretas.";
+    
+    if (blockInfo.unlockAt) {
+      const minutesLeft = Math.ceil((blockInfo.unlockAt.getTime() - Date.now()) / (1000 * 60));
+      errorMsg += ` Tente novamente em ${minutesLeft} minuto(s).`;
+    } else {
+      errorMsg += " Entre em contato com o administrador.";
+    }
+
+    return NextResponse.json(
+      { 
+        error: errorMsg,
+        success: false,
+        blocked: true,
+        unlockAt: blockInfo.unlockAt,
+        requiresPinUnlock: blockInfo.requiresPinUnlock,
+        requiresSecurityQuestion: blockInfo.requiresSecurityQuestion
+      }, 
+      { status: 423 } // 423 Locked
+    );
+  }
+
+  // Verificar senha
+  const isValidPassword = await PasswordService.verifyPassword(password, user.senha);
+  if (!isValidPassword) {
+    await Promise.all([
+      BlockingService.recordFailedAttempt({ 
+        userId: user.id, 
+        email, 
+        ip, 
+        userAgent,
+        motivo: 'INVALID_PASSWORD'
+      }),
+      AuditLogger.logLogin(user.id, user.email, req, false, {
+        reason: 'invalid_password'
+      })
+    ]);
+
+    return NextResponse.json(
+      { error: "Credenciais inválidas", success: false }, 
+      { status: 401 }
+    );
+  }
+
+  // Senha válida - aguardar verificação de MFA para concluir login
+
+  // Determinar tipo de acesso
+  let accessType: "PRIMEIRO_ACESSO" | "LOGIN" = "LOGIN";
+  let nextStep = "mfa";
+
+  if (user.primeiroAcesso) {
+    accessType = "PRIMEIRO_ACESSO";
+    nextStep = "primeiro-acesso";
+    
+    // Verificar se senha é provisória e expirou
+    if (user.senhaProvisoria && user.criadoEm < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) {
+      return NextResponse.json({
+        error: "Senha provisória expirada",
+        success: false,
+        requiresPasswordReset: true
+      }, { status: 410 }); // 410 Gone
+    }
+  }
+
+  // Verificar se MFA deve ser desabilitado para testes
+  const disableMFA = (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') && process.env.DISABLE_MFA_FOR_TESTS === 'true';
+
+  if (disableMFA) {
+    const userRole = ((user.nivel ?? "USUARIO").toUpperCase() as "ADMIN" | "GERENTE" | "USUARIO" | "FINANCEIRO" | "ESTOQUE" | "CLIENTE");
+    const userStatus = ((user.status ?? "ATIVO") as "ATIVO" | "INATIVO");
+
+    // Usar signAuthJWT (jose) para E2E/desenvolvimento
+    const { signAuthJWT } = await import("@/shared/lib/jwt");
+    const token = await signAuthJWT({
+      sub: user.id.toString(),
+      role: userRole,
+      email: user.email,
+      status: userStatus,
+      tokenVersion: user.tokenVersion ?? 0
+    }, '8h');
+
+    // Log de auditoria para login bem-sucedido
+    await AuditLogger.logLogin(user.id, user.email, req, true, {
+      method: 'password',
+      mfaSkipped: true
+    });
+
+    // Criar resposta com cookie
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        nomeCompleto: user.nomeCompleto,
+        primeiroAcesso: user.primeiroAcesso
+      }
+    }, { status: 200 });
+
+    response.cookies.set('authToken', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 8 * 60 * 60, // 8 horas
+      path: '/'
+    });
+
+    return response;
+  }
+
+  // Pré-aquecer SMTP em background para reduzir latência do primeiro envio
+  const { EmailService } = await import("@/shared/lib/email");
+  EmailService.prewarm();
+
+  // Gerar código MFA
+  const { code: mfaCode } = await MFAService.createMFACode({
+    usuarioId: user.id,
+    tipoAcao: accessType,
+    ip,
+    userAgent
+  });
+
+  // Enviar código MFA por email (fire-and-forget para não bloquear resposta)
+  EmailService.sendMFA({
+    to: user.email,
+    userName: user.nomeCompleto,
+    code: mfaCode,
+    expiresInMinutes: 5,
+    isFirstAccess: user.primeiroAcesso
+  }).catch(() => {
+    // Email failure is logged internally by EmailService
+  });
+
+  // NUNCA enviar código MFA no response
+  return NextResponse.json({
+    success: true,
+    mfaRequired: true,
+    nextStep,
+    emailSent: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      nomeCompleto: user.nomeCompleto,
+      primeiroAcesso: user.primeiroAcesso
+    }
+  }, { status: 200 });
+
+});
