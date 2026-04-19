@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateInvoicePDF } from '@/shared/lib/services/invoice-pdf';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { requireUser } from '@/shared/lib/rbac';
+import { requireUser, can, type Role } from '@/shared/lib/rbac';
 import * as nodemailer from 'nodemailer';
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
 
 function getTransporter() {
   return nodemailer.createTransport({
@@ -29,10 +38,24 @@ export const POST = withErrorHandler(async (
   { params }: { params: Promise<{ id: string }> }
 ) => {
   const user = await requireUser(request);
+  if (!can(user.role as Role, 'invoices', 'update')) {
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Sem permissão para enviar invoices', success: false },
+      { status: 403 },
+    );
+  }
+
   const { id } = await params;
   const invoiceId = parseInt(id);
 
-  const invoice = await prisma.invoice.findUnique({
+  if (isNaN(invoiceId)) {
+    return NextResponse.json(
+      { error: 'Validation failed', message: 'ID inválido', success: false },
+      { status: 400 },
+    );
+  }
+
+  const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId },
     include: {
       itens: { orderBy: { ordem: 'asc' } },
@@ -55,15 +78,24 @@ export const POST = withErrorHandler(async (
   });
 
   if (!invoice) {
-    return NextResponse.json({ error: 'Invoice não encontrada' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Not found', message: 'Invoice não encontrada', success: false },
+      { status: 404 },
+    );
   }
 
   if (invoice.status === 'CANCELLED') {
-    return NextResponse.json({ error: 'Não é possível enviar invoice cancelada' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid operation', message: 'Não é possível enviar invoice cancelada', success: false },
+      { status: 400 },
+    );
   }
 
   if (!invoice.cliente.email) {
-    return NextResponse.json({ error: 'Cliente não possui email cadastrado' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Validation failed', message: 'Cliente não possui email cadastrado', success: false },
+      { status: 400 },
+    );
   }
 
   // Generate PDF
@@ -110,7 +142,7 @@ export const POST = withErrorHandler(async (
   };
 
   const pdfBuffer = await generateInvoicePDF(invoiceData);
-  const clienteNome = invoice.cliente.nomeCompleto || invoice.cliente.nomeFantasia || invoice.cliente.nomeChave;
+  const clienteNome = escapeHtml(invoice.cliente.nomeCompleto || invoice.cliente.nomeFantasia || invoice.cliente.nomeChave || '');
   const vencimento = new Date(invoice.dataVencimento).toLocaleDateString('pt-BR');
 
   const html = `
@@ -132,7 +164,7 @@ export const POST = withErrorHandler(async (
           <td style="padding: 10px; border: 1px solid #ddd;">${formatCurrency(Number(invoice.saldo))}</td>
         </tr>
       </table>
-      ${invoice.projeto ? `<p><strong>Projeto:</strong> ${invoice.projeto.titulo}</p>` : ''}
+      ${invoice.projeto ? `<p><strong>Projeto:</strong> ${escapeHtml(invoice.projeto.titulo ?? '')}</p>` : ''}
       <p style="color: #666; font-size: 12px; margin-top: 30px;">
         Este é um email automático enviado pelo sistema GladPros.
       </p>
@@ -178,16 +210,18 @@ export const POST = withErrorHandler(async (
     });
 
     return NextResponse.json({
+      data: {
+        messageId: info.messageId,
+        sentTo: invoice.cliente.email,
+        statusUpdated: invoice.status === 'DRAFT' ? 'SENT' : null,
+      },
       success: true,
-      messageId: info.messageId,
-      sentTo: invoice.cliente.email,
-      statusUpdated: invoice.status === 'DRAFT' ? 'SENT' : null,
     });
   } catch (error) {
     console.error('Erro ao enviar email da invoice:', error);
     return NextResponse.json(
-      { error: 'Falha ao enviar email. Verifique a configuração SMTP.' },
-      { status: 500 }
+      { error: 'Internal server error', message: 'Falha ao enviar email. Verifique a configuração SMTP.', success: false },
+      { status: 500 },
     );
   }
 });

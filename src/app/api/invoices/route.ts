@@ -203,6 +203,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const filters = parsed.data;
   const skip = (filters.page - 1) * filters.limit;
 
+  // Single-tenant (empresaId=1): Invoice scoped via clienteId relation.
+  // Auth + RBAC provides sufficient access control.
   const where: Prisma.InvoiceWhereInput = {};
 
   if (filters.clienteId) where.clienteId = parseInt(filters.clienteId);

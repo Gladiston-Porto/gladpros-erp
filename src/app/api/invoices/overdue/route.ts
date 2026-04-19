@@ -17,12 +17,14 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     );
   }
 
+  // Single-tenant: Invoice model has no direct empresaId field.
   // Busca todas as invoices não-pagas/canceladas/overdue com vencimento no passado
   const candidatas = await prisma.invoice.findMany({
     where: {
       status: { notIn: ['PAID', 'CANCELLED', 'OVERDUE'] },
       dataVencimento: { lt: new Date() },
     },
+    take: 200,
     select: { id: true },
   });
 

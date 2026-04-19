@@ -61,7 +61,7 @@ export const POST = withErrorHandler(
     }
     const body = parsed.data;
 
-    const invoice = await prisma.invoice.findUnique({
+    const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId },
       select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true },
     });
@@ -186,7 +186,7 @@ export const GET = withErrorHandler(
       );
     }
 
-    const exists = await prisma.invoice.findUnique({
+    const exists = await prisma.invoice.findFirst({
       where: { id: invoiceId },
       select: { id: true },
     });
@@ -201,6 +201,7 @@ export const GET = withErrorHandler(
     const payments = await prisma.invoicePayment.findMany({
       where: { invoiceId },
       orderBy: { dataPagamento: 'desc' },
+      take: 100,
       include: {
         criador: { select: { id: true, nomeCompleto: true, email: true } },
       },

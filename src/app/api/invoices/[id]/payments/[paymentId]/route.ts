@@ -44,7 +44,7 @@ export const DELETE = withErrorHandler(
       );
     }
 
-    const invoice = await prisma.invoice.findUnique({
+    const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId },
       select: { id: true, status: true, valorPago: true, valorTotal: true },
     });

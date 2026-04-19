@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateInvoicePDFFromHTML } from '@/shared/lib/services/invoice-pdf-html';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { requireUser } from '@/shared/lib/rbac';
+import { requireUser, can, type Role } from '@/shared/lib/rbac';
 
 /**
  * GET /api/invoices/[id]/pdf - Gerar e baixar PDF da invoice
@@ -14,17 +14,27 @@ export const GET = withErrorHandler(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) => {
-  await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'invoices', 'read')) {
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Sem permissão', success: false },
+      { status: 403 },
+    );
+  }
+
   const { id } = await params;
   const invoiceId = parseInt(id);
 
-  const invoice = await prisma.invoice.findUnique({
+  const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId },
     select: { id: true, numeroInvoice: true },
   });
 
   if (!invoice) {
-    return NextResponse.json({ error: 'Invoice não encontrada' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Not found', message: 'Invoice não encontrada', success: false },
+      { status: 404 },
+    );
   }
 
   // Build base URL from the incoming request

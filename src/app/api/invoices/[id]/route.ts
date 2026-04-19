@@ -91,7 +91,7 @@ export const GET = withErrorHandler(
       );
     }
 
-    const invoice = await prisma.invoice.findUnique({
+    const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId },
       include: {
         cliente: { select: { id: true, nomeCompleto: true, nomeFantasia: true, email: true } },
@@ -155,7 +155,7 @@ export const PUT = withErrorHandler(
     }
     const body = parsed.data;
 
-    const existingInvoice = await prisma.invoice.findUnique({
+    const existingInvoice = await prisma.invoice.findFirst({
       where: { id: invoiceId },
       select: {
         status: true,
@@ -311,7 +311,7 @@ export const DELETE = withErrorHandler(
       );
     }
 
-    const existingInvoice = await prisma.invoice.findUnique({
+    const existingInvoice = await prisma.invoice.findFirst({
       where: { id: invoiceId },
       select: { id: true, status: true, valorPago: true, numeroInvoice: true },
     });
