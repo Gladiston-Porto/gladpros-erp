@@ -15,17 +15,24 @@ Use este prompt para transformar um módulo existente em **produção-ready**: a
 
 ## ⚠️ Módulos já auditados — NÃO executar novamente
 
-Os módulos abaixo já passaram pela varredura completa e estão em produção.
+Os módulos abaixo já passaram pela varredura completa.
 **Não iniciar este processo neles** — risco de sobrescrever documentação ou testes existentes.
 
-| Módulo | Data | Nota Enterprise | Documentação |
-|--------|------|-----------------|--------------|
-| `login` / `auth` | 2026-04 | — | `docs/modules/auth/` |
-| `dashboard` | 2026-04 | — | `docs/modules/dashboard/` |
-| `clientes` | 2026-04 | — | `docs/modules/clientes/` |
-| `usuarios` | 2026-04-18 | 7.4 / 10 | `docs/modules/usuarios/01-modulo-usuarios-completo.md` |
+> **O que "production-ready" significa aqui:** todos os bugs **P1** (críticos) e **P2** (funcionais) foram identificados e corrigidos. Gaps que exigem decisão arquitetural (ex: rate limiting, migrações cross-módulo) estão **documentados** na doc do módulo para ação futura.
 
-> Se precisar **re-auditar** um módulo já auditado (ex: após uma grande mudança), explicite isso ao iniciar:
+| Módulo | Data | P1/P2 críticos | Gaps documentados | Documentação |
+|--------|------|----------------|-------------------|--------------|
+| `login` / `auth` | 2026-04 | ✅ Resolvidos | `docs/modules/auth/01-security-review.md` | `docs/modules/auth/` |
+| `dashboard` | 2026-04 | ✅ Resolvidos | `docs/modules/dashboard/01-modulo-dashboard-completo.md` | `docs/modules/dashboard/` |
+| `clientes` | 2026-04 | ✅ Resolvidos | `docs/modules/clientes/01-audit.md` | `docs/modules/clientes/` |
+| `usuarios` | 2026-04-18 | ✅ Resolvidos | `docs/modules/usuarios/01-modulo-usuarios-completo.md` § 7 | `docs/modules/usuarios/` |
+
+> **Nota sobre a coluna "Nota Enterprise":** essa coluna foi removida da tabela de rastreamento propositalmente.
+> A nota (ex: 7.4/10) é um **diagnóstico de gaps**, não um critério de bloqueio para produção.
+> Encontrá-la abaixo de 10/10 não significa que o trabalho foi incompleto — significa que há melhorias documentadas para o roadmap.
+> A nota de cada módulo vive na sua própria documentação, não aqui.
+
+> Se precisar **re-auditar** um módulo (ex: após grande refatoração), explicite ao iniciar:
 > `"Re-auditoria do módulo clientes — houve refatoração em Maio/2026"`
 
 ---
