@@ -13,10 +13,29 @@ Use este prompt para transformar um módulo existente em **produção-ready**: a
 
 ---
 
+## ⚠️ Módulos já auditados — NÃO executar novamente
+
+Os módulos abaixo já passaram pela varredura completa e estão em produção.
+**Não iniciar este processo neles** — risco de sobrescrever documentação ou testes existentes.
+
+| Módulo | Data | Nota Enterprise | Documentação |
+|--------|------|-----------------|--------------|
+| `login` / `auth` | 2026-04 | — | `docs/modules/auth/` |
+| `dashboard` | 2026-04 | — | `docs/modules/dashboard/` |
+| `clientes` | 2026-04 | — | `docs/modules/clientes/` |
+| `usuarios` | 2026-04-18 | 7.4 / 10 | `docs/modules/usuarios/01-modulo-usuarios-completo.md` |
+
+> Se precisar **re-auditar** um módulo já auditado (ex: após uma grande mudança), explicite isso ao iniciar:
+> `"Re-auditoria do módulo clientes — houve refatoração em Maio/2026"`
+
+---
+
 ## Como este processo funciona
 
 Este processo replica exatamente o que foi feito nos módulos `clientes` e `login` da GladPros.
-Ele passa por **5 fases obrigatórias** em sequência, sem pular nenhuma.
+Ele passa por **7 fases obrigatórias** em sequência, sem pular nenhuma.
+
+> ⚠️ **Regra de ouro**: cada fase termina com uma **verificação de conclusão obrigatória** — o agente deve provar com comandos reais (`ls`, `cat`, `grep`, `npx jest`) que o que foi declarado como feito realmente existe e funciona. Declarar sem verificar é equivalente a não fazer.
 
 ---
 
@@ -41,6 +60,80 @@ Antes de qualquer alteração, leia e mapeie:
 - Lista completa de todos os arquivos do módulo
 - Quantidade de rotas de API, páginas e componentes
 - Estado atual dos testes (quantos existem, quantos passam)
+
+### 1.4 Verificação de conclusão obrigatória (executar antes de avançar)
+
+```bash
+# Listar todos os arquivos encontrados do módulo
+find src/app/(dashboard)/<modulo>/ src/app/api/<modulo>/ src/components/<modulo>/ -type f 2>/dev/null
+
+# Contar testes existentes
+find src/__tests__/api/<modulo>/ tests/e2e/<modulo>/ -type f 2>/dev/null | wc -l
+```
+
+**NÃO avançar para a Fase 1.5 sem ter executado esses comandos e listado os resultados.**
+
+---
+
+## Fase 1.5 — Auditoria de Código Morto
+
+Antes da auditoria de bugs, identificar tudo que não está mais sendo usado.
+Código morto polui o módulo, confunde manutenção futura e pode esconder bugs silenciosos.
+
+### 1.5.1 Arquivos não importados
+
+```bash
+# Verificar cada arquivo .tsx/.ts do módulo — ele é importado por alguém?
+# Para cada arquivo encontrado na Fase 1, executar:
+grep -rn "from.*<caminho-do-arquivo>" src/ --include="*.tsx" --include="*.ts" | grep -v "node_modules"
+
+# Arquivos .bak, .old, page.tsx.bak — devem ser deletados
+find src/ -name "*.bak" -o -name "*.old" -o -name "*-old.tsx" 2>/dev/null
+```
+
+### 1.5.2 Componentes exportados mas não usados
+
+```bash
+# Para cada export encontrado no index.ts ou barrel:
+grep -n "export" src/components/<modulo>/index.ts 2>/dev/null
+
+# Para cada export, verificar se tem algum import no projeto:
+grep -rn "from.*components/<modulo>" src/ --include="*.tsx" --include="*.ts"
+```
+
+### 1.5.3 Rotas de API sem consumidor
+
+```bash
+# Verificar se cada rota tem algum fetch() ou chamada no frontend:
+grep -rn "/api/<modulo>" src/ --include="*.tsx" --include="*.ts" | grep -v "route.ts" | grep "fetch\|useQuery\|axios"
+```
+
+### 1.5.4 Tipos e interfaces duplicados ou não usados
+
+```bash
+# Interfaces definidas mas não referenciadas
+grep -rn "^export interface\|^export type" src/components/<modulo>/ src/app/api/<modulo>/
+# Para cada uma: verificar se tem algum uso fora do próprio arquivo
+```
+
+### 1.5.5 Hooks duplicados
+
+```bash
+# Verificar se o mesmo hook existe em múltiplos lugares
+grep -rn "export.*use[A-Z]" src/components/<modulo>/ src/shared/hooks/ | grep -i "<modulo>"
+# Hooks duplicados indicam que um deles está obsoleto — identificar qual e deletar
+```
+
+### 1.5.6 Ação obrigatória sobre código morto encontrado
+
+Para cada item de código morto identificado:
+1. **Confirmar** que realmente não tem uso (grep confirma 0 imports externos)
+2. **Deletar** o arquivo/código — não apenas comentar
+3. **Listar** o que foi deletado na tabela de código morto
+
+**Tabela de código morto**: Nome do arquivo/símbolo | Motivo (não importado / duplicado / substituído) | Ação (deletado / mantido com justificativa)
+
+**Não avançar para a Fase 2 sem ter resolvido cada item de código morto encontrado.**
 
 ---
 
@@ -374,7 +467,42 @@ Classifique cada problema em:
 
 Gere tabela completa com: ID | Categoria | Arquivo:linha | Descrição | Impacto em produção | Correção proposta
 
-**Não prossiga para a Fase 3 sem listar TODOS os problemas encontrados nas seções 2.1 a 2.4.**
+**Não prossiga para a Fase 2.5 sem listar TODOS os problemas encontrados nas seções 2.1 a 2.4.**
+
+---
+
+## Fase 2.5 — Análise de Gap Enterprise (Nota 10/10)
+
+Esta fase calcula a nota atual do módulo e identifica o que falta para atingir padrão enterprise completo.
+
+### 2.5.1 Rubrica de avaliação enterprise (10 dimensões)
+
+Para cada dimensão, avaliar com nota 0–10 e justificar:
+
+| # | Dimensão | Critério para nota 10 |
+|---|----------|-----------------------|
+| 1 | **Segurança** | Auth+RBAC em 100% das rotas, rate limiting, Cache-Control, sem dados sensíveis no response, AuditLog em ações críticas |
+| 2 | **Performance** | Zero N+1, Promise.all em queries independentes, paginação em todas as listas, índices Prisma corretos, sem SELECT *, cache onde aplicável |
+| 3 | **Cobertura de testes** | 6 specs E2E (smoke, crud, rbac, security, edge-cases, regression), testes unit para todas as rotas, todos passando com saída real do `npx jest` |
+| 4 | **Design / UI** | 100% tokens de cor, `rounded-2xl`, hero gradient, `font-title`, sem hardcode, dark mode funcionando, estados de loading/empty/error presentes |
+| 5 | **Acessibilidade** | `aria-label` em todos os interativos, touch targets ≥48px, keyboard navigation, focus management em dialogs |
+| 6 | **Qualidade do código** | Zero `any` explícito, zero `!` non-null sem justificativa, zero `console.*` de debug, zero código morto, TypeScript sem erros |
+| 7 | **Arquitetura** | Imports corretos (prisma, auth, rbac), separação de responsabilidades, Server Components com `requireServerUser()` onde aplicável, sem lógica duplicada |
+| 8 | **Integridade de dados** | Zod em 100% dos inputs, `empresaId` sempre do contexto do usuário, transações em operações multi-tabela, tratamento de `P2002` (unique) |
+| 9 | **Observabilidade** | Logs estruturados nos erros, erros não vazam stack trace para o cliente, erros úteis para o usuário |
+| 10 | **Completude funcional** | Todas as features prometidas funcionam de ponta a ponta (sem botões que não fazem nada, sem dados hardcoded, sem funcionalidades "em breve" sem aviso) |
+
+### 2.5.2 Calcular nota final
+
+```
+Nota = (soma das 10 notas) / 10
+```
+
+### 2.5.3 Gap plan
+
+Para cada dimensão com nota < 10, listar **exatamente** o que está faltando e o que precisa ser feito para chegar a 10.
+
+**Esta análise guia o que a Fase 3 deve priorizar além dos bugs encontrados na Fase 2.**
 
 ---
 
@@ -431,6 +559,29 @@ response.cookies.set('tokenName', value, {
 })
 return response
 ```
+
+### 3.1 Verificação de conclusão obrigatória (executar antes de avançar)
+
+Após cada correção, verificar imediatamente:
+
+```bash
+# 1. Confirmar que o arquivo foi salvo e tem o conteúdo correto
+grep -n "requireUser\|can(\|safeParse\|import.*prisma" src/app/api/<modulo>/<arquivo>.ts
+
+# 2. Verificar que não há erros TypeScript nos arquivos alterados
+npx tsc --noEmit 2>&1 | grep "<modulo>" | head -20
+
+# 3. Confirmar que console.log/warn de debug foram removidos
+grep -rn "console\.log\|console\.warn" src/app/api/<modulo>/ src/components/<modulo>/
+
+# 4. Confirmar que cores hardcoded foram substituídas
+grep -rn "bg-white\|bg-gray-\|text-gray-\|bg-blue-\|bg-red-50\|rounded-lg" src/app/(dashboard)/<modulo>/ src/components/<modulo>/ | grep -v "//.*comentario"
+
+# 5. Para cada P1 corrigido — re-verificar manualmente que a vulnerabilidade não existe mais
+```
+
+**NÃO declarar uma correção como feita sem ter executado a verificação acima.**
+Se alguma verificação falhar, corrigir antes de avançar para o próximo item.
 
 ---
 
@@ -748,17 +899,110 @@ test('[REG-SUCCESS] erro de validação retorna { success: false }', async ({ pa
 | `regression` | Um guard por P1/P2 corrigido | N (mínimo 5) |
 | **Total** | | **≥ 32 testes** |
 
-### 4.3 Validação final
+### 4.3 Validação final obrigatória com prova de execução
+
+**IMPORTANTE**: não declarar os testes como "criados" ou "passando" sem executar os comandos abaixo e incluir o output real na resposta.
+
+#### 4.3.1 Verificar que todos os arquivos E2E foram criados
 
 ```bash
-# Confirmar que todos os testes passam
-npx jest "src/__tests__/api/<modulo>" --no-coverage
+# Listar specs criados — deve mostrar 6 arquivos
+ls -la tests/e2e/<modulo>/
+# Saída esperada:
+# <modulo>-smoke.spec.ts
+# <modulo>-crud.spec.ts       (ou justificar se o módulo é read-only)
+# <modulo>-rbac.spec.ts
+# <modulo>-security.spec.ts
+# <modulo>-edge-cases.spec.ts
+# <modulo>-regression.spec.ts
 
-# Confirmar que não há erros TypeScript nos arquivos alterados
-npx tsc --noEmit
+# Contar total de testes E2E definidos (mínimo 32)
+grep -c "^  test\b\|^test\b" tests/e2e/<modulo>/*.spec.ts | awk -F: '{sum += $2} END {print "Total E2E tests:", sum}'
 ```
 
-**Não avançar para a Fase 5 se houver testes failing.**
+Se algum dos 6 arquivos não existir:
+- Módulos read-only (sem CRUD): justificar no log e criar `<modulo>-interactions.spec.ts` cobrindo filtros, paginação, navegação entre tabs
+- Módulos com CRUD: criar o arquivo faltante antes de avançar
+
+#### 4.3.2 Verificar que todos os arquivos unit test foram criados
+
+```bash
+# Listar unit tests criados
+ls -la src/__tests__/api/<modulo>/
+
+# Contar testes unitários
+grep -c "^  it\b\|^  test\b\|^it\b\|^test\b" src/__tests__/api/<modulo>/*.test.ts | awk -F: '{sum += $2} END {print "Total unit tests:", sum}'
+```
+
+#### 4.3.3 Executar os testes unitários e mostrar output real
+
+```bash
+# EXECUTAR — mostrar output completo, não apenas "passou"
+npx jest "src/__tests__/api/<modulo>" --no-coverage --verbose 2>&1 | tail -40
+```
+
+**O output do comando acima deve ser incluído na resposta final. Não aceitar "todos passando" sem o output.**
+
+Se houver testes failing:
+1. Ler o erro exato
+2. Corrigir o teste ou o código
+3. Re-executar até passar
+4. Só então avançar para a Fase 4.5
+
+#### 4.3.4 Verificar TypeScript sem erros
+
+```bash
+npx tsc --noEmit 2>&1 | grep -E "error TS|<modulo>" | head -20
+# Saída esperada: nenhuma linha (zero erros)
+```
+
+**Não avançar para a Fase 4.5 se houver erros TypeScript ou testes failing.**
+
+---
+
+## Fase 4.5 — Re-varredura de Vulnerabilidades (verificação pós-correção)
+
+Após todas as correções da Fase 3, re-executar cada vetor de segurança para confirmar que as vulnerabilidades foram realmente eliminadas — não apenas declaradas como corrigidas.
+
+### 4.5.1 Re-verificar cada P1 corrigido
+
+Para cada P1 encontrado na Fase 2, executar a mesma verificação que o identificou originalmente e confirmar que o resultado é negativo:
+
+```bash
+# Re-verificar auth (VUL-01) — deve retornar zero rotas sem requireUser
+grep -rn "export async function\|export const GET\|export const POST\|export const PATCH\|export const DELETE" src/app/api/<modulo>/ | grep -v "requireUser"
+# Esperado: nenhuma linha (ou apenas rotas explicitamente públicas)
+
+# Re-verificar IDOR (VUL-02) — acesso por ID sem empresaId check
+grep -rn "params\.id\|searchParams\.id\|\.id\b" src/app/api/<modulo>/ | head -20
+# Para cada resultado: confirmar visualmente que há verificação de empresaId
+
+# Re-verificar mock data (checklist ponto 5)
+grep -rn "hardcoded\|mock\|fake\|TODO\|FIXME\|placeholder" src/app/api/<modulo>/ src/components/<modulo>/
+
+# Re-verificar console.log de debug
+grep -rn "console\.log\|console\.warn\|console\.debug" src/app/api/<modulo>/ src/components/<modulo>/
+# Esperado: nenhuma linha (console.error em catch é permitido)
+
+# Re-verificar cores hardcoded
+grep -rn "bg-white\b\|bg-gray-[0-9]\|text-gray-[0-9]\|bg-blue-[0-9]\|bg-red-50\|rounded-lg\b" src/app/(dashboard)/<modulo>/ src/components/<modulo>/
+# Esperado: nenhuma linha
+
+# Re-verificar N+1 (performance)
+grep -rn "\.map(async\|\.forEach(async" src/app/api/<modulo>/
+# Esperado: nenhuma linha
+```
+
+### 4.5.2 Comparar com a lista de P1/P2 da Fase 2
+
+Gerar tabela de re-verificação:
+
+| ID | Vulnerabilidade/Bug | Verificação executada | Resultado | Status final |
+|----|--------------------|-----------------------|-----------|-------------|
+| P1-001 | Auth ausente em route.ts | `grep -n requireUser route.ts` | linha 5: `requireUser(request)` encontrado | ✅ Eliminada |
+| P2-003 | console.log em componente | `grep -rn console.log src/components/<modulo>/` | 0 resultados | ✅ Eliminada |
+
+**Se alguma vulnerabilidade ainda estiver presente, CORRIGIR antes de avançar para a Fase 5.**
 
 ---
 
@@ -808,47 +1052,140 @@ Links para OWASP, RFC relevantes, skills do projeto
 
 ---
 
-## Resposta final obrigatória do agente
+## Fase 6 — Relatório Final Completo
 
-Ao concluir todas as 5 fases, responder com:
+Esta é a fase mais importante para o usuário. **Não resumir — ser completo e honesto.**
+O usuário não deve precisar revisar o código para saber o que foi feito, o que ficou pendente e o que pode melhorar.
 
-### 1. Resumo executivo
-- Módulo auditado: `<nome>`
-- Problemas encontrados: X P1, Y P2, Z P3
-- Problemas corrigidos: X P1, Y P2, Z P3
+### 6.1 Resumo executivo com nota enterprise
 
-### 2. Tabela de problemas e correções
+```
+Módulo: <nome>
+Data: YYYY-MM-DD
+Nota enterprise: X.X / 10
 
-| ID | Arquivo | Problema | Risco | Status |
-|----|---------|----------|-------|--------|
-| P1-001 | `path/file.ts:linha` | Descrição | Crítico | ✅ Corrigido |
-| ... | | | | |
+| Dimensão              | Nota | Situação       |
+|-----------------------|------|----------------|
+| Segurança             | X/10 | ✅/⚠️/❌ + detalhe |
+| Performance           | X/10 | ...            |
+| Cobertura de testes   | X/10 | ...            |
+| Design / UI           | X/10 | ...            |
+| Acessibilidade        | X/10 | ...            |
+| Qualidade do código   | X/10 | ...            |
+| Arquitetura           | X/10 | ...            |
+| Integridade de dados  | X/10 | ...            |
+| Observabilidade       | X/10 | ...            |
+| Completude funcional  | X/10 | ...            |
+```
 
-### 3. Testes
-- Unitários: XX/XX passando
-- E2E: X spec files criados
-- Regression guards: X (um por P1/P2)
+### 6.2 O que foi feito nesta varredura (completo)
 
-### 4. Arquivos modificados
-Lista completa com caminhos absolutos
+Lista **exaustiva** de tudo que foi alterado, criado ou deletado:
 
-### 5. Checklist de produção
+| Ação | Arquivo | Descrição da mudança |
+|------|---------|----------------------|
+| ✅ Corrigido | `src/app/api/<modulo>/route.ts:12` | Adicionado `requireUser()` + `can()` |
+| ✅ Criado | `src/__tests__/api/<modulo>/route.test.ts` | 8 testes unitários |
+| ✅ Criado | `tests/e2e/<modulo>/<modulo>-smoke.spec.ts` | 6 testes E2E |
+| 🗑️ Deletado | `src/components/<modulo>/ComponenteAntigo.tsx` | Código morto — não importado desde refatoração |
+| ... | | |
 
-- [ ] Nenhum `console.*` em `src/app/api/<modulo>/`
-- [ ] Todos os testes passando
-- [ ] Nenhuma cor hardcoded
-- [ ] `requireUser()` em todas as rotas
-- [ ] `can()` em todas as mutações
-- [ ] Zod em todos os inputs
-- [ ] Documentação criada em `docs/modules/<modulo>/`
-- [ ] Regression guards em `tests/e2e/<modulo>/<modulo>-regression.spec.ts`
+### 6.3 Tabela completa de problemas encontrados e status
 
-### 6. O que não foi corrigido (e por quê)
-Se algum P3 foi deixado para depois, documentar aqui com justificativa.
+| ID | Tipo | Arquivo:linha | Problema | Risco | Status | Verificação |
+|----|------|---------------|----------|-------|--------|-------------|
+| P1-001 | Segurança | `route.ts:8` | Auth ausente | Crítico | ✅ Corrigido | `grep requireUser route.ts` → linha 8 |
+| P2-003 | Performance | `api.ts:45` | N+1 em loop | Alto | ✅ Corrigido | `grep "map(async"` → 0 resultados |
+| P3-001 | Qualidade | `component.tsx:12` | rounded-lg | Baixo | ✅ Corrigido | `grep rounded-lg` → 0 resultados |
+
+### 6.4 Código morto removido
+
+| Arquivo | Tipo | Motivo da remoção |
+|---------|------|-------------------|
+| `ComponenteAntigo.tsx` | Componente | Substituído por `NovoComponente.tsx` em refatoração anterior, nunca deletado |
+| `types-old.ts` | Types | Duplicata de `src/types/<modulo>.ts` |
+
+Se não havia código morto: "Nenhum código morto encontrado."
+
+### 6.5 Cobertura de testes — prova de execução
+
+```
+# Output real do npx jest (copiar e colar aqui):
+PASS src/__tests__/api/<modulo>/route.test.ts
+  ✓ retorna 401 sem auth (23ms)
+  ✓ retorna 403 para role sem permissão (18ms)
+  ✓ retorna 200 com dados para ADMIN (45ms)
+  ...
+Tests: XX passed, 0 failed
+```
+
+```
+# Specs E2E criados (output real do ls):
+tests/e2e/<modulo>/
+  <modulo>-smoke.spec.ts      (6 testes)
+  <modulo>-crud.spec.ts       (8 testes)
+  <modulo>-rbac.spec.ts       (8 testes)
+  <modulo>-security.spec.ts   (6 testes)
+  <modulo>-edge-cases.spec.ts (5 testes)
+  <modulo>-regression.spec.ts (10 testes)
+Total: 43 testes E2E
+```
+
+### 6.6 Re-verificação de vulnerabilidades (pós-correção)
+
+| Vetor | Verificação executada | Resultado | Status |
+|-------|-----------------------|-----------|--------|
+| VUL-01 Auth | `grep -rn "export async function" api/ \| grep -v requireUser` | 0 resultados | ✅ Limpo |
+| VUL-02 IDOR | Revisão manual de cada rota com ID | empresaId verificado em todas | ✅ Limpo |
+| VUL-04 Data Exposure | `grep -rn "senha\|hash\|pin" api/` | 0 nos responses | ✅ Limpo |
+| Console.log debug | `grep -rn "console\.log\|console\.warn" api/ components/` | 0 resultados | ✅ Limpo |
+| Cores hardcoded | `grep -rn "bg-white\|bg-gray-[0-9]" pages/ components/` | 0 resultados | ✅ Limpo |
+
+### 6.7 O que NÃO foi corrigido e por quê
+
+Ser honesto sobre cada item que ficou pendente:
+
+| Item | Razão | Risco se não corrigir | Próximo passo |
+|------|-------|-----------------------|---------------|
+| Rate limiting na rota GET | Requer dependência nova (rate-limiter) — fora do escopo desta varredura | Médio — scraping de dados | Implementar junto com módulo de segurança global |
+| ReportBuilder CSV/Excel | Funcionalidade incompleta que exige trabalho de feature, não de bug | Médio — UX quebrada | Criar feature card separado |
+
+### 6.8 Recomendações para elevar nota a 10/10
+
+O que o módulo **não tem e deveria ter** para atingir nível enterprise completo:
+
+#### 🔴 Necessário (bloqueia 10/10)
+Lista de gaps que impedem a nota máxima. Para cada um:
+- **O que está faltando**
+- **Por que é necessário** (impacto real na operação)
+- **Como implementar** (sugestão técnica concreta)
+
+#### 🟠 Importante (eleva qualidade significativamente)
+Lista de melhorias que elevam a nota mas não são bloqueantes.
+
+#### 🟡 Nice to have (polish enterprise)
+Lista de refinamentos que completam a experiência enterprise (ex: filtro de período na URL, keyboard shortcuts, exportação de dados).
+
+### 6.9 Checklist de produção final
+
+Executar cada item com o comando correspondente e registrar o resultado:
+
+- [ ] **Zero console.log de debug**: `grep -rn "console\.log\|console\.warn" src/app/api/<modulo>/` → 0 resultados
+- [ ] **Todos os testes passando**: `npx jest src/__tests__/api/<modulo> --no-coverage` → 0 failing
+- [ ] **Zero cor hardcoded**: `grep -rn "bg-white\|bg-gray-[0-9]\|rounded-lg\b" src/app/(dashboard)/<modulo>/ src/components/<modulo>/` → 0 resultados
+- [ ] **requireUser() em todas as rotas**: `grep -rn "export async function\|export const GET\|export const POST" src/app/api/<modulo>/` vs `grep -rn "requireUser" src/app/api/<modulo>/` → mesmo número
+- [ ] **can() em todas as mutações**: toda rota POST/PATCH/DELETE tem `can()` após `requireUser()`
+- [ ] **Zod em todos os inputs**: toda rota que recebe body tem `schema.safeParse()`
+- [ ] **Zero TypeScript errors**: `npx tsc --noEmit 2>&1 | grep "<modulo>"` → 0 resultados
+- [ ] **6 specs E2E criados**: `ls tests/e2e/<modulo>/` → 6 arquivos (ou justificativa)
+- [ ] **Regression guards**: `tests/e2e/<modulo>/<modulo>-regression.spec.ts` existe com um guard por P1/P2
+- [ ] **Documentação criada**: `ls docs/modules/<modulo>/` → arquivo existe
+- [ ] **Zero código morto**: nenhum arquivo `.bak`, `.old` ou componente não importado
+- [ ] **Nota enterprise ≥ 8.0/10**: calculada na seção 6.1
 
 ---
 
-## Fase 6 — Commit (obrigatório ao final)
+## Fase 7 — Commit (obrigatório ao final)
 
 Após todas as fases concluídas e checklist verificado, fazer **dois commits cirúrgicos**:
 
