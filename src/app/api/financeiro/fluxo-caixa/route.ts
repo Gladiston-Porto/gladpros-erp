@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 
 /**
  * GET - Obter análise completa de fluxo de caixa
@@ -20,18 +22,15 @@ import { withErrorHandler } from '@/lib/api/error-handler';
  * - diasProjecao (opcional, default: 30)
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "read")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     
-    const empresaId = searchParams.get("empresaId") ? Number(searchParams.get("empresaId")) : undefined;
+    const empresaId = 1;
     const incluirProjecao = searchParams.get("incluirProjecao") !== "false";
     const diasProjecao = searchParams.get("diasProjecao") ? Number(searchParams.get("diasProjecao")) : 30;
-    
-    if (!empresaId) {
-      return NextResponse.json({
-        success: false,
-        message: "ID da empresa é obrigatório"
-      }, { status: 400 });
-    }
     
     // Define período padrão (últimos 30 dias)
     const hoje = new Date();

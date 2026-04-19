@@ -204,25 +204,25 @@ export default function DespesaFormPageClient() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4"
           >
             <ArrowLeft className="w-5 h-5" />
             Voltar
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Nova Despesa</h1>
-          <p className="text-gray-600 mt-1">Registre uma nova despesa no sistema</p>
+          <h1 className="text-3xl font-bold text-foreground">Nova Despesa</h1>
+          <p className="text-muted-foreground mt-1">Registre uma nova despesa no sistema</p>
         </div>
 
         {/* Alertas */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
             <div>
               <p className="font-medium text-red-900">Erro</p>
               <p className="text-red-700 text-sm">{error}</p>
@@ -231,7 +231,7 @@ export default function DespesaFormPageClient() {
         )}
 
         {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+          <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start gap-3">
             <CheckCircle className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
             <div>
               <p className="font-medium text-green-900">Sucesso!</p>
@@ -243,24 +243,24 @@ export default function DespesaFormPageClient() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Informa├º├╡es B├ísicas */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-card rounded-lg shadow-sm border border-border p-6">
             <div className="flex items-center gap-2 mb-4">
-              <FileText className="w-5 h-5 text-red-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Informa├º├╡es B├ísicas</h2>
+              <FileText className="w-5 h-5 text-destructive" />
+              <h2 className="text-lg font-semibold text-foreground">Informa├º├╡es B├ísicas</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Categoria */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Categoria <span className="text-red-600">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Categoria <span className="text-destructive">*</span>
                 </label>
                 <select
                   title="Categoria da despesa"
                   value={formData.categoriaId}
                   onChange={(e) => handleChange('categoriaId', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.categoriaId ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                    errors.categoriaId ? 'border-red-500' : 'border-border'
                   }`}
                 >
                   <option value="">Selecione uma categoria</option>
@@ -269,39 +269,39 @@ export default function DespesaFormPageClient() {
                   ))}
                 </select>
                 {errors.categoriaId && (
-                  <p className="mt-1 text-sm text-red-600">{errors.categoriaId}</p>
+                  <p className="mt-1 text-sm text-destructive">{errors.categoriaId}</p>
                 )}
               </div>
 
               {/* Descri├º├úo */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Descri├º├úo <span className="text-red-600">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Descri├º├úo <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.descricao}
                   onChange={(e) => handleChange('descricao', e.target.value)}
                   placeholder="Ex: Sal├írio do m├¬s de outubro"
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.descricao ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                    errors.descricao ? 'border-red-500' : 'border-border'
                   }`}
                 />
                 {errors.descricao && (
-                  <p className="mt-1 text-sm text-red-600">{errors.descricao}</p>
+                  <p className="mt-1 text-sm text-destructive">{errors.descricao}</p>
                 )}
               </div>
 
               {/* Tipo */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo <span className="text-red-600">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Tipo <span className="text-destructive">*</span>
                 </label>
                 <select
                   title="Tipo da despesa"
                   value={formData.tipo}
                   onChange={(e) => handleChange('tipo', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
                 >
                   <option value="OPERACIONAL">Operacional</option>
                   <option value="ADMINISTRATIVA">Administrativa</option>
@@ -318,11 +318,11 @@ export default function DespesaFormPageClient() {
 
               {/* Valor */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Valor ($) <span className="text-red-600">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Valor ($) <span className="text-destructive">*</span>
                 </label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
                     type="number"
                     step="0.01"
@@ -330,26 +330,26 @@ export default function DespesaFormPageClient() {
                     value={formData.valor}
                     onChange={(e) => handleChange('valor', e.target.value)}
                     placeholder="0,00"
-                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                      errors.valor ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                      errors.valor ? 'border-red-500' : 'border-border'
                     }`}
                   />
                 </div>
                 {errors.valor && (
-                  <p className="mt-1 text-sm text-red-600">{errors.valor}</p>
+                  <p className="mt-1 text-sm text-destructive">{errors.valor}</p>
                 )}
               </div>
 
               {/* Forma de Pagamento */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Forma de Pagamento <span className="text-red-600">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Forma de Pagamento <span className="text-destructive">*</span>
                 </label>
                 <select
                   title="Forma de pagamento da despesa"
                   value={formData.formaPagamento}
                   onChange={(e) => handleChange('formaPagamento', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
                 >
                   <option value="DINHEIRO">Dinheiro</option>
                   <option value="PIX">PIX</option>
@@ -363,45 +363,45 @@ export default function DespesaFormPageClient() {
 
               {/* Data Emiss├úo */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Data de Emiss├úo <span className="text-red-600">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Data de Emiss├úo <span className="text-destructive">*</span>
                 </label>
                 <input
                   title="Data de emissão da despesa"
                   type="date"
                   value={formData.dataEmissao}
                   onChange={(e) => handleChange('dataEmissao', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.dataEmissao ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                    errors.dataEmissao ? 'border-red-500' : 'border-border'
                   }`}
                 />
                 {errors.dataEmissao && (
-                  <p className="mt-1 text-sm text-red-600">{errors.dataEmissao}</p>
+                  <p className="mt-1 text-sm text-destructive">{errors.dataEmissao}</p>
                 )}
               </div>
 
               {/* Data Vencimento */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Data de Vencimento <span className="text-red-600">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Data de Vencimento <span className="text-destructive">*</span>
                 </label>
                 <input
                   title="Data de vencimento da despesa"
                   type="date"
                   value={formData.dataVencimento}
                   onChange={(e) => handleChange('dataVencimento', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.dataVencimento ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                    errors.dataVencimento ? 'border-red-500' : 'border-border'
                   }`}
                 />
                 {errors.dataVencimento && (
-                  <p className="mt-1 text-sm text-red-600">{errors.dataVencimento}</p>
+                  <p className="mt-1 text-sm text-destructive">{errors.dataVencimento}</p>
                 )}
               </div>
 
               {/* N├║mero do Documento */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   N├║mero do Documento
                 </label>
                 <input
@@ -409,13 +409,13 @@ export default function DespesaFormPageClient() {
                   value={formData.numeroDocumento}
                   onChange={(e) => handleChange('numeroDocumento', e.target.value)}
                   placeholder="Ex: NF-12345"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
                 />
               </div>
 
               {/* Observa├º├╡es */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Observa├º├╡es
                 </label>
                 <textarea
@@ -423,17 +423,17 @@ export default function DespesaFormPageClient() {
                   onChange={(e) => handleChange('observacoes', e.target.value)}
                   rows={3}
                   placeholder="Observa├º├╡es adicionais sobre a despesa..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
                 />
               </div>
             </div>
           </div>
 
           {/* Aprova├º├úo */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-card rounded-lg shadow-sm border border-border p-6">
             <div className="flex items-center gap-2 mb-4">
-              <CheckCircle className="w-5 h-5 text-red-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Aprova├º├úo</h2>
+              <CheckCircle className="w-5 h-5 text-destructive" />
+              <h2 className="text-lg font-semibold text-foreground">Aprova├º├úo</h2>
             </div>
 
             <div className="mb-4">
@@ -442,26 +442,26 @@ export default function DespesaFormPageClient() {
                   type="checkbox"
                   checked={formData.requerAprovacao}
                   onChange={(e) => handleChange('requerAprovacao', e.target.checked)}
-                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                  className="w-4 h-4 text-destructive border-border rounded focus:ring-destructive/50"
                 />
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-foreground">
                   Esta despesa requer aprova├º├úo
                 </span>
               </label>
             </div>
 
             {formData.requerAprovacao && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border">
                 {/* Tipo de Aprovador */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tipo de Aprovador <span className="text-red-600">*</span>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Tipo de Aprovador <span className="text-destructive">*</span>
                   </label>
                   <select
                     title="Tipo de aprovador da despesa"
                     value={formData.tipoAprovador}
                     onChange={(e) => handleChange('tipoAprovador', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
                   >
                     <option value="GERENTE">Gerente</option>
                     <option value="DIRETOR">Diretor</option>
@@ -472,8 +472,8 @@ export default function DespesaFormPageClient() {
 
                 {/* Aprovador ID (simulado - em produ├º├úo seria um select de usu├írios) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ID do Aprovador <span className="text-red-600">*</span>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    ID do Aprovador <span className="text-destructive">*</span>
                   </label>
                   <input
                     title="Identificador do aprovador"
@@ -481,31 +481,31 @@ export default function DespesaFormPageClient() {
                     value={formData.aprovadorId}
                     onChange={(e) => handleChange('aprovadorId', e.target.value)}
                     placeholder="ID do usu├írio aprovador"
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                      errors.aprovadorId ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                      errors.aprovadorId ? 'border-red-500' : 'border-border'
                     }`}
                   />
                   {errors.aprovadorId && (
-                    <p className="mt-1 text-sm text-red-600">{errors.aprovadorId}</p>
+                    <p className="mt-1 text-sm text-destructive">{errors.aprovadorId}</p>
                   )}
                 </div>
 
                 {/* Justificativa */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Justificativa <span className="text-red-600">*</span>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Justificativa <span className="text-destructive">*</span>
                   </label>
                   <textarea
                     value={formData.justificativa}
                     onChange={(e) => handleChange('justificativa', e.target.value)}
                     rows={3}
                     placeholder="Por que esta despesa necessita aprova├º├úo?"
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                      errors.justificativa ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                      errors.justificativa ? 'border-red-500' : 'border-border'
                     }`}
                   />
                   {errors.justificativa && (
-                    <p className="mt-1 text-sm text-red-600">{errors.justificativa}</p>
+                    <p className="mt-1 text-sm text-destructive">{errors.justificativa}</p>
                   )}
                 </div>
               </div>
@@ -517,14 +517,14 @@ export default function DespesaFormPageClient() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-6 py-2 border border-border text-foreground rounded-lg hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading || success}
-              className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-6 py-2 bg-destructive text-white rounded-lg hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
                 <>

@@ -9,9 +9,15 @@ import { prisma } from '@/lib/prisma';
 import { approveExpenseSchema } from '@/schemas/expense.schema';
 import { ZodError } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 
 export const POST = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "update")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const params = await context.params;
     const expenseId = parseInt(params.id);
 
@@ -213,6 +219,17 @@ export const POST = withErrorHandler(async (request: NextRequest,
         approval: updatedApproval,
         message: 'Despesa aprovada com sucesso'
       };
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: Number(user.id),
+        entidade: "Expense",
+        entidadeId: String(expenseId),
+        acao: "EXPENSE_APPROVED",
+        diff: JSON.stringify({ expenseId, valor: String(result.expense.valor) }),
+      },
     });
 
     return NextResponse.json({

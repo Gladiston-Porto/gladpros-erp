@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 import {
   createBankTransferSchema,
   bankTransferFiltersSchema,
@@ -20,6 +22,10 @@ import {
  * GET - Listar transferências com filtros
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "read")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     
     // Parse filtros
@@ -133,6 +139,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
  * POST - Criar nova transferência
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "create")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const body = await request.json();
     
     // Valida dados

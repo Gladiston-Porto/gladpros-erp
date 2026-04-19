@@ -7,6 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 import {
   createBankTransactionSchema,
   calcularSaldoPosterior,
@@ -19,6 +21,10 @@ import {
  */
 export const POST = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "create")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const params = await context.params;
     const accountId = parseInt(params.id);
     
@@ -33,6 +39,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     
     // Adiciona accountId ao body se não estiver presente
     body.accountId = accountId;
+    // Single-tenant: force empresaId = 1 for security
+    body.empresaId = 1;
     
     // Valida dados
     const validated = createBankTransactionSchema.parse(body) as CreateBankTransactionInput;

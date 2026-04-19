@@ -3,7 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthUser } from '@/lib/api/auth';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 import { withErrorHandler } from '@/lib/api/error-handler';
 
 /**
@@ -12,9 +13,9 @@ import { withErrorHandler } from '@/lib/api/error-handler';
  * Query params: ?empresaId=X
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "read")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
     }
 
     const searchParams = request.nextUrl.searchParams;

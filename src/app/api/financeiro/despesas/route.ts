@@ -66,7 +66,6 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const validation = expenseFiltersSchema.safeParse(rawFilters);
 
     if (!validation.success) {
-      console.error('Validation Error in Expenses:', JSON.stringify(validation.error.issues, null, 2));
       return validationErrorResponse(
         validation.error.issues.map(issue => ({
           field: issue.path.join('.'),

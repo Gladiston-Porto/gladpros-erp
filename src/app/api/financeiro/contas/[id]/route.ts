@@ -9,6 +9,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 import {
   updateBankAccountSchema,
   type UpdateBankAccountInput
@@ -19,6 +21,10 @@ import {
  */
 export const GET = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "read")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const params = await context.params;
     const id = parseInt(params.id);
     
@@ -112,6 +118,10 @@ export const GET = withErrorHandler(async (request: NextRequest,
  */
 export const PUT = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "update")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const params = await context.params;
     const id = parseInt(params.id);
     
@@ -206,6 +216,10 @@ export const PUT = withErrorHandler(async (request: NextRequest,
  */
 export const DELETE = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "delete")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const params = await context.params;
     const id = parseInt(params.id);
     

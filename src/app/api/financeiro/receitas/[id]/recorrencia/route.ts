@@ -4,7 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createRecurrenceSchema } from '@/schemas/revenue.schema';
-import { getAuthUser } from '@/lib/api/auth';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 import { withErrorHandler } from '@/lib/api/error-handler';
 
 /**
@@ -14,9 +15,9 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 export const POST = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
     const params = await context.params;
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "create")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
     }
 
     const id = parseInt(params.id);

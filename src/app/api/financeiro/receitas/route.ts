@@ -5,7 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createRevenueSchema, revenueFiltersSchema } from '@/schemas/revenue.schema';
-import { getAuthUser } from '@/lib/api/auth';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 import { withErrorHandler } from '@/lib/api/error-handler';
 
 /**
@@ -13,13 +14,10 @@ import { withErrorHandler } from '@/lib/api/error-handler';
  * Criar nova receita (com ou sem recorrência)
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
-    // 1. Verificar autenticação
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Não autenticado' },
-        { status: 401 }
-      );
+    // 1. Verificar autenticação e autorização
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "create")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
     }
 
     // 2. Parse e validação do body
@@ -131,13 +129,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
  * Listar receitas com filtros, paginação e ordenação
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
-    // 1. Verificar autenticação
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Não autenticado' },
-        { status: 401 }
-      );
+    // 1. Verificar autenticação e autorização
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "read")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
     }
 
     // 2. Parse query params

@@ -7,21 +7,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 
 /**
  * GET - Obter dashboard financeiro com resumo de contas e transações
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "read")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     
-    const empresaId = searchParams.get("empresaId") ? Number(searchParams.get("empresaId")) : undefined;
-    
-    if (!empresaId) {
-      return NextResponse.json({
-        success: false,
-        message: "ID da empresa é obrigatório"
-      }, { status: 400 });
-    }
+    const empresaId = 1;
     
     // Define período (padrão: últimos 30 dias)
     const dataFim = new Date();

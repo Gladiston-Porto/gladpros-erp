@@ -11,11 +11,17 @@ import { prisma } from '@/lib/prisma';
 import { createExpenseCategorySchema } from '@/schemas/expense.schema';
 import { ZodError } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 
 // ========================================
 // GET: Lista categorias
 // ========================================
 export const GET = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "read")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const empresaId = searchParams.get('empresaId');
     const ativo = searchParams.get('ativo');
@@ -55,37 +61,39 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
     const fimMes = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-    const categoriasComGastos = await Promise.all(
-      categorias.map(async (categoria) => {
-        const gastosDoMes = await prisma.expense.aggregate({
-          where: {
-            categoriaId: categoria.id,
-            dataEmissao: {
-              gte: inicioMes,
-              lte: fimMes
-            },
-            status: {
-              in: ['PENDENTE', 'APROVADA', 'PAGA', 'AGUARDANDO_APROVACAO']
-            }
-          },
-          _sum: {
-            valor: true
-          }
-        });
+    // Single query to get all monthly expenses grouped by category (fixes N+1)
+    const gastosPorCategoria = await prisma.expense.groupBy({
+      by: ['categoriaId'],
+      where: {
+        empresaId: parseInt(empresaId),
+        dataEmissao: {
+          gte: inicioMes,
+          lte: fimMes
+        },
+        status: {
+          in: ['PENDENTE', 'APROVADA', 'PAGA', 'AGUARDANDO_APROVACAO']
+        }
+      },
+      _sum: {
+        valor: true
+      }
+    });
 
-        const gastoTotal = Number(gastosDoMes._sum.valor || 0);
-        const orcamento = Number(categoria.orcamentoMensal || 0);
-        const percentualUsado = orcamento > 0 ? (gastoTotal / orcamento) * 100 : 0;
+    const gastosMap = new Map(gastosPorCategoria.map(g => [g.categoriaId, Number(g._sum.valor || 0)]));
 
-        return {
-          ...categoria,
-          gastosDoMes: gastoTotal,
-          orcamentoRestante: orcamento - gastoTotal,
-          percentualUsado: Math.round(percentualUsado * 100) / 100,
-          alerta: percentualUsado >= 90 ? 'critical' : percentualUsado >= 75 ? 'warning' : 'ok'
-        };
-      })
-    );
+    const categoriasComGastos = categorias.map((categoria) => {
+      const gastoTotal = gastosMap.get(categoria.id) || 0;
+      const orcamento = Number(categoria.orcamentoMensal || 0);
+      const percentualUsado = orcamento > 0 ? (gastoTotal / orcamento) * 100 : 0;
+
+      return {
+        ...categoria,
+        gastosDoMes: gastoTotal,
+        orcamentoRestante: orcamento - gastoTotal,
+        percentualUsado: Math.round(percentualUsado * 100) / 100,
+        alerta: percentualUsado >= 90 ? 'critical' : percentualUsado >= 75 ? 'warning' : 'ok'
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -103,6 +111,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 // POST: Criar categoria
 // ========================================
 export const POST = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "create")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const body = await request.json();
     const validatedData = createExpenseCategorySchema.parse(body);
 

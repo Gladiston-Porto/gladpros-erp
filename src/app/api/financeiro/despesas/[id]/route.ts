@@ -12,12 +12,18 @@ import { prisma } from '@/lib/prisma';
 import { updateExpenseSchema } from '@/schemas/expense.schema';
 import { ZodError } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 
 // ========================================
 // GET: Detalhes da despesa
 // ========================================
 export const GET = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "read")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const params = await context.params;
     const id = parseInt(params.id);
 
@@ -103,6 +109,10 @@ export const GET = withErrorHandler(async (request: NextRequest,
 // ========================================
 export const PUT = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "update")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const params = await context.params;
     const id = parseInt(params.id);
 
@@ -196,6 +206,10 @@ export const PUT = withErrorHandler(async (request: NextRequest,
 // ========================================
 export const DELETE = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, "financeiro", "delete")) {
+      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    }
     const params = await context.params;
     const id = parseInt(params.id);
 
