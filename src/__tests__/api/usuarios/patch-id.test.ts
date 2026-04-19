@@ -1,3 +1,28 @@
+jest.mock('next/server', () => {
+  const makeSearchParams = (url: string) => {
+    try { return new URLSearchParams(url.includes('?') ? url.split('?')[1] ?? '' : ''); }
+    catch { return new URLSearchParams(); }
+  };
+  return {
+    NextRequest: jest.fn().mockImplementation((url: string, init?: { method?: string; body?: string; headers?: Record<string, string> }) => ({
+      url,
+      method: (init?.method ?? 'GET').toUpperCase(),
+      nextUrl: { searchParams: makeSearchParams(url), pathname: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0] },
+      headers: { get: (name: string) => { const h = (init?.headers ?? {}) as Record<string, string>; return h[name] ?? h[name.toLowerCase()] ?? null; } },
+      json: jest.fn().mockImplementation(() => { if (init?.body) { try { return Promise.resolve(JSON.parse(init.body)); } catch { return Promise.resolve({}); } } return Promise.resolve({}); }),
+      text: jest.fn().mockResolvedValue(init?.body ?? ''),
+    })),
+    NextResponse: {
+      json: jest.fn().mockImplementation((data: unknown, options?: { status?: number }) => ({
+        status: options?.status ?? 200,
+        headers: new Map(),
+        cookies: { set: jest.fn(), get: jest.fn(), delete: jest.fn() },
+        json: jest.fn().mockResolvedValue(data),
+      })),
+    },
+  };
+});
+
 import { NextRequest } from 'next/server';
 
 jest.mock('@/lib/prisma', () => ({
@@ -43,7 +68,19 @@ jest.mock('@/lib/api/logger', () => ({
 }));
 
 jest.mock('@/lib/api/error-handler', () => ({
-  withErrorHandler: jest.fn().mockImplementation((handler: Function) => handler),
+  withErrorHandler: jest.fn().mockImplementation((handler: Function) => async (...args: unknown[]) => {
+    try {
+      return await handler(...args);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'UNAUTHENTICATED') {
+        return { status: 401, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Unauthorized', success: false }) };
+      }
+      if (error instanceof Error && error.message === 'FORBIDDEN') {
+        return { status: 403, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Forbidden', success: false }) };
+      }
+      return { status: 500, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Internal server error', success: false }) };
+    }
+  }),
 }));
 
 jest.mock('@/shared/lib/validation', () => ({
@@ -110,12 +147,13 @@ describe('PATCH /api/usuarios/:id', () => {
   });
 
   it('400 — trying to demote last ADMIN', async () => {
+    // authUser.id=1 targeting user id=2 (another admin) — not self-edit, so role field is not stripped
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
     (prisma.$queryRaw as jest.Mock)
-      .mockResolvedValueOnce([{ nivel: 'ADMIN' }]) // getTargetUserRole
-      .mockResolvedValueOnce([{ cnt: BigInt(0) }]); // countActiveAdmins returns 0 others
+      .mockResolvedValueOnce([{ nivel: 'ADMIN' }]) // getTargetUserRole for id=2
+      .mockResolvedValueOnce([{ cnt: BigInt(0) }]); // countActiveAdmins (excluding id=2) = 0
     const { PATCH } = await import('@/app/api/usuarios/[id]/route');
-    const res = await PATCH(makePatchRequest('1', { role: 'GERENTE' }), { params: Promise.resolve({ id: '1' }) });
+    const res = await PATCH(makePatchRequest('2', { role: 'GERENTE' }), { params: Promise.resolve({ id: '2' }) });
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('LAST_ADMIN');
