@@ -109,7 +109,7 @@ export default function BankAccountDetailsPage({ params: paramsPromise }: { para
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Débitos</p>
-            <p className="text-xl text-red-600 flex items-center gap-1">
+            <p className="text-xl text-destructive flex items-center gap-1">
               <TrendingDown className="w-5 h-5" />
               $ {extrato.resumo.totalDebitos.toFixed(2)}
             </p>
@@ -176,7 +176,7 @@ export default function BankAccountDetailsPage({ params: paramsPromise }: { para
                     <span className={`px-2 py-1 text-xs rounded ${
                       t.tipo.includes("CREDITO") || t.tipo.includes("ENTRADA")
                         ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
+                        : "bg-destructive/10 text-destructive"
                     }`}>
                       {t.tipo}
                     </span>
@@ -184,7 +184,7 @@ export default function BankAccountDetailsPage({ params: paramsPromise }: { para
                   <td className={`px-4 py-3 text-sm text-right font-medium ${
                     t.tipo.includes("CREDITO") || t.tipo.includes("ENTRADA")
                       ? "text-green-600"
-                      : "text-red-600"
+                      : "text-destructive"
                   }`}>
                     {t.tipo.includes("CREDITO") || t.tipo.includes("ENTRADA") ? "+" : "-"}
                     $ {Number(t.valor).toFixed(2)}

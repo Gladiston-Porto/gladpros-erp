@@ -155,10 +155,10 @@ export default function ReceitaDataTable({ receitas }: ReceitaDataTableProps) {
             <div className="flex items-center gap-2">
               {(isVencida || isProximaVencer) && (
                 <Calendar
-                  className={`h-4 w-4 ${isVencida ? 'text-red-600' : 'text-orange-600'}`}
+                  className={`h-4 w-4 ${isVencida ? 'text-destructive' : 'text-orange-600'}`}
                 />
               )}
-              <span className={`text-sm ${isVencida ? 'text-red-600 font-medium' : ''}`}>
+              <span className={`text-sm ${isVencida ? 'text-destructive font-medium' : ''}`}>
                 {formatDate(row.original.dataVencimento)}
               </span>
             </div>

@@ -72,7 +72,7 @@ const fmt = (v: number) =>
 function alertColor(severity: string) {
   switch (severity) {
     case "critical":
-      return "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300"
+      return "bg-destructive/5 border-destructive/30 text-destructive dark:bg-destructive/10 dark:border-destructive/50 dark:text-destructive"
     case "warning":
       return "bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-300"
     default:
@@ -148,7 +148,7 @@ export default function FiscalDashboardPage() {
         />
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-red-600 font-semibold">{error || "Erro desconhecido"}</p>
+            <p className="text-destructive font-semibold">{error || "Erro desconhecido"}</p>
             <Button onClick={loadData} className="mt-4" variant="secondary">Tentar novamente</Button>
           </CardContent>
         </Card>

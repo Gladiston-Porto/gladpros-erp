@@ -207,7 +207,7 @@ export default function FiscalReportsPage() {
                     className="gap-1.5"
                     aria-label={`Download ${report.title} PDF`}
                   >
-                    <Download className="h-4 w-4 text-red-600" />
+                    <Download className="h-4 w-4 text-destructive" />
                     {downloading === `${report.id}-pdf` ? "Gerando..." : "PDF"}
                   </Button>
                 )}

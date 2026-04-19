@@ -188,7 +188,7 @@ export default async function BalancoPage() {
                   <span className="font-bold text-lg">Patrimônio Líquido</span>
                   <span
                     className={`font-bold text-lg ${
-                      patrimonioLiquido >= 0 ? 'text-green-600' : 'text-red-600'
+                      patrimonioLiquido >= 0 ? 'text-green-600' : 'text-destructive'
                     }`}
                   >
                     {formatCurrency(patrimonioLiquido)}

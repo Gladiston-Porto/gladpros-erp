@@ -133,13 +133,13 @@ export default function FluxoCaixaDataTable({
               <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
             )}
             {isDebito && (
-              <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <TrendingDown className="h-4 w-4 text-destructive" />
             )}
             <span
               className={`font-bold ${isCredito
                   ? "text-green-700 dark:text-green-400"
                   : isDebito
-                    ? "text-red-700 dark:text-red-400"
+                    ? "text-destructive "
                     : ""
                 }`}
             >
@@ -168,7 +168,7 @@ export default function FluxoCaixaDataTable({
           <span
             className={`font-semibold ${isPositive
                 ? "text-green-700 dark:text-green-400"
-                : "text-red-700 dark:text-red-400"
+                : "text-destructive "
               }`}
           >
             {formatCurrency(saldo)}

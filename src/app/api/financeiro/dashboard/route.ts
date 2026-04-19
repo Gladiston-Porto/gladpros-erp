@@ -20,7 +20,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     }
     const { searchParams } = new URL(request.url);
     
-    const empresaId = 1;
+    const empresaId = (user as any).empresaId ?? 1;
     
     // Define período (padrão: últimos 30 dias)
     const dataFim = new Date();

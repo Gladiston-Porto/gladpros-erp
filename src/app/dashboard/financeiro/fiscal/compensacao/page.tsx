@@ -293,7 +293,7 @@ export default function OwnerCompensationPage() {
                         onClick={() => handleDelete(item.id)}
                         aria-label="Excluir registro"
                       >
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>

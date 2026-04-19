@@ -98,10 +98,10 @@ export default function ContaBancariaDataTable({ contas }: ContaBancariaDataTabl
               {isPositivo ? (
                 <TrendingUp className="h-4 w-4 text-green-600" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-red-600" />
+                <TrendingDown className="h-4 w-4 text-destructive" />
               )}
               <span
-                className={`font-semibold text-sm ${isPositivo ? 'text-green-600' : 'text-red-600'
+                className={`font-semibold text-sm ${isPositivo ? 'text-green-600' : 'text-destructive'
                   }`}
               >
                 {formatCurrency(saldo)}
@@ -133,7 +133,7 @@ export default function ContaBancariaDataTable({ contas }: ContaBancariaDataTabl
 
           return (
             <div className="text-sm">
-              <span className={isPositivo ? 'text-green-600' : 'text-red-600'}>
+              <span className={isPositivo ? 'text-green-600' : 'text-destructive'}>
                 {isPositivo ? '+' : ''}
                 {formatCurrency(variacao)}
               </span>

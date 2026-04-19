@@ -44,7 +44,7 @@ function statusIcon(status: string) {
     case "PARTIAL":
       return <Clock className="h-5 w-5 text-orange-500" />
     case "OVERDUE":
-      return <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+      return <AlertCircle className="h-5 w-5 text-destructive" />
     default:
       return <Calendar className="h-5 w-5 text-muted-foreground" />
   }
@@ -66,7 +66,7 @@ function statusLabel(status: string) {
 function alertBorder(level: string) {
   switch (level) {
     case "critical":
-      return "border-red-500 dark:border-red-700"
+      return "border-destructive"
     case "warning":
       return "border-orange-400 dark:border-orange-700"
     case "info":
@@ -253,7 +253,7 @@ export default function EstimatedTaxPage() {
                       <div
                         className={`h-full rounded-full transition-all ${
                           q.status === "PAID" ? "bg-green-500" :
-                          q.status === "OVERDUE" ? "bg-red-500" :
+                          q.status === "OVERDUE" ? "bg-destructive/50" :
                           q.status === "PARTIAL" ? "bg-orange-500" : "bg-blue-500"
                         }`}
                         style={{ width: `${progress}%` }}
@@ -263,7 +263,7 @@ export default function EstimatedTaxPage() {
 
                   {/* Days info */}
                   {q.status !== "PAID" && (
-                    <p className={`text-xs ${q.daysUntilDue < 0 ? "text-red-600 dark:text-red-400 font-medium" : "text-muted-foreground"}`}>
+                    <p className={`text-xs ${q.daysUntilDue < 0 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
                       {q.daysUntilDue < 0
                         ? `${Math.abs(q.daysUntilDue)} dias atrasado`
                         : q.daysUntilDue === 0

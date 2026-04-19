@@ -120,8 +120,8 @@ export default function ConciliacaoDataTable({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
-            <span className="text-xs text-red-700 dark:text-red-400">
+            <TrendingDown className="h-3 w-3 text-destructive" />
+            <span className="text-xs text-destructive ">
               {formatCurrency(row.original.totalDebitos)}
             </span>
           </div>
