@@ -51,6 +51,13 @@ const config = {
       functions: 65,
       statements: 65,
     },
+    // Módulo Usuários — auditado e com cobertura garantida (Abril/2026)
+    './src/app/api/usuarios/': {
+      lines: 75,
+      functions: 70,
+      branches: 65,
+      statements: 75,
+    },
   },
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.{js,jsx,ts,tsx}',
