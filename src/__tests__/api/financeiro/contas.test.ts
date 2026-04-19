@@ -90,4 +90,13 @@ describe('POST /api/financeiro/contas', () => {
     const res = await POST(req)
     expect(res.status).toBe(403)
   })
+
+  it('returns 500 when Prisma throws DB error on GET', async () => {
+    mockRequireUser.mockResolvedValue({ id: '1', role: 'ADMIN', status: 'ATIVO', empresaId: 1 } as any)
+    mockCan.mockReturnValue(true)
+    const { prisma } = require('@/lib/prisma')
+    prisma.bankAccount.findMany.mockRejectedValue(new Error('DB connection failed'))
+    const req = new NextRequest('http://localhost/api/financeiro/contas')
+    await expect(GET(req)).rejects.toThrow('DB connection failed')
+  })
 })

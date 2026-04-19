@@ -72,4 +72,34 @@ describe('POST /api/financeiro/despesas/[id]/pagar', () => {
     const res = await POST(req, ctx)
     expect(res.status).toBe(404)
   })
+
+  it('returns 200 (happy path) when expense exists and payment succeeds', async () => {
+    mockRequireUser.mockResolvedValue({ id: '1', role: 'FINANCEIRO', status: 'ATIVO', empresaId: 1 } as any)
+    mockCan.mockReturnValue(true)
+    const { prisma } = require('@/lib/prisma')
+    prisma.expense.findUnique.mockResolvedValue({ id: 1, valor: 100, status: 'APROVADA' })
+    prisma.expense.update.mockResolvedValue({ id: 1, status: 'PAGA' })
+    const req = new NextRequest('http://localhost/api/financeiro/despesas/1/pagar', {
+      method: 'POST',
+      body: JSON.stringify({ dataPagamento: new Date().toISOString() }),
+    })
+    const ctx = { params: Promise.resolve({ id: '1' }) }
+    const res = await POST(req, ctx)
+    expect([200, 201]).toContain(res.status)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+  })
+
+  it('returns 500 when Prisma throws DB error', async () => {
+    mockRequireUser.mockResolvedValue({ id: '1', role: 'ADMIN', status: 'ATIVO', empresaId: 1 } as any)
+    mockCan.mockReturnValue(true)
+    const { prisma } = require('@/lib/prisma')
+    prisma.expense.findUnique.mockRejectedValue(new Error('DB connection failed'))
+    const req = new NextRequest('http://localhost/api/financeiro/despesas/1/pagar', {
+      method: 'POST',
+      body: JSON.stringify({ dataPagamento: new Date().toISOString() }),
+    })
+    const ctx = { params: Promise.resolve({ id: '1' }) }
+    await expect(POST(req, ctx)).rejects.toThrow('DB connection failed')
+  })
 })

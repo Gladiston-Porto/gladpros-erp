@@ -172,12 +172,12 @@ export default function DespesaDetalhesPage() {
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { color: string; icon: any; label: string }> = {
-      PENDENTE: { color: 'bg-gray-100 text-foreground', icon: Clock, label: 'Pendente' },
+      PENDENTE: { color: 'bg-muted text-foreground', icon: Clock, label: 'Pendente' },
       AGUARDANDO_APROVACAO: { color: 'bg-yellow-100 text-yellow-700', icon: AlertTriangle, label: 'Aguardando Aprovação' },
       APROVADA: { color: 'bg-green-100 text-green-700', icon: CheckCircle, label: 'Aprovada' },
-      REJEITADA: { color: 'bg-red-100 text-red-700', icon: XCircle, label: 'Rejeitada' },
+      REJEITADA: { color: 'bg-destructive/10 text-destructive', icon: XCircle, label: 'Rejeitada' },
       PAGA: { color: 'bg-brand-primary/10 text-brand-primary', icon: CheckCircle, label: 'Paga' },
-      CANCELADA: { color: 'bg-gray-100 text-muted-foreground', icon: XCircle, label: 'Cancelada' }
+      CANCELADA: { color: 'bg-muted text-muted-foreground', icon: XCircle, label: 'Cancelada' }
     };
 
     const badge = badges[status] || badges.PENDENTE;
@@ -195,7 +195,7 @@ export default function DespesaDetalhesPage() {
     return (
       <div className="min-h-screen bg-muted p-6 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Carregando despesa...</p>
         </div>
       </div>
@@ -206,11 +206,11 @@ export default function DespesaDetalhesPage() {
     return (
       <div className="min-h-screen bg-muted p-6 flex items-center justify-center">
         <div className="text-center">
-          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <p className="text-destructive font-medium">{error || 'Despesa não encontrada'}</p>
           <button
             onClick={() => router.push('/dashboard/financeiro/despesas')}
-            className="mt-4 px-4 py-2 bg-destructive text-white rounded-lg hover:bg-destructive/90"
+            className="mt-4 px-4 py-2 bg-destructive text-white rounded-2xl hover:bg-destructive/90"
           >
             Voltar para lista
           </button>
@@ -245,7 +245,7 @@ export default function DespesaDetalhesPage() {
               {expense.status !== 'PAGA' && expense.status !== 'CANCELADA' && expense.status !== 'AGUARDANDO_APROVACAO' && (
                 <button
                   onClick={() => router.push(`/dashboard/financeiro/despesas/${id}/editar`)}
-                  className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted"
+                  className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-2xl hover:bg-muted"
                 >
                   <Edit className="w-4 h-4" />
                   Editar
@@ -255,7 +255,7 @@ export default function DespesaDetalhesPage() {
                 <button
                   onClick={handleDelete}
                   disabled={actionLoading}
-                  className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-destructive/10 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 border border-red-300 text-destructive rounded-2xl hover:bg-destructive/10 disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" />
                   Cancelar
@@ -269,7 +269,7 @@ export default function DespesaDetalhesPage() {
           {/* Coluna Principal */}
           <div className="lg:col-span-2 space-y-6">
             {/* Card Principal */}
-            <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+            <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <DollarSign className="w-8 h-8 text-destructive" />
@@ -282,11 +282,11 @@ export default function DespesaDetalhesPage() {
               </div>
 
               {isOverdue && (
-                <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3">
+                <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-2xl flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-red-900">Despesa Vencida</p>
-                    <p className="text-red-700 text-sm">
+                    <p className="font-medium text-destructive">Despesa Vencida</p>
+                    <p className="text-destructive text-sm">
                       Esta despesa venceu em {formatDate(expense.dataVencimento)}
                     </p>
                   </div>
@@ -367,7 +367,7 @@ export default function DespesaDetalhesPage() {
 
             {/* Aprovação */}
             {expense.requerAprovacao && expense.aprovacao && (
-              <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
                 <div className="flex items-center gap-2 mb-4">
                   {expense.aprovacao.status === 'APROVADA' ? (
                     <CheckCircle className="w-5 h-5 text-green-600" />
@@ -420,14 +420,14 @@ export default function DespesaDetalhesPage() {
                   {expense.aprovacao.justificativa && (
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Justificativa</p>
-                      <p className="text-foreground bg-muted p-3 rounded-lg">{expense.aprovacao.justificativa}</p>
+                      <p className="text-foreground bg-muted p-3 rounded-2xl">{expense.aprovacao.justificativa}</p>
                     </div>
                   )}
 
                   {expense.aprovacao.comentario && (
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Comentário do Aprovador</p>
-                      <p className="text-foreground bg-muted p-3 rounded-lg">{expense.aprovacao.comentario}</p>
+                      <p className="text-foreground bg-muted p-3 rounded-2xl">{expense.aprovacao.comentario}</p>
                     </div>
                   )}
                 </div>
@@ -436,14 +436,14 @@ export default function DespesaDetalhesPage() {
                   <div className="mt-6 pt-6 border-t border-border flex gap-3">
                     <button
                       onClick={() => router.push(`/dashboard/financeiro/despesas/${id}/aprovar`)}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-2xl hover:bg-green-700"
                     >
                       <CheckCircle className="w-4 h-4" />
                       Aprovar
                     </button>
                     <button
                       onClick={() => router.push(`/dashboard/financeiro/despesas/${id}/rejeitar`)}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-destructive text-white rounded-lg hover:bg-destructive/90"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-destructive text-white rounded-2xl hover:bg-destructive/90"
                     >
                       <XCircle className="w-4 h-4" />
                       Rejeitar
@@ -457,7 +457,7 @@ export default function DespesaDetalhesPage() {
           {/* Coluna Lateral */}
           <div className="space-y-6">
             {/* Informações Adicionais */}
-            <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+            <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
               <h3 className="font-semibold text-foreground mb-4">Informações Adicionais</h3>
               
               <div className="space-y-4">
@@ -511,11 +511,11 @@ export default function DespesaDetalhesPage() {
 
             {/* Ações */}
             {expense.status === 'APROVADA' && !expense.dataPagamento && (
-              <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
                 <h3 className="font-semibold text-foreground mb-4">Ações Disponíveis</h3>
                 <button
                   onClick={() => router.push(`/dashboard/financeiro/despesas/${id}/pagar`)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700"
                 >
                   <CreditCard className="w-5 h-5" />
                   Registrar Pagamento

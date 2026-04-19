@@ -11,6 +11,7 @@ import {
   getQuarterlyEstimates,
   recordPayment,
 } from "@/shared/services/estimatedTaxService"
+import { logger } from "@/lib/api/logger"
 
 const recordPaymentSchema = z.object({
   taxYear: z.number().int().min(2020).max(2100),
@@ -31,14 +32,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const year = Number(searchParams.get("year")) || new Date().getFullYear()
 
-    const estimates = await getQuarterlyEstimates(1, year)
+    const estimates = await getQuarterlyEstimates((user as any).empresaId ?? 1, year)
 
     return NextResponse.json({ data: estimates, success: true })
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] GET /api/financeiro/estimated-tax error:", error)
+    logger.error("[Financeiro] GET /api/financeiro/estimated-tax", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await recordPayment({
-      empresaId: 1,
+      empresaId: (user as any).empresaId ?? 1,
       taxYear: body.data.taxYear,
       quarter: body.data.quarter,
       paidAmount: body.data.paidAmount,
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] POST /api/financeiro/estimated-tax error:", error)
+    logger.error("[Financeiro] POST /api/financeiro/estimated-tax", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }

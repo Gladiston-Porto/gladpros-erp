@@ -8,6 +8,7 @@ import { requireUser } from "@/shared/lib/rbac"
 import { can, type Role } from "@/shared/lib/rbac-core"
 import { prisma } from "@/lib/prisma"
 import { generateOwnerCompExcel } from "@/shared/services/reportExportService"
+import { logger } from "@/lib/api/logger"
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,19 +24,21 @@ export async function GET(request: NextRequest) {
 
     const startOfYear = new Date(year, 0, 1)
     const endOfYear = new Date(year, 11, 31, 23, 59, 59)
+    const empresaId = (user as any).empresaId ?? 1
 
-    const compensations = await prisma.ownerCompensation.findMany({
-      where: {
-        empresaId: 1,
-        data: { gte: startOfYear, lte: endOfYear },
-      },
-      orderBy: { data: "asc" },
-    })
-
-    const empresa = await prisma.empresa.findUniqueOrThrow({
-      where: { id: 1 },
-      select: { nome: true, razaoSocial: true, tipoTributacao: true },
-    })
+    const [compensations, empresa] = await Promise.all([
+      prisma.ownerCompensation.findMany({
+        where: {
+          empresaId,
+          data: { gte: startOfYear, lte: endOfYear },
+        },
+        orderBy: { data: "asc" },
+      }),
+      prisma.empresa.findUniqueOrThrow({
+        where: { id: empresaId },
+        select: { nome: true, razaoSocial: true, tipoTributacao: true },
+      }),
+    ])
 
     const rows = compensations.map((c) => ({
       date: c.data.toISOString().split("T")[0],
@@ -72,7 +75,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] GET /api/financeiro/reports/owner-compensation error:", error)
+    logger.error("[Financeiro] GET /api/financeiro/reports/owner-compensation", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }

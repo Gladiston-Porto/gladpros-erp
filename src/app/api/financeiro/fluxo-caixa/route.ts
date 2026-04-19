@@ -28,7 +28,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     }
     const { searchParams } = new URL(request.url);
     
-    const empresaId = 1;
+    const empresaId = (user as any).empresaId ?? 1;
     const incluirProjecao = searchParams.get("incluirProjecao") !== "false";
     const diasProjecao = searchParams.get("diasProjecao") ? Number(searchParams.get("diasProjecao")) : 30;
     

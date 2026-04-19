@@ -221,17 +221,17 @@ export default function DespesaFormPageClient() {
 
         {/* Alertas */}
         {error && (
-          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3">
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-2xl flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
             <div>
-              <p className="font-medium text-red-900">Erro</p>
-              <p className="text-red-700 text-sm">{error}</p>
+              <p className="font-medium text-destructive">Erro</p>
+              <p className="text-destructive text-sm">{error}</p>
             </div>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start gap-3">
+          <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-start gap-3">
             <CheckCircle className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
             <div>
               <p className="font-medium text-green-900">Sucesso!</p>
@@ -243,7 +243,7 @@ export default function DespesaFormPageClient() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Informa├º├╡es B├ísicas */}
-          <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+          <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
             <div className="flex items-center gap-2 mb-4">
               <FileText className="w-5 h-5 text-destructive" />
               <h2 className="text-lg font-semibold text-foreground">Informa├º├╡es B├ísicas</h2>
@@ -259,8 +259,8 @@ export default function DespesaFormPageClient() {
                   title="Categoria da despesa"
                   value={formData.categoriaId}
                   onChange={(e) => handleChange('categoriaId', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
-                    errors.categoriaId ? 'border-red-500' : 'border-border'
+                  className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                    errors.categoriaId ? 'border-destructive' : 'border-border'
                   }`}
                 >
                   <option value="">Selecione uma categoria</option>
@@ -283,8 +283,8 @@ export default function DespesaFormPageClient() {
                   value={formData.descricao}
                   onChange={(e) => handleChange('descricao', e.target.value)}
                   placeholder="Ex: Sal├írio do m├¬s de outubro"
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
-                    errors.descricao ? 'border-red-500' : 'border-border'
+                  className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                    errors.descricao ? 'border-destructive' : 'border-border'
                   }`}
                 />
                 {errors.descricao && (
@@ -301,7 +301,7 @@ export default function DespesaFormPageClient() {
                   title="Tipo da despesa"
                   value={formData.tipo}
                   onChange={(e) => handleChange('tipo', e.target.value)}
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
                 >
                   <option value="OPERACIONAL">Operacional</option>
                   <option value="ADMINISTRATIVA">Administrativa</option>
@@ -330,8 +330,8 @@ export default function DespesaFormPageClient() {
                     value={formData.valor}
                     onChange={(e) => handleChange('valor', e.target.value)}
                     placeholder="0,00"
-                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
-                      errors.valor ? 'border-red-500' : 'border-border'
+                    className={`w-full pl-10 pr-4 py-2 border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                      errors.valor ? 'border-destructive' : 'border-border'
                     }`}
                   />
                 </div>
@@ -349,7 +349,7 @@ export default function DespesaFormPageClient() {
                   title="Forma de pagamento da despesa"
                   value={formData.formaPagamento}
                   onChange={(e) => handleChange('formaPagamento', e.target.value)}
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
                 >
                   <option value="DINHEIRO">Dinheiro</option>
                   <option value="PIX">PIX</option>
@@ -371,8 +371,8 @@ export default function DespesaFormPageClient() {
                   type="date"
                   value={formData.dataEmissao}
                   onChange={(e) => handleChange('dataEmissao', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
-                    errors.dataEmissao ? 'border-red-500' : 'border-border'
+                  className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                    errors.dataEmissao ? 'border-destructive' : 'border-border'
                   }`}
                 />
                 {errors.dataEmissao && (
@@ -390,8 +390,8 @@ export default function DespesaFormPageClient() {
                   type="date"
                   value={formData.dataVencimento}
                   onChange={(e) => handleChange('dataVencimento', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
-                    errors.dataVencimento ? 'border-red-500' : 'border-border'
+                  className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                    errors.dataVencimento ? 'border-destructive' : 'border-border'
                   }`}
                 />
                 {errors.dataVencimento && (
@@ -409,7 +409,7 @@ export default function DespesaFormPageClient() {
                   value={formData.numeroDocumento}
                   onChange={(e) => handleChange('numeroDocumento', e.target.value)}
                   placeholder="Ex: NF-12345"
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
                 />
               </div>
 
@@ -423,14 +423,14 @@ export default function DespesaFormPageClient() {
                   onChange={(e) => handleChange('observacoes', e.target.value)}
                   rows={3}
                   placeholder="Observa├º├╡es adicionais sobre a despesa..."
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
                 />
               </div>
             </div>
           </div>
 
           {/* Aprova├º├úo */}
-          <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+          <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
             <div className="flex items-center gap-2 mb-4">
               <CheckCircle className="w-5 h-5 text-destructive" />
               <h2 className="text-lg font-semibold text-foreground">Aprova├º├úo</h2>
@@ -461,7 +461,7 @@ export default function DespesaFormPageClient() {
                     title="Tipo de aprovador da despesa"
                     value={formData.tipoAprovador}
                     onChange={(e) => handleChange('tipoAprovador', e.target.value)}
-                    className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent"
                   >
                     <option value="GERENTE">Gerente</option>
                     <option value="DIRETOR">Diretor</option>
@@ -481,8 +481,8 @@ export default function DespesaFormPageClient() {
                     value={formData.aprovadorId}
                     onChange={(e) => handleChange('aprovadorId', e.target.value)}
                     placeholder="ID do usu├írio aprovador"
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
-                      errors.aprovadorId ? 'border-red-500' : 'border-border'
+                    className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                      errors.aprovadorId ? 'border-destructive' : 'border-border'
                     }`}
                   />
                   {errors.aprovadorId && (
@@ -500,8 +500,8 @@ export default function DespesaFormPageClient() {
                     onChange={(e) => handleChange('justificativa', e.target.value)}
                     rows={3}
                     placeholder="Por que esta despesa necessita aprova├º├úo?"
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
-                      errors.justificativa ? 'border-red-500' : 'border-border'
+                    className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
+                      errors.justificativa ? 'border-destructive' : 'border-border'
                     }`}
                   />
                   {errors.justificativa && (
@@ -517,14 +517,14 @@ export default function DespesaFormPageClient() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-6 py-2 border border-border text-foreground rounded-lg hover:bg-muted transition-colors"
+              className="px-6 py-2 border border-border text-foreground rounded-2xl hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading || success}
-              className="flex items-center gap-2 px-6 py-2 bg-destructive text-white rounded-lg hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-6 py-2 bg-destructive text-white rounded-2xl hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
                 <>

@@ -86,29 +86,29 @@ export default function BankAccountDetailsPage({ params: paramsPromise }: { para
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
+      <button onClick={() => router.back()} className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="w-5 h-5" />
         Voltar
       </button>
       
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+      <div className="bg-card rounded-2xl shadow-sm p-6 mb-6">
         <h1 className="text-2xl font-bold mb-2">{conta.nome}</h1>
-        <p className="text-gray-600">{conta.banco} • Ag: {conta.agencia} / Conta: {conta.conta}</p>
+        <p className="text-muted-foreground">{conta.banco} • Ag: {conta.agencia} / Conta: {conta.conta}</p>
         
         <div className="grid grid-cols-3 gap-4 mt-6">
           <div>
-            <p className="text-sm text-gray-600">Saldo Atual</p>
+            <p className="text-sm text-muted-foreground">Saldo Atual</p>
             <p className="text-2xl font-bold">$ {Number(conta.saldoAtual).toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Créditos</p>
+            <p className="text-sm text-muted-foreground">Créditos</p>
             <p className="text-xl text-green-600 flex items-center gap-1">
               <TrendingUp className="w-5 h-5" />
               $ {extrato.resumo.totalCreditos.toFixed(2)}
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Débitos</p>
+            <p className="text-sm text-muted-foreground">Débitos</p>
             <p className="text-xl text-red-600 flex items-center gap-1">
               <TrendingDown className="w-5 h-5" />
               $ {extrato.resumo.totalDebitos.toFixed(2)}
@@ -118,11 +118,11 @@ export default function BankAccountDetailsPage({ params: paramsPromise }: { para
       </div>
       
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex gap-4">
+      <div className="bg-card rounded-2xl shadow-sm p-4 mb-6 flex gap-4">
         <select
           value={tipoFilter}
           onChange={(e) => setTipoFilter(e.target.value)}
-          className="px-4 py-2 border rounded-lg"
+          className="px-4 py-2 border rounded-2xl"
           aria-label="Filtrar por tipo"
         >
           <option value="">Todos os tipos</option>
@@ -136,7 +136,7 @@ export default function BankAccountDetailsPage({ params: paramsPromise }: { para
           type="date"
           value={dataInicio}
           onChange={(e) => setDataInicio(e.target.value)}
-          className="px-4 py-2 border rounded-lg"
+          className="px-4 py-2 border rounded-2xl"
           aria-label="Data início"
         />
         
@@ -144,33 +144,33 @@ export default function BankAccountDetailsPage({ params: paramsPromise }: { para
           type="date"
           value={dataFim}
           onChange={(e) => setDataFim(e.target.value)}
-          className="px-4 py-2 border rounded-lg"
+          className="px-4 py-2 border rounded-2xl"
           aria-label="Data fim"
         />
       </div>
       
       {/* Lista de Transações */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-card rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrição</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Data</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Descrição</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Tipo</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Valor</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Saldo</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {extrato.transacoes.map((t: BankTransaction) => (
                 <tr key={t.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900">
+                  <td className="px-4 py-3 text-sm text-foreground">
                     {new Date(t.dataTransacao).toLocaleDateString("pt-BR")}
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    <p className="font-medium text-gray-900">{t.descricao}</p>
-                    {t.categoria && <p className="text-gray-500">{t.categoria}</p>}
+                    <p className="font-medium text-foreground">{t.descricao}</p>
+                    {t.categoria && <p className="text-muted-foreground">{t.categoria}</p>}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <span className={`px-2 py-1 text-xs rounded ${
@@ -189,7 +189,7 @@ export default function BankAccountDetailsPage({ params: paramsPromise }: { para
                     {t.tipo.includes("CREDITO") || t.tipo.includes("ENTRADA") ? "+" : "-"}
                     $ {Number(t.valor).toFixed(2)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                  <td className="px-4 py-3 text-sm text-right font-medium text-foreground">
                     $ {Number(t.saldoPosterior).toFixed(2)}
                   </td>
                 </tr>
@@ -199,7 +199,7 @@ export default function BankAccountDetailsPage({ params: paramsPromise }: { para
         </div>
         
         {extrato.transacoes.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-muted-foreground">
             Nenhuma transação encontrada
           </div>
         )}

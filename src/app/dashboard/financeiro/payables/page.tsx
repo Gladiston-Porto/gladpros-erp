@@ -6,6 +6,7 @@
  */
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { Badge } from "@gladpros/ui/badge"
 import { Button } from "@gladpros/ui/button"
 import { Card, CardContent } from "@gladpros/ui/card"
@@ -23,7 +24,28 @@ import {
 
 import { prisma } from "@/lib/prisma";
 
-export default async function FinanceiroPayablesPage() {
+function PayablesSkeleton() {
+  return (
+    <div className="p-6 space-y-4">
+      <div className="h-8 bg-muted rounded-2xl animate-pulse w-1/3" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 bg-muted rounded-2xl animate-pulse" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function FinanceiroPayablesPage() {
+  return (
+    <Suspense fallback={<PayablesSkeleton />}>
+      <PayablesContent />
+    </Suspense>
+  )
+}
+
+async function PayablesContent() {
     // Buscar payables com workers
     const payables = await prisma.payable.findMany({
         include: {
@@ -60,7 +82,7 @@ export default async function FinanceiroPayablesPage() {
         PENDING: { icon: Clock, color: 'text-yellow-600', bgColor: 'bg-yellow-100', label: 'Pendente' },
         APPROVED: { icon: CheckCircle, color: 'text-blue-600', bgColor: 'bg-blue-100', label: 'Aprovado' },
         PAID: { icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-100', label: 'Pago' },
-        CANCELLED: { icon: AlertCircle, color: 'text-gray-600', bgColor: 'bg-gray-100', label: 'Cancelado' }
+        CANCELLED: { icon: AlertCircle, color: 'text-muted-foreground', bgColor: 'bg-muted', label: 'Cancelado' }
     };
 
     return (
@@ -146,16 +168,16 @@ export default async function FinanceiroPayablesPage() {
             </div>
 
             {/* Lista de Payables */}
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="border-b border-gray-100 p-4 flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Todos os Payables</h3>
-                    <div className="text-sm text-gray-500">
+            <div className="rounded-2xl border border-border bg-card shadow-sm">
+                <div className="border-b border-border p-4 flex items-center justify-between">
+                    <h3 className="font-semibold text-foreground">Todos os Payables</h3>
+                    <div className="text-sm text-muted-foreground">
                         {payables.length} registros
                     </div>
                 </div>
 
                 {payables.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
+                    <div className="text-center py-12 text-muted-foreground">
                         <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
                         <p>Nenhum payable encontrado</p>
                         <p className="text-sm">Payables são gerados automaticamente quando Timesheets são aprovados.</p>
@@ -169,7 +191,7 @@ export default async function FinanceiroPayablesPage() {
                             const workerId = payable.worker.id;
 
                             return (
-                                <div key={payable.id} className="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors">
+                                <div key={payable.id} className="p-4 flex items-center gap-4 hover:bg-muted/50 transition-colors">
                                     {/* Status Icon */}
                                     <div className={`p-2 rounded-full ${config.bgColor}`}>
                                         <StatusIcon className={`h-5 w-5 ${config.color}`} />
@@ -178,14 +200,14 @@ export default async function FinanceiroPayablesPage() {
                                     {/* Info */}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
-                                            <h4 className="font-medium text-gray-900">
+                                            <h4 className="font-medium text-foreground">
                                                 Payable #{payable.id}
                                             </h4>
                                             <Badge className={`${config.bgColor} ${config.color} border-none`}>
                                                 {config.label}
                                             </Badge>
                                         </div>
-                                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                                        <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                                             <span className="flex items-center gap-1">
                                                 <User className="h-3 w-3" />
                                                 {workerName}
@@ -205,7 +227,7 @@ export default async function FinanceiroPayablesPage() {
                                             {formatCurrency(Number(payable.totalAmount))}
                                         </p>
                                         {payable.paymentMethod && (
-                                            <Badge className="bg-gray-100 text-gray-800 text-xs border-none">
+                                            <Badge className="bg-muted text-gray-800 text-xs border-none">
                                                 {payable.paymentMethod}
                                             </Badge>
                                         )}
@@ -214,7 +236,7 @@ export default async function FinanceiroPayablesPage() {
                                     {/* Actions */}
                                     {workerId && (
                                         <Link href={`/rh/workers/${workerId}`}>
-                                            <Button variant="ghost" size="sm">
+                                            <Button variant="ghost" size="sm" aria-label="Ver worker">
                                                 <ArrowRight className="h-4 w-4" />
                                             </Button>
                                         </Link>

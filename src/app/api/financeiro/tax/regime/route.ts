@@ -8,6 +8,7 @@ import { z } from "zod"
 import { requireUser } from "@/shared/lib/rbac"
 import { can, type Role } from "@/shared/lib/rbac-core"
 import { prisma } from "@/lib/prisma"
+import { logger } from "@/lib/api/logger"
 
 const updateRegimeSchema = z.object({
   tipoTributacao: z.enum(["LLC_DEFAULT", "S_CORP"]),
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] GET /api/financeiro/tax/regime error:", error)
+    logger.error("[Financeiro] GET /api/financeiro/tax/regime", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }
@@ -92,7 +93,7 @@ export async function PUT(request: NextRequest) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] PUT /api/financeiro/tax/regime error:", error)
+    logger.error("[Financeiro] PUT /api/financeiro/tax/regime", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }

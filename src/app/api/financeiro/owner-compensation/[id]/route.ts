@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireUser } from "@/shared/lib/rbac"
 import { can, type Role } from "@/shared/lib/rbac-core"
 import { deleteCompensation } from "@/shared/services/ownerCompensationService"
+import { logger } from "@/lib/api/logger"
 
 export async function DELETE(
   request: NextRequest,
@@ -42,7 +43,7 @@ export async function DELETE(
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] DELETE /api/financeiro/owner-compensation/[id] error:", error)
+    logger.error("[Financeiro] DELETE /api/financeiro/owner-compensation/[id]", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }

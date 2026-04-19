@@ -7,6 +7,7 @@ import { z } from "zod"
 import { requireUser } from "@/shared/lib/rbac"
 import { can, type Role } from "@/shared/lib/rbac-core"
 import { updatePayment } from "@/shared/services/estimatedTaxService"
+import { logger } from "@/lib/api/logger"
 
 const updateSchema = z.object({
   paidAmount: z.number().nonnegative().optional(),
@@ -56,7 +57,7 @@ export async function PUT(
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] PUT /api/financeiro/estimated-tax/[id] error:", error)
+    logger.error("[Financeiro] PUT /api/financeiro/estimated-tax/[id]", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }

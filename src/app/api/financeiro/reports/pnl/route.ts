@@ -8,6 +8,7 @@ import { requireUser } from "@/shared/lib/rbac"
 import { can, type Role } from "@/shared/lib/rbac-core"
 import { generatePnLReport } from "@/shared/services/pnlReportService"
 import { generatePnLExcel, generatePnLPdf } from "@/shared/services/reportExportService"
+import { logger } from "@/lib/api/logger"
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid period. Use: annual, quarterly, monthly", success: false }, { status: 400 })
     }
 
-    const data = await generatePnLReport({ empresaId: 1, taxYear: year, period })
+    const data = await generatePnLReport({ empresaId: (user as any).empresaId ?? 1, taxYear: year, period })
 
     if (format === "excel") {
       const buffer = await generatePnLExcel(data)
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] GET /api/financeiro/reports/pnl error:", error)
+    logger.error("[Financeiro] GET /api/financeiro/reports/pnl", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }

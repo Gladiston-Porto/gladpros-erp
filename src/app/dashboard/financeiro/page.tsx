@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { prisma } from '@/lib/prisma'
 import { Button } from '@gladpros/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@gladpros/ui/card'
@@ -21,7 +22,28 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 2,
   }).format(value)
 
-export default async function DashboardFinanceiroPage() {
+function FinanceiroSkeleton() {
+  return (
+    <div className="p-6 space-y-4">
+      <div className="h-8 bg-muted rounded-2xl animate-pulse w-1/3" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 bg-muted rounded-2xl animate-pulse" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function DashboardFinanceiroPage() {
+  return (
+    <Suspense fallback={<FinanceiroSkeleton />}>
+      <FinanceiroContent />
+    </Suspense>
+  )
+}
+
+async function FinanceiroContent() {
   const empresaId = 1
 
   const [receitasRecebidas, despesasPagas, receitasPendentes, despesasPendentes, contas, transferenciasPendentes] =

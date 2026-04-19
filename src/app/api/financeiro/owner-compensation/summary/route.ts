@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireUser } from "@/shared/lib/rbac"
 import { can, type Role } from "@/shared/lib/rbac-core"
 import { getCompensationSummary } from "@/shared/services/ownerCompensationService"
+import { logger } from "@/lib/api/logger"
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,14 +20,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const year = Number(searchParams.get("year")) || new Date().getFullYear()
 
-    const summary = await getCompensationSummary(1, year)
+    const summary = await getCompensationSummary((user as any).empresaId ?? 1, year)
 
     return NextResponse.json({ data: summary, success: true })
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] GET /api/financeiro/owner-compensation/summary error:", error)
+    logger.error("[Financeiro] GET /api/financeiro/owner-compensation/summary", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }

@@ -39,8 +39,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     
     // Adiciona accountId ao body se não estiver presente
     body.accountId = accountId;
-    // Single-tenant: force empresaId = 1 for security
-    body.empresaId = 1;
+    // Single-tenant: force empresaId from user context for security
+    body.empresaId = (user as any).empresaId ?? 1;
     
     // Valida dados
     const validated = createBankTransactionSchema.parse(body) as CreateBankTransactionInput;

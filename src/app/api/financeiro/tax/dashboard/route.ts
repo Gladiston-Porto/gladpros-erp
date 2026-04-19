@@ -8,6 +8,7 @@ import { requireUser } from "@/shared/lib/rbac"
 import { can, type Role } from "@/shared/lib/rbac-core"
 import { calculateYTDTax } from "@/shared/services/taxCalculationEngine"
 import { getQuarterlyEstimates, getFiscalAlerts } from "@/shared/services/estimatedTaxService"
+import { logger } from "@/lib/api/logger"
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden", success: false }, { status: 403 })
     }
 
-    const empresaId = 1 // single-tenant
+    const empresaId = (user as any).empresaId ?? 1
     const currentYear = new Date().getFullYear()
 
     const [taxSummary, quarterlyEstimates, alerts] = await Promise.all([
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] GET /api/financeiro/tax/dashboard error:", error)
+    logger.error("[Financeiro] GET /api/financeiro/tax/dashboard", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }

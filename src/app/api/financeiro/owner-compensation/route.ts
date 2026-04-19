@@ -11,6 +11,7 @@ import {
   createCompensation,
   listCompensations,
 } from "@/shared/services/ownerCompensationService"
+import { logger } from "@/lib/api/logger"
 
 const createSchema = z.object({
   workerId: z.number().int().positive(),
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
     const pageSize = Number(searchParams.get("pageSize")) || 20
 
     const result = await listCompensations({
-      empresaId: 1,
+      empresaId: (user as any).empresaId ?? 1,
       year,
       tipo: tipo || undefined,
       page,
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] GET /api/financeiro/owner-compensation error:", error)
+    logger.error("[Financeiro] GET /api/financeiro/owner-compensation", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await createCompensation({
-      empresaId: 1,
+      empresaId: (user as any).empresaId ?? 1,
       workerId: body.data.workerId,
       tipo: body.data.tipo,
       valor: body.data.valor,
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] POST /api/financeiro/owner-compensation error:", error)
+    logger.error("[Financeiro] POST /api/financeiro/owner-compensation", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }

@@ -7,6 +7,7 @@ import { z } from "zod"
 import { requireUser } from "@/shared/lib/rbac"
 import { can, type Role } from "@/shared/lib/rbac-core"
 import { prisma } from "@/lib/prisma"
+import { logger } from "@/lib/api/logger"
 
 const updateCategorySchema = z.object({
   scheduleCLine: z.string().nullable().optional(),
@@ -43,7 +44,7 @@ export async function PUT(
     }
 
     const existing = await prisma.expenseCategory.findFirst({
-      where: { id: categoryId, empresaId: 1 },
+      where: { id: categoryId, empresaId: (user as any).empresaId ?? 1 },
     })
 
     if (!existing) {
@@ -71,7 +72,7 @@ export async function PUT(
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
     }
-    console.error("[API] PUT /api/financeiro/expense-categories/[id] error:", error)
+    logger.error("[Financeiro] PUT /api/financeiro/expense-categories/[id]", {}, error)
     return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
   }
 }
