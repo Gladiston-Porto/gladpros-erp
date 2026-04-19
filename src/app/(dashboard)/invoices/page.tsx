@@ -221,8 +221,8 @@ export default function InvoicesPage() {
           <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20">
-                  <DollarSign className="h-5 w-5 text-blue-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                  <DollarSign className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Faturado</p>
@@ -234,7 +234,7 @@ export default function InvoicesPage() {
           <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 dark:bg-green-900/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10">
                   <CheckCircle className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
@@ -247,7 +247,7 @@ export default function InvoicesPage() {
           <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-50 dark:bg-yellow-900/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-500/10">
                   <Clock className="h-5 w-5 text-yellow-600" />
                 </div>
                 <div>
@@ -260,7 +260,7 @@ export default function InvoicesPage() {
           <Card className="border-border shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 dark:bg-red-900/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
                   <AlertCircle className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
