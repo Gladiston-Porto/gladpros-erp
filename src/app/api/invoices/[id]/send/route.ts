@@ -207,6 +207,17 @@ export const POST = withErrorHandler(async (
           status: 'SENT',
         },
       });
+
+      await tx.auditLog.create({
+        data: {
+          id: crypto.randomUUID(),
+          userId: Number(user.id),
+          entidade: 'Invoice',
+          entidadeId: String(invoiceId),
+          acao: 'SEND',
+          diff: JSON.stringify({ numeroInvoice: invoice.numeroInvoice, sentTo: invoice.cliente.email, statusUpdated: newStatus }),
+        },
+      });
     });
 
     return NextResponse.json({

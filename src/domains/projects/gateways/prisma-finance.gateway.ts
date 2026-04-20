@@ -1,8 +1,10 @@
 /**
  * Prisma Finance Gateway — Real implementation
- * Integra o domain de projetos com o módulo financeiro via Invoice/InvoiceItem/InvoicePayment
+ * Integra o domain de projetos com o módulo financeiro via Invoice/InvoiceItem/InvoicePayment.
+ * Substitui o MockFinanceGateway em produção — dados persistidos no banco MySQL.
  */
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import type {
   IFinanceGateway,
   GerarInvoiceDTO,
@@ -100,7 +102,14 @@ export class PrismaFinanceGateway implements IFinanceGateway {
   async gerarInvoice(dados: GerarInvoiceDTO): Promise<RespostaFinanceira> {
     const projeto = await prisma.projeto.findUnique({
       where: { id: dados.projetoId },
-      include: { Cliente: true, Proposta: true },
+      include: {
+        Cliente: true,
+        Proposta: true,
+        Materiais: {
+          where: { repassarCustoCliente: true },
+          select: { nome: true, unidade: true, quantidadeUtilizada: true, plannedQty: true, actualUnitCost: true, plannedUnitCost: true },
+        },
+      },
     });
 
     if (!projeto) {
@@ -109,59 +118,117 @@ export class PrismaFinanceGateway implements IFinanceGateway {
 
     const numeroInvoice = await generateInvoiceNumber();
 
-    // Build invoice items
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const itens: any[] = [];
+    // Build invoice items with proper typing
+    const itens: Array<{
+      tipo: 'SERVICE' | 'MATERIAL' | 'OTHER';
+      descricao: string;
+      quantidade: number;
+      unidade: string;
+      precoUnitario: number;
+      desconto: number;
+      subtotal: number;
+      ordem: number;
+    }> = [];
     let subtotal = 0;
+    let ordem = 0;
 
-    if (dados.incluirProposta && projeto.Proposta) {
-      const valor = Number(projeto.Proposta.valorEstimado ?? 0);
-      subtotal += valor;
-      itens.push({
-        tipo: 'SERVICE',
-        descricao: `Serviços conforme proposta ${projeto.Proposta.numeroProposta}`,
-        quantidade: 1,
-        unidade: 'SV',
-        precoUnitario: valor,
-        subtotal: valor,
-        ordem: 0,
-      });
+    if (dados.incluirProposta !== false && projeto.Proposta) {
+      const valor = Number(projeto.Proposta.valorEstimado ?? projeto.valorEstimado ?? 0);
+      if (valor > 0) {
+        subtotal += valor;
+        itens.push({
+          tipo: 'SERVICE',
+          descricao: `Serviços conforme proposta ${projeto.Proposta.numeroProposta}`,
+          quantidade: 1,
+          unidade: 'SV',
+          precoUnitario: valor,
+          desconto: 0,
+          subtotal: valor,
+          ordem: ordem++,
+        });
+      }
+    }
+
+    if (dados.incluirMateriais !== false && projeto.Materiais.length > 0) {
+      for (const mat of projeto.Materiais) {
+        const qty = Number(mat.quantidadeUtilizada ?? mat.plannedQty ?? 0);
+        const unitCost = Number(mat.actualUnitCost ?? mat.plannedUnitCost ?? 0);
+        if (qty > 0 && unitCost > 0) {
+          const total = qty * unitCost;
+          subtotal += total;
+          itens.push({
+            tipo: 'MATERIAL',
+            descricao: mat.nome,
+            quantidade: qty,
+            unidade: mat.unidade ?? 'un',
+            precoUnitario: unitCost,
+            desconto: 0,
+            subtotal: total,
+            ordem: ordem++,
+          });
+        }
+      }
     }
 
     if (dados.itensAdicionais) {
-      for (let i = 0; i < dados.itensAdicionais.length; i++) {
-        const item = dados.itensAdicionais[i];
+      for (const item of dados.itensAdicionais) {
         subtotal += item.valorTotal;
+        const tipo = item.tipo === 'MATERIAL' ? 'MATERIAL' : 'SERVICE';
         itens.push({
-          tipo: 'OTHER',
+          tipo,
           descricao: item.descricao,
           quantidade: item.quantidade,
           unidade: 'UN',
           precoUnitario: item.valorUnitario,
+          desconto: 0,
           subtotal: item.valorTotal,
-          ordem: itens.length,
+          ordem: ordem++,
         });
       }
     }
 
     const descontoValor = dados.descontoFixo ?? (dados.desconto ? (subtotal * dados.desconto) / 100 : 0);
-    const valorTotal = subtotal - descontoValor;
+    const descontoPercentual = dados.desconto ?? 0;
+    const taxableBase = subtotal - descontoValor;
+    const taxRate = 0.0825;
+    const taxAmount = taxableBase * taxRate;
+    const valorTotal = taxableBase + taxAmount;
 
-    const invoice = await prisma.invoice.create({
-      data: {
-        numeroInvoice,
-        projetoId: dados.projetoId,
-        clienteId: projeto.clienteId,
-        dataVencimento: dados.dataVencimento,
-        subtotal,
-        descontoValor,
-        valorTotal,
-        saldo: valorTotal,
-        status: 'SENT',
-        notas: dados.observacoes ?? dados.descricao,
-        criadoPor: dados.usuarioId,
-        itens: { create: itens },
-      },
+    const invoice = await prisma.$transaction(async (tx) => {
+      const created = await tx.invoice.create({
+        data: {
+          numeroInvoice,
+          projetoId: dados.projetoId,
+          clienteId: projeto.clienteId,
+          dataVencimento: dados.dataVencimento,
+          subtotal,
+          descontoValor,
+          descontoPercentual: dados.desconto ?? 0,
+          taxRate,
+          taxAmount,
+          valorTotal,
+          saldo: valorTotal,
+          status: 'DRAFT',
+          notas: dados.descricao,
+          termos: dados.observacoes,
+          criadoPor: dados.usuarioId,
+          itens: { create: itens },
+        },
+        select: { id: true, numeroInvoice: true, valorTotal: true },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          id: crypto.randomUUID(),
+          userId: dados.usuarioId,
+          entidade: 'Invoice',
+          entidadeId: String(created.id),
+          acao: 'CREATE',
+          diff: JSON.stringify({ trigger: 'projetos-gerar-invoice', projetoId: dados.projetoId, numeroInvoice, valorTotal }),
+        },
+      });
+
+      return created;
     });
 
     return {
@@ -169,6 +236,11 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       invoiceId: String(invoice.id),
       numeroInvoice: invoice.numeroInvoice,
       mensagem: 'Invoice gerado com sucesso',
+      detalhes: {
+        valorTotal: Number(invoice.valorTotal),
+        itens: itens.length,
+        dataVencimento: dados.dataVencimento.toISOString(),
+      },
     };
   }
 
@@ -188,8 +260,8 @@ export class PrismaFinanceGateway implements IFinanceGateway {
   }
 
   async listarInvoices(filtros: ListarInvoicesDTO): Promise<ListarInvoicesResponse> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = {};
+    // Single-tenant: Cliente model has no empresaId — data isolation via Auth+RBAC
+    const where: Prisma.InvoiceWhereInput = {};
     if (filtros.projetoId) where.projetoId = filtros.projetoId;
     if (filtros.clienteId) where.clienteId = filtros.clienteId;
     if (filtros.status) {
@@ -200,7 +272,7 @@ export class PrismaFinanceGateway implements IFinanceGateway {
         VENCIDO: 'OVERDUE',
         CANCELADO: 'CANCELLED',
       };
-      where.status = statusMap[filtros.status] ?? filtros.status;
+      where.status = (statusMap[filtros.status] ?? filtros.status) as import('@prisma/client').Invoice_status;
     }
     if (filtros.apenasVencidos) {
       where.status = 'OVERDUE';
@@ -370,3 +442,14 @@ export class PrismaFinanceGateway implements IFinanceGateway {
     }
   }
 }
+
+// Singleton factory — use this instead of instantiating directly
+let _gateway: PrismaFinanceGateway | null = null;
+
+export function getPrismaFinanceGateway(): PrismaFinanceGateway {
+  if (!_gateway) {
+    _gateway = new PrismaFinanceGateway();
+  }
+  return _gateway;
+}
+

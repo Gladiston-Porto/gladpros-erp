@@ -16,7 +16,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   // Single-tenant: Invoice model has no direct empresaId field.
-  // Auth + RBAC provides sufficient protection.
+  // Auth + RBAC provides sufficient protection for data isolation.
   const [aggregate, countVencidas, countTotal] = await Promise.all([
     prisma.invoice.aggregate({
       where: { status: { notIn: ['CANCELLED'] } },
@@ -30,9 +30,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }),
   ]);
 
-  const totalFaturado = Number(aggregate._sum.valorTotal ?? 0);
-  const totalRecebido = Number(aggregate._sum.valorPago ?? 0);
-  const totalPendente = Number(aggregate._sum.saldo ?? 0);
+  const totalFaturado = Number(aggregate._sum?.valorTotal ?? 0);
+  const totalRecebido = Number(aggregate._sum?.valorPago ?? 0);
+  const totalPendente = Number(aggregate._sum?.saldo ?? 0);
 
   return NextResponse.json({
     data: {
