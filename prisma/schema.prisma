@@ -96,6 +96,9 @@ model Empresa {
   ownerCompensations    OwnerCompensation[]
   estimatedTaxPayments  EstimatedTaxPayment[]
 
+  // Relations - Invoices
+  invoices     Invoice[]
+
   @@index([ativo])
   @@map("empresas")
 }
@@ -1990,6 +1993,7 @@ model Invoice {
   termos              String?        @db.Text
   ledgerTransactionId Int?           @unique
   criadoPor           Int
+  empresaId           Int            @default(1)
   atualizadoPor       Int?
   criadoEm            DateTime       @default(now())
   atualizadoEm        DateTime       @updatedAt
@@ -2003,6 +2007,7 @@ model Invoice {
   // Relations
   projeto     Projeto?          @relation(fields: [projetoId], references: [id])
   cliente     Cliente           @relation(fields: [clienteId], references: [id])
+  empresa     Empresa           @relation(fields: [empresaId], references: [id])
   // taxRateRel removed
   criador     Usuario           @relation("InvoiceCriador", fields: [criadoPor], references: [id])
   atualizador Usuario?          @relation("InvoiceAtualizador", fields: [atualizadoPor], references: [id])
@@ -2019,6 +2024,8 @@ model Invoice {
   @@index([status])
   @@index([dataVencimento])
   @@index([criadoEm])
+  @@index([empresaId, status])
+  @@index([clienteId, status])
 }
 
 model InvoiceItem {

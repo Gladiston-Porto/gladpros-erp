@@ -62,7 +62,7 @@ export const POST = withErrorHandler(
     const body = parsed.data;
 
     const invoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId },
+      where: { id: invoiceId, empresaId: 1 },
       select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true },
     });
 
@@ -187,7 +187,7 @@ export const GET = withErrorHandler(
     }
 
     const exists = await prisma.invoice.findFirst({
-      where: { id: invoiceId },
+      where: { id: invoiceId, empresaId: 1 },
       select: { id: true },
     });
 

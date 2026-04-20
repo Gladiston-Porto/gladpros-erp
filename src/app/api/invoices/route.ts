@@ -146,6 +146,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         notas: body.notas,
         termos: body.termos,
         criadoPor: Number(user.id),
+        empresaId: 1,
         itens: { create: itensComSubtotal },
       },
       include: {
@@ -203,9 +204,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const filters = parsed.data;
   const skip = (filters.page - 1) * filters.limit;
 
-  // Single-tenant (empresaId=1): Invoice scoped via clienteId relation.
-  // Auth + RBAC provides sufficient access control.
-  const where: Prisma.InvoiceWhereInput = {};
+  const where: Prisma.InvoiceWhereInput = { empresaId: 1 };
 
   if (filters.clienteId) where.clienteId = parseInt(filters.clienteId);
   if (filters.projetoId) where.projetoId = parseInt(filters.projetoId);

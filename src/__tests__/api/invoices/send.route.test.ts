@@ -58,6 +58,7 @@ jest.mock('@/lib/api/error-handler', () => ({
 import { NextRequest } from 'next/server';
 import { requireUser, can } from '@/shared/lib/rbac';
 import { prisma } from '@/lib/prisma';
+import { emailRateLimitMap } from '@/app/api/invoices/[id]/send/route';
 
 const mockRequireUser = requireUser as jest.MockedFunction<typeof requireUser>;
 const mockCan = can as jest.MockedFunction<typeof can>;
@@ -112,6 +113,7 @@ function makeRequest(url = 'http://localhost/api/invoices/1/send') {
 describe('POST /api/invoices/[id]/send', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    emailRateLimitMap.clear(); // reset rate limiter between tests
     mockRequireUser.mockResolvedValue(mockUser as never);
     mockCan.mockReturnValue(true);
     (mockPrisma.invoice.findFirst as jest.Mock).mockResolvedValue(mockInvoice);

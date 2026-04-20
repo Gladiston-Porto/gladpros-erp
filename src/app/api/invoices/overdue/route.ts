@@ -45,10 +45,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     );
   }
 
-  // Single-tenant: Invoice model has no direct empresaId field.
-  // Auth + RBAC provides sufficient protection for data isolation.
   const candidatas = await prisma.invoice.findMany({
     where: {
+      empresaId: 1,
       status: { notIn: ['PAID', 'CANCELLED', 'OVERDUE'] },
       dataVencimento: { lt: new Date() },
     },

@@ -212,6 +212,7 @@ export class PrismaFinanceGateway implements IFinanceGateway {
           notas: dados.descricao,
           termos: dados.observacoes,
           criadoPor: dados.usuarioId,
+          empresaId: 1,
           itens: { create: itens },
         },
         select: { id: true, numeroInvoice: true, valorTotal: true },
@@ -260,8 +261,8 @@ export class PrismaFinanceGateway implements IFinanceGateway {
   }
 
   async listarInvoices(filtros: ListarInvoicesDTO): Promise<ListarInvoicesResponse> {
-    // Single-tenant: Cliente model has no empresaId — data isolation via Auth+RBAC
-    const where: Prisma.InvoiceWhereInput = {};
+    // Single-tenant default: empresaId = 1. Future: pass empresaId from context.
+    const where: Prisma.InvoiceWhereInput = { empresaId: 1 };
     if (filtros.projetoId) where.projetoId = filtros.projetoId;
     if (filtros.clienteId) where.clienteId = filtros.clienteId;
     if (filtros.status) {
@@ -399,7 +400,7 @@ export class PrismaFinanceGateway implements IFinanceGateway {
     });
 
     const invoices = await prisma.invoice.findMany({
-      where: { projetoId, status: { not: 'CANCELLED' } },
+      where: { projetoId, empresaId: 1, status: { not: 'CANCELLED' } },
       select: { status: true, valorTotal: true, valorPago: true },
     });
 
