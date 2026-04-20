@@ -3,6 +3,7 @@ import { Download, FileText, Send } from "lucide-react";
 import { Badge } from "@gladpros/ui/badge"
 import { Button } from "@gladpros/ui/button"
 import { Card, CardContent } from "@gladpros/ui/card"
+import { EmptyState } from "@gladpros/ui/empty-state";
 import { Loading } from "@gladpros/ui/loading";
 
 import {
@@ -45,12 +46,17 @@ export function InvoicesTableCard({
           <Loading text="Carregando invoices..." />
         </CardContent>
       ) : invoices.length === 0 ? (
-        <CardContent className="py-12 text-center">
-          <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-          <p className="mt-4 text-muted-foreground">Nenhuma invoice encontrada</p>
-          <Button variant="ghost" className="mt-4" onClick={onCreateInvoice}>
-            Criar primeira invoice
-          </Button>
+        <CardContent className="py-4">
+          <EmptyState
+            icon={<FileText className="h-10 w-10" />}
+            title="Nenhuma invoice encontrada"
+            description="Crie a primeira invoice para começar a faturar."
+            actions={
+              <Button variant="default" onClick={onCreateInvoice}>
+                Criar primeira invoice
+              </Button>
+            }
+          />
         </CardContent>
       ) : (
         <>

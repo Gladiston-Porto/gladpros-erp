@@ -334,7 +334,7 @@ export function InvoiceReviewStep({
             <div>
               <div className="text-sm text-muted-foreground">Data de Vencimento</div>
               <div className="font-medium text-foreground">
-                {new Date(formData.dataVencimento).toLocaleDateString("pt-BR")}
+                {new Date(formData.dataVencimento).toLocaleDateString("en-US", { timeZone: "America/Chicago" })}
               </div>
             </div>
           </div>
