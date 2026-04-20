@@ -1,5 +1,8 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { requireServerUser } from '@/shared/lib/requireServerUser'
+import { can, type Role } from '@/shared/lib/rbac-core'
 import { Button } from '@gladpros/ui/button'
 import { PageHeader } from "@gladpros/ui/page-header"
 import { Download, FileBarChart2 } from 'lucide-react'
@@ -18,6 +21,8 @@ const ListFallback = () => (
 )
 
 export default async function FluxoCaixaPage() {
+  const user = await requireServerUser()
+  if (!can(user.role as Role, "financeiro", "read")) redirect("/403")
   const empresaId = 1
 
   return (

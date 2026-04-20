@@ -1,8 +1,11 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { requireServerUser } from '@/shared/lib/requireServerUser'
+import { can, type Role } from '@/shared/lib/rbac-core'
 import { Button } from '@gladpros/ui/button'
 import { PageHeader } from "@gladpros/ui/page-header"
-import { Landmark, RefreshCw } from 'lucide-react'
+import { Landmark, Plus } from 'lucide-react'
 import ContaBancariaList from '@/components/financeiro/contas/ContaBancariaList'
 
 export const metadata = {
@@ -17,7 +20,15 @@ const ListFallback = () => (
   </div>
 )
 
-export default async function ContasBancariasPage() {
+export default async function ContasBancariasPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>
+}) {
+  const user = await requireServerUser()
+  if (!can(user.role as Role, "financeiro", "read")) redirect("/403")
+  const sp = await searchParams
+  const page = Number(sp.page ?? 1)
   const empresaId = 1
 
   return (
@@ -32,10 +43,10 @@ export default async function ContasBancariasPage() {
         ]}
         actions={
           <div className="flex gap-3">
-            <Link href="/dashboard/financeiro/transferencias/novo">
+            <Link href="/dashboard/financeiro/contas/novo">
               <Button variant="outline" size="lg">
-                <RefreshCw className="h-4 w-4" />
-                Nova transferência
+                <Plus className="h-4 w-4" />
+                Nova conta
               </Button>
             </Link>
             <Link href="/dashboard/financeiro/fluxo-caixa">
@@ -49,7 +60,7 @@ export default async function ContasBancariasPage() {
       />
 
       <Suspense fallback={<ListFallback />}>
-        <ContaBancariaList empresaId={empresaId} />
+        <ContaBancariaList empresaId={empresaId} page={page} />
       </Suspense>
     </div>
   )

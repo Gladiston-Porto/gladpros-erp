@@ -1,4 +1,7 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { requireServerUser } from '@/shared/lib/requireServerUser'
+import { can, type Role } from '@/shared/lib/rbac-core'
 import { Button } from '@gladpros/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@gladpros/ui/card'
 import { FinanceCard } from '@gladpros/ui/finance-card'
@@ -12,25 +15,43 @@ export const metadata = {
   description: 'Relatório de receitas, despesas e resultado líquido',
 };
 
-export default async function DREPage() {
+export default async function DREPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>
+}) {
+  const user = await requireServerUser()
+  if (!can(user.role as Role, "financeiro", "read")) redirect("/403")
+  const sp = await searchParams
   const empresaId = 1;
 
-  // Buscar receitas recebidas
+  const now = new Date()
+  const defaultStart = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]
+  const defaultEnd = now.toISOString().split('T')[0]
+  const startDate = sp.startDate ?? defaultStart
+  const endDate = sp.endDate ?? defaultEnd
+
+  const periodStart = new Date(startDate)
+  const periodEnd = new Date(endDate + 'T23:59:59')
+
+  // Buscar receitas recebidas no período
   const receitas = await prisma.revenue.findMany({
     where: {
       empresaId,
       status: 'RECEBIDA',
+      dataVencimento: { gte: periodStart, lte: periodEnd },
     },
     include: {
       categoria: true,
     },
   });
 
-  // Buscar despesas pagas
+  // Buscar despesas pagas no período
   const despesas = await prisma.expense.findMany({
     where: {
       empresaId,
       status: 'PAGA',
+      dataVencimento: { gte: periodStart, lte: periodEnd },
     },
     include: {
       categoria: true,
@@ -69,22 +90,58 @@ export default async function DREPage() {
           { label: 'DRE' },
         ]}
         actions={
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Link href="/dashboard/financeiro/relatorios/balanco">
               <Button variant="outline" size="lg">
                 <ArrowLeftRight className="h-4 w-4" />
                 Ver balanço
               </Button>
             </Link>
-            <Link href="/dashboard/financeiro/relatorios/dre/exportar">
+            <Link href={`/api/financeiro/reports/dre/export?startDate=${startDate}&endDate=${endDate}`}>
               <Button size="lg">
                 <Download className="h-4 w-4" />
-                Exportar PDF
+                Exportar CSV
               </Button>
             </Link>
           </div>
         }
       />
+
+      {/* Period Filter */}
+      <form method="GET" className="rounded-2xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1" htmlFor="startDate">
+              Data início
+            </label>
+            <input
+              id="startDate"
+              type="date"
+              name="startDate"
+              defaultValue={startDate}
+              className="rounded-2xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1" htmlFor="endDate">
+              Data fim
+            </label>
+            <input
+              id="endDate"
+              type="date"
+              name="endDate"
+              defaultValue={endDate}
+              className="rounded-2xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-2xl bg-brand-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+          >
+            Filtrar período
+          </button>
+        </div>
+      </form>
 
       <div className="grid gap-6 md:grid-cols-3">
         <FinanceCard

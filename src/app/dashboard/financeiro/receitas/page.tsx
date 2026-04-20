@@ -1,5 +1,8 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { requireServerUser } from '@/shared/lib/requireServerUser'
+import { can, type Role } from '@/shared/lib/rbac-core'
 import { Button } from '@gladpros/ui/button'
 import { PageHeader } from "@gladpros/ui/page-header"
 import { Plus } from 'lucide-react'
@@ -17,7 +20,15 @@ const ListFallback = () => (
   </div>
 )
 
-export default async function ReceitasPage() {
+export default async function ReceitasPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>
+}) {
+  const user = await requireServerUser()
+  if (!can(user.role as Role, "financeiro", "read")) redirect("/403")
+  const sp = await searchParams
+  const page = Number(sp.page ?? 1)
   const empresaId = 1
 
   return (
@@ -41,7 +52,7 @@ export default async function ReceitasPage() {
       />
 
       <Suspense fallback={<ListFallback />}>
-        <ReceitaList empresaId={empresaId} />
+        <ReceitaList empresaId={empresaId} page={page} />
       </Suspense>
     </div>
   )

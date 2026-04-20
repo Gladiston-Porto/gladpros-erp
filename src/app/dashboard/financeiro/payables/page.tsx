@@ -7,6 +7,9 @@
 
 import Link from "next/link";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { requireServerUser } from "@/shared/lib/requireServerUser";
+import { can, type Role } from "@/shared/lib/rbac-core";
 import { Badge } from "@gladpros/ui/badge"
 import { Button } from "@gladpros/ui/button"
 import { Card, CardContent } from "@gladpros/ui/card"
@@ -37,7 +40,9 @@ function PayablesSkeleton() {
   )
 }
 
-export default function FinanceiroPayablesPage() {
+export default async function FinanceiroPayablesPage() {
+  const user = await requireServerUser()
+  if (!can(user.role as Role, "financeiro", "read")) redirect("/403")
   return (
     <Suspense fallback={<PayablesSkeleton />}>
       <PayablesContent />

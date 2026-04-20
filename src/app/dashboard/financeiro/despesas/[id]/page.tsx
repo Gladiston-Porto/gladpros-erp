@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useConfirm } from '@gladpros/ui/confirm-dialog';
 import { 
   ArrowLeft,
   Edit,
@@ -97,6 +98,7 @@ export default function DespesaDetalhesPage() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id as string;
+  const { confirm, Dialog: ConfirmDialog } = useConfirm();
 
   const [expense, setExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,7 +133,13 @@ export default function DespesaDetalhesPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Tem certeza que deseja cancelar esta despesa?')) return;
+    const confirmed = await confirm({
+      title: 'Cancelar despesa?',
+      message: 'Esta ação é irreversível. A despesa será cancelada permanentemente.',
+      confirmText: 'Cancelar despesa',
+      tone: 'danger',
+    })
+    if (!confirmed) return;
 
     try {
       setActionLoading(true);
@@ -154,6 +162,17 @@ export default function DespesaDetalhesPage() {
       setActionLoading(false);
     }
   };
+
+  const handleRejeitar = async () => {
+    const confirmed = await confirm({
+      title: 'Rejeitar despesa?',
+      message: 'Esta ação é irreversível. A despesa será rejeitada e o solicitante será notificado.',
+      confirmText: 'Rejeitar',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+    router.push(`/dashboard/financeiro/despesas/${id}/rejeitar`)
+  }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -442,7 +461,7 @@ export default function DespesaDetalhesPage() {
                       Aprovar
                     </button>
                     <button
-                      onClick={() => router.push(`/dashboard/financeiro/despesas/${id}/rejeitar`)}
+                      onClick={handleRejeitar}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-destructive text-white rounded-2xl hover:bg-destructive/90"
                     >
                       <XCircle className="w-4 h-4" />
@@ -525,6 +544,7 @@ export default function DespesaDetalhesPage() {
           </div>
         </div>
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

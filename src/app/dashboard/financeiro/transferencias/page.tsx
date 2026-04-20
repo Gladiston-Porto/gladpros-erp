@@ -1,9 +1,10 @@
 import { Suspense } from 'react'
-import Link from 'next/link'
-import { Button } from '@gladpros/ui/button'
+import { redirect } from 'next/navigation'
+import { requireServerUser } from '@/shared/lib/requireServerUser'
+import { can, type Role } from '@/shared/lib/rbac-core'
 import { PageHeader } from "@gladpros/ui/page-header"
-import { RefreshCw } from 'lucide-react'
 import TransferenciaList from '@/components/financeiro/transferencias/TransferenciaList'
+import NovaTransferenciaDialog from './NovaTransferenciaDialog'
 
 export const metadata = {
   title: 'Transferências | GladPros',
@@ -17,7 +18,15 @@ const ListFallback = () => (
   </div>
 )
 
-export default async function TransferenciasPage() {
+export default async function TransferenciasPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>
+}) {
+  const user = await requireServerUser()
+  if (!can(user.role as Role, "financeiro", "read")) redirect("/403")
+  const sp = await searchParams
+  const page = Number(sp.page ?? 1)
   const empresaId = 1
 
   return (
@@ -30,18 +39,11 @@ export default async function TransferenciasPage() {
           { label: 'Financeiro', href: '/dashboard/financeiro' },
           { label: 'Transferências' },
         ]}
-        actions={
-          <Link href="/dashboard/financeiro/transferencias/novo">
-            <Button size="lg">
-              <RefreshCw className="h-4 w-4" />
-              Nova transferência
-            </Button>
-          </Link>
-        }
+        actions={<NovaTransferenciaDialog />}
       />
 
       <Suspense fallback={<ListFallback />}>
-        <TransferenciaList empresaId={empresaId} />
+        <TransferenciaList empresaId={empresaId} page={page} />
       </Suspense>
     </div>
   )
