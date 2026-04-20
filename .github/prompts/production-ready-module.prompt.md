@@ -27,6 +27,7 @@ Os módulos abaixo já passaram pela varredura completa.
 | `clientes` | 2026-04 | ✅ Resolvidos | `docs/modules/clientes/01-audit.md` | `docs/modules/clientes/` |
 | `usuarios` | 2026-04-18 | ✅ Resolvidos | `docs/modules/usuarios/01-modulo-usuarios-completo.md` § 7 | `docs/modules/usuarios/` |
 | `financeiro` | 2026-04 | ✅ Resolvidos | `docs/modules/financeiro/01-modulo-financeiro-completo.md` | `docs/modules/financeiro/` |
+| `invoices` | 2026-04-19 | ✅ Resolvidos | `docs/modules/invoices/02-relatorio-final.md` § "Não corrigidos" | `docs/modules/invoices/` |
 
 > **Nota sobre a coluna "Nota Enterprise":** essa coluna foi removida da tabela de rastreamento propositalmente.
 > A nota (ex: 7.4/10) é um **diagnóstico de gaps**, não um critério de bloqueio para produção.

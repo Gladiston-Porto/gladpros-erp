@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateReportPDFFromHTML } from '@/shared/lib/services/report-pdf-html';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { requireUser } from '@/shared/lib/rbac';
+import { requireUser, can, type Role } from '@/shared/lib/rbac';
 
 /**
  * GET /api/reports/invoices/pdf - Generate and download invoice report as PDF
@@ -12,7 +12,13 @@ import { requireUser } from '@/shared/lib/rbac';
  * Forwards all query params (filters) to the print page.
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
-  await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'invoices', 'read')) {
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Sem permissão para gerar relatório de invoices', success: false },
+      { status: 403 },
+    );
+  }
 
   const proto = request.headers.get('x-forwarded-proto') ?? 'http';
   const host = request.headers.get('host') ?? 'localhost:3000';
