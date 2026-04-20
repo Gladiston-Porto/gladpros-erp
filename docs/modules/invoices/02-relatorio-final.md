@@ -73,9 +73,13 @@ Data: 2026-04-19
 | P2-002 | **Funcional** | `api/invoices/overdue/route.ts` | Loop sequencial sobre invoices (N+1 entre invoices) | ⚠️ Documentado (steps são sequenciais por design) |
 | P2-003 | **Funcional** | `api/webhooks/invoice-paid/route.ts` | `console.log` em produção | ✅ Corrigido |
 | P2-004 | **Funcional** | `api/webhooks/invoice-paid/route.ts` | Sem AuditLog ao fechar Service Order | ✅ Corrigido |
-| P3-001 | **Qualidade** | `api/projetos/[id]/invoices/gerar/route.ts` | Usa `mock-finance.gateway` (armazena em memória, não no DB) | ❌ Não corrigido — ver §6.7 |
-| P3-002 | **Qualidade** | `api/projetos/[id]/invoices/gerar/route.ts` | `(projeto as any).Proposta` — type cast inseguro | ❌ Não corrigido — ver §6.7 |
-| P3-003 | **Qualidade** | `api/projetos/[id]/invoices/gerar/route.ts` | Response format inconsistente (`sucesso/erro` vs `success/error`) | ❌ Não corrigido — ver §6.7 |
+| P3-001 | **Qualidade** | `api/projetos/[id]/invoices/gerar/route.ts` | Usa `mock-finance.gateway` (armazena em memória, não no DB) | ✅ Corrigido — usa `getPrismaFinanceGateway()` |
+| P3-002 | **Qualidade** | `api/projetos/[id]/invoices/gerar/route.ts` | `(projeto as any).Proposta` — type cast inseguro | ✅ Corrigido — gateway faz lookup no Prisma diretamente |
+| P3-003 | **Qualidade** | `api/projetos/[id]/invoices/gerar/route.ts` | Response format inconsistente (`sucesso/erro` vs `success/error`) | ✅ Corrigido — padrão `{ data, success }` / `{ error, message, success }` |
+| P3-005 | **Qualidade** | `api/projetos/[id]/financeiro/resumo/route.ts` | Importava `getFinanceGateway` do mock diretamente (sempre retornava dados fake) | ✅ Corrigido — usa factory `@/domains/projects/gateways` |
+| P3-006 | **Qualidade** | `api/projetos/[id]/financeiro/resumo/route.ts` | Response format `sucesso/erro` PT, não padrão | ✅ Corrigido — padrão `{ data, success }` |
+| P3-007 | **Qualidade** | `_components/invoice-utils.tsx` | `formatInvoiceDate` usava `pt-BR` sem timezone Chicago | ✅ Corrigido — `en-US` + `timeZone: "America/Chicago"` |
+| P3-008 | **Qualidade** | `_components/InvoicesTableCard.tsx` | Empty state inline custom, não `EmptyState` padrão | ✅ Corrigido — `<EmptyState>` de `@gladpros/ui` |
 | P3-004 | **Qualidade** | `(dashboard)/invoices/page.tsx` | Stat card colors hardcoded incorretos | ✅ Corrigido |
 
 ---
@@ -173,19 +177,9 @@ $ npx tsc --noEmit 2>&1 | grep -E "invoices|webhook|reports/invoices"
 
 ---
 
-## 6.7 O Que NÃO Foi Corrigido e Por Quê
+## 6.7 O Que Ainda NÃO Foi Corrigido e Por Quê
 
-### P3-001 / P3-002 / P3-003 — `api/projetos/[id]/invoices/gerar/route.ts`
-
-**Problema:** Esta rota usa `mock-finance.gateway` que armazena invoices **em memória** (não no banco de dados). Invoices geradas por projetos são perdidas ao reiniciar o servidor. Adicionalmente, usa `(projeto as any).Proposta` (unsafe cast) e response format inconsistente.
-
-**Por que não foi corrigido aqui:** Requer refatoração arquitetural completa do `IFinanceGateway` para implementar uma versão real que persista no Prisma. Isso envolve:
-- Criar `RealFinanceGateway` implementando `IFinanceGateway`
-- Mapear `GerarInvoiceDTO` para o schema Prisma real do Invoice
-- Substituir `getFinanceGateway()` por injeção do gateway real
-- Atualizar testes do módulo projetos
-
-**Próximo passo:** Abrir issue separada e tratar no escopo da integração `projetos ↔ invoices`.
+### P1-006 / P1-007 já cobertas abaixo. P3-001 a P3-008 foram todas corrigidas.
 
 ### P1-006 / P1-007 — Invoice sem campo `empresaId`
 
@@ -209,9 +203,7 @@ $ npx tsc --noEmit 2>&1 | grep -E "invoices|webhook|reports/invoices"
 
 | Prioridade | Recomendação | Esforço |
 |-----------|-------------|---------|
-| Alta | Implementar `RealFinanceGateway` para `projetos/gerar` — mock em produção é risco operacional | 4-6h |
-| Alta | Adicionar `empresaId` ao modelo Invoice via migration Prisma | 1-2h + migration |
-| Média | Parallelizar loop em `overdue/route.ts` com batch de 5 invoices | 1h |
+| Alta | Adicionar `empresaId` ao modelo Invoice via migration Prisma (preparação multi-tenant) | 1-2h + migration |
 | Média | Adicionar rate limiting em `send/route.ts` (evitar spam de emails) | 2h |
 | Média | Implementar `INVOICE_WEBHOOK_SECRET` em produção e documentar no runbook | 30min |
 | Baixa | Substituir `console.error` nos handlers de UI por um logger estruturado | 2h |
@@ -236,6 +228,9 @@ $ npx tsc --noEmit 2>&1 | grep -E "invoices|webhook|reports/invoices"
 | E2E specs criados | `ls tests/e2e/invoices/*.spec.ts` → 7 arquivos | ✅ |
 | Documentação do módulo | `ls docs/modules/invoices/` → 3 arquivos | ✅ |
 | Prompt atualizado | `grep invoices .github/prompts/production-ready-module.prompt.md` → presente | ✅ |
-| Mock gateway em projetos/gerar | Documentado em §6.7, issue pendente | ⚠️ |
+| projetos/gerar usa gateway real | `grep "getPrismaFinanceGateway" src/app/api/projetos/[id]/invoices/gerar/route.ts` → presente | ✅ |
+| resumo/route usa gateway factory | `grep "getFinanceGateway" src/app/api/projetos/[id]/financeiro/resumo/route.ts` → @/domains/projects/gateways | ✅ |
+| Timezone Chicago em formatação | `grep "America/Chicago" src/app/(dashboard)/invoices/_components/invoice-utils.tsx` → presente | ✅ |
+| EmptyState padrão | `grep "EmptyState" src/app/(dashboard)/invoices/_components/InvoicesTableCard.tsx` → presente | ✅ |
 | empresaId em Invoice | Single-tenant aceitável, documentado em §6.7 | ⚠️ |
 | INVOICE_WEBHOOK_SECRET em produção | Deve ser definida no `.env.production` antes do deploy | ⚠️ Pendente deploy |
