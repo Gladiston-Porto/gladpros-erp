@@ -1,31 +1,40 @@
+import Link from 'next/link'
 import { prisma } from '@/lib/prisma';
 import ContaBancariaDataTable from './ContaBancariaDataTable';
 import { ContaBancariaTableRow } from './ContaBancariaDataTable';
 import EmptyState from '../shared/EmptyState';
-import { Building2 } from 'lucide-react';
+import { Building2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ContaBancariaListProps {
   empresaId: number;
   tipo?: 'CORRENTE' | 'POUPANCA' | 'INVESTIMENTO' | 'CAIXA';
   ativo?: boolean;
+  page?: number;
+  pageSize?: number;
 }
 
 export default async function ContaBancariaList({
   empresaId,
   tipo,
   ativo = true,
+  page = 1,
+  pageSize = 20,
 }: ContaBancariaListProps) {
-  const contas = await prisma.bankAccount.findMany({
-    where: {
-      empresaId,
-      ...(tipo && { tipo }),
-      ...(ativo !== undefined && { ativo }),
-    },
-    orderBy: [
-      { principal: 'desc' }, // Contas principais primeiro
-      { nome: 'asc' },
-    ],
-  });
+  const where = {
+    empresaId,
+    ...(tipo && { tipo }),
+    ...(ativo !== undefined && { ativo }),
+  }
+
+  const [total, contas] = await Promise.all([
+    prisma.bankAccount.count({ where }),
+    prisma.bankAccount.findMany({
+      where,
+      orderBy: [{ principal: 'desc' }, { nome: 'asc' }],
+      take: pageSize,
+      skip: (page - 1) * pageSize,
+    }),
+  ])
 
   // Mapear dados do Prisma para o formato esperado pelo DataTable
   const data: ContaBancariaTableRow[] = contas.map((conta) => {
@@ -65,5 +74,40 @@ export default async function ContaBancariaList({
     );
   }
 
-  return <ContaBancariaDataTable contas={data} />;
+  const totalPages = Math.ceil(total / pageSize)
+
+  return (
+    <div className="space-y-4">
+      <ContaBancariaDataTable contas={data} />
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            {total} conta{total !== 1 ? 's' : ''} — página {page} de {totalPages}
+          </p>
+          <div className="flex gap-2">
+            {page > 1 && (
+              <Link
+                href={`?page=${page - 1}`}
+                className="flex items-center gap-1 rounded-2xl border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Link>
+            )}
+            {page < totalPages && (
+              <Link
+                href={`?page=${page + 1}`}
+                className="flex items-center gap-1 rounded-2xl border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                aria-label="Próxima página"
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }

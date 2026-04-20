@@ -1,8 +1,9 @@
+import Link from 'next/link'
 import { prisma } from '@/lib/prisma';
 import DespesaDataTable from './DespesaDataTable';
 import { DespesaTableRow } from './DespesaDataTable';
 import EmptyState from '../shared/EmptyState';
-import { FileText } from 'lucide-react';
+import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DespesaListProps {
   empresaId: number;
@@ -11,6 +12,8 @@ interface DespesaListProps {
   fornecedorId?: number;
   dataInicio?: Date;
   dataFim?: Date;
+  page?: number;
+  pageSize?: number;
 }
 
 export default async function DespesaList({
@@ -20,47 +23,37 @@ export default async function DespesaList({
   fornecedorId,
   dataInicio,
   dataFim,
+  page = 1,
+  pageSize = 20,
 }: DespesaListProps) {
-  // VENCIDA é status computado (PENDENTE + vencido), não existe no enum StatusDespesa
   const isVencidaFilter = status === 'VENCIDA';
   const dbStatus = isVencidaFilter ? ('PENDENTE' as const) : status;
 
-  const despesas = await prisma.expense.findMany({
-    where: {
-      empresaId,
-      ...(dbStatus && { status: dbStatus }),
-      ...(isVencidaFilter && { dataVencimento: { lt: new Date() } }),
-      ...(categoriaId && { categoriaId }),
-      ...(fornecedorId && { fornecedorId }),
-      ...(!isVencidaFilter && dataInicio && dataFim && {
-        dataVencimento: {
-          gte: dataInicio,
-          lte: dataFim,
-        },
-      }),
-    },
-    include: {
-      categoria: {
-        select: {
-          nome: true,
-          cor: true,
-        },
+  const where = {
+    empresaId,
+    ...(dbStatus && { status: dbStatus }),
+    ...(isVencidaFilter && { dataVencimento: { lt: new Date() } }),
+    ...(categoriaId && { categoriaId }),
+    ...(fornecedorId && { fornecedorId }),
+    ...(!isVencidaFilter && dataInicio && dataFim && {
+      dataVencimento: { gte: dataInicio, lte: dataFim },
+    }),
+  }
+
+  const [total, despesas] = await Promise.all([
+    prisma.expense.count({ where }),
+    prisma.expense.findMany({
+      where,
+      include: {
+        categoria: { select: { nome: true, cor: true } },
+        fornecedor: { select: { nome: true } },
+        usuario: { select: { nomeCompleto: true } },
       },
-      fornecedor: {
-        select: {
-          nome: true,
-        },
-      },
-      usuario: {
-        select: {
-          nomeCompleto: true,
-        },
-      },
-    },
-    orderBy: {
-      dataVencimento: 'desc',
-    },
-  });
+      orderBy: { dataVencimento: 'desc' },
+      take: pageSize,
+      skip: (page - 1) * pageSize,
+    }),
+  ])
 
   // Mapear dados do Prisma para o formato esperado pelo DataTable
   const data: DespesaTableRow[] = despesas.map((despesa) => {
@@ -102,5 +95,40 @@ export default async function DespesaList({
     );
   }
 
-  return <DespesaDataTable despesas={data} />;
+  const totalPages = Math.ceil(total / pageSize)
+
+  return (
+    <div className="space-y-4">
+      <DespesaDataTable despesas={data} />
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            {total} resultado{total !== 1 ? 's' : ''} — página {page} de {totalPages}
+          </p>
+          <div className="flex gap-2">
+            {page > 1 && (
+              <Link
+                href={`?page=${page - 1}`}
+                className="flex items-center gap-1 rounded-2xl border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Link>
+            )}
+            {page < totalPages && (
+              <Link
+                href={`?page=${page + 1}`}
+                className="flex items-center gap-1 rounded-2xl border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                aria-label="Próxima página"
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }

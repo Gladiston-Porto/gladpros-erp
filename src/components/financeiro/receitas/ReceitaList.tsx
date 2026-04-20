@@ -1,8 +1,9 @@
+import Link from 'next/link'
 import { prisma } from '@/lib/prisma';
 import ReceitaDataTable from './ReceitaDataTable';
 import { ReceitaTableRow } from './ReceitaDataTable';
 import EmptyState from '../shared/EmptyState';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ReceitaListProps {
   empresaId: number;
@@ -11,6 +12,8 @@ interface ReceitaListProps {
   clienteId?: number;
   dataInicio?: Date;
   dataFim?: Date;
+  page?: number;
+  pageSize?: number;
 }
 
 export default async function ReceitaList({
@@ -20,39 +23,38 @@ export default async function ReceitaList({
   clienteId,
   dataInicio,
   dataFim,
+  page = 1,
+  pageSize = 20,
 }: ReceitaListProps) {
-  const receitas = await prisma.revenue.findMany({
-    where: {
-      empresaId,
-      ...(status && { status }),
-      ...(categoriaId && { categoriaId }),
-      ...(clienteId && { clienteId }),
-      ...(dataInicio && dataFim && {
-        dataVencimento: {
-          gte: dataInicio,
-          lte: dataFim,
-        },
-      }),
-    },
-    include: {
-      categoria: {
-        select: {
-          nome: true,
-          cor: true,
-        },
-      },
-      cliente: {
-        select: {
-          nomeCompleto: true,
-          razaoSocial: true,
-          nomeFantasia: true,
+  const where = {
+    empresaId,
+    ...(status && { status }),
+    ...(categoriaId && { categoriaId }),
+    ...(clienteId && { clienteId }),
+    ...(dataInicio && dataFim && {
+      dataVencimento: { gte: dataInicio, lte: dataFim },
+    }),
+  }
+
+  const [total, receitas] = await Promise.all([
+    prisma.revenue.count({ where }),
+    prisma.revenue.findMany({
+      where,
+      include: {
+        categoria: { select: { nome: true, cor: true } },
+        cliente: {
+          select: {
+            nomeCompleto: true,
+            razaoSocial: true,
+            nomeFantasia: true,
+          },
         },
       },
-    },
-    orderBy: {
-      dataVencimento: 'desc',
-    },
-  });
+      orderBy: { dataVencimento: 'desc' },
+      take: pageSize,
+      skip: (page - 1) * pageSize,
+    }),
+  ])
 
   // Mapear dados do Prisma para o formato esperado pelo DataTable
   const data: ReceitaTableRow[] = receitas.map((receita) => {
@@ -100,5 +102,40 @@ export default async function ReceitaList({
     );
   }
 
-  return <ReceitaDataTable receitas={data} />;
+  const totalPages = Math.ceil(total / pageSize)
+
+  return (
+    <div className="space-y-4">
+      <ReceitaDataTable receitas={data} />
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            {total} resultado{total !== 1 ? 's' : ''} — página {page} de {totalPages}
+          </p>
+          <div className="flex gap-2">
+            {page > 1 && (
+              <Link
+                href={`?page=${page - 1}`}
+                className="flex items-center gap-1 rounded-2xl border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Link>
+            )}
+            {page < totalPages && (
+              <Link
+                href={`?page=${page + 1}`}
+                className="flex items-center gap-1 rounded-2xl border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                aria-label="Próxima página"
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
