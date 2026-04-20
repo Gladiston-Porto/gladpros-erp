@@ -101,7 +101,7 @@ export default function DashboardPage() {
       {/* ── Filtros compactos ────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <Select value={period} onValueChange={(v: '7d' | '30d' | '90d') => setPeriod(v)}>
-          <SelectTrigger className="h-8 w-[160px] text-xs rounded-lg">
+          <SelectTrigger className="h-8 w-[160px] text-xs rounded-2xl">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -112,7 +112,7 @@ export default function DashboardPage() {
         </Select>
 
         <Select value={userRole} onValueChange={setUserRole}>
-          <SelectTrigger className="h-8 w-[160px] text-xs rounded-lg">
+          <SelectTrigger className="h-8 w-[160px] text-xs rounded-2xl">
             <SelectValue placeholder="Todas as funções" />
           </SelectTrigger>
           <SelectContent>

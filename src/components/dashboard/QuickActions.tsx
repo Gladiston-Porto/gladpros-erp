@@ -54,7 +54,7 @@ export const QuickActions = memo(function QuickActions(props: QuickActionsProps)
               key={action.key}
               type="button"
               onClick={cbs[action.cb]}
-              className="group flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-all hover:bg-muted/50 hover:shadow-card"
+              className="group flex items-center gap-2.5 rounded-2xl border border-border bg-card px-3 py-2.5 text-left transition-all hover:bg-muted/50 hover:shadow-card"
             >
               <div className={`grid shrink-0 size-7 place-content-center rounded-md text-white [&_svg]:size-3.5 ${action.iconClass}`}>
                 <Icon />

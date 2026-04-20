@@ -339,7 +339,7 @@ export default function FiscalDashboardPage() {
                   .map((line) => (
                     <div
                       key={line.lineNumber}
-                      className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                      className="flex items-center justify-between p-2 rounded-2xl hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded">

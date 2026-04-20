@@ -12,8 +12,8 @@ const Bar = lazy(() => import("recharts").then(module => ({ default: module.Bar 
 function ChartLoading() {
   return (
     <div className="animate-pulse">
-      <div className="h-[300px] bg-gray-200 rounded-lg flex items-center justify-center">
-        <div className="text-gray-500">Carregando gráfico...</div>
+      <div className="h-[300px] bg-muted rounded-2xl flex items-center justify-center">
+        <div className="text-muted-foreground">Carregando gráfico...</div>
       </div>
     </div>
   );
@@ -24,10 +24,20 @@ interface DashboardChartsProps {
     name: string;
     total: number;
   }>;
+  statusData?: Array<{
+    label: string;
+    value: string;
+  }>;
 }
 
+const DEFAULT_STATUS_DATA = [
+  { label: 'Aprovadas', value: '—' },
+  { label: 'Pendentes', value: '—' },
+  { label: 'Canceladas', value: '—' },
+];
+
 // Componente memoizado com comparação profunda de props
-export const DashboardCharts = memo(function DashboardCharts({ chartData }: DashboardChartsProps) {
+export const DashboardCharts = memo(function DashboardCharts({ chartData, statusData = DEFAULT_STATUS_DATA }: DashboardChartsProps) {
   // Memoizar dados do gráfico para evitar re-renders desnecessários
   const memoizedData = useMemo(() => {
     return chartData.map(item => ({
@@ -54,7 +64,7 @@ export const DashboardCharts = memo(function DashboardCharts({ chartData }: Dash
               <BarChart {...chartConfig}>
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Bar dataKey="total" fill="#8884d8" />
+                <Bar dataKey="total" fill="var(--color-brand-primary, #0098DA)" />
               </BarChart>
             </ResponsiveContainer>
           </Suspense>
@@ -67,18 +77,12 @@ export const DashboardCharts = memo(function DashboardCharts({ chartData }: Dash
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            <div className="flex justify-between">
-              <span>Aprovadas</span>
-              <span>75%</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Pendentes</span>
-              <span>20%</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Canceladas</span>
-              <span>5%</span>
-            </div>
+            {statusData.map(item => (
+              <div key={item.label} className="flex justify-between">
+                <span>{item.label}</span>
+                <span>{item.value}</span>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

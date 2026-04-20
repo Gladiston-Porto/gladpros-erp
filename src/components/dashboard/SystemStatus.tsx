@@ -40,11 +40,11 @@ export const SystemStatus = memo(function SystemStatus({
     const StatusBadgeComponent = (status: 'online' | 'offline' | 'warning') => {
       switch (status) {
         case 'online':
-          return <Badge variant="outline" className="bg-green-50 text-green-700">Online</Badge>;
+          return <Badge variant="success">Online</Badge>;
         case 'warning':
-          return <Badge variant="outline" className="bg-yellow-50 text-yellow-700">Aviso</Badge>;
+          return <Badge variant="warning">Aviso</Badge>;
         case 'offline':
-          return <Badge variant="outline" className="bg-red-50 text-red-700">Offline</Badge>;
+          return <Badge variant="destructive">Offline</Badge>;
         default:
           return <Badge variant="outline">Desconhecido</Badge>;
       }

@@ -164,8 +164,8 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-6">
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-muted rounded-xl w-1/2 mb-2"></div>
+                <div className="h-8 bg-muted rounded-xl w-3/4"></div>
               </CardContent>
             </Card>
           ))}
@@ -178,8 +178,8 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
     return (
       <Card>
         <CardContent className="p-6 text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <p className="text-gray-600 mb-4">{error || 'Não foi possível carregar os dados'}</p>
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <p className="text-muted-foreground mb-4">{error || 'Não foi possível carregar os dados'}</p>
           <Button onClick={() => window.location.reload()} variant="outline">
             Tentar Novamente
           </Button>
@@ -296,9 +296,9 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
       </div>
 
       {alertas.length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50/80 shadow-sm">
+        <Card className="border-warning/40 bg-warning/5 shadow-sm">
           <CardHeader>
-            <CardTitle className="flex items-center text-yellow-800">
+            <CardTitle className="flex items-center text-warning-foreground">
               <AlertTriangle className="h-5 w-5 mr-2" />
               Alertas ({alertas.length})
             </CardTitle>
@@ -308,23 +308,20 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
               {alertas.map((alerta, index) => (
                 <div
                   key={index}
-                  className={`flex items-start space-x-3 p-3 rounded-lg ${alerta.severidade === 'high' ? 'bg-red-50 border border-red-200' :
-                    alerta.severidade === 'medium' ? 'bg-yellow-50 border border-yellow-200' :
-                      'bg-blue-50 border border-blue-200'
+                  className={`flex items-start space-x-3 p-3 rounded-2xl border ${alerta.severidade === 'high' ? 'bg-destructive/10 border-destructive/30' :
+                    alerta.severidade === 'medium' ? 'bg-warning/10 border-warning/30' :
+                      'bg-info/10 border-info/30'
                     }`}
                 >
-                  <AlertCircle className={`h-5 w-5 mt-0.5 ${alerta.severidade === 'high' ? 'text-red-500' :
-                    alerta.severidade === 'medium' ? 'text-yellow-500' :
-                      'text-blue-500'
+                  <AlertCircle className={`h-5 w-5 mt-0.5 ${alerta.severidade === 'high' ? 'text-destructive' :
+                    alerta.severidade === 'medium' ? 'text-warning' :
+                      'text-brand-primary'
                     }`} />
                   <div className="flex-1">
-                    <p className={`font-medium ${alerta.severidade === 'high' ? 'text-red-800' :
-                      alerta.severidade === 'medium' ? 'text-yellow-800' :
-                        'text-blue-800'
-                      }`}>
+                    <p className="font-medium text-foreground">
                       {alerta.mensagem}
                     </p>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       Tipo: {alerta.tipo.toUpperCase()}
                     </p>
                   </div>
@@ -349,25 +346,25 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-600">Projetos Ativos</p>
-              <Briefcase className="h-4 w-4 text-blue-500" />
+              <p className="text-sm text-muted-foreground">Projetos Ativos</p>
+              <Briefcase className="h-4 w-4 text-brand-primary" />
             </div>
             <p className="text-2xl font-bold">{kpis.projetosAtivos}</p>
             <div className="flex items-center space-x-4 mt-2 text-xs">
               {kpis.projetosAtrasados > 0 && (
-                <span className="flex items-center text-red-600">
+                <span className="flex items-center text-destructive">
                   <AlertCircle className="h-3 w-3 mr-1" />
                   {kpis.projetosAtrasados} atrasado(s)
                 </span>
               )}
               {kpis.projetosSobreOrcamento > 0 && (
-                <span className="flex items-center text-yellow-600">
+                <span className="flex items-center text-warning">
                   <AlertTriangle className="h-3 w-3 mr-1" />
                   {kpis.projetosSobreOrcamento} sobre orçamento
                 </span>
               )}
               {kpis.projetosAtrasados === 0 && kpis.projetosSobreOrcamento === 0 && (
-                <span className="flex items-center text-green-600">
+                <span className="flex items-center text-success">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Tudo OK
                 </span>
@@ -380,8 +377,8 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-600">Workers Ativos</p>
-              <Users className="h-4 w-4 text-purple-500" />
+              <p className="text-sm text-muted-foreground">Workers Ativos</p>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </div>
             <p className="text-2xl font-bold">{kpis.workersAtivos}</p>
           </CardContent>
@@ -391,11 +388,11 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-600">Estoque Total</p>
-              <Package className="h-4 w-4 text-orange-500" />
+              <p className="text-sm text-muted-foreground">Estoque Total</p>
+              <Package className="h-4 w-4 text-brand-secondary" />
             </div>
             <p className="text-2xl font-bold">{kpis.produtosTotal}</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {kpis.estoqueTotal} unidade(s) • {kpis.movimentacoesRecentes} movimentação(ões) recentes
             </p>
           </CardContent>
@@ -405,13 +402,13 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-600">Propostas</p>
-              <FileText className="h-4 w-4 text-indigo-500" />
+              <p className="text-sm text-muted-foreground">Propostas</p>
+              <FileText className="h-4 w-4 text-muted-foreground" />
             </div>
             <p className="text-2xl font-bold">{kpis.propostasTotal}</p>
             <div className="flex items-center justify-between mt-2 text-xs">
-              <span className="text-green-600">{kpis.propostasAprovadas} aprovada(s)</span>
-              <span className="text-gray-500">Taxa: {taxaConversao}%</span>
+              <span className="text-success">{kpis.propostasAprovadas} aprovada(s)</span>
+              <span className="text-muted-foreground">Taxa: {taxaConversao}%</span>
             </div>
           </CardContent>
         </Card>
@@ -420,8 +417,8 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-600">Clientes Ativos</p>
-              <Users className="h-4 w-4 text-teal-500" />
+              <p className="text-sm text-muted-foreground">Clientes Ativos</p>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </div>
             <p className="text-2xl font-bold">{kpis.clientesAtivos}</p>
           </CardContent>
@@ -431,13 +428,13 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-600">Faturamento (Invoices)</p>
-              <DollarSign className="h-4 w-4 text-green-500" />
+              <p className="text-sm text-muted-foreground">Faturamento (Invoices)</p>
+              <DollarSign className="h-4 w-4 text-success" />
             </div>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-success">
               {formatCurrency(kpis.invoicesFaturamento)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {kpis.invoicesTotal} invoice(s) no período
             </p>
           </CardContent>
@@ -466,7 +463,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
               {projetos.slice(0, 5).map((projeto) => (
                 <div
                   key={projeto.id}
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-between p-3 rounded-2xl border border-border hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex-1">
                     <Link href={`/projetos/${projeto.id}`} className="hover:underline">
@@ -487,7 +484,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
                         <p className="text-sm font-medium">
                           {formatCurrency(projeto.custoAtual)}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           de {formatCurrency(projeto.orcamento)}
                         </p>
                       </>

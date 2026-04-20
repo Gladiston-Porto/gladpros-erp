@@ -9,11 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@glad
 import { Checkbox } from "@gladpros/ui/checkbox"
 import { Input } from "@gladpros/ui/input"
 import { Label } from "@gladpros/ui/label"
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@gladpros/ui/select";
-
-
-
-
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@gladpros/ui/select"
+import { useToast } from "@gladpros/ui/toast";
 
 import { FileText, Download, Filter } from 'lucide-react';
 
@@ -24,6 +21,7 @@ interface ReportField {
 }
 
 export const ReportBuilder = () => {
+  const toast = useToast();
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [reportType, setReportType] = useState('clients');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -66,7 +64,7 @@ export const ReportBuilder = () => {
 
   const handleGenerateReport = async () => {
     if (selectedFields.length === 0) {
-      alert('Selecione pelo menos um campo');
+      toast.error('Campo obrigatório', 'Selecione pelo menos um campo');
       return;
     }
 
@@ -80,30 +78,47 @@ export const ReportBuilder = () => {
         body: JSON.stringify({
           type: reportType,
           format,
+          fields: selectedFields,
           startDate: dateRange.start || undefined,
           endDate: dateRange.end || undefined,
         }),
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        if (format === 'json') {
-          console.log('Relatório gerado:', result);
-          alert('Relatório gerado com sucesso! Verifique o console para os dados.');
-        } else {
-          // For CSV/Excel, we'd need to implement actual file generation
-          alert(`Relatório ${format.toUpperCase()} seria baixado aqui`);
-        }
+      if (!response.ok) {
+        toast.error('Erro ao gerar relatório', 'Não foi possível gerar o relatório. Tente novamente.');
+        return;
+      }
+
+      if (format === 'json') {
+        const data = await response.json();
+        const blob = new Blob([JSON.stringify(data.data ?? data, null, 2)], { type: 'application/json' });
+        triggerDownload(blob, `relatorio-${reportType}-${Date.now()}.json`);
+        toast.success('Relatório gerado', 'Download iniciado com sucesso');
       } else {
-        alert('Erro ao gerar relatório');
+        // For CSV/XLSX: get blob directly from response
+        const blob = await response.blob();
+        const ext = format === 'xlsx' ? 'xlsx' : 'csv';
+        triggerDownload(blob, `relatorio-${reportType}-${Date.now()}.${ext}`);
+        toast.success('Download iniciado', `Relatório ${format.toUpperCase()} gerado com sucesso`);
       }
     } catch (error) {
-      console.error('Erro:', error);
-      alert('Erro ao gerar relatório');
+      console.error('[ReportBuilder] Erro ao gerar relatório:', error);
+      toast.error('Erro ao gerar relatório', 'Não foi possível gerar o relatório. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   const currentFields = availableFields[reportType] || [];
 

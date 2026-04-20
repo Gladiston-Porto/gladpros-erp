@@ -6,6 +6,33 @@ import { Projeto_status } from '@prisma/client';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { withBusinessCache } from '@/shared/lib/cache/business-cache';
 import { can, requireUser, type Role } from '@/shared/lib/rbac';
+import { apiRateLimit } from '@/shared/lib/rate-limit';
+
+/** Generates the last `count` month labels (e.g. "Jan '25") */
+function buildMonthLabels(count: number): string[] {
+  const labels: string[] = [];
+  const now = new Date();
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    labels.push(d.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'America/Chicago' }));
+  }
+  return labels;
+}
+
+function groupByMonth<T extends { criadoEm: Date }>(
+  items: T[],
+  labels: string[],
+  getValue: (item: T) => number = () => 1,
+): number[] {
+  const buckets: Record<string, number> = {};
+  for (const item of items) {
+    const key = new Date(item.criadoEm).toLocaleString('en-US', {
+      month: 'short', year: '2-digit', timeZone: 'America/Chicago',
+    });
+    buckets[key] = (buckets[key] || 0) + getValue(item);
+  }
+  return labels.map(l => buckets[l] ?? 0);
+}
 
 export const GET = withErrorHandler(async (request: Request) => {
     const user = await requireUser(request as NextRequest);
@@ -15,7 +42,15 @@ export const GET = withErrorHandler(async (request: Request) => {
         { status: 403 }
       );
     }
-    
+
+    const rateCheck = await apiRateLimit.isAllowed(request as NextRequest);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests', message: rateCheck.message, success: false },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '30d';
 
@@ -33,6 +68,10 @@ export const GET = withErrorHandler(async (request: Request) => {
         const previousStartDate = new Date(startDate);
         previousStartDate.setDate(previousStartDate.getDate() - daysAgo);
 
+        // Chart: últimos 6 meses (independente do período selecionado)
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
         // Buscar TODOS os dados em paralelo — período atual + período anterior juntos
         const [
           receitas,
@@ -47,7 +86,10 @@ export const GET = withErrorHandler(async (request: Request) => {
           propostas,
           invoices,
           previousReceitas,
-          previousDespesas
+          previousDespesas,
+          revenueItems,
+          propostaItems,
+          clienteItems,
         ] = await Promise.all([
           prisma.revenue.aggregate({
             _sum: { valor: true },
@@ -115,7 +157,25 @@ export const GET = withErrorHandler(async (request: Request) => {
           prisma.expense.aggregate({
             _sum: { valor: true },
             where: { criadoEm: { gte: previousStartDate, lt: startDate } }
-          })
+          }),
+          // Chart time-series: receita mensal (últimos 6 meses)
+          prisma.revenue.findMany({
+            where: { criadoEm: { gte: sixMonthsAgo } },
+            select: { criadoEm: true, valor: true },
+            orderBy: { criadoEm: 'asc' },
+          }),
+          // Chart time-series: propostas mensais (últimos 6 meses)
+          prisma.proposta.findMany({
+            where: { criadoEm: { gte: sixMonthsAgo } },
+            select: { criadoEm: true },
+            orderBy: { criadoEm: 'asc' },
+          }),
+          // Chart time-series: novos clientes mensais (últimos 6 meses)
+          prisma.cliente.findMany({
+            where: { criadoEm: { gte: sixMonthsAgo } },
+            select: { criadoEm: true },
+            orderBy: { criadoEm: 'asc' },
+          }),
         ]);
 
         // Calcular saldo financeiro
@@ -167,6 +227,15 @@ export const GET = withErrorHandler(async (request: Request) => {
           ? ((totalReceitas - previousTotalReceitas) / previousTotalReceitas) * 100 
           : 0;
 
+        // Build chart time-series (last 6 months)
+        const monthLabels = buildMonthLabels(6);
+        const chartData = {
+          labels: monthLabels,
+          revenue: groupByMonth(revenueItems, monthLabels, (r) => Number(r.valor || 0)),
+          proposals: groupByMonth(propostaItems, monthLabels),
+          clients: groupByMonth(clienteItems, monthLabels),
+        };
+
         return {
           period,
           kpis: {
@@ -210,12 +279,17 @@ export const GET = withErrorHandler(async (request: Request) => {
               valor: Number(saldoPeriodo)
             }] : [])
           ]
+          ,
+          chartData,
         };
       },
       { ttlSeconds: cacheTtlSeconds }
     );
 
-    return NextResponse.json({ data: response, success: true }, { status: 200 });
+    return NextResponse.json(
+      { data: response, success: true },
+      { status: 200, headers: { 'Cache-Control': 'no-store, private' } }
+    );
     
   });
 

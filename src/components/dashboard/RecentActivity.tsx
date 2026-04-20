@@ -24,11 +24,11 @@ const RecentActivityComponent = ({ activities }: RecentActivityProps) => {
         case 'nova_proposta':
           return <Badge variant="outline">Nova Proposta</Badge>;
         case 'aprovacao':
-          return <Badge variant="outline" className="bg-green-50 text-green-700">Aprovação</Badge>;
+          return <Badge variant="success">Aprovação</Badge>;
         case 'cancelamento':
-          return <Badge variant="outline" className="bg-red-50 text-red-700">Cancelamento</Badge>;
+          return <Badge variant="destructive">Cancelamento</Badge>;
         case 'novo_cliente':
-          return <Badge variant="outline" className="bg-blue-50 text-blue-700">Novo Cliente</Badge>;
+          return <Badge variant="info">Novo Cliente</Badge>;
         default:
           return <Badge variant="outline">Atividade</Badge>;
       }

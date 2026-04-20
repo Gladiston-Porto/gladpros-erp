@@ -101,12 +101,12 @@ export const DashboardChart = ({
 
   if (!charts) {
     return (
-      <div className="p-6 border rounded-lg bg-card shadow-sm">
+      <div className="p-6 border rounded-2xl bg-card shadow-sm">
         <div className="mb-4">
           <h3 className="text-lg font-semibold">{title}</h3>
           {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
         </div>
-        <div style={{ height: `${height}px` }} className="animate-pulse bg-muted rounded-lg" />
+        <div style={{ height: `${height}px` }} className="animate-pulse bg-muted rounded-2xl" />
       </div>
     );
   }
@@ -127,7 +127,7 @@ export const DashboardChart = ({
   };
 
   return (
-    <div className="p-6 border rounded-lg bg-card shadow-sm">
+    <div className="p-6 border rounded-2xl bg-card shadow-sm">
       <div className="mb-4">
         <h3 className="text-lg font-semibold">{title}</h3>
         {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
