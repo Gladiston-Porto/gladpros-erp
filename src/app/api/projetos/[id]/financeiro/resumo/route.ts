@@ -1,86 +1,71 @@
 /**
  * GET /api/projetos/[id]/financeiro/resumo
- * Fase 7: Obtém resumo financeiro do projeto
- * 
- * @middleware requireProjectPermission - Requer canViewFinancials
- * @returns Resumo financeiro com valores mascarados conforme role
+ * Obtém resumo financeiro do projeto via gateway (Prisma em produção, mock em testes).
+ *
+ * Requer canViewFinancials. Valores financeiros mascarados por role.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectPermission, shouldMaskFinancials } from '@/shared/lib/rbac-projects';
-import { getFinanceGateway } from '@/domains/projects/gateways/mock-finance.gateway';
-import { prisma } from '@/lib/prisma';
+import { getFinanceGateway } from '@/domains/projects/gateways';
 import { withErrorHandler } from '@/lib/api/error-handler';
 
 export const GET = withErrorHandler(async (req: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
-    // Verificar permissão de visualização financeira
-    const user = await requireProjectPermission(req, 'canViewFinancials');
-    
-    // Validar ID
-    const { id } = await context.params;
-    const projetoId = parseInt(id, 10);
+  const user = await requireProjectPermission(req, 'canViewFinancials');
 
-    if (isNaN(projetoId)) {
-      return NextResponse.json(
-        { erro: 'ID do projeto inválido' },
-        { status: 400 }
-      );
-    }
+  const { id } = await context.params;
+  const projetoId = parseInt(id, 10);
 
-    // Busca projeto
-    const projeto = await prisma.projeto.findUnique({
-      where: { id: projetoId },
-      select: { id: true },
-    });
+  if (isNaN(projetoId)) {
+    return NextResponse.json(
+      { error: 'Validation failed', message: 'ID do projeto inválido', success: false },
+      { status: 400 },
+    );
+  }
 
-    if (!projeto) {
-      return NextResponse.json(
-        { erro: 'Projeto não encontrado' },
-        { status: 404 }
-      );
-    }
+  const gateway = getFinanceGateway();
+  const resumo = await gateway.obterResumoFinanceiro(projetoId);
 
-    // Chama gateway financeiro
-    const gateway = getFinanceGateway();
-    const resumo = await gateway.obterResumoFinanceiro(projetoId);
+  // `obterResumoFinanceiro` retorna objeto vazio-ish se não encontrado — verificar
+  if (!resumo.numeroProjeto) {
+    return NextResponse.json(
+      { error: 'Not found', message: 'Projeto não encontrado', success: false },
+      { status: 404 },
+    );
+  }
 
-    // Verifica se deve mascarar valores financeiros
-    const deveMascarar = shouldMaskFinancials(user.role);
+  const deveMascarar = shouldMaskFinancials(user.role);
 
-    // Monta resposta (com ou sem mascaramento)
-    if (deveMascarar) {
-      // Usuário ESTOQUE e USUARIO veem versão reduzida
-      return NextResponse.json({
-        sucesso: true,
-        resumo: {
-          projetoId: resumo.projetoId,
-          numeroProjeto: resumo.numeroProjeto,
-          status: 'Disponível', // Apenas status genérico
-          totalInvoices: resumo.totalInvoices,
-          atualizadoEm: resumo.atualizadoEm,
-        },
-      });
-    }
-
-    // ADMIN, GERENTE, FINANCEIRO veem valores completos
+  if (deveMascarar) {
     return NextResponse.json({
-      sucesso: true,
-      resumo: {
+      data: {
         projetoId: resumo.projetoId,
         numeroProjeto: resumo.numeroProjeto,
-        valorOrcado: resumo.valorOrcado,
-        valorMateriais: resumo.valorMateriais,
-        valorFaturado: resumo.valorFaturado,
-        valorPago: resumo.valorPago,
-        valorPendente: resumo.valorPendente,
         totalInvoices: resumo.totalInvoices,
-        invoicesPendentes: resumo.invoicesPendentes,
-        invoicesPagos: resumo.invoicesPagos,
-        invoicesVencidos: resumo.invoicesVencidos,
-        margem: resumo.margem,
-        percentualMargem: Number(resumo.percentualMargem.toFixed(2)),
         atualizadoEm: resumo.atualizadoEm,
       },
+      success: true,
     });
+  }
+
+  return NextResponse.json({
+    data: {
+      projetoId: resumo.projetoId,
+      numeroProjeto: resumo.numeroProjeto,
+      valorOrcado: resumo.valorOrcado,
+      valorMateriais: resumo.valorMateriais,
+      valorFaturado: resumo.valorFaturado,
+      valorPago: resumo.valorPago,
+      valorPendente: resumo.valorPendente,
+      totalInvoices: resumo.totalInvoices,
+      invoicesPendentes: resumo.invoicesPendentes,
+      invoicesPagos: resumo.invoicesPagos,
+      invoicesVencidos: resumo.invoicesVencidos,
+      margem: resumo.margem,
+      percentualMargem: Number(resumo.percentualMargem.toFixed(2)),
+      atualizadoEm: resumo.atualizadoEm,
+    },
+    success: true,
   });
+});
