@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireServerUser } from "@/shared/lib/requireServerUser";
+import { can, type Role } from "@/shared/lib/rbac-core";
+import { redirect } from "next/navigation";
 import { Button } from "@gladpros/ui/button"
 import { ModulePageHeader } from "@gladpros/ui/module-page-header"
 import { StatCard } from "@gladpros/ui/stat-card";
@@ -7,6 +10,8 @@ import { Plus, Briefcase, CheckCircle, AlertTriangle, Clock } from "lucide-react
 import ProjetosClient from "./ProjetosClient";
 
 export default async function ProjetosPage() {
+  const user = await requireServerUser();
+  if (!can(user.role as Role, "projetos", "read")) redirect("/403");
   // Fetch real-time stats em paralelo — 1 round-trip ao banco em vez de 5 sequenciais
   const [totalProjetos, emAndamento, concluidos, atrasados, planejados] = await Promise.all([
     prisma.projeto.count(),

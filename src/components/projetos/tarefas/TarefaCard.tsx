@@ -39,10 +39,10 @@ type Props = {
 };
 
 const PRIORIDADE_CONFIG = {
-  baixa: { label: 'Baixa', color: 'bg-gray-100 text-gray-700' },
-  media: { label: 'Média', color: 'bg-blue-100 text-blue-700' },
+  baixa: { label: 'Baixa', color: 'bg-muted text-foreground' },
+  media: { label: 'Média', color: 'bg-brand-primary/10 text-brand-primary' },
   alta: { label: 'Alta', color: 'bg-orange-100 text-orange-700' },
-  urgente: { label: 'Urgente', color: 'bg-red-100 text-red-700' },
+  urgente: { label: 'Urgente', color: 'bg-destructive/10 text-destructive' },
 };
 
 export function TarefaCard({ tarefa, isDragging }: Props) {
@@ -86,11 +86,11 @@ export function TarefaCard({ tarefa, isDragging }: Props) {
     >
       <CardContent className="space-y-3 p-3">
         {/* Título */}
-        <h4 className="font-medium text-gray-900">{tarefa.titulo}</h4>
+        <h4 className="font-medium text-foreground">{tarefa.titulo}</h4>
 
         {/* Descrição (truncada) */}
         {tarefa.descricao && (
-          <p className="line-clamp-2 text-sm text-gray-600">{tarefa.descricao}</p>
+          <p className="line-clamp-2 text-sm text-muted-foreground">{tarefa.descricao}</p>
         )}
 
         {/* Etapa */}

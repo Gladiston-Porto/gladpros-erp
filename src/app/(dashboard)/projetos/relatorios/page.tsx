@@ -114,7 +114,7 @@ export default async function RelatoriosProjetosPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Total Projetos", value: total.toLocaleString("en-US"), icon: Briefcase, color: "text-brand-primary", bg: "bg-brand-primary/10" },
-          { label: "Em Execução", value: emExecucao.toLocaleString("en-US"), icon: PlayCircle, color: "text-blue-600", bg: "bg-blue-500/10" },
+          { label: "Em Execução", value: emExecucao.toLocaleString("en-US"), icon: PlayCircle, color: "text-brand-primary", bg: "bg-brand-primary/10" },
           { label: "Concluídos", value: concluidos.toLocaleString("en-US"), icon: CheckCircle2, color: "text-green-600", bg: "bg-green-500/10" },
           { label: "Atrasados", value: atrasados.toLocaleString("en-US"), icon: AlertTriangle, color: "text-destructive", bg: "bg-destructive/10" },
         ].map(({ label, value, icon: Icon, color, bg }) => (

@@ -64,11 +64,8 @@ export default function ProjetoForm({
   const isEditing = !!projeto;
   
   const { createProjeto, updateProjeto, loading: operationLoading } = useProjetoOperations({
-    onSuccess: (message: string) => {
-      console.log(message);
-    },
+    onSuccess: () => {},
     onError: (error: string) => {
-      console.error('Erro:', error);
       alert(error);
     },
   });
@@ -165,7 +162,6 @@ export default function ProjetoForm({
           );
         }
       } catch (error) {
-        console.error('Erro ao carregar clientes:', error);
       }
     };
 
@@ -188,7 +184,6 @@ export default function ProjetoForm({
           );
         }
       } catch (error) {
-        console.error('Erro ao carregar responsáveis:', error);
       }
     };
 
@@ -214,7 +209,6 @@ export default function ProjetoForm({
             );
           }
         } catch (error) {
-          console.error('Erro ao carregar propostas:', error);
         }
       };
 
@@ -259,29 +253,28 @@ export default function ProjetoForm({
         onSuccess(resultado);
       }
     } catch (error) {
-      console.error('Erro ao salvar projeto:', error);
     }
   };
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-8">
       {/* Seção: Informações Básicas */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-          <FileText size={24} className="text-blue-600" />
+      <div className="bg-card rounded-2xl shadow p-6">
+        <h2 className="text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
+          <FileText size={24} className="text-brand-primary" />
           Informações Básicas
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Cliente */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Cliente *
             </label>
             <div className="relative">
               <div className="relative">
                 <Search
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
                   size={20}
                 />
                 <input
@@ -294,20 +287,20 @@ export default function ProjetoForm({
                     setSelectedClienteNome('');
                   }}
                   onFocus={() => setShowClienteDropdown(true)}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                    errors.clienteId ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full pl-10 pr-4 py-2 border rounded-2xl focus:ring-2 focus:ring-ring ${
+                    errors.clienteId ? 'border-destructive' : 'border-border'
                   }`}
                 />
               </div>
 
               {showClienteDropdown && filteredClientes.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-2xl shadow-lg max-h-60 overflow-y-auto">
                   {filteredClientes.map((cliente) => (
                     <button
                       key={cliente.id}
                       type="button"
                       onClick={() => handleClienteSelect(cliente)}
-                      className="w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors"
+                      className="w-full text-left px-4 py-2 hover:bg-brand-primary/10 transition-colors"
                     >
                       {cliente.nome}
                     </button>
@@ -316,7 +309,7 @@ export default function ProjetoForm({
               )}
             </div>
             {errors.clienteId && (
-              <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+              <p className="mt-1 text-sm text-destructive flex items-center gap-1">
                 <AlertCircle size={14} />
                 {errors.clienteId.message}
               </p>
@@ -325,12 +318,12 @@ export default function ProjetoForm({
 
           {/* Proposta Vinculada */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Proposta Vinculada (opcional)
             </label>
             <select
               {...register('propostaId', { valueAsNumber: true })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
               disabled={!clienteId}
             >
               <option value="">Nenhuma</option>
@@ -341,7 +334,7 @@ export default function ProjetoForm({
               ))}
             </select>
             {!clienteId && (
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Selecione um cliente primeiro
               </p>
             )}
@@ -349,19 +342,19 @@ export default function ProjetoForm({
 
           {/* Título */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Título do Projeto *
             </label>
             <input
               type="text"
               {...register('titulo')}
               placeholder="Ex: Reforma do escritório central"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                errors.titulo ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-ring ${
+                errors.titulo ? 'border-destructive' : 'border-border'
               }`}
             />
             {errors.titulo && (
-              <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+              <p className="mt-1 text-sm text-destructive flex items-center gap-1">
                 <AlertCircle size={14} />
                 {errors.titulo.message}
               </p>
@@ -370,19 +363,19 @@ export default function ProjetoForm({
 
           {/* Descrição */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Descrição
             </label>
             <textarea
               {...register('descricao')}
               rows={4}
               placeholder="Descreva o escopo e objetivos do projeto..."
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 resize-none ${
-                errors.descricao ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-ring resize-none ${
+                errors.descricao ? 'border-destructive' : 'border-border'
               }`}
             />
             {errors.descricao && (
-              <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+              <p className="mt-1 text-sm text-destructive flex items-center gap-1">
                 <AlertCircle size={14} />
                 {errors.descricao.message}
               </p>
@@ -391,12 +384,12 @@ export default function ProjetoForm({
 
           {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Status
             </label>
             <select
               {...register('status')}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
             >
               {Object.entries(PROJETO_STATUS_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -408,12 +401,12 @@ export default function ProjetoForm({
 
           {/* Prioridade */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Prioridade
             </label>
             <select
               {...register('prioridade')}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
             >
               {Object.entries(PROJETO_PRIORIDADE_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -425,13 +418,13 @@ export default function ProjetoForm({
 
           {/* Responsável */}
           <div className="md:col-span-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
               <User size={16} />
               Responsável
             </label>
             <select
               {...register('responsavelId', { valueAsNumber: true })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
             >
               <option value="">Nenhum</option>
               {responsaveis.map((resp) => (
@@ -445,27 +438,27 @@ export default function ProjetoForm({
       </div>
 
       {/* Seção: Datas */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-          <Calendar size={24} className="text-blue-600" />
+      <div className="bg-card rounded-2xl shadow p-6">
+        <h2 className="text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
+          <Calendar size={24} className="text-brand-primary" />
           Cronograma
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Data Início Prevista */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Data Início Prevista
             </label>
             <input
               type="date"
               {...register('dataInicioPrevista')}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                errors.dataInicioPrevista ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-ring ${
+                errors.dataInicioPrevista ? 'border-destructive' : 'border-border'
               }`}
             />
             {errors.dataInicioPrevista && (
-              <p className="mt-1 text-sm text-red-600">
+              <p className="mt-1 text-sm text-destructive">
                 {errors.dataInicioPrevista.message}
               </p>
             )}
@@ -473,18 +466,18 @@ export default function ProjetoForm({
 
           {/* Data Conclusão Prevista */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Data Conclusão Prevista
             </label>
             <input
               type="date"
               {...register('dataConclusaoPrevista')}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                errors.dataConclusaoPrevista ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-ring ${
+                errors.dataConclusaoPrevista ? 'border-destructive' : 'border-border'
               }`}
             />
             {errors.dataConclusaoPrevista && (
-              <p className="mt-1 text-sm text-red-600">
+              <p className="mt-1 text-sm text-destructive">
                 {errors.dataConclusaoPrevista.message}
               </p>
             )}
@@ -493,13 +486,13 @@ export default function ProjetoForm({
           {/* Data Início Real */}
           {isEditing && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Data Início Real
               </label>
               <input
                 type="date"
                 {...register('dataInicioReal')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
               />
             </div>
           )}
@@ -507,13 +500,13 @@ export default function ProjetoForm({
           {/* Data Conclusão Real */}
           {isEditing && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Data Conclusão Real
               </label>
               <input
                 type="date"
                 {...register('dataConclusaoReal')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
               />
             </div>
           )}
@@ -521,20 +514,20 @@ export default function ProjetoForm({
       </div>
 
       {/* Seção: Financeiro */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-          <DollarSign size={24} className="text-blue-600" />
+      <div className="bg-card rounded-2xl shadow p-6">
+        <h2 className="text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
+          <DollarSign size={24} className="text-brand-primary" />
           Informações Financeiras
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Valor Estimado */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Valor Estimado
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                 $
               </span>
               <input
@@ -542,18 +535,18 @@ export default function ProjetoForm({
                 step="0.01"
                 {...register('valorEstimado', { valueAsNumber: true })}
                 placeholder="0,00"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
               />
             </div>
           </div>
 
           {/* Custo Previsto */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Custo Previsto
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                 $
               </span>
               <input
@@ -561,39 +554,39 @@ export default function ProjetoForm({
                 step="0.01"
                 {...register('custoPrevisto', { valueAsNumber: true })}
                 placeholder="0,00"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
               />
             </div>
           </div>
 
           {/* Margem Prevista (calculada automaticamente) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Margem Prevista (%)
             </label>
             <input
               type="number"
               {...register('margemPrevista', { valueAsNumber: true })}
               readOnly
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+              className="w-full px-4 py-2 border border-border rounded-2xl bg-muted cursor-not-allowed"
               placeholder="Calculado automaticamente"
             />
           </div>
 
           {/* Lucro Previsto (calculado automaticamente) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Lucro Previsto
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                 $
               </span>
               <input
                 type="number"
                 {...register('lucroPrevisto', { valueAsNumber: true })}
                 readOnly
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+                className="w-full pl-10 pr-4 py-2 border border-border rounded-2xl bg-muted cursor-not-allowed"
                 placeholder="Calculado automaticamente"
               />
             </div>
@@ -603,11 +596,11 @@ export default function ProjetoForm({
           {isEditing && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Custo Real
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                     $
                   </span>
                   <input
@@ -615,39 +608,39 @@ export default function ProjetoForm({
                     step="0.01"
                     {...register('custoReal', { valueAsNumber: true })}
                     placeholder="0,00"
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-10 pr-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
                   />
                 </div>
               </div>
 
               {/* Margem Real (calculada) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Margem Real (%)
                 </label>
                 <input
                   type="number"
                   {...register('margemReal', { valueAsNumber: true })}
                   readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+                  className="w-full px-4 py-2 border border-border rounded-2xl bg-muted cursor-not-allowed"
                   placeholder="Calculado automaticamente"
                 />
               </div>
 
               {/* Lucro Real (calculado) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Lucro Real
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                     $
                   </span>
                   <input
                     type="number"
                     {...register('lucroReal', { valueAsNumber: true })}
                     readOnly
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+                    className="w-full pl-10 pr-4 py-2 border border-border rounded-2xl bg-muted cursor-not-allowed"
                     placeholder="Calculado automaticamente"
                   />
                 </div>
@@ -658,7 +651,7 @@ export default function ProjetoForm({
 
         {/* Alertas Financeiros */}
         {valorEstimado && custoPrevisto && custoPrevisto > valorEstimado && (
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl">
             <div className="flex items-start gap-2">
               <AlertCircle className="text-yellow-600 shrink-0 mt-0.5" size={20} />
               <div>
@@ -675,48 +668,48 @@ export default function ProjetoForm({
       </div>
 
       {/* Seção: Localização */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-          <MapPin size={24} className="text-blue-600" />
+      <div className="bg-card rounded-2xl shadow p-6">
+        <h2 className="text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
+          <MapPin size={24} className="text-brand-primary" />
           Localização
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Localidade */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Cidade/Estado
             </label>
             <input
               type="text"
               {...register('localidade')}
               placeholder="Ex: São Paulo - SP"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
             />
           </div>
 
           {/* Endereço */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Endereço Completo
             </label>
             <input
               type="text"
               {...register('endereco')}
               placeholder="Ex: Av. Paulista, 1000"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
             />
           </div>
         </div>
       </div>
 
       {/* Botões de Ação */}
-      <div className="flex items-center justify-end gap-4 bg-gray-50 -mx-6 -mb-6 px-6 py-4 rounded-b-lg">
+      <div className="flex items-center justify-end gap-4 bg-muted -mx-6 -mb-6 px-6 py-4 rounded-b-lg">
         <button
           type="button"
           onClick={onCancel}
           disabled={isSubmitting || loading}
-          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="px-6 py-2 border border-border text-foreground rounded-2xl hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           <X size={20} />
           Cancelar
@@ -725,11 +718,11 @@ export default function ProjetoForm({
         <button
           type="submit"
           disabled={isSubmitting || loading}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="px-6 py-2 bg-brand-primary text-primary-foreground rounded-2xl hover:bg-brand-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {isSubmitting || loading ? (
             <>
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground"></div>
               Salvando...
             </>
           ) : (

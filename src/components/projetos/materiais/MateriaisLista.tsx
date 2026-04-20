@@ -116,9 +116,9 @@ export function MateriaisLista({ projetoId }: Props) {
 
   if (error) {
     return (
-      <Card className="border-red-200 bg-red-50">
+      <Card className="border-destructive/30 bg-destructive/10">
         <CardContent className="py-8">
-          <div className="flex items-center gap-2 text-red-600">
+          <div className="flex items-center gap-2 text-destructive">
             <AlertCircle className="h-5 w-5" />
             <p>{error}</p>
           </div>
@@ -135,10 +135,10 @@ export function MateriaisLista({ projetoId }: Props) {
       <Card className="border-none shadow-sm">
         <CardContent className="py-12">
           <div className="flex flex-col items-center gap-4 text-center">
-            <Box className="h-12 w-12 text-gray-400" />
+            <Box className="h-12 w-12 text-muted-foreground" />
             <div>
-              <h3 className="font-medium text-gray-900">Nenhum material cadastrado</h3>
-              <p className="text-sm text-gray-500">Adicione materiais para este projeto</p>
+              <h3 className="font-medium text-foreground">Nenhum material cadastrado</h3>
+              <p className="text-sm text-muted-foreground">Adicione materiais para este projeto</p>
             </div>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
@@ -168,8 +168,8 @@ export function MateriaisLista({ projetoId }: Props) {
         <Card className="border-none shadow-sm">
           <CardContent className="pt-6">
             <div className="space-y-1">
-              <p className="text-xs text-gray-500">Total Materiais</p>
-              <p className="text-2xl font-bold text-gray-900">{materiais.length}</p>
+              <p className="text-xs text-muted-foreground">Total Materiais</p>
+              <p className="text-2xl font-bold text-foreground">{materiais.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -177,8 +177,8 @@ export function MateriaisLista({ projetoId }: Props) {
         <Card className="border-none shadow-sm">
           <CardContent className="pt-6">
             <div className="space-y-1">
-              <p className="text-xs text-gray-500">Qtd. Planejada</p>
-              <p className="text-2xl font-bold text-blue-600">{totais.planejada.toFixed(0)}</p>
+              <p className="text-xs text-muted-foreground">Qtd. Planejada</p>
+              <p className="text-2xl font-bold text-brand-primary">{totais.planejada.toFixed(0)}</p>
             </div>
           </CardContent>
         </Card>
@@ -186,7 +186,7 @@ export function MateriaisLista({ projetoId }: Props) {
         <Card className="border-none shadow-sm">
           <CardContent className="pt-6">
             <div className="space-y-1">
-              <p className="text-xs text-gray-500">Qtd. Utilizada</p>
+              <p className="text-xs text-muted-foreground">Qtd. Utilizada</p>
               <p className="text-2xl font-bold text-green-600">{totais.utilizada.toFixed(0)}</p>
             </div>
           </CardContent>
@@ -195,7 +195,7 @@ export function MateriaisLista({ projetoId }: Props) {
         <Card className="border-none shadow-sm">
           <CardContent className="pt-6">
             <div className="space-y-1">
-              <p className="text-xs text-gray-500">Qtd. Devolvida</p>
+              <p className="text-xs text-muted-foreground">Qtd. Devolvida</p>
               <p className="text-2xl font-bold text-orange-600">{totais.devolvida.toFixed(0)}</p>
             </div>
           </CardContent>
@@ -218,29 +218,29 @@ export function MateriaisLista({ projetoId }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="pb-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                <tr className="border-b border-border">
+                  <th className="pb-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Material
                   </th>
-                  <th className="pb-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="pb-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Status
                   </th>
-                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Planejada
                   </th>
-                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Liberada
                   </th>
-                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Utilizada
                   </th>
-                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Devolvida
                   </th>
-                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Saldo
                   </th>
-                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="pb-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Progresso
                   </th>
                 </tr>
@@ -252,12 +252,12 @@ export function MateriaisLista({ projetoId }: Props) {
                   const saldo = calcularSaldo(material);
 
                   return (
-                    <tr key={material.id} className="group hover:bg-gray-50">
+                    <tr key={material.id} className="group hover:bg-muted">
                       <td className="py-4">
                         <div className="space-y-1">
-                          <p className="font-medium text-gray-900">{material.nome}</p>
+                          <p className="font-medium text-foreground">{material.nome}</p>
                           {material.codigo && (
-                            <p className="text-xs text-gray-500">Cód: {material.codigo}</p>
+                            <p className="text-xs text-muted-foreground">Cód: {material.codigo}</p>
                           )}
                         </div>
                       </td>
@@ -268,19 +268,19 @@ export function MateriaisLista({ projetoId }: Props) {
                         </Badge>
                       </td>
                       <td className="py-4 text-right">
-                        <span className="text-sm text-gray-900">
+                        <span className="text-sm text-foreground">
                           {Number(material.quantidadePlanejada).toFixed(2)}
                         </span>
                         {material.unidade && (
-                          <span className="ml-1 text-xs text-gray-500">{material.unidade}</span>
+                          <span className="ml-1 text-xs text-muted-foreground">{material.unidade}</span>
                         )}
                       </td>
                       <td className="py-4 text-right">
-                        <span className="text-sm text-blue-600">
+                        <span className="text-sm text-brand-primary">
                           {Number(material.quantidadeLiberada).toFixed(2)}
                         </span>
                         {material.unidade && (
-                          <span className="ml-1 text-xs text-gray-500">{material.unidade}</span>
+                          <span className="ml-1 text-xs text-muted-foreground">{material.unidade}</span>
                         )}
                       </td>
                       <td className="py-4 text-right">
@@ -288,7 +288,7 @@ export function MateriaisLista({ projetoId }: Props) {
                           {Number(material.quantidadeUtilizada).toFixed(2)}
                         </span>
                         {material.unidade && (
-                          <span className="ml-1 text-xs text-gray-500">{material.unidade}</span>
+                          <span className="ml-1 text-xs text-muted-foreground">{material.unidade}</span>
                         )}
                       </td>
                       <td className="py-4 text-right">
@@ -296,30 +296,30 @@ export function MateriaisLista({ projetoId }: Props) {
                           {Number(material.quantidadeDevolvida).toFixed(2)}
                         </span>
                         {material.unidade && (
-                          <span className="ml-1 text-xs text-gray-500">{material.unidade}</span>
+                          <span className="ml-1 text-xs text-muted-foreground">{material.unidade}</span>
                         )}
                       </td>
                       <td className="py-4 text-right">
                         <span
                           className={`text-sm font-medium ${
-                            saldo > 0 ? 'text-green-600' : saldo < 0 ? 'text-red-600' : 'text-gray-500'
+                            saldo > 0 ? 'text-green-600' : saldo < 0 ? 'text-destructive' : 'text-muted-foreground'
                           }`}
                         >
                           {saldo.toFixed(2)}
                         </span>
                         {material.unidade && (
-                          <span className="ml-1 text-xs text-gray-500">{material.unidade}</span>
+                          <span className="ml-1 text-xs text-muted-foreground">{material.unidade}</span>
                         )}
                       </td>
                       <td className="py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <div className="h-2 w-20 overflow-hidden rounded-full bg-gray-100">
+                          <div className="h-2 w-20 overflow-hidden rounded-full bg-muted">
                             <div
                               className="h-full bg-brand-blue transition-all"
                               style={{ width: `${Math.min(progresso, 100)}%` }}
                             />
                           </div>
-                          <span className="text-xs font-medium text-gray-600">{progresso}%</span>
+                          <span className="text-xs font-medium text-muted-foreground">{progresso}%</span>
                         </div>
                       </td>
                     </tr>
@@ -334,9 +334,9 @@ export function MateriaisLista({ projetoId }: Props) {
       {/* Legendas */}
       <Card className="border-none bg-blue-50 shadow-sm">
         <CardContent className="py-4">
-          <div className="flex flex-wrap gap-4 text-xs text-gray-600">
+          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-full bg-blue-500" />
+              <div className="h-3 w-3 rounded-full bg-brand-primary" />
               <span>Liberada: Material disponível para uso no projeto</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -348,7 +348,7 @@ export function MateriaisLista({ projetoId }: Props) {
               <span>Devolvida: Material retornado ao estoque</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-full bg-gray-500" />
+              <div className="h-3 w-3 rounded-full bg-muted0" />
               <span>Saldo: Liberada - Utilizada + Devolvida</span>
             </div>
           </div>

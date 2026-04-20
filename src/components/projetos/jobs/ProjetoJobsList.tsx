@@ -51,11 +51,11 @@ export function ProjetoJobsList({ projetoId }: { projetoId: number }) {
 
     if (jobs.length === 0) {
         return (
-            <Card className="border-dashed shadow-none bg-neutral-50">
+            <Card className="border-dashed shadow-none bg-muted">
                 <CardContent className="flex flex-col items-center justify-center p-10 text-center">
-                    <Calendar className="h-10 w-10 text-neutral-300 mb-4" />
-                    <h3 className="font-semibold text-lg text-neutral-900">Nenhum Job Encontrado</h3>
-                    <p className="text-sm text-neutral-500 max-w-sm mb-6">
+                    <Calendar className="h-10 w-10 text-muted-foreground/50 mb-4" />
+                    <h3 className="font-semibold text-lg text-foreground">Nenhum Job Encontrado</h3>
+                    <p className="text-sm text-muted-foreground max-w-sm mb-6">
                         Este projeto ainda não tem ordens de serviço criadas.
                     </p>
                     <Button variant="outline">Criar Primeiro Job</Button>
@@ -87,15 +87,15 @@ export function ProjetoJobsList({ projetoId }: { projetoId: number }) {
                             <CardTitle className="text-base mt-2 line-clamp-1">{job.title || 'Sem título'}</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-sm text-neutral-500 mb-4 line-clamp-2">
+                            <div className="text-sm text-muted-foreground mb-4 line-clamp-2">
                                 {job.description || 'Sem descrição'}
                             </div>
 
                             {job.appointments && job.appointments.length > 0 && (
-                                <div className="flex items-center gap-2 text-xs text-neutral-600 bg-neutral-100 p-2 rounded">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted p-2 rounded">
                                     <User className="h-3 w-3" />
                                     <span>{job.appointments[0].Technician?.nomeCompleto || 'Técnico'}</span>
-                                    <span className="text-neutral-300">|</span>
+                                    <span className="text-muted-foreground/50">|</span>
                                     <span>{new Date(job.appointments[0].scheduledStart).toLocaleDateString()}</span>
                                 </div>
                             )}

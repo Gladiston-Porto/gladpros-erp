@@ -190,8 +190,8 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
 
   const statusColors: Record<string, string> = {
     ACTIVE: 'bg-green-100 text-green-800',
-    COMPLETED: 'bg-blue-100 text-blue-800',
-    CANCELLED: 'bg-gray-100 text-gray-800'
+    COMPLETED: 'bg-brand-primary/10 text-brand-primary',
+    CANCELLED: 'bg-muted text-foreground'
   };
 
   // Calculate total cost
@@ -314,7 +314,7 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
       {assignments.length > 0 && (
         <div className="flex gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-gray-500" />
+            <User className="h-4 w-4 text-muted-foreground" />
             <span>{assignments.length} worker{assignments.length !== 1 ? 's' : ''}</span>
           </div>
           {totalFixedCost > 0 && (
@@ -378,7 +378,7 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
           </Card>
         ))}
         {assignments.length === 0 && !loading && (
-          <div className="col-span-full flex flex-col items-center justify-center py-12 text-center text-muted-foreground border rounded-lg border-dashed">
+          <div className="col-span-full flex flex-col items-center justify-center py-12 text-center text-muted-foreground border rounded-2xl border-dashed">
             <User className="h-12 w-12 mb-4 opacity-20" />
             <p>Nenhum worker alocado neste projeto.</p>
             <p className="text-sm">Clique em "Adicionar Worker" para começar.</p>
@@ -386,7 +386,7 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
         )}
         {loading && (
           <div className="col-span-full flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         )}
       </div>

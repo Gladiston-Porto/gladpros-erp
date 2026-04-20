@@ -48,12 +48,10 @@ export default function EtapaForm({
   const isEditing = !!etapa;
 
   const { createEtapa, updateEtapa, loading } = useProjetoOperations({
-    onSuccess: (message: string) => {
-      console.log(message);
+    onSuccess: () => {
       if (onSuccess) onSuccess();
     },
     onError: (error: string) => {
-      console.error('Erro:', error);
       alert(error);
     },
   });
@@ -111,29 +109,29 @@ export default function EtapaForm({
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       {/* Nome */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-foreground mb-2">
           Nome da Etapa *
         </label>
         <input
           {...register('nome')}
           type="text"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-border rounded-2xl bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
           placeholder="Ex: Fundação, Estrutura, Acabamento..."
         />
         {errors.nome && (
-          <span className="text-red-500 text-sm mt-1">{errors.nome.message}</span>
+          <span className="text-destructive text-sm mt-1">{errors.nome.message}</span>
         )}
       </div>
 
       {/* Descrição */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-foreground mb-2">
           Descrição
         </label>
         <textarea
           {...register('descricao')}
           rows={3}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-border rounded-2xl bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
           placeholder="Descreva os detalhes desta etapa..."
         />
       </div>
@@ -141,12 +139,12 @@ export default function EtapaForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Status */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-foreground mb-2">
             Status *
           </label>
           <select
             {...register('status')}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-border rounded-2xl bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
           >
             <option value="pendente">Pendente</option>
             <option value="em_andamento">Em Andamento</option>
@@ -157,7 +155,7 @@ export default function EtapaForm({
 
         {/* Progresso */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-foreground mb-2">
             Progresso (%)
           </label>
           <input
@@ -166,10 +164,10 @@ export default function EtapaForm({
             min="0"
             max="100"
             step="1"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-border rounded-2xl bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
           />
           {errors.percentualConclusao && (
-            <span className="text-red-500 text-sm mt-1">
+            <span className="text-destructive text-sm mt-1">
               {errors.percentualConclusao.message}
             </span>
           )}
@@ -179,24 +177,24 @@ export default function EtapaForm({
       {/* Datas Previstas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-foreground mb-2">
             Data Início Prevista
           </label>
           <input
             {...register('dataInicioPrevista')}
             type="date"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-border rounded-2xl bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-foreground mb-2">
             Data Conclusão Prevista
           </label>
           <input
             {...register('dataConclusaoPrevista')}
             type="date"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-border rounded-2xl bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
           />
         </div>
       </div>
@@ -205,36 +203,36 @@ export default function EtapaForm({
       {isEditing && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Data Início Real
             </label>
             <input
               {...register('dataInicioReal')}
               type="date"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-border rounded-2xl bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Data Conclusão Real
             </label>
             <input
               {...register('dataConclusaoReal')}
               type="date"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-border rounded-2xl bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
         </div>
       )}
 
       {/* Ações */}
-      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+      <div className="flex justify-end gap-3 pt-4 border-t border-border">
         <button
           type="button"
           onClick={onCancel}
           disabled={loading}
-          className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+          className="px-6 py-2 bg-muted text-foreground rounded-2xl hover:bg-muted/80 transition-colors disabled:opacity-50"
         >
           <X size={18} className="inline mr-2" />
           Cancelar
@@ -242,11 +240,11 @@ export default function EtapaForm({
         <button
           type="submit"
           disabled={loading}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="px-6 py-2 bg-brand-primary text-primary-foreground rounded-2xl hover:bg-brand-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
         >
           {loading ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
               Salvando...
             </>
           ) : (

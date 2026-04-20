@@ -27,7 +27,7 @@ export const ProjectPermissions = {
    * Todos os roles autenticados podem visualizar projetos
    */
   canRead: (userRole: string) => 
-    hasRole(userRole, ['ADMIN', 'GERENTE', 'USUARIO', 'ESTOQUE', 'FINANCEIRO']),
+    hasRole(userRole, ['ADMIN', 'GERENTE', 'USUARIO', 'ESTOQUE', 'FINANCEIRO', 'CLIENTE']),
   
   /**
    * Criação de projetos
@@ -107,7 +107,7 @@ export const ProjectPermissions = {
    * Todos os roles autenticados podem fazer download
    */
   canDownloadAttachments: (userRole: string) => 
-    hasRole(userRole, ['ADMIN', 'GERENTE', 'USUARIO', 'ESTOQUE', 'FINANCEIRO']),
+    hasRole(userRole, ['ADMIN', 'GERENTE', 'USUARIO', 'ESTOQUE', 'FINANCEIRO', 'CLIENTE']),
   
   /**
    * Exclusão de anexos

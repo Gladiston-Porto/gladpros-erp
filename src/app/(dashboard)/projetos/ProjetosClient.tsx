@@ -178,7 +178,7 @@ export default function ProjetosClient() {
                   <Filter size={16} />
                   {showFilters ? 'Ocultar filtros' : 'Filtros avançados'}
                   {activeFiltersCount > 0 && (
-                    <span className="rounded-full bg-white/20 px-2 text-xs font-semibold">
+                    <span className="rounded-full bg-foreground/20 px-2 text-xs font-semibold">
                       {activeFiltersCount}
                     </span>
                   )}
@@ -423,11 +423,11 @@ function ProjetoCard({ projeto, onView, onEdit, onDelete }: ProjetoCardProps) {
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="space-y-1 rounded-2xl border border-border bg-muted/50 p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Conclusão prevista</p>
-            <p className={`font-semibold ${isDelayed ? 'text-red-600' : 'text-foreground'}`}>
+            <p className={`font-semibold ${isDelayed ? 'text-destructive' : 'text-foreground'}`}>
               {formatDate(projeto.dataConclusaoPrevista) || 'Não definida'}
             </p>
             {isDelayed && (
-              <span className="text-xs text-red-500">Atraso de {delayDays}d</span>
+              <span className="text-xs text-destructive">Atraso de {delayDays}d</span>
             )}
           </div>
 

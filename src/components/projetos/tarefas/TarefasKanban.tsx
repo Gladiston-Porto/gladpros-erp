@@ -77,12 +77,12 @@ const STATUS_CONFIG: Record<TarefaStatus, { title: string; icon: React.ReactNode
   aberta: {
     title: 'Abertas',
     icon: <Clock className="h-4 w-4" />,
-    color: 'bg-gray-100 text-gray-700',
+    color: 'bg-muted text-foreground',
   },
   em_andamento: {
     title: 'Em Andamento',
     icon: <Loader2 className="h-4 w-4 animate-spin" />,
-    color: 'bg-blue-100 text-blue-700',
+    color: 'bg-brand-primary/10 text-brand-primary',
   },
   bloqueada: {
     title: 'Bloqueadas',
@@ -97,7 +97,7 @@ const STATUS_CONFIG: Record<TarefaStatus, { title: string; icon: React.ReactNode
   cancelada: {
     title: 'Canceladas',
     icon: <X className="h-4 w-4" />,
-    color: 'bg-red-100 text-red-700',
+    color: 'bg-destructive/10 text-destructive',
   },
 };
 
@@ -225,9 +225,9 @@ export function TarefasKanban({ projetoId }: Props) {
 
   if (error) {
     return (
-      <Card className="border-red-200 bg-red-50">
+      <Card className="border-destructive/30 bg-destructive/10">
         <CardContent className="py-8">
-          <div className="flex items-center gap-2 text-red-600">
+          <div className="flex items-center gap-2 text-destructive">
             <AlertCircle className="h-5 w-5" />
             <p>{error}</p>
           </div>
@@ -306,7 +306,7 @@ export function TarefasKanban({ projetoId }: Props) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full gap-2 text-gray-500 hover:text-gray-700"
+                    className="w-full gap-2 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowNewTaskForm(column.id)}
                   >
                     <Plus className="h-4 w-4" />

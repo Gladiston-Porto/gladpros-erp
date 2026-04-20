@@ -122,7 +122,7 @@ export default function ProjetoDetailPage() {
   // Loading state
   if (fetching && !projeto) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <Loading size="lg" text="Carregando projeto..." />
       </div>
     );
@@ -131,7 +131,7 @@ export default function ProjetoDetailPage() {
   // Error state
   if (error || !projeto) {
     return (
-      <div className="min-h-screen bg-neutral-50 px-4 py-12">
+      <div className="min-h-screen bg-background px-4 py-12">
         <div className="mx-auto max-w-2xl">
           <Card className="border-none shadow-lg">
             <CardHeader className="flex flex-row items-start gap-3">

@@ -48,12 +48,10 @@ export default function EtapasList({
 
   const { reordenarEtapas, loading } = useProjetoOperations({
     onSuccess: () => {
-      console.log('Etapas reordenadas com sucesso');
       onRefresh();
     },
     onError: (error) => {
-      console.error('Erro ao reordenar:', error);
-      // Reverte a ordem em caso de erro
+      console.error('[EtapasList] Erro ao reordenar:', error);
       onRefresh();
     },
   });
@@ -132,9 +130,9 @@ export default function EtapasList({
       </DndContext>
 
       {loading && (
-        <div className="fixed bottom-4 right-4 bg-white shadow-lg rounded-lg p-4 flex items-center gap-3">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-          <span className="text-sm text-gray-700">Salvando ordem...</span>
+        <div className="fixed bottom-4 right-4 bg-card shadow-lg rounded-2xl p-4 flex items-center gap-3">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-primary"></div>
+          <span className="text-sm text-foreground">Salvando ordem...</span>
         </div>
       )}
     </div>

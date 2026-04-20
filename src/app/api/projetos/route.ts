@@ -104,12 +104,15 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const maskFinancials = shouldMaskFinancials(user.role)
     if (maskFinancials) {
       return NextResponse.json({
-        ...projeto,
-        orcamento: undefined,
-        custoTotal: undefined,
+        data: {
+          ...projeto,
+          orcamento: undefined,
+          custoTotal: undefined,
+        },
+        success: true,
       }, { status: 201 })
     }
     
-    return NextResponse.json(projeto, { status: 201 })
+    return NextResponse.json({ data: projeto, success: true }, { status: 201 })
     
   });

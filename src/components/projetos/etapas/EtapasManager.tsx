@@ -29,8 +29,7 @@ export default function EtapasManager({ projetoId }: EtapasManagerProps) {
   const [error, setError] = useState<string | null>(null);
 
   const { listEtapas, fetching } = useProjetoOperations({
-    onSuccess: (message) => {
-      console.log(message);
+    onSuccess: () => {
       setShowForm(false);
       setEditingEtapa(null);
       loadEtapas();
@@ -75,15 +74,15 @@ export default function EtapasManager({ projetoId }: EtapasManagerProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Etapas do Projeto</h2>
-          <p className="text-gray-600 mt-1">
+          <h2 className="text-2xl font-bold text-foreground">Etapas do Projeto</h2>
+          <p className="text-muted-foreground mt-1">
             Organize as etapas em ordem de execução
           </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
           disabled={showForm}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-primary-foreground rounded-2xl hover:bg-brand-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={20} />
           Nova Etapa
@@ -92,7 +91,7 @@ export default function EtapasManager({ projetoId }: EtapasManagerProps) {
 
       {/* Error Alert */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 text-red-800">
+        <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle size={20} />
           <span>{error}</span>
         </div>
@@ -100,8 +99,8 @@ export default function EtapasManager({ projetoId }: EtapasManagerProps) {
 
       {/* Form (quando aberto) */}
       {showForm && (
-        <div className="bg-white border-2 border-blue-200 rounded-lg p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-card border-2 border-brand-primary/30 rounded-2xl p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-foreground mb-4">
             {editingEtapa ? 'Editar Etapa' : 'Nova Etapa'}
           </h3>
           <EtapaForm
@@ -117,8 +116,8 @@ export default function EtapasManager({ projetoId }: EtapasManagerProps) {
       {fetching && etapas.length === 0 && (
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Carregando etapas...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Carregando etapas...</p>
           </div>
         </div>
       )}
@@ -135,17 +134,17 @@ export default function EtapasManager({ projetoId }: EtapasManagerProps) {
 
       {/* Empty State */}
       {!fetching && etapas.length === 0 && !showForm && (
-        <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-          <GripVertical size={48} className="mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <div className="bg-muted/50 border-2 border-dashed border-border rounded-2xl p-12 text-center">
+          <GripVertical size={48} className="mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">
             Nenhuma etapa cadastrada
           </h3>
-          <p className="text-gray-600 mb-6">
+          <p className="text-muted-foreground mb-6">
             Comece adicionando a primeira etapa do projeto
           </p>
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-brand-primary text-primary-foreground rounded-2xl hover:bg-brand-primary/90 transition-colors"
           >
             <Plus size={20} />
             Adicionar Primeira Etapa
@@ -155,14 +154,14 @@ export default function EtapasManager({ projetoId }: EtapasManagerProps) {
 
       {/* Info Box */}
       {etapas.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-brand-primary/5 border border-brand-primary/20 rounded-2xl p-4">
           <div className="flex items-start gap-3">
             <div className="p-1">
-              <AlertCircle size={20} className="text-blue-600" />
+              <AlertCircle size={20} className="text-brand-primary" />
             </div>
             <div className="flex-1">
-              <h4 className="font-semibold text-blue-900 mb-1">Dica</h4>
-              <p className="text-sm text-blue-800">
+              <h4 className="font-semibold text-foreground mb-1">Dica</h4>
+              <p className="text-sm text-muted-foreground">
                 Arraste as etapas usando o ícone <GripVertical size={16} className="inline" /> para reordenar.
                 A ordem das etapas define a sequência de execução do projeto.
               </p>

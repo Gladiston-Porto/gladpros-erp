@@ -76,10 +76,10 @@ export function FinanceiroDashboard({ projeto }: Props) {
       healthScore >= 0.95
         ? { label: 'Excelente', variant: 'success' as const, color: 'text-green-600' }
         : healthScore >= 0.85
-          ? { label: 'Bom', variant: 'primary' as const, color: 'text-blue-600' }
+          ? { label: 'Bom', variant: 'primary' as const, color: 'text-brand-primary' }
           : healthScore >= 0.75
             ? { label: 'Atenção', variant: 'warning' as const, color: 'text-orange-600' }
-            : { label: 'Crítico', variant: 'error' as const, color: 'text-red-600' };
+            : { label: 'Crítico', variant: 'error' as const, color: 'text-destructive' };
 
     return {
       valorEstimado,
@@ -137,16 +137,16 @@ export function FinanceiroDashboard({ projeto }: Props) {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
-            <div className="h-4 flex-1 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-4 flex-1 overflow-hidden rounded-full bg-muted">
               <div
                 className={`h-full transition-all ${
                   financials.healthScore >= 0.95
                     ? 'bg-green-500'
                     : financials.healthScore >= 0.85
-                      ? 'bg-blue-500'
+                      ? 'bg-brand-primary'
                       : financials.healthScore >= 0.75
                         ? 'bg-orange-500'
-                        : 'bg-red-500'
+                        : 'bg-destructive'
                 }`}
                 style={{ width: `${Math.min(financials.healthScore * 100, 100)}%` }}
               />
@@ -167,10 +167,10 @@ export function FinanceiroDashboard({ projeto }: Props) {
             <DollarSign className="h-4 w-4 text-brand-blue" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-foreground">
               {formatCurrency(financials.valorEstimado)}
             </div>
-            <p className="text-xs text-gray-500">Receita prevista do projeto</p>
+            <p className="text-xs text-muted-foreground">Receita prevista do projeto</p>
           </CardContent>
         </Card>
 
@@ -178,13 +178,13 @@ export function FinanceiroDashboard({ projeto }: Props) {
         <Card className="border-none shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Custo Previsto</CardTitle>
-            <Target className="h-4 w-4 text-blue-600" />
+            <Target className="h-4 w-4 text-brand-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-brand-primary">
               {formatCurrency(financials.custoPrevisto)}
             </div>
-            <p className="text-xs text-gray-500">Orçamento planejado</p>
+            <p className="text-xs text-muted-foreground">Orçamento planejado</p>
           </CardContent>
         </Card>
 
@@ -197,7 +197,7 @@ export function FinanceiroDashboard({ projeto }: Props) {
           <CardContent>
             <div
               className={`text-2xl font-bold ${
-                financials.overBudget ? 'text-red-600' : 'text-green-600'
+                financials.overBudget ? 'text-destructive' : 'text-green-600'
               }`}
             >
               {formatCurrency(financials.custoReal)}
@@ -205,8 +205,8 @@ export function FinanceiroDashboard({ projeto }: Props) {
             <div className="flex items-center gap-1 text-xs">
               {financials.overBudget ? (
                 <>
-                  <ArrowUp className="h-3 w-3 text-red-600" />
-                  <span className="text-red-600">Acima do previsto</span>
+                  <ArrowUp className="h-3 w-3 text-destructive" />
+                  <span className="text-destructive">Acima do previsto</span>
                 </>
               ) : (
                 <>
@@ -228,7 +228,7 @@ export function FinanceiroDashboard({ projeto }: Props) {
             <div className="text-2xl font-bold text-purple-600">
               {financials.margemReal.toFixed(1)}%
             </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               {financials.margemReal >= financials.margemPrevista ? (
                 <>
                   <TrendingUp className="h-3 w-3 text-green-600" />
@@ -236,7 +236,7 @@ export function FinanceiroDashboard({ projeto }: Props) {
                 </>
               ) : (
                 <>
-                  <TrendingDown className="h-3 w-3 text-red-600" />
+                  <TrendingDown className="h-3 w-3 text-destructive" />
                   <span>Abaixo da meta ({financials.margemPrevista.toFixed(1)}%)</span>
                 </>
               )}
@@ -261,26 +261,26 @@ export function FinanceiroDashboard({ projeto }: Props) {
             {/* CPI - Cost Performance Index */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">CPI (Índice de Desempenho de Custo)</span>
+                <span className="text-sm font-medium text-foreground">CPI (Índice de Desempenho de Custo)</span>
                 <Badge
                   variant={financials.CPI >= 1 ? 'success' : financials.CPI >= 0.9 ? 'warning' : 'error'}
                 >
                   {financials.CPI.toFixed(2)}
                 </Badge>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
                 <div
                   className={`h-full transition-all ${
                     financials.CPI >= 1
                       ? 'bg-green-500'
                       : financials.CPI >= 0.9
                         ? 'bg-orange-500'
-                        : 'bg-red-500'
+                        : 'bg-destructive'
                   }`}
                   style={{ width: `${Math.min(financials.CPI * 100, 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 {financials.CPI >= 1
                   ? 'Projeto eficiente em custos'
                   : 'Projeto acima do orçamento'}
@@ -290,26 +290,26 @@ export function FinanceiroDashboard({ projeto }: Props) {
             {/* SPI - Schedule Performance Index */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">SPI (Índice de Desempenho de Prazo)</span>
+                <span className="text-sm font-medium text-foreground">SPI (Índice de Desempenho de Prazo)</span>
                 <Badge
                   variant={financials.SPI >= 1 ? 'success' : financials.SPI >= 0.9 ? 'warning' : 'error'}
                 >
                   {financials.SPI.toFixed(2)}
                 </Badge>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
                 <div
                   className={`h-full transition-all ${
                     financials.SPI >= 1
                       ? 'bg-green-500'
                       : financials.SPI >= 0.9
                         ? 'bg-orange-500'
-                        : 'bg-red-500'
+                        : 'bg-destructive'
                   }`}
                   style={{ width: `${Math.min(financials.SPI * 100, 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 {financials.SPI >= 1
                   ? 'Projeto no prazo'
                   : 'Projeto atrasado'}
@@ -319,16 +319,16 @@ export function FinanceiroDashboard({ projeto }: Props) {
             {/* CV - Cost Variance */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">CV (Variação de Custo)</span>
+                <span className="text-sm font-medium text-foreground">CV (Variação de Custo)</span>
                 <span
                   className={`text-sm font-bold ${
-                    financials.CV >= 0 ? 'text-green-600' : 'text-red-600'
+                    financials.CV >= 0 ? 'text-green-600' : 'text-destructive'
                   }`}
                 >
                   {formatCurrency(financials.CV)}
                 </span>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 {financials.CV >= 0
                   ? 'Projeto abaixo do orçamento'
                   : 'Projeto acima do orçamento'}
@@ -338,16 +338,16 @@ export function FinanceiroDashboard({ projeto }: Props) {
             {/* VAC - Variance at Completion */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">VAC (Variação na Conclusão)</span>
+                <span className="text-sm font-medium text-foreground">VAC (Variação na Conclusão)</span>
                 <span
                   className={`text-sm font-bold ${
-                    financials.VAC >= 0 ? 'text-green-600' : 'text-red-600'
+                    financials.VAC >= 0 ? 'text-green-600' : 'text-destructive'
                   }`}
                 >
                   {formatCurrency(financials.VAC)}
                 </span>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Economia/excesso esperado ao fim do projeto
               </p>
             </div>
@@ -365,22 +365,22 @@ export function FinanceiroDashboard({ projeto }: Props) {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-lg border border-gray-100 p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-500">EAC - Custo Final Estimado</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">{formatCurrency(financials.EAC)}</p>
-              <p className="mt-1 text-xs text-gray-500">Projeção baseada no CPI atual</p>
+            <div className="rounded-2xl border border-border p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">EAC - Custo Final Estimado</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">{formatCurrency(financials.EAC)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Projeção baseada no CPI atual</p>
             </div>
 
-            <div className="rounded-lg border border-gray-100 p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-500">ETC - Custo Restante</p>
-              <p className="mt-1 text-2xl font-bold text-blue-600">{formatCurrency(financials.ETC)}</p>
-              <p className="mt-1 text-xs text-gray-500">Estimativa para completar o projeto</p>
+            <div className="rounded-2xl border border-border p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">ETC - Custo Restante</p>
+              <p className="mt-1 text-2xl font-bold text-brand-primary">{formatCurrency(financials.ETC)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Estimativa para completar o projeto</p>
             </div>
 
-            <div className="rounded-lg border border-gray-100 p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Progresso</p>
+            <div className="rounded-2xl border border-border p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Progresso</p>
               <p className="mt-1 text-2xl font-bold text-purple-600">{financials.progressoPercentual.toFixed(1)}%</p>
-              <p className="mt-1 text-xs text-gray-500">Do trabalho planejado</p>
+              <p className="mt-1 text-xs text-muted-foreground">Do trabalho planejado</p>
             </div>
           </div>
         </CardContent>

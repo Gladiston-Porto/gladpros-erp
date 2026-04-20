@@ -54,6 +54,6 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
     const service = new ProjectService()
     const projeto = await service.alterarStatus(projetoId, data, Number(user.id))
     
-    return NextResponse.json(projeto)
+    return NextResponse.json({ data: projeto, success: true })
     
   });

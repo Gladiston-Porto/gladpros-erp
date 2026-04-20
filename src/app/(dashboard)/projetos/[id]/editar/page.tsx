@@ -65,7 +65,7 @@ export default function EditarProjetoPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto"></div>
               <p className="mt-4 text-muted-foreground">Carregando projeto...</p>
             </div>
           </div>
@@ -88,7 +88,7 @@ export default function EditarProjetoPage() {
           </button>
 
           <div className="bg-card rounded-2xl shadow-sm p-8">
-            <div className="flex items-center gap-3 text-red-600 mb-4">
+            <div className="flex items-center gap-3 text-destructive mb-4">
               <AlertCircle size={24} />
               <h2 className="text-xl font-semibold">Erro ao Carregar Projeto</h2>
             </div>
@@ -96,13 +96,13 @@ export default function EditarProjetoPage() {
             <div className="flex gap-3">
               <button
                 onClick={loadProjeto}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-brand-primary text-primary-foreground rounded-2xl hover:bg-brand-primary/90 transition-colors"
               >
                 Tentar Novamente
               </button>
               <button
                 onClick={() => router.push('/projetos')}
-                className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors"
+                className="px-4 py-2 bg-muted text-foreground rounded-2xl hover:bg-muted/80 transition-colors"
               >
                 Voltar para Projetos
               </button>
@@ -136,7 +136,7 @@ export default function EditarProjetoPage() {
             </p>
             <button
               onClick={() => router.push('/projetos')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-brand-primary text-primary-foreground rounded-2xl hover:bg-brand-primary/90 transition-colors"
             >
               Voltar para Projetos
             </button>

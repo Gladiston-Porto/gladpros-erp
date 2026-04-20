@@ -54,15 +54,16 @@ export const GET = withErrorHandler(async (request: NextRequest,
     const maskFinancials = shouldMaskFinancials(user.role)
     if (maskFinancials) {
       return NextResponse.json({
-        projeto: {
+        data: {
           ...projeto,
           orcamento: undefined,
           custoTotal: undefined,
-        }
+        },
+        success: true,
       })
     }
     
-    return NextResponse.json({ projeto })
+    return NextResponse.json({ data: projeto, success: true })
     
   });
 
@@ -116,13 +117,16 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     const maskFinancials = shouldMaskFinancials(user.role)
     if (maskFinancials) {
       return NextResponse.json({
-        ...projeto,
-        orcamento: undefined,
-        custoTotal: undefined,
+        data: {
+          ...projeto,
+          orcamento: undefined,
+          custoTotal: undefined,
+        },
+        success: true,
       })
     }
     
-    return NextResponse.json(projeto)
+    return NextResponse.json({ data: projeto, success: true })
     
   });
 
@@ -154,7 +158,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
     await service.excluir(projetoId, Number(user.id), motivo)
     
     return NextResponse.json(
-      { message: 'Projeto excluído com sucesso' },
+      { data: null, message: 'Projeto excluído com sucesso', success: true },
       { status: 200 }
     )
     

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/api/auth';
+import { requireProjectPermission } from '@/shared/lib/rbac-projects';
 import { prisma } from '@/lib/prisma';
 import {
   getProjectFinanceSummary,
@@ -12,18 +12,19 @@ import {
 } from '@/shared/lib/services/project-finance';
 
 import { withErrorHandler } from '@/lib/api/error-handler';
+
 export const GET = withErrorHandler(async (req: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
-    const user = await getAuthUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
+    await requireProjectPermission(req, 'canViewFinancials');
 
     const { id } = await params;
     const projetoId = parseInt(id);
 
     if (isNaN(projetoId)) {
-      return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'ID inválido', message: 'O ID do projeto deve ser um número válido', success: false },
+        { status: 400 }
+      );
     }
 
     const exists = await prisma.projeto.findUnique({
@@ -32,26 +33,29 @@ export const GET = withErrorHandler(async (req: NextRequest,
     });
 
     if (!exists) {
-      return NextResponse.json({ error: 'Projeto não encontrado' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Projeto não encontrado', message: 'Nenhum projeto com este ID', success: false },
+        { status: 404 }
+      );
     }
 
     const summary = await getProjectFinanceSummary(projetoId);
 
-    return NextResponse.json({ success: true, data: summary });
+    return NextResponse.json({ data: summary, success: true });
 });
 
 export const POST = withErrorHandler(async (req: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
-    const user = await getAuthUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
+    await requireProjectPermission(req, 'canViewFinancials');
 
     const { id } = await params;
     const projetoId = parseInt(id);
 
     if (isNaN(projetoId)) {
-      return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'ID inválido', message: 'O ID do projeto deve ser um número válido', success: false },
+        { status: 400 }
+      );
     }
 
     const exists = await prisma.projeto.findUnique({
@@ -60,14 +64,17 @@ export const POST = withErrorHandler(async (req: NextRequest,
     });
 
     if (!exists) {
-      return NextResponse.json({ error: 'Projeto não encontrado' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Projeto não encontrado', message: 'Nenhum projeto com este ID', success: false },
+        { status: 404 }
+      );
     }
 
     const summary = await syncProjectCosts(projetoId);
 
     return NextResponse.json({
-      success: true,
-      message: 'Custos recalculados e persistidos',
       data: summary,
+      message: 'Custos recalculados e persistidos',
+      success: true,
     });
 });
