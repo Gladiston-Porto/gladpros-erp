@@ -28,6 +28,7 @@ Os módulos abaixo já passaram pela varredura completa.
 | `usuarios` | 2026-04-18 | ✅ Resolvidos | `docs/modules/usuarios/01-modulo-usuarios-completo.md` § 7 | `docs/modules/usuarios/` |
 | `financeiro` | 2026-04 | ✅ Resolvidos | `docs/modules/financeiro/01-modulo-financeiro-completo.md` | `docs/modules/financeiro/` |
 | `invoices` | 2026-04-19 | ✅ Resolvidos | `docs/modules/invoices/02-relatorio-final.md` § "Não corrigidos" | `docs/modules/invoices/` |
+| `propostas` | 2026-04-20 | ✅ Resolvidos | `docs/modules/propostas/01-modulo-propostas-completo.md` | `docs/modules/propostas/` |
 | `projetos` | 2026-04-20 | ✅ Resolvidos | `docs/modules/projetos/01-modulo-projetos-completo.md` | `docs/modules/projetos/` |
 
 > **Nota sobre a coluna "Nota Enterprise":** essa coluna foi removida da tabela de rastreamento propositalmente.
