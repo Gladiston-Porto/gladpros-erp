@@ -13,10 +13,10 @@ export const GET = withErrorHandler(async (request: NextRequest,
     await requireProjectPermission(request, 'canManageMaterials')
     const { id } = await context.params
     const projetoId = Number(id)
-    if (isNaN(projetoId)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+    if (isNaN(projetoId)) return NextResponse.json({ error: 'ID inválido', message: 'O ID deve ser um número válido', success: false }, { status: 400 })
     const service = new ProjectMaterialService()
     const materiais = await service.listarPorProjeto(projetoId)
-    return NextResponse.json({ materiais })
+    return NextResponse.json({ materiais, success: true })
   })
 
 export const POST = withErrorHandler(async (request: NextRequest,
@@ -32,11 +32,11 @@ export const POST = withErrorHandler(async (request: NextRequest,
     const user = await requireProjectPermission(request, 'canManageMaterials')
     const { id } = await context.params
     const projetoId = Number(id)
-    if (isNaN(projetoId)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+    if (isNaN(projetoId)) return NextResponse.json({ error: 'ID inválido', message: 'O ID deve ser um número válido', success: false }, { status: 400 })
     const body = await request.json()
     const data = createProjetoMaterialSchema.parse({ ...body, projetoId })
     const service = new ProjectMaterialService()
     const material = await service.criar(data, Number(user.id))
-    return NextResponse.json(material, { status: 201 })
+    return NextResponse.json({ material, success: true }, { status: 201 })
   })
 

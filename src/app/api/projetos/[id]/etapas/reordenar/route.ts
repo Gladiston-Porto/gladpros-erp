@@ -26,7 +26,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
     
     if (isNaN(projetoId)) {
       return NextResponse.json(
-        { error: 'ID inválido' },
+        { error: 'ID inválido', message: 'O ID do projeto deve ser um número válido', success: false },
         { status: 400 }
       )
     }
@@ -39,7 +39,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     
     return NextResponse.json({ 
       message: 'Etapas reordenadas com sucesso',
-      count: novaOrdem.length 
+      count: novaOrdem.length,
+      success: true
     })
     
   });

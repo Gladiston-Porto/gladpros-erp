@@ -120,7 +120,7 @@ describe('POST /api/projetos/[id]/etapas', () => {
     const json = await res.json();
 
     expect(res.status).toBe(201);
-    expect(json.nome).toBe('Nova Etapa');
+    expect(json.etapa.nome).toBe('Nova Etapa');
   });
 
   it('returns 400 for invalid project ID', async () => {
@@ -155,7 +155,7 @@ describe('GET /api/projetos/[id]/etapas/[etapaId]', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.nome).toBe('Etapa A');
+    expect(json.etapa.nome).toBe('Etapa A');
   });
 
   it('returns 404 when etapa not found', async () => {
@@ -189,7 +189,7 @@ describe('PUT /api/projetos/[id]/etapas/[etapaId]', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.nome).toBe('Etapa Atualizada');
+    expect(json.etapa.nome).toBe('Etapa Atualizada');
   });
 
   it('returns 400 for invalid etapaId', async () => {
@@ -253,7 +253,7 @@ describe('PATCH /api/projetos/[id]/etapas/[etapaId] (status)', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.status).toBe('concluida');
+    expect(json.etapa.status).toBe('concluida');
   });
 
   it('returns 400 for invalid etapaId', async () => {

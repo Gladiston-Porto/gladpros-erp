@@ -121,7 +121,7 @@ describe('POST /api/projetos/[id]/materiais', () => {
     const json = await res.json();
 
     expect(res.status).toBe(201);
-    expect(json.nome).toBe('Novo Material');
+    expect(json.material.nome).toBe('Novo Material');
   });
 
   it('returns 400 for invalid project ID', async () => {
@@ -156,7 +156,7 @@ describe('GET /api/projetos/[id]/materiais/[materialId]', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.nome).toBe('Material A');
+    expect(json.material.nome).toBe('Material A');
   });
 
   it('returns 404 when material not found', async () => {
@@ -190,7 +190,7 @@ describe('PUT /api/projetos/[id]/materiais/[materialId]', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.nome).toBe('Material Atualizado');
+    expect(json.material.nome).toBe('Material Atualizado');
   });
 
   it('returns 400 for invalid materialId', async () => {
@@ -254,7 +254,7 @@ describe('PATCH /api/projetos/[id]/materiais/[materialId] (status/liberação/de
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.status).toBe('liberado');
+    expect(json.material.status).toBe('liberado');
   });
 
   it('returns 200 with updated status (devolução)', async () => {
@@ -266,7 +266,7 @@ describe('PATCH /api/projetos/[id]/materiais/[materialId] (status/liberação/de
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.status).toBe('devolvido');
+    expect(json.material.status).toBe('devolvido');
   });
 
   it('returns 400 for invalid materialId', async () => {

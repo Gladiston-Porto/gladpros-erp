@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { requireProjectPermission } from '@/shared/lib/rbac-projects';
 import { getPrismaFinanceGateway } from '@/domains/projects/gateways/prisma-finance.gateway';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { apiRateLimit } from '@/shared/lib/rate-limit';
 import type { ItemInvoice } from '@/domains/projects/interfaces/finance-gateway.interface';
 
 const bodySchema = z.object({
@@ -26,6 +27,14 @@ const bodySchema = z.object({
 
 export const POST = withErrorHandler(async (req: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+  const { allowed, resetTime } = await apiRateLimit.isAllowed(req);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too Many Requests', message: 'Muitas requisições. Tente novamente em instantes.', success: false },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((resetTime - Date.now()) / 1000)) } }
+    );
+  }
+
   const user = await requireProjectPermission(req, 'canViewFinancials');
 
   const { id } = await context.params;

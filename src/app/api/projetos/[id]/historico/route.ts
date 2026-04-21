@@ -10,7 +10,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
     await requireProjectPermission(request, 'canViewHistory')
     const { id } = await context.params
     const projetoId = Number(id)
-    if (isNaN(projetoId)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+    if (isNaN(projetoId)) return NextResponse.json({ error: 'ID inválido', message: 'O ID deve ser um número válido', success: false }, { status: 400 })
     
     // Obter parâmetros de paginação
     const { searchParams } = new URL(request.url)
@@ -19,5 +19,5 @@ export const GET = withErrorHandler(async (request: NextRequest,
     
     const service = new ProjectHistoryService()
     const historico = await service.listar(projetoId, { projetoId, pagina, limite })
-    return NextResponse.json(historico)
+    return NextResponse.json({ ...historico, success: true })
   });

@@ -29,12 +29,12 @@ export const GET = withErrorHandler(async (request: NextRequest,
     
     if (!etapa) {
       return NextResponse.json(
-        { error: 'Etapa não encontrada' },
+        { error: 'Etapa não encontrada', message: 'Nenhuma etapa com este ID', success: false },
         { status: 404 }
       )
     }
     
-    return NextResponse.json(etapa)
+    return NextResponse.json({ etapa, success: true })
     
   });
 
@@ -58,7 +58,7 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     const service = new ProjectStageService()
     const etapa = await service.atualizar(id, data, Number(user.id))
     
-    return NextResponse.json(etapa)
+    return NextResponse.json({ etapa, success: true })
     
   });
 
@@ -79,7 +79,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
     const service = new ProjectStageService()
     await service.excluir(id, Number(user.id))
     
-    return NextResponse.json({ message: 'Etapa excluída com sucesso' })
+    return NextResponse.json({ message: 'Etapa excluída com sucesso', success: true })
     
   });
 
@@ -103,6 +103,6 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
     const service = new ProjectStageService()
     const etapa = await service.alterarStatus(id, data, Number(user.id))
     
-    return NextResponse.json(etapa)
+    return NextResponse.json({ etapa, success: true })
     
   });

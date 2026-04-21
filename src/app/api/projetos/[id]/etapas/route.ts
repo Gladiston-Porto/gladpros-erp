@@ -21,7 +21,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
     
     if (isNaN(projetoId)) {
       return NextResponse.json(
-        { error: 'ID inválido' },
+        { error: 'ID inválido', message: 'O ID do projeto deve ser um número válido', success: false },
         { status: 400 }
       )
     }
@@ -30,7 +30,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
     const service = new ProjectStageService()
     const etapas = await service.listarPorProjeto(projetoId)
     
-    return NextResponse.json({ etapas })
+    return NextResponse.json({ etapas, success: true })
     
   });
 
@@ -48,7 +48,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
     
     if (isNaN(projetoId)) {
       return NextResponse.json(
-        { error: 'ID inválido' },
+        { error: 'ID inválido', message: 'O ID do projeto deve ser um número válido', success: false },
         { status: 400 }
       )
     }
@@ -66,6 +66,6 @@ export const POST = withErrorHandler(async (request: NextRequest,
     const service = new ProjectStageService()
     const etapa = await service.criar(data, Number(user.id))
     
-    return NextResponse.json(etapa, { status: 201 })
+    return NextResponse.json({ etapa, success: true }, { status: 201 })
     
   });
