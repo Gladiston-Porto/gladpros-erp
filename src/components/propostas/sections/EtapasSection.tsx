@@ -98,7 +98,8 @@ export function EtapasSection({ etapas, onEtapasChange }: EtapasSectionProps) {
             </div>
             <button 
               onClick={() => removeEtapa(etapa.id)} 
-              className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50"
+              className="rounded-2xl border border-destructive/30 bg-background px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10"
+              aria-label="Remover etapa"
             >
               Remover
             </button>

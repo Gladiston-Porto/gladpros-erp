@@ -119,20 +119,23 @@ export function PropostasToolbar({
             value={q}
             onChange={(event) => onQ(event.target.value)}
             placeholder="Buscar por título, número ou cliente"
-            className="w-[260px] rounded-xl border border-black/10 bg-card px-9 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-brand-primary dark:border-white/10"
+            aria-label="Buscar propostas"
+            className="w-[260px] rounded-xl border border-black/10 bg-card px-9 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-brand-primary dark:border-white/10"
           />
         </div>
 
         <div className="relative" ref={statusRef}>
           <button
             onClick={() => setStatusMenuOpen((current) => !current)}
+            aria-label="Filtrar por status"
+            aria-expanded={statusMenuOpen}
             className="rounded-xl border border-black/10 bg-card px-3 py-2 text-sm dark:border-white/10"
           >
             {status === "" ? "Todos os Status" : getStatusLabel(status)}
             <span className="ml-2">▾</span>
           </button>
           {statusMenuOpen && (
-            <div className="absolute left-0 top-full z-20 mt-1 w-40 rounded-lg border border-black/10 bg-card shadow-lg dark:border-white/10">
+            <div className="absolute left-0 top-full z-20 mt-1 w-40 rounded-2xl border border-black/10 bg-card shadow-sm dark:border-white/10">
               <button className="w-full px-4 py-2 text-left text-sm hover:bg-accent" onClick={() => { onStatus(""); setStatusMenuOpen(false); }}>Todos</button>
               <button className="w-full px-4 py-2 text-left text-sm hover:bg-accent" onClick={() => { onStatus("RASCUNHO"); setStatusMenuOpen(false); }}>Rascunho</button>
               <button className="w-full px-4 py-2 text-left text-sm hover:bg-accent" onClick={() => { onStatus("ENVIADA"); setStatusMenuOpen(false); }}>Enviada</button>
@@ -146,13 +149,15 @@ export function PropostasToolbar({
         <div className="relative" ref={clienteRef}>
           <button
             onClick={() => setClienteMenuOpen((current) => !current)}
+            aria-label="Filtrar por cliente"
+            aria-expanded={clienteMenuOpen}
             className="rounded-xl border border-black/10 bg-card px-3 py-2 text-sm dark:border-white/10"
           >
             {getClienteLabel(clienteId)}
             <span className="ml-2">▾</span>
           </button>
           {clienteMenuOpen && (
-            <div className="absolute left-0 top-full z-20 mt-1 max-h-60 w-64 overflow-y-auto rounded-lg border border-black/10 bg-card shadow-lg dark:border-white/10">
+            <div className="absolute left-0 top-full z-20 mt-1 max-h-60 w-64 overflow-y-auto rounded-2xl border border-black/10 bg-card shadow-sm dark:border-white/10">
               <button className="w-full px-4 py-2 text-left text-sm hover:bg-accent" onClick={() => { onClienteId(""); setClienteMenuOpen(false); }}>Todos os Clientes</button>
               {clientes.map((cliente) => (
                 <button
@@ -193,7 +198,7 @@ export function PropostasToolbar({
           </button>
 
           {showExportMenu && (
-            <div className="absolute right-0 top-full z-10 mt-1 w-40 rounded-lg border border-black/10 bg-card shadow-lg dark:border-white/10">
+            <div className="absolute right-0 top-full z-10 mt-1 w-40 rounded-2xl border border-black/10 bg-card shadow-sm dark:border-white/10">
               <button
                 onClick={() => handleExport("csv")}
                 className="flex w-full items-center gap-2 rounded-t-lg px-4 py-3 text-left text-sm hover:bg-accent"

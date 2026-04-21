@@ -267,12 +267,12 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
             {/* Header Sticky */}
             <div className="sticky top-0 z-20 mx-auto max-w-8xl px-6 py-4 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
                 <div>
-                    <h2 className="font-title text-xl text-slate-900 dark:text-white">{propostaId ? `Editar Proposta #${propostaId}` : 'Nova Proposta'}</h2>
-                    <p className="text-sm text-slate-500">Detalhes do projeto e orçamento.</p>
+                    <h2 className="font-title text-xl text-foreground">{propostaId ? `Editar Proposta #${propostaId}` : 'Nova Proposta'}</h2>
+                    <p className="text-sm text-muted-foreground">Detalhes do projeto e orçamento.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     {status === StatusPropostaValues.RASCUNHO && (
-                        <div className="hidden sm:flex items-center rounded-lg bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-800 dark:bg-yellow-900/30">Rascunho</div>
+                        <div className="hidden sm:flex items-center rounded-xl bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-600">Rascunho</div>
                     )}
                     {saveStatus === 'saving' && <span className="text-xs text-slate-500">Salvando…</span>}
                     {saveStatus === 'saved' && <span className="text-xs text-emerald-600">✓ Salvo</span>}

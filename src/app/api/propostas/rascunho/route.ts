@@ -2,9 +2,14 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
+
+const rascunhoSchema = z.object({
+  id: z.number().int().positive().optional(),
+}).passthrough()
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
@@ -12,7 +17,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => ({}));
+  const raw = await request.json().catch(() => ({}));
+  const body = rascunhoSchema.safeParse(raw).success
+    ? rascunhoSchema.parse(raw)
+    : {}
   const propostaId = body?.id ? Number(body.id) : null;
 
   // Se há ID, atualizar rascunho existente

@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
+
+const exportSchema = z.object({
+  filename: z.string().max(100).optional(),
+  filters: z.object({
+    q: z.string().max(200).optional(),
+    status: z.string().max(50).optional(),
+    clienteId: z.union([z.string(), z.number()]).optional(),
+  }).optional(),
+})
 
 function escapeHtml(str: string): string {
   return String(str)
@@ -19,8 +29,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
   }
 
-  const body = await request.json()
-  const { filename = 'propostas', filters = {} } = body
+  const parsed = exportSchema.safeParse(await request.json().catch(() => ({})))
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Dados inválidos', success: false }, { status: 400 })
+  }
+  const { filename = 'propostas', filters = {} } = parsed.data
 
   const where: Record<string, unknown> = { deletedAt: null }
 

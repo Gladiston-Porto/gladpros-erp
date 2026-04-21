@@ -7,6 +7,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { createPropostaSchema } from '@/schemas/proposta.schema';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
+import type { Prisma, Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, Proposta_status, PropostaMaterial_status, PropostaEtapa_status } from '@prisma/client';
 
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
@@ -21,9 +22,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const search = searchParams.get('search');
   const clienteId = searchParams.get('clienteId');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = { deletedAt: null };
-  if (status) where.status = status;
+  const where: Prisma.PropostaWhereInput = { deletedAt: null };
+  if (status) where.status = status as Proposta_status;
   if (clienteId) where.clienteId = parseInt(clienteId);
   if (search) {
     where.OR = [
@@ -47,7 +47,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     prisma.proposta.count({ where })
   ]);
 
-  const mapped = items.map((p: any) => ({
+  const mapped = items.map((p) => ({
     id: p.id,
     numeroProposta: p.numeroProposta,
     titulo: p.titulo,
@@ -82,7 +82,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const payload = adaptPropostaFormToAPI(body);
 
     const newProposta = await prisma.proposta.create({
-      data: {
+      data: ({
         numeroProposta: `PROP-${Date.now().toString().slice(-6)}`, // Auto-generate
         clienteId: payload.clienteId,
         titulo: payload.titulo || 'Sem título',
@@ -107,9 +107,9 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         exclusoes: payload.exclusoes,
         condicoesGerais: payload.condicoesGerais,
         internalEstimate: JSON.stringify(payload.estimativasInternas),
-        gatilhoFaturamento: payload.gatilhoFaturamento as any,
+        gatilhoFaturamento: payload.gatilhoFaturamento as Proposta_gatilhoFaturamento | undefined,
         percentualSinal: payload.percentualSinal,
-        formaPagamentoPreferida: payload.formaPreferida as any,
+        formaPagamentoPreferida: payload.formaPreferida as Proposta_formaPagamentoPreferida | undefined,
         instrucoesPagamento: payload.instrucoesFaturamento,
         observacoesParaCliente: payload.observacoesCliente,
         observacoesInternas: payload.observacoesInternas,
@@ -123,7 +123,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             quantidade: m.quantidade,
             unidade: m.unidade,
             precoUnitario: m.valorUnitarioEstimado,
-            status: m.status as any,
+            status: m.status as PropostaMaterial_status | undefined,
             fornecedorPreferencial: m.fornecedor,
             observacao: m.observacoes
           }))
@@ -137,10 +137,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             unidade: e.unidade,
             duracaoEstimadaHoras: e.duracaoEstimadaHoras,
             custoMaoObraEstimado: e.custoMaoObraEstimado,
-            status: e.status as any
+            status: e.status as PropostaEtapa_status | undefined,
           }))
         }
-      } as any,
+      }) as unknown as Prisma.PropostaCreateInput,
       include: {
         Cliente: true,
         PropostaMaterial: true,

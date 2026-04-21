@@ -56,7 +56,7 @@ export function Select({ value, onChange, children, className = '', disabled, ..
             value={value}
             onChange={onChange}
             disabled={disabled}
-            className={`w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100 ${className}`}
+            className={`w-full rounded-2xl border border-border px-3 py-2 text-sm bg-background text-foreground focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary disabled:bg-muted ${className}`}
             {...props}
         >
             {children}

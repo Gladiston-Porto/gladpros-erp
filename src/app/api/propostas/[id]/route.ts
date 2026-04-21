@@ -7,6 +7,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { updatePropostaSchema } from '@/schemas/proposta.schema';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
+import type { Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, PropostaMaterial_status, PropostaEtapa_status } from '@prisma/client';
 
 interface RouteParams {
   params: Promise<{
@@ -86,9 +87,9 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
           exclusoes: payload.exclusoes,
           condicoesGerais: payload.condicoesGerais,
           internalEstimate: JSON.stringify(payload.estimativasInternas),
-          gatilhoFaturamento: payload.gatilhoFaturamento as any, // Cast if enum mismatch
+          gatilhoFaturamento: payload.gatilhoFaturamento as Proposta_gatilhoFaturamento | undefined,
           percentualSinal: payload.percentualSinal,
-          formaPagamentoPreferida: payload.formaPreferida as any,
+          formaPagamentoPreferida: payload.formaPreferida as Proposta_formaPagamentoPreferida | undefined,
           instrucoesPagamento: payload.instrucoesFaturamento,
           observacoesParaCliente: payload.observacoesCliente,
           observacoesInternas: payload.observacoesInternas,
@@ -110,7 +111,7 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
             quantidade: m.quantidade,
             unidade: m.unidade,
             precoUnitario: m.valorUnitarioEstimado,
-            status: m.status as any,
+            status: m.status as PropostaMaterial_status | undefined,
             fornecedorPreferencial: m.fornecedor,
             observacao: m.observacoes
           }))
@@ -133,7 +134,7 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
             unidade: e.unidade,
             duracaoEstimadaHoras: e.duracaoEstimadaHoras,
             custoMaoObraEstimado: e.custoMaoObraEstimado,
-            status: e.status as any
+            status: e.status as PropostaEtapa_status | undefined,
           }))
         })
       }

@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { cancelProposal } from '@/domains/proposals/services';
+import { logger } from '@/lib/api/logger';
+
+const cancelSchema = z.object({
+  motivo: z.string().min(1, 'Motivo é obrigatório').max(500).optional(),
+})
 
 interface RouteParams {
   params: Promise<{
@@ -18,8 +24,8 @@ export const POST = withErrorHandler(async (request: NextRequest, { params }: Ro
     }
     const { id } = await params
     const propostaId = parseInt(id)
-    const body = await request.json()
-    const { motivo } = body
+    const parsed = cancelSchema.safeParse(await request.json().catch(() => ({})))
+    const motivo = parsed.success ? parsed.data.motivo : undefined
 
     const result = await cancelProposal(propostaId, motivo, {
       actorId: user.id,
@@ -28,7 +34,8 @@ export const POST = withErrorHandler(async (request: NextRequest, { params }: Ro
     });
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 404 })
+      logger.error('[Propostas] Falha ao cancelar proposta', { url: request.url }, new Error(result.error))
+      return NextResponse.json({ error: result.error, success: false }, { status: 422 })
     }
 
     return NextResponse.json({

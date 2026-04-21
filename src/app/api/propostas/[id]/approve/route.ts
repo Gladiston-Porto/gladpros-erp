@@ -3,6 +3,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { approveProposal } from '@/domains/proposals/services';
+import { logger } from '@/lib/api/logger';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -28,7 +29,8 @@ export const POST = withErrorHandler(async (request: NextRequest, { params }: Ro
   });
 
   if (!result.success) {
-    return NextResponse.json({ error: result.error }, { status: 404 });
+    logger.error('[Propostas] Falha ao aprovar proposta', { url: request.url }, new Error(result.error))
+    return NextResponse.json({ error: result.error, success: false }, { status: 422 });
   }
 
   return NextResponse.json({

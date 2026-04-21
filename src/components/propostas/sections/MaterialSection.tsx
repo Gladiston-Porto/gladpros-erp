@@ -77,7 +77,8 @@ export function MaterialSection({ materiais, onMateriaisChange }: MaterialSectio
           <div className="col-span-2 flex items-end justify-end gap-2">
             <button 
               onClick={() => removeMaterial(material.id)} 
-              className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50"
+              className="rounded-2xl border border-destructive/30 bg-background px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10"
+              aria-label="Remover material"
             >
               Remover
             </button>

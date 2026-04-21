@@ -216,11 +216,17 @@ export function PropostasTable({
                       variant="ghost"
                       size="sm"
                       onClick={() => onDuplicate(proposta.id)}
+                      aria-label={`Duplicar proposta ${proposta.titulo}`}
                     >
                       <Copy className="h-3.5 w-3.5" />
                       Duplicar
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onSend(proposta.id)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onSend(proposta.id)}
+                      aria-label={`Enviar proposta ${proposta.titulo}`}
+                    >
                       <Send className="h-3.5 w-3.5" />
                       Enviar
                     </Button>
@@ -228,7 +234,8 @@ export function PropostasTable({
                       variant="ghost"
                       size="sm"
                       onClick={() => onDelete(proposta.id)}
-                      className="text-red-600 hover:text-red-700"
+                      aria-label={`Excluir proposta ${proposta.titulo}`}
+                      className="text-destructive hover:text-destructive/80"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Excluir
@@ -259,7 +266,8 @@ export function PropostasTable({
                 selectedIds.forEach((id) => onDuplicate(id));
                 setSelected(new Set());
               }}
-              className="rounded-lg px-2 py-1 hover:bg-black/5 dark:hover:bg-white/10"
+              aria-label="Duplicar propostas selecionadas"
+              className="rounded-xl px-2 py-1 hover:bg-black/5 dark:hover:bg-white/10"
             >
               📋 Duplicar Selecionados
             </button>
@@ -269,7 +277,8 @@ export function PropostasTable({
                 selectedIds.forEach((id) => onSend(id));
                 setSelected(new Set());
               }}
-              className="rounded-lg px-2 py-1 hover:bg-black/5 dark:hover:bg-white/10"
+              aria-label="Enviar propostas selecionadas"
+              className="rounded-xl px-2 py-1 hover:bg-black/5 dark:hover:bg-white/10"
             >
               📤 Enviar Selecionados
             </button>
@@ -279,7 +288,8 @@ export function PropostasTable({
                 selectedIds.forEach((id) => onDelete(id));
                 setSelected(new Set());
               }}
-              className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              aria-label="Excluir propostas selecionadas"
+              className="rounded-xl px-2 py-1 text-destructive hover:bg-destructive/10"
             >
               🗑️ Excluir Selecionados
             </button>
