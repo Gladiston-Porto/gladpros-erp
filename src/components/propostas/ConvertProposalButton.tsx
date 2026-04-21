@@ -20,7 +20,7 @@ export function ConvertProposalButton({ propostaId, projetoId, status }: Convert
     return (
       <a
         href={`/projetos/${projetoId}`}
-        className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        className="inline-flex items-center gap-2 rounded-2xl bg-green-500/10 px-4 py-2 text-sm font-medium text-green-600 hover:bg-green-500/20 border border-green-500/30 min-h-[48px]"
       >
         ✓ Ver Projeto #{projetoId}
       </a>
@@ -59,11 +59,11 @@ export function ConvertProposalButton({ propostaId, projetoId, status }: Convert
       <button
         onClick={handleConvert}
         disabled={loading}
-        className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        className="inline-flex items-center gap-2 rounded-2xl bg-brand-primary px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50 min-h-[48px]"
       >
         {loading ? 'Convertendo...' : '🔄 Converter em Projeto'}
       </button>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   )
 }

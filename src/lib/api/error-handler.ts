@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
 import { ApiError, ApiErrorCode, ValidationError, HttpStatus } from './types';
 import { errorResponse, validationErrorResponse } from './responses';
+import { logger } from './logger';
 
 /**
  * Converte ZodError para ValidationError[]
@@ -148,6 +149,11 @@ export function withErrorHandler<T extends any[]>(
     try {
       return await handler(...args);
     } catch (error) {
+      const isExpectedError = error instanceof ZodError ||
+        (typeof error === 'object' && error !== null && 'statusCode' in error)
+      if (!isExpectedError) {
+        logger.error('[API] Erro não tratado no handler', {}, error as Error);
+      }
       return handleApiError(error);
     }
   };

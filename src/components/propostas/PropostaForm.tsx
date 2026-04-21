@@ -263,9 +263,9 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
             status === StatusPropostaValues.APROVADA ? "Aprovada" : "Cancelada"
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-black">
+        <div className="min-h-screen bg-background">
             {/* Header Sticky */}
-            <div className="sticky top-0 z-20 mx-auto max-w-8xl px-6 py-4 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+            <div className="sticky top-0 z-20 mx-auto max-w-8xl px-6 py-4 bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between">
                 <div>
                     <h2 className="font-title text-xl text-foreground">{propostaId ? `Editar Proposta #${propostaId}` : 'Nova Proposta'}</h2>
                     <p className="text-sm text-muted-foreground">Detalhes do projeto e orçamento.</p>
@@ -274,9 +274,9 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                     {status === StatusPropostaValues.RASCUNHO && (
                         <div className="hidden sm:flex items-center rounded-xl bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-600">Rascunho</div>
                     )}
-                    {saveStatus === 'saving' && <span className="text-xs text-slate-500">Salvando…</span>}
+                    {saveStatus === 'saving' && <span className="text-xs text-muted-foreground">Salvando…</span>}
                     {saveStatus === 'saved' && <span className="text-xs text-emerald-600">✓ Salvo</span>}
-                    {saveStatus === 'error' && <span className="text-xs text-red-600">✗ Erro</span>}
+                    {saveStatus === 'error' && <span className="text-xs text-destructive">✗ Erro</span>}
                     <Button
                         variant="ghost"
                         onClick={() => handleSalvar(true)}
@@ -305,7 +305,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <Label className="mb-2 block">Cliente <span className="text-red-500">*</span></Label>
+                                <Label className="mb-2 block">Cliente <span className="text-destructive" aria-hidden="true">*</span></Label>
                                 {clientesLoading ? (
                                     <div className="text-sm text-muted-foreground">Carregando...</div>
                                 ) : (
@@ -324,7 +324,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                 )}
                             </div>
                             <div>
-                                <Label className="mb-2 block">Título da Proposta <span className="text-red-500">*</span></Label>
+                                <Label className="mb-2 block">Título da Proposta <span className="text-destructive" aria-hidden="true">*</span></Label>
                                 <Input
                                     placeholder="Ex: Reforma Elétrica"
                                     value={cliente.titulo}
@@ -346,7 +346,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                 />
                             </div>
                             <div className="md:col-span-2">
-                                <Label className="mb-2 block">Endereço de Execução <span className="text-red-500">*</span></Label>
+                                <Label className="mb-2 block">Endereço de Execução <span className="text-destructive" aria-hidden="true">*</span></Label>
                                 <Input
                                     value={cliente.local_endereco}
                                     onChange={(e) => setCliente({ ...cliente, local_endereco: e.target.value })}
@@ -472,7 +472,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                         <Input className="h-9" type="number" step="0.01" value={e.custoMO ?? ""} onChange={(ev) => setEtapas((arr) => arr.map((x) => (x.id === e.id ? { ...x, custoMO: Number(ev.target.value) } : x)))} />
                                     </div>
                                     <div className="col-span-3 flex items-end">
-                                        <Button size="sm" variant="ghost" className="text-red-500 w-full" onClick={() => rmEtapa(e.id)}>Remover</Button>
+                                        <Button size="sm" variant="ghost" className="text-destructive w-full" onClick={() => rmEtapa(e.id)} aria-label="Remover etapa">Remover</Button>
                                     </div>
                                 </div>
                             ))}
@@ -535,7 +535,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                 <span className="font-medium">{currency(totais.margem)}</span>
                             </div>
                             <div className="h-px bg-current opacity-10 my-2" />
-                            <div className="flex justify-between text-lg font-bold text-slate-900 dark:text-white">
+                            <div className="flex justify-between text-lg font-bold text-foreground">
                                 <span>Total</span>
                                 <span>{currency(totais.precoCliente)}</span>
                             </div>
@@ -574,7 +574,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                             <Button variant="outline" className="w-full text-xs" onClick={() => setStatus(StatusPropostaValues.APROVADA)}>
                                 Marcar como Aprovada
                             </Button>
-                            <Button variant="outline" className="w-full text-xs text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setStatus(StatusPropostaValues.CANCELADA)}>
+                            <Button variant="outline" className="w-full text-xs text-destructive hover:text-destructive/80 hover:bg-destructive/10" onClick={() => setStatus(StatusPropostaValues.CANCELADA)} aria-label="Cancelar proposta">
                                 Cancelar Proposta
                             </Button>
                         </CardContent>

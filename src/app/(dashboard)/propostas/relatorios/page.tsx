@@ -105,7 +105,7 @@ export default async function RelatoriosPropostasPage() {
         {[
           { label: "Total Propostas", value: total.toLocaleString("en-US"), icon: FileBarChart, color: "text-brand-secondary", bg: "bg-brand-secondary/10" },
           { label: "Aprovadas", value: aprovadas.toLocaleString("en-US"), icon: CheckCircle, color: "text-green-600", bg: "bg-green-500/10" },
-          { label: "Taxa de Conversão", value: `${taxaConversao}%`, icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-500/10" },
+          { label: "Taxa de Conversão", value: `${taxaConversao}%`, icon: TrendingUp, color: "text-brand-primary", bg: "bg-brand-primary/10" },
           { label: "Valor Total Pipeline", value: fmt(valorPipelineNum), icon: DollarSign, color: "text-brand-primary", bg: "bg-brand-primary/10" },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <Card key={label} className="rounded-2xl">

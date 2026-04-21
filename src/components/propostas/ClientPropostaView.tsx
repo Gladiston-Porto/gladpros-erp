@@ -88,35 +88,35 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
   const getStatusColor = (status: StatusProposta) => {
     switch (status) {
       case StatusPropostaValues.RASCUNHO:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-muted text-muted-foreground'
       case StatusPropostaValues.ENVIADA:
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-brand-primary/10 text-brand-primary'
       case StatusPropostaValues.ASSINADA:
-        return 'bg-green-100 text-green-800'
+        return 'bg-yellow-500/10 text-yellow-600'
       case StatusPropostaValues.APROVADA:
-        return 'bg-emerald-100 text-emerald-800'
+        return 'bg-green-500/10 text-green-600'
       case StatusPropostaValues.CANCELADA:
-        return 'bg-red-100 text-red-800'
+        return 'bg-destructive/10 text-destructive'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-muted text-muted-foreground'
     }
   }
 
   const canSign = proposta.status === StatusPropostaValues.ENVIADA
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Header with Export Button */}
         <div className="flex justify-between items-start mb-8">
           <div>
             <div className="flex items-center gap-4 mb-4">
-              <FileText className="h-8 w-8 text-blue-600" />
+              <FileText className="h-8 w-8 text-brand-primary" />
               <div>
                 <h1 className="text-3xl font-bold text-foreground dark:text-white">
                   Proposta Comercial
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   {proposta.numeroProposta} • {formatDate(proposta.dataCriacao)}
                 </p>
               </div>
@@ -157,7 +157,7 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
                 </p>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-gray-500" />
+                  <Mail className="h-4 w-4 text-muted-foreground" />
                   <span>{proposta.cliente?.email}</span>
                 </div>
               </div>
@@ -175,7 +175,7 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
               <h4 className="font-semibold mb-2">Descrição</h4>
               <p>{proposta.descricaoEscopo}</p>
               {proposta.observacoesParaCliente && (
-                <p className="text-gray-600 mt-2">{proposta.observacoesParaCliente}</p>
+                <p className="text-muted-foreground mt-2">{proposta.observacoesParaCliente}</p>
               )}
             </div>
 
@@ -218,7 +218,7 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
                         <h4 className="font-semibold">
                           {index + 1}. {etapa.servico}
                         </h4>
-                        <p className="text-gray-600 mt-1">{etapa.descricao}</p>
+                        <p className="text-muted-foreground mt-1">{etapa.descricao}</p>
                       </div>
                       <Badge variant="outline">
                         {etapa.status}
@@ -256,7 +256,7 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
                         <td className="py-2">
                             <p className="font-medium">{material.nome}</p>
                             {material.observacao && (
-                              <p className="text-sm text-gray-500">
+                              <p className="text-sm text-muted-foreground">
                                 {material.observacao}
                               </p>
                             )}
@@ -348,11 +348,11 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
                 <h3 className="text-xl font-semibold text-green-800 mb-2">
                   Proposta Assinada
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Esta proposta foi assinada em {formatDate(proposta.assinadaEm)}
                 </p>
                 {proposta.assinaturaResponsavel && (
-                  <p className="text-sm text-gray-500 mt-2">
+                  <p className="text-sm text-muted-foreground mt-2">
                     Assinado por: {proposta.assinaturaResponsavel}
                   </p>
                 )}
@@ -362,7 +362,7 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
         )}
 
         {/* Footer */}
-        <div className="text-center text-gray-500 text-sm">
+        <div className="text-center text-muted-foreground text-sm">
           <p>GladPros - Sistema de Gestão de Propostas</p>
           <p>Este documento foi gerado automaticamente em {formatDate(new Date())}</p>
         </div>

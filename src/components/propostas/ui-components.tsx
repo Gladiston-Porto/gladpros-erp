@@ -16,9 +16,9 @@ interface CustomLabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
 
 export function Label({ required, children, className = '', ...props }: CustomLabelProps) {
     return (
-        <label className={`block text-sm font-medium text-slate-700 mb-1 ${className}`} {...props}>
+        <label className={`block text-sm font-medium text-muted-foreground mb-1 ${className}`} {...props}>
             {children}
-            {required && <span className="text-red-500 ml-1">*</span>}
+            {required && <span className="text-destructive ml-1">*</span>}
         </label>
     );
 }
@@ -33,11 +33,11 @@ interface SectionProps {
 
 export function Section({ title, subtitle, children, className = '' }: SectionProps) {
     return (
-        <div className={`bg-white rounded-xl border border-slate-200 p-6 shadow-sm ${className}`}>
+        <div className={`bg-card rounded-xl border border-border p-6 shadow-sm ${className}`}>
             {(title || subtitle) && (
                 <div className="mb-6">
-                    {title && <h3 className="text-lg font-semibold text-slate-900">{title}</h3>}
-                    {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+                    {title && <h3 className="text-lg font-semibold text-muted-foreground">{title}</h3>}
+                    {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
                 </div>
             )}
             {children}

@@ -35,7 +35,7 @@ export function EtapasSection({ etapas, onEtapasChange }: EtapasSectionProps) {
   return (
     <div className="flex flex-col gap-3">
       {etapas.map((etapa) => (
-        <div key={etapa.id} className="grid grid-cols-12 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div key={etapa.id} className="grid grid-cols-12 gap-2 rounded-xl border border-border bg-muted p-3">
           <div className="col-span-3">
             <Label required>Serviço</Label>
             <Input 
@@ -109,7 +109,7 @@ export function EtapasSection({ etapas, onEtapasChange }: EtapasSectionProps) {
       <div>
         <button 
           onClick={addEtapa} 
-          className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-[var(--gp-blue)] shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
+          className="rounded-xl bg-card px-4 py-2 text-sm font-medium text-brand-primary shadow-sm ring-1 ring-inset ring-border hover:bg-muted"
         >
           + Adicionar etapa
         </button>

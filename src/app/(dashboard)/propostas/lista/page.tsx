@@ -269,7 +269,7 @@ export default function PropostasPage() {
     return (
       <Card className="border-none shadow-sm">
         <CardContent className="py-12 text-center">
-          <h2 className="text-lg font-semibold text-red-600">
+          <h2 className="text-lg font-semibold text-destructive">
             Erro ao carregar propostas
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">{error}</p>
@@ -334,9 +334,19 @@ export default function PropostasPage() {
         <Card className="border-none shadow-sm">
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-brand-primary border-t-transparent" />
               <p className="text-sm text-muted-foreground">Carregando propostas...</p>
             </div>
+          </CardContent>
+        </Card>
+      ) : propostas.length === 0 ? (
+        <Card className="border-none shadow-sm">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <FileText className="mb-4 h-12 w-12 text-muted-foreground/40" />
+            <h3 className="mb-2 font-semibold text-foreground">Nenhuma proposta encontrada</h3>
+            <p className="mb-6 text-sm text-muted-foreground">
+              {total === 0 ? 'Crie sua primeira proposta para começar.' : 'Nenhuma proposta corresponde aos filtros aplicados.'}
+            </p>
           </CardContent>
         </Card>
       ) : (

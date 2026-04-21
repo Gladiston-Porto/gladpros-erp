@@ -40,21 +40,21 @@ const FormHeader = ({
     <div className="mx-auto max-w-7xl px-6 py-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Nova Proposta (Modular)</h1>
-          <p className="text-sm text-slate-500">Versão componentizada com seções independentes</p>
+          <h1 className="text-xl font-bold text-muted-foreground">Nova Proposta (Modular)</h1>
+          <p className="text-sm text-muted-foreground">Versão componentizada com seções independentes</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={onSave}
             disabled={isLoading}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
           >
             {isLoading ? 'Salvando...' : 'Salvar Rascunho'}
           </button>
           <button
             onClick={onSubmit}
             disabled={isLoading}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            className="rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
           >
             {isLoading ? 'Enviando...' : 'Enviar Proposta'}
           </button>
@@ -172,7 +172,7 @@ export function PropostaFormModular() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background">
       <FormHeader 
         onSave={handleSave}
         onSubmit={handleSubmit}

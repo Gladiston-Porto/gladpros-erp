@@ -32,6 +32,14 @@ jest.mock('../../../shared/lib/rbac', () => ({
   requireUser: jest.fn(),
 }))
 
+jest.mock('../../../shared/lib/rate-limit', () => ({
+  apiRateLimit: { isAllowed: jest.fn() },
+}))
+
+jest.mock('../../../lib/api/logger', () => ({
+  logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn() },
+}))
+
 jest.mock('../../../shared/lib/rbac-core', () => ({
   can: jest.fn(),
 }))
@@ -53,6 +61,7 @@ describe('GET /api/propostas', () => {
     jest.clearAllMocks()
     require('../../../shared/lib/rbac').requireUser.mockResolvedValue(mockUser)
     require('../../../shared/lib/rbac-core').can.mockReturnValue(true)
+    require('../../../shared/lib/rate-limit').apiRateLimit.isAllowed.mockResolvedValue({ allowed: true, remaining: 99, resetTime: Date.now() + 60000 })
     require('../../../lib/prisma').prisma.proposta.findMany.mockResolvedValue([])
     require('../../../lib/prisma').prisma.proposta.count.mockResolvedValue(0)
 
@@ -113,6 +122,7 @@ describe('POST /api/propostas', () => {
     jest.clearAllMocks()
     require('../../../shared/lib/rbac').requireUser.mockResolvedValue(mockUser)
     require('../../../shared/lib/rbac-core').can.mockReturnValue(true)
+    require('../../../shared/lib/rate-limit').apiRateLimit.isAllowed.mockResolvedValue({ allowed: true, remaining: 99, resetTime: Date.now() + 60000 })
     require('../../../components/propostas/adapter').adaptPropostaFormToAPI.mockReturnValue({
       clienteId: 1, titulo: 'Nova Proposta', valorEstimado: 1000,
       status: 'RASCUNHO', materiais: [], etapas: [],
@@ -130,6 +140,14 @@ describe('POST /api/propostas', () => {
       json: jest.fn().mockResolvedValue({ identificacao: { clienteId: 1 } }),
       headers: { get: jest.fn() },
     } as unknown as NextRequest
+  })
+
+  it('retorna 429 quando rate limit atingido', async () => {
+    require('../../../shared/lib/rate-limit').apiRateLimit.isAllowed.mockResolvedValue({ allowed: false, message: 'Muitas requisições', remaining: 0, resetTime: Date.now() + 60000 })
+    const res = await POST(req)
+    expect(res.status).toBe(429)
+    const data = await res.json()
+    expect(data.success).toBe(false)
   })
 
   it('retorna 401 sem autenticação', async () => {

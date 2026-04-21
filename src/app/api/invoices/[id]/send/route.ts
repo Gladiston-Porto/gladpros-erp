@@ -6,25 +6,7 @@ import { requireUser, can, type Role } from '@/shared/lib/rbac';
 import * as nodemailer from 'nodemailer';
 import logger from '@/shared/lib/logger';
 
-// ── Rate limiting — 5 envios por userId por hora (in-memory, sem Redis) ───────
-const EMAIL_RATE_LIMIT = 5;
-const EMAIL_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hora
-// Exported only for test cleanup — do not use in application code
-export const emailRateLimitMap = new Map<number, { count: number; resetAt: number }>();
-
-function checkEmailRateLimit(userId: number): { allowed: boolean; retryAfterSecs: number } {
-  const now = Date.now();
-  const entry = emailRateLimitMap.get(userId);
-  if (!entry || now >= entry.resetAt) {
-    emailRateLimitMap.set(userId, { count: 1, resetAt: now + EMAIL_RATE_WINDOW_MS });
-    return { allowed: true, retryAfterSecs: 0 };
-  }
-  if (entry.count >= EMAIL_RATE_LIMIT) {
-    return { allowed: false, retryAfterSecs: Math.ceil((entry.resetAt - now) / 1000) };
-  }
-  entry.count++;
-  return { allowed: true, retryAfterSecs: 0 };
-}
+import { checkEmailRateLimit, EMAIL_RATE_LIMIT } from './email-rate-limit';
 
 function escapeHtml(str: string): string {
   return str

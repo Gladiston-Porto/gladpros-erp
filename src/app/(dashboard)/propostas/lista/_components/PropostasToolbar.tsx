@@ -120,7 +120,7 @@ export function PropostasToolbar({
             onChange={(event) => onQ(event.target.value)}
             placeholder="Buscar por título, número ou cliente"
             aria-label="Buscar propostas"
-            className="w-[260px] rounded-xl border border-black/10 bg-card px-9 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-brand-primary dark:border-white/10"
+            className="w-[260px] rounded-xl border border-black/10 bg-card px-9 py-3 text-sm outline-none placeholder:text-muted-foreground focus:border-brand-primary dark:border-white/10 min-h-[48px]"
           />
         </div>
 
@@ -129,7 +129,7 @@ export function PropostasToolbar({
             onClick={() => setStatusMenuOpen((current) => !current)}
             aria-label="Filtrar por status"
             aria-expanded={statusMenuOpen}
-            className="rounded-xl border border-black/10 bg-card px-3 py-2 text-sm dark:border-white/10"
+            className="rounded-xl border border-black/10 bg-card px-3 py-3 text-sm dark:border-white/10 min-h-[48px]"
           >
             {status === "" ? "Todos os Status" : getStatusLabel(status)}
             <span className="ml-2">▾</span>
@@ -151,7 +151,7 @@ export function PropostasToolbar({
             onClick={() => setClienteMenuOpen((current) => !current)}
             aria-label="Filtrar por cliente"
             aria-expanded={clienteMenuOpen}
-            className="rounded-xl border border-black/10 bg-card px-3 py-2 text-sm dark:border-white/10"
+            className="rounded-xl border border-black/10 bg-card px-3 py-3 text-sm dark:border-white/10 min-h-[48px]"
           >
             {getClienteLabel(clienteId)}
             <span className="ml-2">▾</span>

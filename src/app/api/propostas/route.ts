@@ -7,6 +7,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { createPropostaSchema } from '@/schemas/proposta.schema';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
+import { apiRateLimit } from '@/shared/lib/rate-limit';
 import type { Prisma, Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, Proposta_status, PropostaMaterial_status, PropostaEtapa_status } from '@prisma/client';
 
 export const GET = withErrorHandler(async (request: NextRequest) => {
@@ -74,12 +75,20 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 });
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
+    const rl = await apiRateLimit.isAllowed(request);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', message: rl.message, success: false },
+        { status: 429, headers: { 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': rl.resetTime.toString() } }
+      );
+    }
     const user = await requireUser(request);
     if (!can(user.role as Role, 'propostas', 'create')) {
       return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
     }
     const body: PropostaFormData = createPropostaSchema.parse(await request.json());
     const payload = adaptPropostaFormToAPI(body);
+    try {
 
     const newProposta = await prisma.proposta.create({
       data: ({
@@ -153,5 +162,16 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       message: 'Proposta criada com sucesso',
       success: true,
     }, { status: 201 });
-
-  });
+  } catch (error: unknown) {
+    if (
+      typeof error === 'object' && error !== null &&
+      'code' in error && (error as { code: string }).code === 'P2002'
+    ) {
+      return NextResponse.json(
+        { error: 'Conflict', message: 'Já existe uma proposta com este número', success: false },
+        { status: 409 }
+      );
+    }
+    throw error;
+  }
+});
