@@ -155,7 +155,7 @@ export default function ProjetoForm({
         
         if (result.data) {
           setClientes(
-            result.data.map((c: any) => ({
+            result.data.map((c: { id: number; nomeCompletoOuRazao: string }) => ({
               id: c.id,
               nome: c.nomeCompletoOuRazao,
             }))
@@ -177,7 +177,7 @@ export default function ProjetoForm({
         
         if (result.data) {
           setResponsaveis(
-            result.data.map((u: any) => ({
+            result.data.map((u: { id: number; nome: string }) => ({
               id: u.id,
               nome: u.nome,
             }))
@@ -201,7 +201,7 @@ export default function ProjetoForm({
           
           if (result.data) {
             setPropostas(
-              result.data.map((p: any) => ({
+              result.data.map((p: { id: number; numero: string; titulo: string }) => ({
                 id: p.id,
                 numero: p.numero,
                 titulo: p.titulo,
@@ -230,22 +230,20 @@ export default function ProjetoForm({
     setSearchCliente('');
   };
 
-  const handleFormSubmit = async (data: any) => {
+  const handleFormSubmit = async (data: ProjetoFormData) => {
     try {
-      const formData = data as ProjetoFormData;
-      
       // Se tem callback customizado, usa ele
       if (onSubmit) {
-        await onSubmit(formData);
+        await onSubmit(data);
         return;
       }
       
       // Caso contrário, usa a operação padrão
       let resultado: Projeto;
       if (isEditing && projeto) {
-        resultado = await updateProjeto(projeto.id, formData);
+        resultado = await updateProjeto(projeto.id, data);
       } else {
-        resultado = await createProjeto(formData);
+        resultado = await createProjeto(data);
       }
       
       // Chama callback de sucesso se fornecido

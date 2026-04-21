@@ -92,7 +92,7 @@ const STATUS_CONFIG: Record<TarefaStatus, { title: string; icon: React.ReactNode
   concluida: {
     title: 'Concluídas',
     icon: <CheckCircle2 className="h-4 w-4" />,
-    color: 'bg-green-100 text-green-700',
+    color: 'bg-green-500/10 text-green-600',
   },
   cancelada: {
     title: 'Canceladas',
@@ -133,8 +133,8 @@ export function TarefasKanban({ projetoId }: Props) {
 
       const data = await response.json();
       setTarefas(data.tarefas || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -172,16 +172,16 @@ export function TarefasKanban({ projetoId }: Props) {
       if (!response.ok) {
         throw new Error('Erro ao atualizar tarefa');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Rollback on error
       setTarefas((prev) =>
         prev.map((t) => (t.id === tarefaId ? { ...t, status: tarefa.status } : t))
       );
-      setError(err.message);
+      setError(err instanceof Error ? err.message : String(err));
     }
   };
 
-  const handleCreateTask = async (data: any) => {
+  const handleCreateTask = async (data: { titulo: string; status: string; projetoId: number; prioridade?: string }) => {
     try {
       const response = await fetch(`/api/projetos/${projetoId}/tarefas`, {
         method: 'POST',
@@ -196,8 +196,8 @@ export function TarefasKanban({ projetoId }: Props) {
       const novaTarefa = await response.json();
       setTarefas((prev) => [...prev, novaTarefa]);
       setShowNewTaskForm(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -308,6 +308,7 @@ export function TarefasKanban({ projetoId }: Props) {
                     size="sm"
                     className="w-full gap-2 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowNewTaskForm(column.id)}
+                    aria-label={`Adicionar nova tarefa na coluna ${column.title}`}
                   >
                     <Plus className="h-4 w-4" />
                     Nova tarefa

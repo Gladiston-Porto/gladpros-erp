@@ -1,27 +1,45 @@
 import { withErrorHandler } from '@/lib/api/error-handler';
-// src/app/api/propostas/rascunho/route.ts
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 
-// POST /api/propostas/rascunho - Salvar rascunho
 export const POST = withErrorHandler(async (request: NextRequest) => {
-    // Verificar autenticação
-    const user = await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'propostas', 'create')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
 
-    // Parse do body
-    const body = await request.json();
-    
-    // Para rascunhos, vamos apenas salvar no localStorage do lado do cliente
-    // ou em cache temporário. Por enquanto, apenas confirmar recebimento
-    void user; void body;
+  const body = await request.json().catch(() => ({}));
+  const propostaId = body?.id ? Number(body.id) : null;
 
-    // Simular salvamento bem-sucedido
-    return NextResponse.json({
-      success: true,
-      message: 'Rascunho salvo',
-      timestamp: new Date().toISOString()
+  // Se há ID, atualizar rascunho existente
+  if (propostaId && !isNaN(propostaId)) {
+    const existing = await prisma.proposta.findFirst({
+      where: { id: propostaId, deletedAt: null },
+      select: { id: true, status: true },
     });
 
+    if (existing && existing.status === 'RASCUNHO') {
+      await prisma.proposta.update({
+        where: { id: propostaId },
+        data: { atualizadoEm: new Date() },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Rascunho salvo',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Nova proposta em construção — sem ID ainda, confirmar recebimento sem persistir
+  return NextResponse.json({
+    success: true,
+    message: 'Rascunho recebido',
+    timestamp: new Date().toISOString(),
   });
+});

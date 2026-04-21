@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { InventoryMovementService } from '@/domains/projects/services/inventory-movement.service'
 import { requireProjectPermission } from '@/shared/lib/rbac-projects'
 import { withErrorHandler } from '@/lib/api/error-handler';
+import type { TipoMovimentacaoEstoque, StatusIntegracaoEstoque } from '@/domains/projects/interfaces/inventory-gateway.interface';
 
 export const runtime = "nodejs"
 
@@ -39,8 +40,8 @@ export const GET = withErrorHandler(async (request: NextRequest,
     const { searchParams } = new URL(request.url)
     
     const materialIdParam = searchParams.get('materialId')
-    const tipoMovimentacao = searchParams.get('tipo') as any
-    const statusIntegracao = searchParams.get('status') as any
+    const tipoMovimentacao = (searchParams.get('tipo') as TipoMovimentacaoEstoque) || undefined
+    const statusIntegracao = (searchParams.get('status') as StatusIntegracaoEstoque) || undefined
     const dataInicio = searchParams.get('dataInicio')
     const dataFim = searchParams.get('dataFim')
     const paginaParam = searchParams.get('pagina')

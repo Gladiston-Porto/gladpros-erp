@@ -12,7 +12,8 @@
 
 import { useState, useEffect } from 'react';
 import { AlertCircle, Box, CheckCircle2, Clock, Package, Plus, TrendingDown, TrendingUp } from 'lucide-react';
-import { Badge } from "@gladpros/ui/badge";
+import { Badge, badgeVariants } from "@gladpros/ui/badge";
+import type { VariantProps } from "class-variance-authority";
 import { Button } from '@gladpros/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from "@gladpros/ui/card";
 import { Loading } from "@gladpros/ui/loading";
@@ -40,7 +41,7 @@ type Props = {
   projetoId: number;
 };
 
-const STATUS_CONFIG: Record<MaterialStatus, { label: string; variant: any; icon: React.ReactNode }> = {
+const STATUS_CONFIG: Record<MaterialStatus, { label: string; variant: VariantProps<typeof badgeVariants>['variant']; icon: React.ReactNode }> = {
   planejado: {
     label: 'Planejado',
     variant: 'secondary',
@@ -94,8 +95,8 @@ export function MateriaisLista({ projetoId }: Props) {
 
       const data = await response.json();
       setMateriais(data.materiais || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar materiais');
     } finally {
       setLoading(false);
     }
@@ -140,7 +141,7 @@ export function MateriaisLista({ projetoId }: Props) {
               <h3 className="font-medium text-foreground">Nenhum material cadastrado</h3>
               <p className="text-sm text-muted-foreground">Adicione materiais para este projeto</p>
             </div>
-            <Button className="gap-2">
+            <Button className="gap-2" aria-label="Adicionar material ao projeto">
               <Plus className="h-4 w-4" />
               Adicionar Material
             </Button>
@@ -209,7 +210,7 @@ export function MateriaisLista({ projetoId }: Props) {
             <Box className="h-5 w-5 text-brand-blue" />
             Materiais do Projeto
           </CardTitle>
-          <Button size="sm" className="gap-2">
+          <Button size="sm" className="gap-2" aria-label="Adicionar material ao projeto">
             <Plus className="h-4 w-4" />
             Adicionar
           </Button>
@@ -332,7 +333,7 @@ export function MateriaisLista({ projetoId }: Props) {
       </Card>
 
       {/* Legendas */}
-      <Card className="border-none bg-blue-50 shadow-sm">
+      <Card className="border-none bg-muted/40 shadow-sm">
         <CardContent className="py-4">
           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
@@ -340,7 +341,7 @@ export function MateriaisLista({ projetoId }: Props) {
               <span>Liberada: Material disponível para uso no projeto</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-full bg-green-500" />
+              <div className="h-3 w-3 rounded-full bg-success-400" />
               <span>Utilizada: Material consumido no projeto</span>
             </div>
             <div className="flex items-center gap-1.5">

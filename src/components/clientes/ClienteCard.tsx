@@ -57,7 +57,7 @@ export function ClienteCard({ cliente, onView, onEdit, onDelete }: ClienteCardPr
         <span className={`
           inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
           ${cliente.ativo 
-            ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
+            ? 'bg-green-500/10 text-green-600'
             : 'bg-muted text-muted-foreground'
           }
         `}>

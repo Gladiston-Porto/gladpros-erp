@@ -1,8 +1,10 @@
 
 import { prisma } from "@/lib/prisma";
+import { requireServerUser } from '@/shared/lib/requireServerUser';
+import { can, type Role } from '@/shared/lib/rbac-core';
 import PropostaForm from "@/components/propostas/PropostaForm";
 import { adaptAPIToPropostaForm, PropostaComRelacoes } from "@/components/propostas/adapter";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ClientesProvider } from "@/components/propostas/ClientesContext";
 import { ConvertProposalButton } from "@/components/propostas/ConvertProposalButton";
 import { Button } from "@gladpros/ui/button";
@@ -23,6 +25,9 @@ export async function generateMetadata({ params }: PropostaPageProps) {
 }
 
 export default async function PropostaPage({ params }: PropostaPageProps) {
+  const user = await requireServerUser();
+  if (!can(user.role as Role, 'propostas', 'read')) redirect('/403');
+
   const { id } = await params
   const propostaId = parseInt(id)
 

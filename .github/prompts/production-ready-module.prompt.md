@@ -22,9 +22,9 @@ Os módulos abaixo já passaram pela varredura completa.
 
 | Módulo | Data | P1/P2 críticos | Gaps documentados | Documentação |
 |--------|------|----------------|-------------------|--------------|
-| `login` / `auth` | 2026-04 | ✅ Resolvidos | `docs/modules/auth/01-security-review.md` | `docs/modules/auth/` |
+| `login` / `auth` | 2026-04-19 | ✅ Resolvidos | `docs/modules/auth/02-atualizacao-2026-04.md` | `docs/modules/auth/` |
 | `dashboard` | 2026-04 | ✅ Resolvidos | `docs/modules/dashboard/01-modulo-dashboard-completo.md` | `docs/modules/dashboard/` |
-| `clientes` | 2026-04 | ✅ Resolvidos | `docs/modules/clientes/01-audit.md` | `docs/modules/clientes/` |
+| `clientes` | 2026-04-19 | ✅ Resolvidos | `docs/modules/clientes/03-atualizacao-2026-04.md` | `docs/modules/clientes/` |
 | `usuarios` | 2026-04-18 | ✅ Resolvidos | `docs/modules/usuarios/01-modulo-usuarios-completo.md` § 7 | `docs/modules/usuarios/` |
 | `financeiro` | 2026-04 | ✅ Resolvidos | `docs/modules/financeiro/01-modulo-financeiro-completo.md` | `docs/modules/financeiro/` |
 | `invoices` | 2026-04-19 | ✅ Resolvidos | `docs/modules/invoices/02-relatorio-final.md` § "Não corrigidos" | `docs/modules/invoices/` |
@@ -41,7 +41,7 @@ Os módulos abaixo já passaram pela varredura completa.
 
 ## Como este processo funciona
 
-Este processo replica exatamente o que foi feito nos módulos `clientes` e `login` da GladPros.
+Este processo segue o padrão estabelecido nos módulos já auditados da GladPros.
 Ele passa por **7 fases obrigatórias** em sequência, sem pular nenhuma.
 
 > ⚠️ **Regra de ouro**: cada fase termina com uma **verificação de conclusão obrigatória** — o agente deve provar com comandos reais (`ls`, `cat`, `grep`, `npx jest`) que o que foi declarado como feito realmente existe e funciona. Declarar sem verificar é equivalente a não fazer.
@@ -65,12 +65,20 @@ Antes de qualquer alteração, leia e mapeie:
 - `.github/skills/ui-ux/SKILL.md` — design system, tokens, componentes
 - `.github/skills/rbac-access/SKILL.md` — permissões por role e módulo
 
-### 1.3 Resultado esperado desta fase
+### 1.3 Variáveis de ambiente usadas pelo módulo
+
+```bash
+# Listar variáveis de ambiente referenciadas nas rotas do módulo
+grep -rn "process\.env\." src/app/api/<modulo>/ | grep -v "NODE_ENV"
+```
+Cada variável encontrada deve estar documentada no `.env.example` do projeto.
+
+### 1.4 Resultado esperado desta fase
 - Lista completa de todos os arquivos do módulo
 - Quantidade de rotas de API, páginas e componentes
 - Estado atual dos testes (quantos existem, quantos passam)
 
-### 1.4 Verificação de conclusão obrigatória (executar antes de avançar)
+### 1.5 Verificação de conclusão obrigatória (executar antes de avançar)
 
 ```bash
 # Listar todos os arquivos encontrados do módulo
@@ -150,11 +158,24 @@ Para cada item de código morto identificado:
 
 Execute o checklist completo de 15 pontos do `module-audit` skill **E** a auditoria de segurança.
 
+### 2.0 Verificação do middleware
+
+```bash
+# Confirmar que as rotas do módulo estão dentro do matcher de autenticação
+grep -n "<modulo>" middleware.ts
+```
+- As páginas `/<modulo>/**` estão cobertas pelo matcher do middleware?
+- As rotas `/api/<modulo>/**` estão protegidas?
+- Se o módulo não aparecer no middleware, verificar se as páginas usam `requireServerUser()` diretamente.
+
+**Se o módulo não estiver no middleware E as páginas não tiverem `requireServerUser()` → P1 imediato.**
+
 ### 2.1 Checklist de 15 pontos
 
 | # | Check | Critério |
 |---|-------|----------|
-| 1 | **Auth** | Todas as rotas chamam `requireUser()` como primeira operação? |
+| 1 | **Auth (API)** | Todas as rotas de API chamam `requireUser()` como primeira operação? |
+| 1b | **Auth (Pages)** | Todas as páginas server-side chamam `requireServerUser()` ou estão cobertas pelo middleware? |
 | 2 | **RBAC** | `can(role, modulo, action)` verificado antes de create/update/delete? |
 | 3 | **Sidebar** | Módulo visível apenas para roles com acesso de leitura? |
 | 4 | **Prisma Import** | Apenas `import { prisma } from "@/lib/prisma"`? |
@@ -584,7 +605,7 @@ npx tsc --noEmit 2>&1 | grep "<modulo>" | head -20
 grep -rn "console\.log\|console\.warn" src/app/api/<modulo>/ src/components/<modulo>/
 
 # 4. Confirmar que cores hardcoded foram substituídas
-grep -rn "bg-white\|bg-gray-\|text-gray-\|bg-blue-\|bg-red-50\|rounded-lg" src/app/(dashboard)/<modulo>/ src/components/<modulo>/ | grep -v "//.*comentario"
+grep -rn "bg-white\b\|bg-gray-[0-9]\|bg-blue-[0-9]\|bg-green-[0-9]\|bg-red-[0-9]\|bg-yellow-[0-9]\|text-gray-[0-9]\|text-red-[0-9]\|text-green-[0-9]\|border-gray-[0-9]\|rounded-lg\b" src/app/(dashboard)/<modulo>/ src/components/<modulo>/ | grep -v "//.*comentario"
 
 # 5. Para cada P1 corrigido — re-verificar manualmente que a vulnerabilidade não existe mais
 ```
@@ -994,7 +1015,7 @@ grep -rn "console\.log\|console\.warn\|console\.debug" src/app/api/<modulo>/ src
 # Esperado: nenhuma linha (console.error em catch é permitido)
 
 # Re-verificar cores hardcoded
-grep -rn "bg-white\b\|bg-gray-[0-9]\|text-gray-[0-9]\|bg-blue-[0-9]\|bg-red-50\|rounded-lg\b" src/app/(dashboard)/<modulo>/ src/components/<modulo>/
+grep -rn "bg-white\b\|bg-gray-[0-9]\|bg-blue-[0-9]\|bg-green-[0-9]\|bg-red-[0-9]\|bg-yellow-[0-9]\|text-gray-[0-9]\|text-red-[0-9]\|text-green-[0-9]\|border-gray-[0-9]\|rounded-lg\b" src/app/(dashboard)/<modulo>/ src/components/<modulo>/
 # Esperado: nenhuma linha
 
 # Re-verificar N+1 (performance)
@@ -1190,6 +1211,8 @@ Executar cada item com o comando correspondente e registrar o resultado:
 - [ ] **Regression guards**: `tests/e2e/<modulo>/<modulo>-regression.spec.ts` existe com um guard por P1/P2
 - [ ] **Documentação criada**: `ls docs/modules/<modulo>/` → arquivo existe
 - [ ] **Zero código morto**: nenhum arquivo `.bak`, `.old` ou componente não importado
+- [ ] **Zero erros de lint**: `npm run lint 2>&1 | grep "<modulo>" | head -20` → 0 resultados
+- [ ] **Zero erros de TypeScript (projeto completo)**: `npm run type-check 2>&1 | grep "<modulo>" | head -20` → 0 resultados
 - [ ] **Nota enterprise ≥ 8.0/10**: calculada na seção 6.1
 
 ---
@@ -1222,7 +1245,7 @@ Testes:
 - <rota>.test.ts: X/X passando
 - Total: XX/XX testes unitários passando
 
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ```
 
 ### Commit 2 — E2E e documentação
@@ -1245,7 +1268,7 @@ E2E — 6 spec files em tests/e2e/<modulo>/:
 Documentação:
 - docs/modules/<modulo>/01-modulo-<modulo>-completo.md
 
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ```
 
 ### Confirmar que está no repositório

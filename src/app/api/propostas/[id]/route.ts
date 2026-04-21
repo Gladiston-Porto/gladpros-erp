@@ -6,6 +6,7 @@ import { PropostaFormData } from '@/components/propostas/types'
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { updatePropostaSchema } from '@/schemas/proposta.schema';
 import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 interface RouteParams {
   params: Promise<{
@@ -14,6 +15,10 @@ interface RouteParams {
 }
 
 export const GET = withErrorHandler(async (request: NextRequest, { params }: RouteParams) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'propostas', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const { id } = await params
     const propostaId = parseInt(id)
 
@@ -34,11 +39,14 @@ export const GET = withErrorHandler(async (request: NextRequest, { params }: Rou
       return NextResponse.json({ error: 'Proposta não encontrada' }, { status: 404 })
     }
 
-    return NextResponse.json(proposta)
+    return NextResponse.json({ data: proposta, success: true })
   });
 
 export const PUT = withErrorHandler(async (request: NextRequest, { params }: RouteParams) => {
-  await requireUser(request)
+  const userPut = await requireUser(request);
+  if (!can(userPut.role as Role, 'propostas', 'update')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
     const { id } = await params
     const propostaId = parseInt(id)
 
@@ -136,13 +144,16 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
       })
     })
 
-    return NextResponse.json({ proposta: updatedProposta })
+    return NextResponse.json({ data: updatedProposta, success: true })
 
   });
 
 // DELETE /api/propostas/[id] - Soft delete proposta
 export const DELETE = withErrorHandler(async (request: NextRequest, { params }: RouteParams) => {
-    await requireUser(request);
+    const userDel = await requireUser(request);
+    if (!can(userDel.role as Role, 'propostas', 'delete')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const { id } = await params;
     const propostaId = parseInt(id);
 
@@ -170,5 +181,5 @@ export const DELETE = withErrorHandler(async (request: NextRequest, { params }: 
       data: { deletedAt: new Date(), atualizadoEm: new Date() }
     });
 
-    return NextResponse.json({ message: 'Proposta excluída com sucesso' });
+    return NextResponse.json({ message: 'Proposta excluída com sucesso', success: true });
   });

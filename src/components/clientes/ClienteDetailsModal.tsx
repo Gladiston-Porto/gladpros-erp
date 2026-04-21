@@ -201,7 +201,7 @@ export function ClienteDetailsModal({
                       <p className="text-muted-foreground text-sm">{cliente.tipo === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}</p>
                     </div>
                   </div>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${cliente.ativo ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${cliente.ativo ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}`}>
                     {cliente.ativo ? 'Ativo' : 'Inativo'}
                   </span>
                 </div>

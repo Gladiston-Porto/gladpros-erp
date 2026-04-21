@@ -1,4 +1,7 @@
 import { prisma } from '@/lib/prisma';
+import { requireServerUser } from '@/shared/lib/requireServerUser';
+import { can, type Role } from '@/shared/lib/rbac-core';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@gladpros/ui/button'
 import { Card, CardContent, CardHeader } from '@gladpros/ui/card'
@@ -15,6 +18,9 @@ import {
 } from 'lucide-react';
 
 export default async function DashboardPropostasPage() {
+  const user = await requireServerUser();
+  if (!can(user.role as Role, 'propostas', 'read')) redirect('/403');
+
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
@@ -88,9 +94,9 @@ export default async function DashboardPropostasPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Link href="/propostas/lista" className="group">
-          <Card className="h-full transition-all hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10">
+          <Card className="h-full transition-all hover:border-brand-primary/50 hover:shadow-lg hover:shadow-brand-primary/10">
             <CardHeader>
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-primary/10 text-brand-primary">
                 <FileText className="h-6 w-6" />
               </div>
               <h3 className="text-lg font-semibold">Lista de Propostas</h3>
@@ -99,7 +105,7 @@ export default async function DashboardPropostasPage() {
               </p>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400">
+              <div className="flex items-center text-sm font-medium text-brand-primary">
                 Acessar lista <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
             </CardContent>
@@ -107,9 +113,9 @@ export default async function DashboardPropostasPage() {
         </Link>
 
         <Link href="/propostas/nova" className="group">
-          <Card className="h-full transition-all hover:border-orange-500/50 hover:shadow-lg hover:shadow-orange-500/10">
+          <Card className="h-full transition-all hover:border-brand-secondary/50 hover:shadow-lg hover:shadow-brand-secondary/10">
             <CardHeader>
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-secondary/10 text-brand-secondary">
                 <Plus className="h-6 w-6" />
               </div>
               <h3 className="text-lg font-semibold">Nova Proposta</h3>
@@ -118,7 +124,7 @@ export default async function DashboardPropostasPage() {
               </p>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center text-sm font-medium text-orange-600 dark:text-orange-400">
+              <div className="flex items-center text-sm font-medium text-brand-secondary">
                 Criar agora <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
             </CardContent>

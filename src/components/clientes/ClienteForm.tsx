@@ -513,11 +513,11 @@ export function ClienteForm({ cliente, onSubmit, onCancel, loading = false }: Cl
           className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm"
         >
           <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-400" />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
             <div className="space-y-1.5">
-              <p className="font-medium text-yellow-700 dark:text-yellow-400">Possível cadastro duplicado</p>
+              <p className="font-medium text-yellow-700">Possível cadastro duplicado</p>
               {similarAlert.byTelefone.length > 0 && (
-                <p className="text-yellow-600 dark:text-yellow-500">
+                <p className="text-yellow-600">
                   Telefone já cadastrado em:{' '}
                   {similarAlert.byTelefone.map((c, i) => (
                     <span key={c.id}>
@@ -526,7 +526,7 @@ export function ClienteForm({ cliente, onSubmit, onCancel, loading = false }: Cl
                         href={`/clientes/${c.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline font-medium hover:text-yellow-800 dark:hover:text-yellow-300"
+                        className="underline font-medium hover:text-yellow-800"
                       >
                         {c.nome}
                       </Link>
@@ -535,7 +535,7 @@ export function ClienteForm({ cliente, onSubmit, onCancel, loading = false }: Cl
                 </p>
               )}
               {similarAlert.byAddress.length > 0 && (
-                <p className="text-yellow-600 dark:text-yellow-500">
+                <p className="text-yellow-600">
                   Endereço similar em:{' '}
                   {similarAlert.byAddress.map((c, i) => (
                     <span key={c.id}>
@@ -544,7 +544,7 @@ export function ClienteForm({ cliente, onSubmit, onCancel, loading = false }: Cl
                         href={`/clientes/${c.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline font-medium hover:text-yellow-800 dark:hover:text-yellow-300"
+                        className="underline font-medium hover:text-yellow-800"
                       >
                         {c.nome}
                       </Link>
@@ -552,7 +552,7 @@ export function ClienteForm({ cliente, onSubmit, onCancel, loading = false }: Cl
                   ))}
                 </p>
               )}
-              <p className="text-xs text-yellow-600/80 dark:text-yellow-500/80">
+              <p className="text-xs text-yellow-600/80/80">
                 Verifique se é um cliente existente antes de continuar. Você pode salvar mesmo assim se for um cadastro diferente.
               </p>
             </div>

@@ -54,6 +54,18 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
     const service = new ProjectService()
     const projeto = await service.alterarStatus(projetoId, data, Number(user.id))
     
+    // AuditLog
+    await prisma.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: Number(user.id),
+        entidade: 'Projeto',
+        entidadeId: String(projetoId),
+        acao: 'UPDATE',
+        diff: JSON.stringify({ campo: 'status', de: projetoAtual.status, para: data.novoStatus, observacao: data.observacao }),
+      },
+    })
+    
     return NextResponse.json({ data: projeto, success: true })
     
   });

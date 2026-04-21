@@ -103,7 +103,7 @@ function ClientesTable({
                 </td>
               ) : null}
               <td className="px-3 py-3 font-medium">
-                <div className="font-medium text-foreground dark:text-white">
+                <div className="font-medium text-foreground">
                   {cliente.nomeCompletoOuRazao}
                 </div>
               </td>

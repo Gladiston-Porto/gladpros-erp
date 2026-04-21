@@ -115,7 +115,14 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
 
     setSubmitting(true);
     try {
-      const payload: any = {
+      const payload: {
+        workerId: number;
+        projectId: number;
+        payType: string;
+        role?: string;
+        costRateHourly?: number;
+        fixedCostAmount?: number;
+      } = {
         workerId: parseInt(selectedWorkerId),
         projectId: projetoId,
         payType,
@@ -189,7 +196,7 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
   };
 
   const statusColors: Record<string, string> = {
-    ACTIVE: 'bg-green-100 text-green-800',
+    ACTIVE: 'bg-green-500/10 text-green-600',
     COMPLETED: 'bg-brand-primary/10 text-brand-primary',
     CANCELLED: 'bg-muted text-foreground'
   };
@@ -210,9 +217,7 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Adicionar Worker
+            <Button className="gap-2" aria-label="Adicionar worker ao projeto">
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -369,6 +374,7 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
                   size="sm"
                   className="text-destructive hover:text-destructive"
                   onClick={() => handleRemover(assignment.id)}
+                  aria-label="Remover worker do projeto"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Remover

@@ -13,7 +13,7 @@ import { X, Check } from 'lucide-react';
 type Props = {
   projetoId: number;
   initialStatus: string;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: { titulo: string; status: string; projetoId: number; prioridade?: string }) => Promise<void>;
   onCancel: () => void;
 };
 

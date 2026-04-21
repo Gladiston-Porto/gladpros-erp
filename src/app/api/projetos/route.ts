@@ -4,6 +4,8 @@ import { requireProjectPermission, shouldMaskFinancials } from '@/shared/lib/rba
 import { createProjetoSchema, listarProjetosSchema } from '@/domains/projects/validators'
 import { ZodError } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { prisma } from '@/lib/prisma'
+import { apiRateLimit } from '@/shared/lib/rate-limit'
 
 export const runtime = "nodejs"
 
@@ -90,6 +92,15 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     // Verificar permissão de criação
     const user = await requireProjectPermission(request, 'canCreate')
     
+    // Rate limiting para criação
+    const rateCheck = await apiRateLimit.isAllowed(request)
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests', message: rateCheck.message, success: false },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
+      )
+    }
+    
     // Parsear body
     const body = await request.json()
     
@@ -99,6 +110,18 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     // Criar projeto
     const service = new ProjectService()
     const projeto = await service.criar(data, Number(user.id))
+    
+    // AuditLog
+    await prisma.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: Number(user.id),
+        entidade: 'Projeto',
+        entidadeId: String(projeto.id),
+        acao: 'CREATE',
+        diff: JSON.stringify({ titulo: projeto.titulo, status: projeto.status, clienteId: projeto.clienteId }),
+      },
+    })
     
     // Mascarar dados financeiros se necessário
     const maskFinancials = shouldMaskFinancials(user.role)

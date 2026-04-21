@@ -4,10 +4,14 @@ import { StatusPropostaValues } from '@/shared/types/propostas'
 import emailService from '@/shared/lib/services/emailService'
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 export const POST = withErrorHandler(async (request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
-    await requireUser(request)
+    const userSend = await requireUser(request);
+    if (!can(userSend.role as Role, 'propostas', 'update')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const { id } = await params;
     const propostaId = parseInt(id);
 

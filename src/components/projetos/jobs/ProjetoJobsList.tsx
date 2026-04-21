@@ -36,7 +36,7 @@ export function ProjetoJobsList({ projetoId }: { projetoId: number }) {
                 // but the DB has it. Let's start by just fetching.
                 // Actually, I should update the type or cast it.
 
-                const projectJobs = data.filter((j: any) => j.projetoId === projetoId);
+                const projectJobs = (data as (SchedulerJob & { projetoId?: number })[]).filter((j) => j.projetoId === projetoId);
                 setJobs(projectJobs);
             } catch (err) {
                 console.error(err);
@@ -58,7 +58,7 @@ export function ProjetoJobsList({ projetoId }: { projetoId: number }) {
                     <p className="text-sm text-muted-foreground max-w-sm mb-6">
                         Este projeto ainda não tem ordens de serviço criadas.
                     </p>
-                    <Button variant="outline">Criar Primeiro Job</Button>
+                    <Button variant="outline" aria-label="Criar primeiro job do projeto">Criar Primeiro Job</Button>
                 </CardContent>
             </Card>
         );
@@ -69,7 +69,7 @@ export function ProjetoJobsList({ projetoId }: { projetoId: number }) {
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Ordens de Serviço ({jobs.length})</h3>
                 {/* Future: Pass project ID to pre-fill */}
-                <Button size="sm" variant="outline"><Plus className="w-4 h-4 mr-2" /> Novo Job</Button>
+                <Button size="sm" variant="outline" aria-label="Criar novo job"><Plus className="w-4 h-4 mr-2" /> Novo Job</Button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -80,7 +80,7 @@ export function ProjetoJobsList({ projetoId }: { projetoId: number }) {
                                 <Badge variant="secondary" className="font-mono text-xs">
                                     {job.ticketNumber}
                                 </Badge>
-                                <Badge variant={job.status === 'COMPLETED' ? 'default' : 'outline'} className={job.status === 'COMPLETED' ? 'bg-green-600 hover:bg-green-700' : ''}>
+                                <Badge variant={job.status === 'COMPLETED' ? 'success' : 'outline'}>
                                     {job.status}
                                 </Badge>
                             </div>

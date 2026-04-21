@@ -39,7 +39,6 @@ export function ClientesProvider({ children }: { children: ReactNode }) {
       setClientes(data.data || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
-      console.error('Erro ao carregar clientes:', err)
     } finally {
       setLoading(false)
     }

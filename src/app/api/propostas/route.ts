@@ -6,9 +6,13 @@ import { PropostaFormData } from "@/components/propostas/types";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { createPropostaSchema } from '@/schemas/proposta.schema';
 import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 export const GET = withErrorHandler(async (request: NextRequest) => {
-  await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'propostas', 'read')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
 
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
@@ -57,18 +61,23 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   }));
 
   return NextResponse.json({
-    items: mapped,
+    data: mapped,
     pagination: {
       total,
       page,
       pageSize,
+      totalPages: Math.ceil(total / pageSize),
       hasNext: page * pageSize < total,
-      nextCursor: null
-    }
+    },
+    success: true,
   });
 });
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'propostas', 'create')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const body: PropostaFormData = createPropostaSchema.parse(await request.json());
     const payload = adaptPropostaFormToAPI(body);
 
@@ -140,8 +149,9 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     });
 
     return NextResponse.json({
+      data: newProposta,
       message: 'Proposta criada com sucesso',
-      proposta: newProposta
+      success: true,
     }, { status: 201 });
 
   });

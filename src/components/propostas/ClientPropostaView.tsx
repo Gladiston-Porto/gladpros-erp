@@ -69,7 +69,6 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
       router.refresh()
 
     } catch (error) {
-      console.error('Error signing proposal:', error)
       alert('Erro ao assinar proposta: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
     } finally {
       setLoading(false)

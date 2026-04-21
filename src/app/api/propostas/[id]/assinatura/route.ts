@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { logger } from '@/lib/api/logger';
 
 const signatureSchema = z.object({
   assinaturaTipo: z.enum(['DIGITAL_DESENHADA', 'DIGITAL_NOME']),
@@ -51,10 +52,18 @@ export const POST = withErrorHandler(async (request: NextRequest,
       )
     }
 
+    // Verificar estado da máquina: apenas ENVIADA pode ser assinada
+    if (proposta.status !== 'ENVIADA') {
+      return NextResponse.json(
+        { error: 'Apenas propostas enviadas ao cliente podem ser assinadas', success: false },
+        { status: 400 }
+      )
+    }
+
     // Verificar se já está assinada
     if (proposta.assinadaEm) {
       return NextResponse.json(
-        { error: 'Proposta já está assinada' },
+        { error: 'Proposta já está assinada', success: false },
         { status: 400 }
       )
     }
@@ -93,15 +102,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
       }
     })
 
-    // Log da assinatura para auditoria
-    // eslint-disable-next-line no-console
-    // eslint-disable-next-line no-console
-    console.log(`[ASSINATURA] Proposta ${proposta.numeroProposta} assinada:`, {
-      tipo: validatedData.assinaturaTipo,
-      nome: validatedData.assinaturaNome,
+    logger.info(`[Assinatura] Proposta ${proposta.numeroProposta} assinada via ${validatedData.assinaturaTipo}`, {
       ip: clientIp,
-      userAgent: userAgent,
-      timestamp: new Date().toISOString()
     })
 
     // Resposta de sucesso

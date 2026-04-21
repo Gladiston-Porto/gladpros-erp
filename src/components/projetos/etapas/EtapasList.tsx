@@ -89,7 +89,7 @@ export default function EtapasList({
 
     // Salva no backend
     try {
-      const orderedIds = newOrder.map((e: any) => e.id);
+      const orderedIds = newOrder.map((e: ProjetoEtapa) => e.id);
       await reordenarEtapas(etapas[0].projetoId, orderedIds);
     } catch (error) {
       console.error('Erro ao salvar ordem:', error);

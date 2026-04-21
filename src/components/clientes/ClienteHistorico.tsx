@@ -144,33 +144,33 @@ function formatDate(iso: string | null) {
 const STATUS_COLORS: Record<string, string> = {
   // ServiceOrder
   DRAFT: "bg-muted text-muted-foreground",
-  SCHEDULED: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  SCHEDULED: "bg-blue-500/10 text-blue-600",
   IN_PROGRESS: "bg-brand-secondary/10 text-brand-secondary",
-  COMPLETED: "bg-green-500/10 text-green-600 dark:text-green-400",
+  COMPLETED: "bg-green-500/10 text-green-600",
   CANCELLED: "bg-destructive/10 text-destructive",
   // Proposta
   RASCUNHO: "bg-muted text-muted-foreground",
-  ENVIADA: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  APROVADA: "bg-green-500/10 text-green-600 dark:text-green-400",
+  ENVIADA: "bg-blue-500/10 text-blue-600",
+  APROVADA: "bg-green-500/10 text-green-600",
   RECUSADA: "bg-destructive/10 text-destructive",
   EXPIRADA: "bg-muted text-muted-foreground",
   // Projeto
   planejado: "bg-muted text-muted-foreground",
   em_andamento: "bg-brand-secondary/10 text-brand-secondary",
-  concluido: "bg-green-500/10 text-green-600 dark:text-green-400",
-  pausado: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+  concluido: "bg-green-500/10 text-green-600",
+  pausado: "bg-yellow-500/10 text-yellow-600",
   cancelado: "bg-destructive/10 text-destructive",
   // Invoice
-  PAID: "bg-green-500/10 text-green-600 dark:text-green-400",
-  PENDING: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+  PAID: "bg-green-500/10 text-green-600",
+  PENDING: "bg-yellow-500/10 text-yellow-600",
   OVERDUE: "bg-destructive/10 text-destructive",
   VOID: "bg-muted text-muted-foreground",
   // Warranty
-  REPORTED: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
-  EVALUATING: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  REPORTED: "bg-yellow-500/10 text-yellow-600",
+  EVALUATING: "bg-blue-500/10 text-blue-600",
   APPROVED: "bg-brand-primary/10 text-brand-primary",
   IN_REPAIR: "bg-brand-secondary/10 text-brand-secondary",
-  RESOLVED: "bg-green-500/10 text-green-600 dark:text-green-400",
+  RESOLVED: "bg-green-500/10 text-green-600",
   DENIED: "bg-destructive/10 text-destructive",
 };
 
@@ -498,7 +498,7 @@ function WarrantyTicketsTab({ items }: { items: WarrantyTicketItem[] }) {
               <span className="font-mono text-xs text-muted-foreground">WT-{ticket.id}</span>
               <StatusBadge status={ticket.status} />
               {ticket.coveredByWarranty === true ? (
-                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
                   Coberta
                 </span>
               ) : null}

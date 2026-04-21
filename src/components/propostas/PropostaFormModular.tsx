@@ -151,12 +151,9 @@ export function PropostaFormModular() {
   const handleSave = async () => {
     setIsLoading(true)
     try {
-      console.log('Salvando rascunho...')
       // Simular salvamento
       await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log('Rascunho salvo!')
     } catch (error) {
-      console.error('Erro ao salvar:', error)
     } finally {
       setIsLoading(false)
     }
@@ -165,13 +162,10 @@ export function PropostaFormModular() {
   const handleSubmit = async () => {
     setIsLoading(true)
     try {
-      console.log('Enviando proposta...')
       // Simular envio
       await new Promise(resolve => setTimeout(resolve, 2000))
-      console.log('Proposta enviada!')
       setStatus(StatusPropostaValues.PENDENTE_APROVACAO)
     } catch (error) {
-      console.error('Erro ao enviar:', error)
     } finally {
       setIsLoading(false)
     }

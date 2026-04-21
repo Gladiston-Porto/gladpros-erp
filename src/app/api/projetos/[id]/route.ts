@@ -157,6 +157,18 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
     const service = new ProjectService()
     await service.excluir(projetoId, Number(user.id), motivo)
     
+    // AuditLog
+    await prisma.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: Number(user.id),
+        entidade: 'Projeto',
+        entidadeId: String(projetoId),
+        acao: 'DELETE',
+        diff: JSON.stringify({ motivo }),
+      },
+    })
+    
     return NextResponse.json(
       { data: null, message: 'Projeto excluído com sucesso', success: true },
       { status: 200 }

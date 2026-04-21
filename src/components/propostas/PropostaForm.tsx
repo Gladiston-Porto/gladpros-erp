@@ -246,7 +246,6 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
             }
         } catch (error) {
             setSaveStatus('error')
-            console.error('Erro ao salvar:', error)
             showToast({
                 title: 'Erro',
                 message: error instanceof Error ? error.message : 'Erro ao salvar proposta',
