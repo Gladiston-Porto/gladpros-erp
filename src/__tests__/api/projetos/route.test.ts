@@ -33,6 +33,18 @@ jest.mock('@/lib/api/error-handler', () => ({
   withErrorHandler: (fn: Function) => fn,
 }));
 
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
+    auditLog: { create: jest.fn().mockResolvedValue({}) },
+  },
+}));
+
+jest.mock('@/shared/lib/rate-limit', () => ({
+  apiRateLimit: {
+    isAllowed: jest.fn().mockResolvedValue({ allowed: true, remaining: 99, resetTime: Date.now() + 60000 }),
+  },
+}));
+
 import { GET, POST } from '@/app/api/projetos/route';
 
 function makeRequest(url: string, method = 'GET', body?: unknown): NextRequest {
