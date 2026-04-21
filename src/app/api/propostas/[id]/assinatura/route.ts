@@ -28,14 +28,14 @@ export const POST = withErrorHandler(async (request: NextRequest,
     
     if (!validatedData.consentimento) {
       return NextResponse.json(
-        { error: 'Consentimento é obrigatório' },
+        { error: 'Consentimento é obrigatório', success: false },
         { status: 400 }
       )
     }
 
     if (!validatedData.termosAceitos) {
       return NextResponse.json(
-        { error: 'Aceitação dos termos é obrigatória' },
+        { error: 'Aceitação dos termos é obrigatória', success: false },
         { status: 400 }
       )
     }
