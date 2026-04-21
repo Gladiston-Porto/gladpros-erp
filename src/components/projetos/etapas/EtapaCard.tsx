@@ -77,7 +77,7 @@ export default function EtapaCard({
 
   const handleDelete = async () => {
     if (!etapa.id) return;
-    await deleteEtapa(etapa.id);
+    await deleteEtapa(etapa.projetoId, etapa.id);
   };
 
   // Status icon e cores

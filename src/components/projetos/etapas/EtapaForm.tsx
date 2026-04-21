@@ -96,7 +96,7 @@ export default function EtapaForm({
       };
 
       if (isEditing && etapa) {
-        await updateEtapa(etapa.id, etapaData);
+        await updateEtapa(projetoId, etapa.id, etapaData);
       } else {
         await createEtapa(projetoId, etapaData);
       }

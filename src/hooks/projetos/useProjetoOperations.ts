@@ -263,10 +263,10 @@ export function useProjetoOperations({
 
   // Atualizar etapa
   const updateEtapa = useCallback(
-    async (etapaId: number, data: any): Promise<any> => {
+    async (projetoId: number, etapaId: number, data: any): Promise<any> => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/projetos/etapas/${etapaId}`, {
+        const response = await fetch(`/api/projetos/${projetoId}/etapas/${etapaId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -295,10 +295,10 @@ export function useProjetoOperations({
 
   // Deletar etapa
   const deleteEtapa = useCallback(
-    async (etapaId: number): Promise<void> => {
+    async (projetoId: number, etapaId: number): Promise<void> => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/projetos/etapas/${etapaId}`, {
+        const response = await fetch(`/api/projetos/${projetoId}/etapas/${etapaId}`, {
           method: 'DELETE',
         });
 

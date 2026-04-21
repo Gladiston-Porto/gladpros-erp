@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
         Responsavel: { select: { nomeCompleto: true } },
       },
       orderBy: { criadoEm: 'desc' },
+      take: 5000,
     })
 
     const headers = [

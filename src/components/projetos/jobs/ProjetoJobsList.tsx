@@ -19,27 +19,16 @@ export function ProjetoJobsList({ projetoId }: { projetoId: number }) {
     useEffect(() => {
         async function fetchProjectJobs() {
             try {
-                // Ideally backend supports ?projetoId=X filter
-                // Since I haven't implemented that specific filter in GET /api/jobs yet, 
-                // I will fetch all and filter client-side for this MVP step 
-                // OR I can quickly add the filter to the API.
-                // Given the constraints and lock issues, client-side filtering of the /api/jobs 
-                // is safer for now until I can regenerate the client/API types.
-                // Wait, /api/jobs returns ALL jobs. That might be heavy. 
-                // But for a demo/MVP it is acceptable.
-
-                const res = await fetch('/api/jobs');
+                const res = await fetch(`/api/jobs?projetoId=${projetoId}`);
+                if (!res.ok) {
+                    setJobs([]);
+                    return;
+                }
                 const data: SchedulerJob[] = await res.json();
-
-                // Filter by project (assuming job.projetoId exists globally or in the data)
-                // The current SchedulerJob type in shared/types might not have projetoId explicitly typed 
-                // but the DB has it. Let's start by just fetching.
-                // Actually, I should update the type or cast it.
-
                 const projectJobs = (data as (SchedulerJob & { projetoId?: number })[]).filter((j) => j.projetoId === projetoId);
                 setJobs(projectJobs);
             } catch (err) {
-                console.error(err);
+                console.error('Erro ao carregar jobs do projeto:', err);
             } finally {
                 setLoading(false);
             }
@@ -96,7 +85,7 @@ export function ProjetoJobsList({ projetoId }: { projetoId: number }) {
                                     <User className="h-3 w-3" />
                                     <span>{job.appointments[0].Technician?.nomeCompleto || 'Técnico'}</span>
                                     <span className="text-muted-foreground/50">|</span>
-                                    <span>{new Date(job.appointments[0].scheduledStart).toLocaleDateString()}</span>
+                                    <span>{new Date(job.appointments[0].scheduledStart).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}</span>
                                 </div>
                             )}
                         </CardContent>

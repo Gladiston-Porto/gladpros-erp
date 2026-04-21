@@ -18,7 +18,7 @@ export const GET = withErrorHandler(async (req: NextRequest,
     await requireProjectPermission(req, 'canViewFinancials');
 
     const { id } = await params;
-    const projetoId = parseInt(id);
+    const projetoId = parseInt(id, 10);
 
     if (isNaN(projetoId)) {
       return NextResponse.json(
@@ -49,7 +49,7 @@ export const POST = withErrorHandler(async (req: NextRequest,
     await requireProjectPermission(req, 'canViewFinancials');
 
     const { id } = await params;
-    const projetoId = parseInt(id);
+    const projetoId = parseInt(id, 10);
 
     if (isNaN(projetoId)) {
       return NextResponse.json(
