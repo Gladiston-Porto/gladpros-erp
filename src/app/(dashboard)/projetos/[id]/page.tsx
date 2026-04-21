@@ -34,6 +34,7 @@ import { MateriaisLista } from '@/components/projetos/materiais/MateriaisLista';
 import { FinanceiroDashboard } from '@/components/projetos/financeiro/FinanceiroDashboard';
 import { EquipeManager } from '@/components/projetos/equipe/EquipeManager';
 import { ProjetoJobsList } from '@/components/projetos/jobs/ProjetoJobsList';
+import { ProjetoHistorico } from '@/components/projetos/historico/ProjetoHistorico';
 import { useProjetoOperations } from '@/hooks/projetos/useProjetoOperations';
 import type { Projeto } from '@/lib/projetos/types';
 import {
@@ -292,20 +293,15 @@ export default function ProjetoDetailPage() {
         />
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full rounded-2xl bg-card p-1 shadow-sm md:grid-cols-6">
+          <TabsList className="grid w-full rounded-2xl bg-card p-1 shadow-sm md:grid-cols-7">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="jobs">Jobs (OS)</TabsTrigger>
             <TabsTrigger value="etapas">Etapas</TabsTrigger>
             <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
-            <TabsTrigger value="materiais">
-              Materiais
-            </TabsTrigger>
-            <TabsTrigger value="financeiro">
-              Financeiro
-            </TabsTrigger>
-            <TabsTrigger value="equipe">
-              Equipe
-            </TabsTrigger>
+            <TabsTrigger value="materiais">Materiais</TabsTrigger>
+            <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+            <TabsTrigger value="equipe">Equipe</TabsTrigger>
+            <TabsTrigger value="historico">Histórico</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -494,6 +490,10 @@ export default function ProjetoDetailPage() {
 
           <TabsContent value="equipe">
             <EquipeManager projetoId={projeto.id} />
+          </TabsContent>
+
+          <TabsContent value="historico">
+            <ProjetoHistorico projetoId={projeto.id} />
           </TabsContent>
         </Tabs>
 

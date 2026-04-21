@@ -4,7 +4,8 @@ import { requireProjectOwnershipPermission } from '@/shared/lib/rbac-projects'
 import { alterarStatusProjetoSchema } from '@/domains/projects/validators'
 import { ZodError } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { withErrorHandler } from '@/lib/api/error-handler';
+import { withErrorHandler } from '@/lib/api/error-handler'
+import { apiRateLimit } from '@/shared/lib/rate-limit'
 
 export const runtime = "nodejs"
 
@@ -13,7 +14,14 @@ export const runtime = "nodejs"
  */
 export const PATCH = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
-    // Validar ID
+    const rateCheck = await apiRateLimit.isAllowed(request)
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests', message: rateCheck.message, success: false },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.resetTime) } }
+      )
+    }
+
     const { id } = await context.params
     const projetoId = Number(id)
     
@@ -24,7 +32,6 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
       )
     }
     
-    // Buscar projeto para verificar responsável
     const projetoAtual = await prisma.projeto.findUnique({
       where: { id: projetoId },
       select: { responsavelId: true, status: true }
@@ -37,24 +44,18 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
       )
     }
     
-    // Verificar permissão com ownership
     const user = await requireProjectOwnershipPermission(
       request,
       'canChangeStatus',
       projetoAtual.responsavelId
     )
     
-    // Parsear body
     const body = await request.json()
-    
-    // Validar dados de entrada
     const data = alterarStatusProjetoSchema.parse(body)
     
-    // Alterar status
     const service = new ProjectService()
     const projeto = await service.alterarStatus(projetoId, data, Number(user.id))
     
-    // AuditLog
     await prisma.auditLog.create({
       data: {
         id: crypto.randomUUID(),
@@ -67,5 +68,5 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
     })
     
     return NextResponse.json({ data: projeto, success: true })
-    
-  });
+  })
+

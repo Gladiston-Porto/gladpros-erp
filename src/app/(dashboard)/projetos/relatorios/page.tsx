@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { ModulePageHeader } from "@gladpros/ui/module-page-header";
 import { Button } from "@gladpros/ui/button";
 import { Card, CardContent, CardHeader } from "@gladpros/ui/card";
-import { ArrowLeft, Briefcase, PlayCircle, CheckCircle2, AlertTriangle, TrendingUp } from "lucide-react";
+import { ArrowLeft, Briefcase, PlayCircle, CheckCircle2, AlertTriangle, TrendingUp, Download } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
   planejado: "Planejado",
@@ -101,12 +101,20 @@ export default async function RelatoriosProjetosPage() {
           { label: "Relatórios" },
         ]}
         actions={
-          <Button variant="outline" size="default" asChild>
-            <Link href="/projetos">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="default" asChild>
+              <a href="/api/projetos/relatorios/export" download aria-label="Exportar relatório de projetos em CSV">
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </a>
+            </Button>
+            <Button variant="outline" size="default" asChild>
+              <Link href="/projetos">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Link>
+            </Button>
+          </div>
         }
       />
 
