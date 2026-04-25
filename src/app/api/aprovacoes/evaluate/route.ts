@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 // Mock approval rules (same as in rules/route.ts)
 const mockApprovalRules = [
@@ -108,6 +110,10 @@ function evaluateRule(rule: unknown, approvalData: unknown): boolean {
 }
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'aprovacoes', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const approvalData = await request.json();
 
     if (!approvalData) {

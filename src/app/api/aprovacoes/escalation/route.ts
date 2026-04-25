@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 // Mock escalation rules
 const escalationRules = [
@@ -33,7 +35,11 @@ const escalationRules = [
   }
 ];
 
-export const GET = withErrorHandler(async () => {
+export const GET = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'aprovacoes', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     return NextResponse.json({
       success: true,
       data: escalationRules
@@ -41,6 +47,10 @@ export const GET = withErrorHandler(async () => {
   });
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'aprovacoes', 'write')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const body = await request.json();
     const { approvalId, currentApprovers, createdAt, priority } = body;
 

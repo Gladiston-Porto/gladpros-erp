@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
-
-// Mock approval rules data
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 const mockApprovalRules = [
   {
     id: '1',
@@ -71,6 +71,10 @@ const mockApprovalRules = [
 ];
 
 export const GET = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'aprovacoes', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
 
@@ -89,6 +93,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   });
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'aprovacoes', 'write')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const body = await request.json();
     const { name, description, conditions, actions, active = true } = body;
 
@@ -115,6 +123,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   });
 
 export const PUT = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'aprovacoes', 'write')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const body = await request.json();
     const { id, ...updates } = body;
 
