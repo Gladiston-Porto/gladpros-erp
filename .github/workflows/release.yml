@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., v1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  release:
+    name: 🚀 Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${VERSION}$" | head -1)
+
+          echo "## What's Changed in ${VERSION}" > CHANGELOG_ENTRY.md
+          echo "" >> CHANGELOG_ENTRY.md
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "### Commits since ${PREV_TAG}" >> CHANGELOG_ENTRY.md
+            echo "" >> CHANGELOG_ENTRY.md
+
+            # Features
+            FEATURES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -iE "^- feat" || true)
+            if [ -n "$FEATURES" ]; then
+              echo "#### ✨ Features" >> CHANGELOG_ENTRY.md
+              echo "$FEATURES" >> CHANGELOG_ENTRY.md
+              echo "" >> CHANGELOG_ENTRY.md
+            fi
+
+            # Bug Fixes
+            FIXES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -iE "^- fix" || true)
+            if [ -n "$FIXES" ]; then
+              echo "#### 🐛 Bug Fixes" >> CHANGELOG_ENTRY.md
+              echo "$FIXES" >> CHANGELOG_ENTRY.md
+              echo "" >> CHANGELOG_ENTRY.md
+            fi
+
+            # Chores / Improvements
+            CHORES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -iE "^- (chore|refactor|perf|docs|style)" || true)
+            if [ -n "$CHORES" ]; then
+              echo "#### 🔧 Improvements" >> CHANGELOG_ENTRY.md
+              echo "$CHORES" >> CHANGELOG_ENTRY.md
+              echo "" >> CHANGELOG_ENTRY.md
+            fi
+
+            # Other
+            OTHERS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -viE "^- (feat|fix|chore|refactor|perf|docs|style)" || true)
+            if [ -n "$OTHERS" ]; then
+              echo "#### 📦 Other Changes" >> CHANGELOG_ENTRY.md
+              echo "$OTHERS" >> CHANGELOG_ENTRY.md
+              echo "" >> CHANGELOG_ENTRY.md
+            fi
+
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${VERSION}" >> CHANGELOG_ENTRY.md
+          else
+            echo "Initial release — ${VERSION}" >> CHANGELOG_ENTRY.md
+          fi
+
+          cat CHANGELOG_ENTRY.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: "GladPros ERP ${{ steps.version.outputs.version }}"
+          body_path: CHANGELOG_ENTRY.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

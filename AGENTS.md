@@ -622,6 +622,19 @@ Para tarefas específicas, consultar `.github/skills/`:
 | `locale-formatter` | moeda, datas, timezone, telefone, endereço | `.github/skills/locale-formatter/SKILL.md` |
 | `module-audit` | auditoria técnica de um módulo | `.github/skills/module-audit/SKILL.md` |
 | `performance-audit` | detectar gargalos de performance, queries lentas, índices faltantes, config incorreta | `.github/skills/performance-audit/SKILL.md` |
+| `whatsapp-integration` | envio de mensagens, templates, webhook Meta, rate limits | `.github/skills/whatsapp-integration/SKILL.md` |
+| `notifications-system` | notificações in-app, WebSocket, tipos, entrega, leitura | `.github/skills/notifications-system/SKILL.md` |
+| `invoice-generation` | geração de invoice, TX sales tax, status machine, PDF, pagamento | `.github/skills/invoice-generation/SKILL.md` |
+| `deployment-runbook` | deploy, rollback, env vars, checklist pré-deploy, troubleshooting | `.github/skills/deployment-runbook/SKILL.md` |
+
+### Playbooks disponíveis (referência operacional passo a passo)
+
+| Skill | Playbook | Conteúdo |
+|-------|----------|---------|
+| `financial-tax-compliance` | `.github/skills/financial-tax-compliance/PLAYBOOK.md` | IRS rules, Schedule C, S-Corp, owner compensation |
+| `service-order-module` | `.github/skills/service-order-module/PLAYBOOK.md` | Fluxo completo OS, materiais, casos limite, RBAC |
+| `rbac-access` | `.github/skills/rbac-access/PLAYBOOK.md` | Checklist por camada, filtros por role, testes de RBAC |
+| `erp-data-flow` | `.github/skills/erp-data-flow/PLAYBOOK.md` | Proposta→Invoice passo a passo, diagnóstico cross-módulo |
 
 ### Agentes especializados disponíveis
 
@@ -633,6 +646,19 @@ Para tarefas específicas, usar os agentes em `.github/agents/`:
 | `api-audit` | criar ou revisar rotas de API, checklist de padrões de rota | `.github/agents/api-audit.agent.md` |
 | `security-review` | revisar auth, RBAC, exposição de dados, OWASP, tokens | `.github/agents/security-review.agent.md` |
 | `db-migration` | criar migrations Prisma, alterar schema, checklist de rollback | `.github/agents/db-migration.agent.md` |
+| `test-generator` | gerar testes Jest e Playwright para módulos existentes | `.github/agents/test-generator.agent.md` |
+| `bug-hunter` | investigar bugs com stack trace, identificar causa raiz, patch mínimo | `.github/agents/bug-hunter.agent.md` |
+
+### Chat Modes disponíveis (`.github/chatmodes/`)
+
+| Chat Mode | Quando usar |
+|-----------|-------------|
+| `erp-architect` | Decisões de arquitetura, impacto cross-módulo, avaliação de risco estrutural |
+| `api-audit` | Criar ou revisar rotas de API com checklist completo |
+| `security-review` | Revisão de segurança OWASP, RBAC gaps, exposição de dados |
+| `db-migration` | Criar ou validar migrations Prisma com checklist de rollback |
+| `feature-dev` | Desenvolvimento do dia a dia — modo ágil com padrões do projeto |
+| `clause` | Revisão de contratos e termos legais |
 
 ### Prompts reutilizáveis disponíveis
 
@@ -648,6 +674,157 @@ Use `/nome-do-prompt` no chat para ativar:
 | `/review-page` | Revisar página: padrões UI, acessibilidade, RBAC, estados |
 | `/accessibility-audit` | Auditar acessibilidade de componentes e páginas |
 | `/consistency-check` | Verificar consistência de padrões entre módulos |
+| `/generate-tests` | Gerar testes Jest e/ou Playwright para um módulo existente |
+| `/fix-bug` | Investigação sistemática de bug — causa raiz, patch mínimo, prevenção |
+| `/deploy-checklist` | Checklist completo pré-deploy: build, segurança, migrations, env vars |
+| `/audit-queries` | Auditoria de queries Prisma — N+1, índices, paginação, select excessivo |
+
+---
+
+## 17.1 Ferramentas futuras do ecossistema (após estabilização em produção)
+
+Estas ferramentas **não substituem** a arquitetura principal do ERP.
+Elas devem ser consideradas apenas quando o sistema estiver estável, auditado e sem problemas críticos de produção.
+
+### 17.1.1 MCP (Model Context Protocol)
+
+O MCP pode ser usado para ampliar a capacidade de agentes e assistentes internos com acesso controlado a ferramentas e dados.
+
+**Uso recomendado no ecossistema GladPros:**
+- automação de browser e regressão via Playwright MCP;
+- leitura segura de arquivos e documentação via MCP de filesystem/fetch;
+- apoio a repositório e workflow técnico via MCP de git/GitHub;
+- memória persistente de contexto para agentes internos;
+- conversão de timezone e rotinas utilitárias com ferramentas auxiliares.
+
+**MCPs com melhor aderência ao GladPros:**
+- **Playwright MCP** → smoke tests, regressão visual, validação de fluxos reais por módulo;
+- **Filesystem MCP** → leitura controlada de docs, relatórios e artefatos do workspace;
+- **Git / GitHub MCP** → revisão de PR, rastreamento de mudanças, automações de repositório;
+- **Fetch MCP** → leitura de documentação externa sem scraping manual;
+- **Memory MCP** → memória operacional para agentes e copilots internos;
+- **Time MCP** → conversões e validações com `America/Chicago`.
+
+**Possíveis MCPs futuros, com avaliação de segurança antes de uso:**
+- banco de dados somente leitura para auditoria e BI;
+- observabilidade (ex: Sentry/logs) para investigação operacional;
+- integrações com storage, documentos e catálogos internos;
+- gateway centralizado de MCP com RBAC, auditoria e isolamento.
+
+**Regra crítica:**
+- os servidores de referência do ecossistema MCP servem como exemplo e **não devem ser tratados automaticamente como produção-ready**;
+- qualquer MCP que acesse dados do ERP deve ter escopo mínimo, credenciais segregadas, trilha de auditoria e revisão de segurança;
+- MCP nunca deve contornar RBAC, auth, validação de negócio ou masking de dados sensíveis.
+
+### 17.1.2 Playwright MCP
+
+O Playwright MCP é particularmente útil para o GladPros porque o sistema é fortemente orientado a fluxo operacional e UI de dashboard.
+
+**Casos ideais:**
+- validar CRUD real após mudanças de layout;
+- verificar RBAC por role no frontend e na navegação;
+- capturar regressões em drawer, modal, paginação, tabs e formulários;
+- conferir loading, empty state, erro, confirmação e redirects;
+- executar smoke tests de módulos críticos antes de merge/deploy.
+
+**Posicionamento correto no projeto:**
+- usar como camada de regressão E2E e visual;
+- não substituir testes unitários de API, Zod, RBAC e regras de negócio.
+
+### 17.1.3 GitHub Spark
+
+GitHub Spark pode ser usado como ambiente rápido de prototipagem de mini-apps e provas de conceito.
+
+**Usos aceitáveis para GladPros:**
+- protótipo rápido de assistente de propostas com IA;
+- portal simples de consulta interna para leads ou follow-up comercial;
+- mini app de checklist de visita técnica;
+- painel experimental para análise de métricas;
+- rascunho navegável de um novo fluxo antes de levá-lo para o ERP principal.
+
+**Pilotos sugeridos:**
+- protótipo de assistente operacional para propostas;
+- portal interno de consulta e follow-up comercial;
+- estes pilotos podem ser explorados em paralelo ao processo de revisão módulo por módulo, mas fora do core do ERP.
+
+**Não usar Spark para:**
+- núcleo do ERP;
+- auth, MFA, RBAC, financeiro, fiscal, payroll ou dados sensíveis;
+- substituir módulos principais já existentes em Next.js/Prisma.
+
+### 17.1.4 GitHub Models
+
+GitHub Models pode ajudar o GladPros quando houver necessidade de construir features com IA de forma governada dentro do workflow GitHub.
+
+**O que oferece:**
+- catálogo de múltiplos modelos sob uma única integração;
+- comparação lado a lado entre modelos;
+- avaliações quantitativas (`evals`) para medir qualidade;
+- prompts versionados como código no repositório;
+- governança organizacional sobre quais modelos podem ser usados.
+
+**Usos recomendados no GladPros:**
+- comparar modelos para assistente de propostas, follow-up comercial e sumarização operacional;
+- versionar prompts críticos no repositório, com PR e revisão;
+- avaliar qualidade antes de levar uma feature com IA para produção;
+- criar pequenos experimentos de classificação, extração e sugestão assistida.
+
+**Não tratar como:**
+- substituto do backend do ERP;
+- autorização para enviar dados sensíveis sem política clara;
+- atalho para colocar IA em produção sem evals, logging e revisão de segurança.
+
+### 17.1.5 Regras de adoção dessas ferramentas
+
+Antes de adotar qualquer uma destas ferramentas no ambiente real:
+1. verificar se o módulo principal já está estável e auditado;
+2. definir escopo exato do dado acessado;
+3. garantir logs, isolamento e auditoria de uso;
+4. começar com read-only ou sandbox quando possível;
+5. validar impacto jurídico, fiscal, operacional e de segurança.
+
+Se houver dúvida entre usar a ferramenta nova ou manter o fluxo tradicional do ERP, a prioridade continua sendo:
+**segurança, previsibilidade operacional e integridade dos dados**.
+
+### 17.1.6 Priorização por feedback real de produção
+
+Como o GladPros já está em uso real na empresa, qualquer melhoria futura com MCP, Spark ou GitHub Models deve ser priorizada com base em feedback operacional concreto.
+
+**Critério de priorização obrigatório:**
+1. dor recorrente reportada pela operação;
+2. impacto em tempo, retrabalho ou erro humano;
+3. frequência do fluxo na rotina da empresa;
+4. risco de tocar dados sensíveis ou fluxo crítico;
+5. custo de manutenção da melhoria após entrega.
+
+**Regra de produto:**
+- não criar feature “porque parece boa” sem evidência de uso ou demanda real;
+- usar feedback da empresa para validar o que merece virar piloto;
+- começar por melhorias pequenas, mensuráveis e reversíveis;
+- qualquer experimento novo deve ter objetivo claro, hipótese e critério de sucesso.
+
+### 17.1.7 Roadmap inicial de pilotos futuros
+
+Estes pilotos são aceitáveis depois que cada módulo principal estiver auditado, estável e com operação validada.
+
+**Pilotos iniciais com melhor relação valor/risco:**
+- assistente operacional para propostas com IA;
+- portal interno de consulta e follow-up comercial;
+- checklist digital de visita técnica;
+- painel experimental de métricas operacionais;
+- fluxo navegável de novos processos antes de entrar no ERP principal.
+
+**Sequência recomendada de exploração:**
+1. `propostas` → assistente operacional, apoio a escrita, revisão e follow-up;
+2. `usuarios` / operação interna → portal simples para consulta, follow-up e organização de demandas;
+3. `service-orders` / visitas técnicas → checklist rápido e coleta estruturada em campo;
+4. `analytics` / `reports` → painel experimental com métricas para gestão;
+5. fluxos novos ainda não consolidados → protótipo navegável fora do core do ERP.
+
+**Regra de entrada para qualquer piloto:**
+- o módulo base já precisa estar funcionando bem em produção;
+- o piloto não pode enfraquecer segurança ou estabilidade do ERP principal;
+- o piloto deve nascer separado do núcleo e só pode ser incorporado depois de validado com usuários reais.
 
 ---
 
