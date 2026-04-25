@@ -1,30 +1,56 @@
-// src/app/api/documents/[id]/download/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { prisma } from '@/lib/prisma';
 
-export const GET = withErrorHandler(async (request: Request,
+function parseDocumentId(id: string): { type: 'proposta' | 'projeto'; numericId: number } | null {
+  if (id.startsWith('prop-')) {
+    const num = parseInt(id.slice(5), 10);
+    return isNaN(num) ? null : { type: 'proposta', numericId: num };
+  }
+  if (id.startsWith('proj-')) {
+    const num = parseInt(id.slice(5), 10);
+    return isNaN(num) ? null : { type: 'projeto', numericId: num };
+  }
+  return null;
+}
+
+export const GET = withErrorHandler(async (request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
-    // Authentication not needed for mock implementation
-    // const user = await requireUser();
-    const { id } = await params;
+  await requireUser(request);
+  const { id } = await params;
 
-    // In production, fetch document from database and storage
-    // For now, simulate document download
-    const mockDocument = {
-      id,
-      name: 'sample_document.pdf',
-      type: 'application/pdf',
-      size: 1024000,
-      url: '/documents/sample_document.pdf',
-    };
+  const parsed = parseDocumentId(id);
+  if (!parsed) {
+    return NextResponse.json({ error: 'ID de documento inválido', success: false }, { status: 400 });
+  }
 
-    // In production, you would:
-    // 1. Check user permissions for this document
-    // 2. Fetch file from storage (S3, etc.)
-    // 3. Stream the file back to the client
+  let fileUrl: string | null = null;
+  let fileName: string | null = null;
 
-    return NextResponse.json({
-      message: 'Download endpoint ready',
-      document: mockDocument,
+  if (parsed.type === 'proposta') {
+    const anexo = await prisma.anexoProposta.findUnique({
+      where: { id: parsed.numericId },
+      select: { filename: true, filepath: true },
     });
+    if (!anexo) return NextResponse.json({ error: 'Documento não encontrado', success: false }, { status: 404 });
+    fileUrl = anexo.filepath;
+    fileName = anexo.filename;
+  } else {
+    const anexo = await prisma.projetoAnexo.findUnique({
+      where: { id: parsed.numericId },
+      select: { arquivoUrl: true, rotulo: true },
+    });
+    if (!anexo) return NextResponse.json({ error: 'Documento não encontrado', success: false }, { status: 404 });
+    fileUrl = anexo.arquivoUrl;
+    fileName = anexo.rotulo ?? anexo.arquivoUrl.split('/').pop() ?? 'documento';
+  }
+
+  // Redireciona para a URL do arquivo (local /uploads/ ou storage externo)
+  return NextResponse.json({
+    id,
+    name: fileName,
+    url: fileUrl,
+    success: true,
   });
+});

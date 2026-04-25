@@ -1,10 +1,10 @@
 // src/app/api/whatsapp/send/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
 
-export const POST = withErrorHandler(async (request: Request) => {
-    // Authentication not needed for mock implementation
-    // const user = await requireUser();
+export const POST = withErrorHandler(async (request: NextRequest) => {
+    await requireUser(request);
 
     const body = await request.json();
     const { to, message } = body;

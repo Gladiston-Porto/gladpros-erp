@@ -1,10 +1,14 @@
 // src/app/api/insights/recommendations/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
-export const GET = withErrorHandler(async (request: Request) => {
-    // Authentication not needed for mock implementation
-    // const user = await requireUser();
+export const GET = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'analytics', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || 'all';

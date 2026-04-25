@@ -1,55 +1,41 @@
-// src/app/api/documents/[id]/share/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
 
-export const POST = withErrorHandler(async (request: Request) => {
-    // Authentication not needed for mock implementation
-    // const user = await requireUser();
-    // const { id } = await params; // Not used in mock implementation
-    const body = await request.json();
-    const { shareWith, permissions } = body;
+// Compartilhamento de documentos ainda não tem modelo no banco.
+// Auth adicionada; funcionalidade real será implementada quando o modelo existir.
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  await requireUser(request);
+  const body = await request.json();
+  const { shareWith, permissions } = body;
 
-    if (!shareWith || !Array.isArray(shareWith)) {
-      return NextResponse.json(
-        { error: 'Lista de usuários para compartilhar é obrigatória' },
-        { status: 400 }
-      );
-    }
+  if (!shareWith || !Array.isArray(shareWith) || shareWith.length === 0) {
+    return NextResponse.json(
+      { error: 'Lista de usuários para compartilhar é obrigatória', success: false },
+      { status: 400 }
+    );
+  }
 
-    // In production, create sharing records in database
-    const shareRecords = shareWith.map((userId: string) => ({
-      documentId: 'mock-document-id', // Mock document ID
-      sharedWith: userId,
-      permissions: permissions || ['read'],
-      sharedAt: new Date().toISOString(),
-      sharedBy: 1, // Mock user ID
-    }));
+  return NextResponse.json(
+    { error: 'Compartilhamento de documentos ainda não implementado', success: false },
+    { status: 501 }
+  );
+});
 
-    return NextResponse.json({
-      message: 'Documento compartilhado com sucesso',
-      shares: shareRecords,
-    });
-  });
+export const DELETE = withErrorHandler(async (request: NextRequest) => {
+  await requireUser(request);
+  const { searchParams } = new URL(request.url);
+  const userId = searchParams.get('userId');
 
-export const DELETE = withErrorHandler(async (request: Request) => {
-    // Authentication not needed for mock implementation
-    // const user = await requireUser();
-    // const { id } = await params; // Not used in mock implementation
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+  if (!userId) {
+    return NextResponse.json(
+      { error: 'ID do usuário é obrigatório', success: false },
+      { status: 400 }
+    );
+  }
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'ID do usuário é obrigatório' },
-        { status: 400 }
-      );
-    }
-
-    // In production, remove sharing record from database
-
-    return NextResponse.json({
-      message: 'Compartilhamento removido com sucesso',
-      documentId: 'mock-document-id', // Mock document ID
-      userId,
-    });
-  });
+  return NextResponse.json(
+    { error: 'Compartilhamento de documentos ainda não implementado', success: false },
+    { status: 501 }
+  );
+});

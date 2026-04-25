@@ -1,11 +1,14 @@
 // src/app/api/reports/[id]/data/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
-export const GET = withErrorHandler(async () => {
-    // Authentication not needed for mock implementation
-    // const user = await requireUser(request);
-    // const { id } = await params; // Not used in mock implementation
+export const GET = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'reports', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
 
     // Mock data based on report type - in production, query database
     const mockData = {

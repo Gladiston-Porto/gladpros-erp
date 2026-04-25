@@ -1,6 +1,7 @@
 // src/app/api/whatsapp/templates/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
 
 // Mock WhatsApp message templates
 const mockTemplates = [
@@ -45,17 +46,15 @@ const mockTemplates = [
   },
 ];
 
-export const GET = withErrorHandler(async () => {
-    // Temporarily disabled auth for testing
-    // const _user = await requireUser();
+export const GET = withErrorHandler(async (request: NextRequest) => {
+    await requireUser(request);
 
-    // In production, fetch from WhatsApp Business API
+    // Em produção, buscar da WhatsApp Business API
     return NextResponse.json(mockTemplates);
   });
 
-export const POST = withErrorHandler(async (request: Request) => {
-    // Authentication not needed for mock implementation
-    // const user = await requireUser();
+export const POST = withErrorHandler(async (request: NextRequest) => {
+    await requireUser(request);
 
     const body = await request.json();
     const { name, language, category, components } = body;

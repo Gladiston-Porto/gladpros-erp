@@ -32,16 +32,5 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       downloadUrl: null, // Will be set when backup completes
     };
 
-    // eslint-disable-next-line no-console
-    // eslint-disable-next-line no-console
-    console.log(`[BACKUP] Backup iniciado: ${backupId}`);
-
-    // Simulate backup completion (in production, this would be async)
-    setTimeout(() => {
-      // eslint-disable-next-line no-console
-    // eslint-disable-next-line no-console
-    console.log(`[BACKUP] Backup concluído: ${backupId}`);
-    }, 5000);
-
     return NextResponse.json(backup, { status: 201 });
   });

@@ -1,6 +1,8 @@
 // src/app/api/reports/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 // Mock data for demonstration - in production, this would come from database
 const mockReports = [
@@ -37,8 +39,11 @@ const mockReports = [
   },
 ];
 
-export const GET = withErrorHandler(async () => {
-    // Authentication not needed for mock implementation
+export const GET = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'reports', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     // const user = await requireUser();
 
     // In production, fetch from database with user permissions
@@ -47,8 +52,11 @@ export const GET = withErrorHandler(async () => {
     return NextResponse.json(reports);
   });
 
-export const POST = withErrorHandler(async (request: Request) => {
-    // Authentication not needed for mock implementation
+export const POST = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'reports', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     // const user = await requireUser();
     const body = await request.json();
 

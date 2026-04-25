@@ -1,14 +1,18 @@
 // src/app/api/reports/[id]/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
-export const GET = withErrorHandler(async (request: Request,
+export const GET = withErrorHandler(async (request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
-    // Authentication not needed for mock implementation
-    // const user = await requireUser(request);
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'reports', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const { id } = await params;
 
-    // Mock report data - in production, fetch from database
+    // Mock report data - em produção, buscar do banco
     const mockReport = {
       id,
       name: 'Relatório de Clientes Ativos',
@@ -26,14 +30,15 @@ export const GET = withErrorHandler(async (request: Request,
     return NextResponse.json(mockReport);
   });
 
-export const PUT = withErrorHandler(async (request: Request,
+export const PUT = withErrorHandler(async (request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
-    // Authentication not needed for mock implementation
-    // const user = await requireUser(request);
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'reports', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
     const { id } = await params;
     const body = await request.json();
 
-    // In production, update in database
     const updatedReport = {
       id,
       ...body,
@@ -43,11 +48,11 @@ export const PUT = withErrorHandler(async (request: Request,
     return NextResponse.json(updatedReport);
   });
 
-export const DELETE = withErrorHandler(async () => {
-    // Authentication not needed for mock implementation
-    // const user = await requireUser(request);
-    // const { id } = await params; // Not used in mock implementation
+export const DELETE = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'reports', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
 
-    // In production, delete from database
     return NextResponse.json({ success: true });
   });
