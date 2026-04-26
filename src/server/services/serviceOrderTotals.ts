@@ -57,12 +57,31 @@ export async function recalculateTotals(serviceOrderId: number): Promise<void> {
         materialTotal += cost * qty;
     }
 
+    // Compute marginStatus if agreedClientPrice is set
+    let marginStatus = 'OK';
+    const so2 = await prisma.serviceOrder.findUnique({
+        where: { id: serviceOrderId },
+        select: { agreedClientPrice: true },
+    });
+    if (so2?.agreedClientPrice) {
+        const agreed = Number(so2.agreedClientPrice);
+        if (agreed > 0) {
+            const totalCost = laborTotal + materialTotal;
+            const pct = totalCost / agreed;
+            if (pct >= 1.1) marginStatus = 'LOSS';
+            else if (pct >= 1.0) marginStatus = 'CRITICAL';
+            else if (pct >= 0.85) marginStatus = 'ALERT';
+            else if (pct >= 0.7) marginStatus = 'WARNING';
+        }
+    }
+
     await prisma.serviceOrder.update({
         where: { id: serviceOrderId },
         data: {
             laborTotal,
             materialTotal,
             total: laborTotal + materialTotal,
+            marginStatus,
         },
     });
 }

@@ -21,8 +21,7 @@ function MFAVerification() {
   const [timeLeft, setTimeLeft] = useState(300) // 5 minutos
   const [canResend, setCanResend] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  
+
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const autoSubmittedRef = useRef(false)
 
@@ -56,6 +55,7 @@ function MFAVerification() {
     setSubmitted(true)
     setLoading(true)
     setError(null)
+    setInfo(null)
 
     try {
       // Fazer a verificação via API diretamente
@@ -149,6 +149,7 @@ function MFAVerification() {
 
     setLoading(true)
     setError(null)
+    setInfo(null)
     
     try {
       await authApi.resendMFA({
@@ -185,7 +186,7 @@ function MFAVerification() {
             alt="GladPros" 
             width={80} 
             height={80} 
-            className="mx-auto mb-4 rounded-lg"
+            className="mx-auto mb-4 rounded-2xl"
           />
           <h1 className="text-2xl font-bold text-foreground mb-2">
             Verificação de Segurança
@@ -213,16 +214,10 @@ function MFAVerification() {
           </div>
         </div>
 
-    {(error || info || success) && (
-          <div className={`mb-6 p-4 border rounded-2xl ${success ? 'bg-green-500/10 border-green-500/20' : error ? 'bg-destructive/10 border-destructive/20' : 'bg-brand-primary/10 border-brand-primary/20'}`}>
+    {(error || info) && (
+          <div className={`mb-6 p-4 border rounded-2xl ${error ? 'bg-destructive/10 border-destructive/20' : 'bg-brand-primary/10 border-brand-primary/20'}`}>
       {error && <p className="text-destructive text-sm">{error}</p>}
       {info && <p className="text-brand-primary text-sm">{info}</p>}
-      {success && (
-        <div className="flex items-center space-x-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-          <p className="text-green-600 dark:text-green-400 text-sm font-medium">{info}</p>
-        </div>
-      )}
           </div>
         )}
 

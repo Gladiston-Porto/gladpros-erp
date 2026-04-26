@@ -65,10 +65,24 @@ export const PATCH = withErrorHandler(async (request: Request,
             );
         }
 
-        const updated = await prisma.serviceOrderScopeItem.update({
-            where: { id: scopeItemId },
-            data: body.data
-        });
+        // Single update with combined where — avoids two-step findFirst+update race (MySQL 1020)
+        let updated;
+        try {
+            updated = await prisma.serviceOrderScopeItem.update({
+                where: { id: scopeItemId, serviceOrderId },
+                data: body.data
+            });
+        } catch (err: unknown) {
+            // MySQL 1020 or Prisma P2034: concurrent modification — return 409 so UI can retry
+            const code = (err as { code?: string })?.code;
+            if (code === 'P2034' || code === 'P2025') {
+                return NextResponse.json(
+                    { error: 'Conflict', message: 'Registro modificado simultaneamente. Tente novamente.', success: false },
+                    { status: 409 }
+                );
+            }
+            throw err;
+        }
 
         return NextResponse.json({ data: updated, success: true }, { status: 200 });
     });

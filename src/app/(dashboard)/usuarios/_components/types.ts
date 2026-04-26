@@ -10,6 +10,7 @@ export type Usuario = {
   status: UserStatus;
   telefone?: string;
   ativo?: boolean;
+  avatarUrl?: string | null;
   endereco1?: string;
   endereco2?: string;
   cidade?: string;

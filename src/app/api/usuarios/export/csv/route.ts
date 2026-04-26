@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
+import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { buildUsuarioSelect } from "@/shared/lib/usuario-query";
 
 type UserRow = {
@@ -11,6 +13,8 @@ type UserRow = {
 	telefone?: string | null; cidade?: string | null; estado?: string | null;
 	cep?: string | null; zipcode?: string | null; criadoEm?: Date | null;
 };
+
+type ColumnRow = { COLUMN_NAME: string };
 
 type SqlValue = string | number | null | Date | boolean;
 
@@ -50,9 +54,16 @@ const FiltersSchema = z.object({
 }).optional();
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+		const rateCheck = await apiRateLimit.isAllowed(req);
+		if (!rateCheck.allowed) {
+		  return NextResponse.json(
+		    { error: 'Too Many Requests', message: rateCheck.message, success: false },
+		    { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
+		  );
+		}
 		const authUser = await requireUser(req);
-		if (!['ADMIN', 'GERENTE'].includes(authUser.role)) {
-			return NextResponse.json({ message: "Acesso negado" }, { status: 403 });
+		if (!can(authUser.role as Role, 'usuarios', 'update')) {
+			return NextResponse.json({ error: 'Forbidden', message: "Acesso negado", success: false }, { status: 403 });
 		}
 
 		const raw = await req.json().catch(() => ({}));
@@ -61,6 +72,10 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 			return NextResponse.json({ message: "Payload inválido" }, { status: 400 });
 		}
 		const f = parsed.data.filters ?? {};
+		const colsRows = (await prisma.$queryRaw`
+			SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario'
+		`) as unknown as ColumnRow[];
+		const cols = new Set(colsRows.map((row) => String(row.COLUMN_NAME)));
 
 		// Processar filtros
 		const effectiveRole = f.role && f.role.trim() !== '' ? f.role : undefined;
@@ -75,10 +90,31 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 		const params: SqlValue[] = [];
 		if (f.q) {
 			const like = `%${f.q}%`;
-			where.push("(email LIKE ? OR nomeCompleto LIKE ? OR nome LIKE ?)");
-			params.push(like, like, like);
+			const searchClauses = ["email LIKE ?"];
+			const searchParams: SqlValue[] = [like];
+			if (cols.has("nomeCompleto")) {
+				searchClauses.push("nomeCompleto LIKE ?");
+				searchParams.push(like);
+			}
+			if (cols.has("nome")) {
+				searchClauses.push("nome LIKE ?");
+				searchParams.push(like);
+			}
+			where.push(`(${searchClauses.join(" OR ")})`);
+			params.push(...searchParams);
 		}
-		if (effectiveRole) { where.push("(role = ? OR nivel = ?)"); params.push(effectiveRole, effectiveRole); }
+		if (effectiveRole) {
+			if (cols.has("nivel") && cols.has("role")) {
+				where.push("(role = ? OR nivel = ?)");
+				params.push(effectiveRole, effectiveRole);
+			} else if (cols.has("nivel")) {
+				where.push("nivel = ?");
+				params.push(effectiveRole);
+			} else if (cols.has("role")) {
+				where.push("role = ?");
+				params.push(effectiveRole);
+			}
+		}
 		if (effectiveStatus) { where.push("status = ?"); params.push(effectiveStatus); }
 		const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
@@ -86,7 +122,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 			switch (f.sortKey) {
 				case "nome": return "COALESCE(nomeCompleto, nome)";
 				case "email": return "email";
-				case "role": return "COALESCE(role, nivel)";
+				case "role":
+					if (cols.has("nivel") && cols.has("role")) return "COALESCE(role, nivel)";
+					if (cols.has("nivel")) return "nivel";
+					if (cols.has("role")) return "role";
+					return "criadoEm";
 				case "ativo": return "status";
 				case "criadoEm":
 				default: return "criadoEm";

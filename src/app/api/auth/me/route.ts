@@ -48,7 +48,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }
   }
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     success: true,
     id: me.id,
     email: user.email,
@@ -66,6 +66,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     dataNascimento,
     createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : String(user.createdAt)
   })
+  res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+  return res
 });
 
 const UpdateMeSchema = z.object({

@@ -42,13 +42,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             (change.value?.messages as { from?: string; type?: string; text?: { body?: string }; timestamp?: string }[])?.forEach((message) => {
               // Log only non-PII metadata (no message text)
               if (process.env.NODE_ENV === 'development') {
-                // eslint-disable-next-line no-console
-                // eslint-disable-next-line no-console
-                console.log('[WHATSAPP] New message:', {
-                  from: message.from ? `${message.from.slice(0, 4)}***` : 'unknown',
-                  type: message.type,
-                  timestamp: message.timestamp,
-                });
+                // WhatsApp message received — add structured logging here when needed
               }
 
               // In production, process the message and respond accordingly

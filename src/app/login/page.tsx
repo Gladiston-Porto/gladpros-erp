@@ -60,6 +60,31 @@ export default function LoginPage() {
     requiresSecurityQuestion?: boolean
   } | null>(null)
 
+  useEffect(() => {
+    let active = true
+
+    async function checkSession() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          credentials: "include",
+          cache: "no-store",
+        })
+
+        if (active && response.ok) {
+          router.replace("/dashboard")
+        }
+      } catch {
+        // Se não houver sessão válida, a página de login continua normalmente.
+      }
+    }
+
+    void checkSession()
+
+    return () => {
+      active = false
+    }
+  }, [router])
+
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     if (!blocked?.unlockAt) return

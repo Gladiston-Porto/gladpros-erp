@@ -45,7 +45,8 @@ export async function middleware(req: NextRequest) {
   const isApi = path.startsWith('/api/');
   const isApiAuth = path.startsWith('/api/auth');
   const isPublicApi = path.startsWith('/api/webhooks') ||
-    (path.startsWith('/api/test-helpers') && process.env.NODE_ENV !== 'production');
+    (path.startsWith('/api/test-helpers') &&
+      (process.env.NODE_ENV !== 'production' || process.env.TEST_MODE === 'true'));
   const isPortal = path.startsWith('/portal/'); // Portal usa token de URL, não JWT
   const isPortalApi = path.startsWith('/api/portal/');
   const isNextInternal = path.startsWith('/_next') || path.startsWith('/static') || path.startsWith('/favicon.ico') || path.match(/\.(png|jpg|jpeg|gif|svg)$/);

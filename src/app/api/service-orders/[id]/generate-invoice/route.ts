@@ -55,7 +55,8 @@ export const POST = withErrorHandler(async (request: Request,
                 workEntries: {
                     include: { Worker: { select: { name: true } } }
                 }
-            }
+            },
+            // also fetch agreedClientPrice via select on the base
         });
 
         if (!order) {
@@ -101,7 +102,11 @@ export const POST = withErrorHandler(async (request: Request,
             }, 0);
         }
 
-        const grandTotal = laborTotal + materialTotal;
+        // Use agreedClientPrice as valorTotal when set (fixed-price contract)
+        const valorTotal = order.agreedClientPrice
+            ? Number(order.agreedClientPrice)
+            : laborTotal + materialTotal;
+        const grandTotal = valorTotal;
         const dueDate = addBusinessDays(new Date(), 5); // Net 5
 
         // C14 + C18: Wrap all mutations in a single transaction to prevent orphan invoices
@@ -146,6 +151,8 @@ export const POST = withErrorHandler(async (request: Request,
                     valorTotal: grandTotal,
                     subtotal: grandTotal,
                     descontoValor: 0,
+                    saldo: grandTotal,
+                    valorPago: 0,
                     dataEmissao: new Date(),
                     dataVencimento: dueDate,
                     status: 'DRAFT',
@@ -155,41 +162,60 @@ export const POST = withErrorHandler(async (request: Request,
             });
 
             // Build invoice items
-            const items = [];
-
-            if (laborTotal > 0) {
-                const totalHours = order.workEntries.reduce((sum, w) => sum + w.totalMinutes, 0) / 60;
-                items.push({
-                    invoiceId: invoice.id,
-                    tipo: 'SERVICE' as const,
-                    descricao: `Mão de obra especializada (${totalHours.toFixed(1)} horas)`,
-                    quantidade: 1,
-                    unidade: 'SV',
-                    precoUnitario: laborTotal,
-                    subtotal: laborTotal,
-                    ordem: 1
+            if (order.agreedClientPrice) {
+                // Fixed-price contract: single flat line item
+                await tx.invoiceItem.create({
+                    data: {
+                        invoiceId: invoice.id,
+                        tipo: 'SERVICE',
+                        descricao: order.title,
+                        quantidade: 1,
+                        unidade: 'SV',
+                        precoUnitario: grandTotal,
+                        subtotal: grandTotal,
+                        taxavel: false,
+                        ordem: 1,
+                    }
                 });
-            }
+            } else {
+                const items = [];
 
-            if (materialTotal > 0) {
-                const materialList = order.materials.map(m =>
-                    `${m.name} (${m.quantityUsed || m.quantityPlanned} ${m.unit || 'un'})`
-                ).join(', ');
+                if (laborTotal > 0) {
+                    const totalHours = order.workEntries.reduce((sum, w) => sum + w.totalMinutes, 0) / 60;
+                    items.push({
+                        invoiceId: invoice.id,
+                        tipo: 'SERVICE' as const,
+                        descricao: `Mão de obra especializada (${totalHours.toFixed(1)} horas)`,
+                        quantidade: 1,
+                        unidade: 'SV',
+                        precoUnitario: laborTotal,
+                        subtotal: laborTotal,
+                        ordem: 1
+                    });
+                }
 
-                items.push({
-                    invoiceId: invoice.id,
-                    tipo: 'MATERIAL' as const,
-                    descricao: `Materiais: ${materialList}`,
-                    quantidade: 1,
-                    unidade: 'KIT',
-                    precoUnitario: materialTotal,
-                    subtotal: materialTotal,
-                    ordem: 2
-                });
-            }
+                if (materialTotal > 0) {
+                    const materialList = order.materials.map(m =>
+                        `${m.name} (${m.quantityUsed || m.quantityPlanned} ${m.unit || 'un'})`
+                    ).join(', ');
+                    const rawDesc = `Materiais: ${materialList}`;
+                    const descMaterial = rawDesc.length > 497 ? rawDesc.substring(0, 494) + '...' : rawDesc;
 
-            if (items.length > 0) {
-                await tx.invoiceItem.createMany({ data: items });
+                    items.push({
+                        invoiceId: invoice.id,
+                        tipo: 'MATERIAL' as const,
+                        descricao: descMaterial,
+                        quantidade: 1,
+                        unidade: 'KIT',
+                        precoUnitario: materialTotal,
+                        subtotal: materialTotal,
+                        ordem: 2
+                    });
+                }
+
+                if (items.length > 0) {
+                    await tx.invoiceItem.createMany({ data: items });
+                }
             }
 
             // C18: Record the COMPLETED → AWAITING_PAYMENT transition in history

@@ -5,6 +5,21 @@ import { prisma } from '@/lib/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { withErrorHandler } from '@/lib/api/error-handler';
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function mapToFormaPagamento(method: string): string {
+  const map: Record<string, string> = {
+    BANK_TRANSFER: 'TRANSFERENCIA',
+    CHECK: 'CHEQUE',
+    CARD: 'CARTAO_CREDITO',
+    CASH: 'DINHEIRO',
+    STRIPE: 'CARTAO_CREDITO',
+    SQUARE: 'CARTAO_CREDITO',
+    OTHER: 'TRANSFERENCIA',
+  };
+  return map[method] ?? 'TRANSFERENCIA';
+}
+
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const createPaymentSchema = z.object({
@@ -63,7 +78,7 @@ export const POST = withErrorHandler(
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, empresaId: 1 },
-      select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true },
+      select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true, clienteId: true },
     });
 
     if (!invoice) {
@@ -157,6 +172,35 @@ export const POST = withErrorHandler(
           }),
         },
       });
+
+      // Auto-create Revenue record when invoice is fully paid
+      if (novoStatus === 'PAID') {
+        try {
+          const defaultCategory = await tx.revenueCategory.findFirst({
+            where: { empresaId: 1 },
+            select: { id: true },
+          });
+          if (defaultCategory) {
+            await tx.revenue.create({
+              data: {
+                empresaId: 1,
+                categoriaId: defaultCategory.id,
+                clienteId: invoice.clienteId ?? undefined,
+                descricao: `Invoice #${invoiceId} - pagamento recebido`,
+                valor: new Decimal(body.valor),
+                dataEmissao: new Date(body.dataPagamento),
+                dataVencimento: new Date(body.dataPagamento),
+                dataPagamento: new Date(body.dataPagamento),
+                tipo: 'SERVICO',
+                formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
+                status: 'RECEBIDA',
+              },
+            });
+          }
+        } catch {
+          // Non-blocking: Revenue creation failure should not abort the payment
+        }
+      }
 
       return { payment, invoice: updatedInvoice };
     });

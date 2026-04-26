@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 // Types for aggregated pending purchases
 type PendingPurchaseItem = {
@@ -22,7 +24,11 @@ type PendingPurchaseItem = {
 };
 
 // GET /api/inventory/pending-purchases - Aggregated list of materials needing purchase [V3.1 #3]
-export const GET = withErrorHandler(async () => {
+export const GET = withErrorHandler(async (request: NextRequest) => {
+        const authUser = await requireUser(request);
+        if (!can(authUser.role as Role, 'estoque', 'read')) {
+            return NextResponse.json({ error: 'Sem permissão', success: false }, { status: 403 });
+        }
         // Find all materials with NEEDS_PURCHASE status
         const pendingMaterials = await prisma.serviceOrderMaterial.findMany({
             where: { status: 'NEEDS_PURCHASE' },

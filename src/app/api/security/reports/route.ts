@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SecurityService } from "@/shared/lib/security";
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { type Role } from '@/shared/lib/rbac-core';
 
-// GET - Relatórios de segurança
+// GET - Relatórios de segurança (apenas ADMIN)
 export const GET = withErrorHandler(async (request: NextRequest) => {
+    const authUser = await requireUser(request);
+    if ((authUser.role as Role) !== 'ADMIN') {
+        return NextResponse.json({ error: 'Acesso restrito a administradores', success: false }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'failed-logins';
     const limit = parseInt(searchParams.get('limit') || '100');

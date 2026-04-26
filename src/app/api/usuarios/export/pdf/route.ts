@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { generateReportPDFFromHTML } from '@/shared/lib/services/report-pdf-html';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
+import { apiRateLimit } from '@/shared/lib/rate-limit';
 
 const FiltersSchema = z.object({
   q: z.string().optional(),
@@ -12,6 +14,7 @@ const FiltersSchema = z.object({
 
 const exportBodySchema = z.object({
   filters: FiltersSchema,
+  ids: z.array(z.number().int().positive()).max(500).optional(),
   filename: z.string().max(100).optional(),
 });
 
@@ -22,25 +25,33 @@ const exportBodySchema = z.object({
  * the print page (/reports/users) via Playwright headless browser.
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
+  const rateCheck = await apiRateLimit.isAllowed(request);
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      { error: 'Too Many Requests', message: rateCheck.message, success: false },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
+    );
+  }
   const authUser = await requireUser(request);
-  if (!['ADMIN', 'GERENTE'].includes(authUser.role)) {
-    return NextResponse.json({ message: 'Acesso negado' }, { status: 403 });
+  if (!can(authUser.role as Role, 'usuarios', 'update')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Acesso negado', success: false }, { status: 403 });
   }
 
   const raw = await request.json().catch(() => ({}));
-  const { filters, filename: rawFilename } = exportBodySchema.parse(raw);
+  const { filters, ids, filename: rawFilename } = exportBodySchema.parse(raw);
 
   const filename = rawFilename
     ? rawFilename.replace(/[^\w\-_.]/g, '_').substring(0, 100)
     : 'usuarios';
 
-  // Build query string from filters to pass to the print page
+  // Build query string from filters/ids to pass to the print page
   const params = new URLSearchParams();
-  if (filters) {
+  if (ids && ids.length > 0) {
+    params.set('ids', ids.join(','));
+  } else if (filters) {
     if (filters.q) params.set('search', filters.q);
     if (filters.role && filters.role.trim()) params.set('role', filters.role);
     if (filters.status && filters.status.trim()) {
-      // Handle both "ATIVO"/"INATIVO" and "true"/"false" formats
       if (filters.status === 'true') params.set('status', 'ATIVO');
       else if (filters.status === 'false') params.set('status', 'INATIVO');
       else params.set('status', filters.status);

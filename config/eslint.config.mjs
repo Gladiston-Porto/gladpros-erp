@@ -76,9 +76,11 @@ const eslintConfig = [
     },
   },
   {
-    files: ["src/tests/**/*.{js,ts,tsx}", "scripts/**/*.{js,ts}"],
+    files: ["src/tests/**/*.{js,ts,tsx}", "src/__tests__/**/*.{js,ts,tsx}", "src/**/__tests__/**/*.{js,ts,tsx}", "scripts/**/*.{js,ts}"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/ban-types": "off",
+      "@typescript-eslint/no-unsafe-function-type": "off",
       "import/no-anonymous-default-export": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": "warn",

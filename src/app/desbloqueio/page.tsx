@@ -215,10 +215,11 @@ function DesbloqueioView() {
 
               <form onSubmit={(e) => { e.preventDefault(); unlockWithPin(); }} className="space-y-6">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-foreground/80">
+                  <label htmlFor="pin-desbloqueio" className="mb-2 block text-sm font-medium text-foreground/80">
                     PIN de Segurança (4 dígitos)
                   </label>
                   <input
+                    id="pin-desbloqueio"
                     type="password"
                     value={pin}
                     onChange={(e) => {
@@ -227,6 +228,8 @@ function DesbloqueioView() {
                     }}
                     placeholder="****"
                     maxLength={4}
+                    aria-label="PIN de segurança com 4 dígitos"
+                    autoComplete="current-password"
                     className="w-32 h-11 rounded-xl border border-border bg-background text-foreground px-4 py-3 text-center text-lg tracking-widest focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                   />
                 </div>

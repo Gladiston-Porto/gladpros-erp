@@ -51,6 +51,7 @@ interface SearchParams {
   role?: string;
   status?: string;
   search?: string;
+  ids?: string; // comma-separated IDs for bulk export
 }
 
 export default async function UserReportPrintPage({
@@ -65,18 +66,24 @@ export default async function UserReportPrintPage({
 
   const filters = await searchParams;
 
-  const where: Prisma.UsuarioWhereInput = {
-    ...(filters.role ? { nivel: filters.role } : {}),
-    ...(filters.status ? { status: filters.status as 'ATIVO' | 'INATIVO' } : {}),
-    ...(filters.search
-      ? {
-          OR: [
-            { nomeCompleto: { contains: filters.search } },
-            { email: { contains: filters.search } },
-          ],
-        }
-      : {}),
-  };
+  const specificIds = filters.ids
+    ? filters.ids.split(',').map(Number).filter((n) => !isNaN(n) && n > 0)
+    : null;
+
+  const where: Prisma.UsuarioWhereInput = specificIds
+    ? { id: { in: specificIds } }
+    : {
+        ...(filters.role ? { nivel: filters.role } : {}),
+        ...(filters.status ? { status: filters.status as 'ATIVO' | 'INATIVO' } : {}),
+        ...(filters.search
+          ? {
+              OR: [
+                { nomeCompleto: { contains: filters.search } },
+                { email: { contains: filters.search } },
+              ],
+            }
+          : {}),
+      };
 
   const [usuarios, empresa] = await Promise.all([
     prisma.usuario.findMany({

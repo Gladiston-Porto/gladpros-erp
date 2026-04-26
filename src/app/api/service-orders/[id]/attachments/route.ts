@@ -63,6 +63,10 @@ export const GET = withErrorHandler(async (
             materialItems: {
                 select: {
                     materialItemId: true,
+                    quantityOnReceipt: true,
+                    unitCostOnReceipt: true,
+                    hasTax: true,
+                    taxRate: true,
                     materialItem: {
                         select: { id: true, name: true, unit: true, quantityPlanned: true },
                     },
@@ -106,19 +110,46 @@ export const POST = withErrorHandler(async (
     const vendorName = (formData.get("vendorName") as string | null)?.trim() || null;
     const receiptTotalRaw = formData.get("receiptTotal") as string | null;
 
-    // Parse material IDs: support both singular (legacy) and plural (new)
+    // Parse material links: new format { materialItemId, quantityOnReceipt?, unitCostOnReceipt?, hasTax?, taxRate? }[]
+    // Also supports legacy materialItemIds CSV and singular materialItemId for backwards compat
+    const materialLinksRaw = formData.get("materialLinks") as string | null;
     const materialItemIdsRaw = formData.get("materialItemIds") as string | null;
     const materialItemIdRaw = formData.get("materialItemId") as string | null;
 
-    let materialIds: number[] = [];
-    if (materialItemIdsRaw) {
-        materialIds = materialItemIdsRaw
+    type MaterialLink = {
+        materialItemId: number;
+        quantityOnReceipt?: number | null;
+        unitCostOnReceipt?: number | null;
+        hasTax?: boolean | null;
+        taxRate?: number | null;
+    };
+    let materialLinks: MaterialLink[] = [];
+
+    if (materialLinksRaw) {
+        try {
+            const parsed = JSON.parse(materialLinksRaw);
+            if (Array.isArray(parsed)) {
+                materialLinks = parsed
+                    .filter((l: unknown) => l && typeof l === 'object' && 'materialItemId' in (l as object))
+                    .map((l: { materialItemId: unknown; quantityOnReceipt?: unknown; unitCostOnReceipt?: unknown; hasTax?: unknown; taxRate?: unknown }) => ({
+                        materialItemId: parseInt(String(l.materialItemId)),
+                        quantityOnReceipt: l.quantityOnReceipt != null ? parseFloat(String(l.quantityOnReceipt)) : null,
+                        unitCostOnReceipt: l.unitCostOnReceipt != null ? parseFloat(String(l.unitCostOnReceipt)) : null,
+                        hasTax: l.hasTax != null ? Boolean(l.hasTax) : null,
+                        taxRate: l.taxRate != null ? parseFloat(String(l.taxRate)) : null,
+                    }))
+                    .filter(l => !isNaN(l.materialItemId) && l.materialItemId > 0);
+            }
+        } catch { /* invalid JSON — ignore */ }
+    } else if (materialItemIdsRaw) {
+        materialLinks = materialItemIdsRaw
             .split(",")
             .map((s) => parseInt(s.trim()))
-            .filter((n) => !isNaN(n) && n > 0);
+            .filter((n) => !isNaN(n) && n > 0)
+            .map(id => ({ materialItemId: id }));
     } else if (materialItemIdRaw) {
         const single = parseInt(materialItemIdRaw);
-        if (!isNaN(single) && single > 0) materialIds = [single];
+        if (!isNaN(single) && single > 0) materialLinks = [{ materialItemId: single }];
     }
 
     if (!file) return NextResponse.json({ error: "Validation failed", message: "Nenhum arquivo enviado", success: false }, { status: 400 });
@@ -164,6 +195,18 @@ export const POST = withErrorHandler(async (
 
     const receiptTotal = receiptTotalRaw ? parseFloat(receiptTotalRaw) : null;
 
+    // Compute taxAmount from linked materials (reference — does NOT override receiptTotal)
+    // taxAmount = Σ(qty * unitCost * taxRate/100) for lines with hasTax=true
+    const taxAmount = (() => {
+        let sum = 0;
+        for (const l of materialLinks) {
+            if (l.hasTax && l.quantityOnReceipt != null && l.unitCostOnReceipt != null && l.taxRate != null) {
+                sum += l.quantityOnReceipt * l.unitCostOnReceipt * l.taxRate / 100;
+            }
+        }
+        return materialLinks.some(l => l.hasTax != null) ? Math.round(sum * 100) / 100 : null;
+    })();
+
     const attachment = await prisma.serviceOrderAttachment.create({
         data: {
             serviceOrderId: orderId,
@@ -176,12 +219,19 @@ export const POST = withErrorHandler(async (
             caption,
             vendorName: vendorName?.slice(0, 200) || null,
             receiptTotal: receiptTotal && !isNaN(receiptTotal) ? receiptTotal : null,
+            taxAmount,
             uploadedBy: parseInt(user.id as string),
             // Create junction records inline
-            materialItems: materialIds.length > 0
+            materialItems: materialLinks.length > 0
                 ? {
                     createMany: {
-                        data: materialIds.map((mid) => ({ materialItemId: mid })),
+                        data: materialLinks.map((l) => ({
+                            materialItemId: l.materialItemId,
+                            quantityOnReceipt: (l.quantityOnReceipt != null && !isNaN(l.quantityOnReceipt)) ? l.quantityOnReceipt : null,
+                            unitCostOnReceipt: (l.unitCostOnReceipt != null && !isNaN(l.unitCostOnReceipt)) ? l.unitCostOnReceipt : null,
+                            hasTax: l.hasTax ?? null,
+                            taxRate: (l.taxRate != null && !isNaN(l.taxRate)) ? l.taxRate : null,
+                        })),
                     },
                 }
                 : undefined,
@@ -196,12 +246,17 @@ export const POST = withErrorHandler(async (
             caption: true,
             vendorName: true,
             receiptTotal: true,
+            taxAmount: true,
             materialItemId: true,
             createdAt: true,
             UploadedBy: { select: { id: true, nomeCompleto: true } },
             materialItems: {
                 select: {
                     materialItemId: true,
+                    quantityOnReceipt: true,
+                    unitCostOnReceipt: true,
+                    hasTax: true,
+                    taxRate: true,
                     materialItem: {
                         select: { id: true, name: true, unit: true },
                     },

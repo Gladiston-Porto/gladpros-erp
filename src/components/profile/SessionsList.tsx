@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { formatDistanceToNow, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Laptop, Smartphone, Globe, Trash2, ShieldAlert } from 'lucide-react';
-import { Badge } from "@gladpros/ui/badge"
-import { Button } from "@gladpros/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@gladpros/ui/card"
+import { Laptop, Smartphone, Globe, Trash2, ShieldAlert, LogOut } from 'lucide-react';
+import { Badge } from "@gladpros/ui/badge";
+import { Button } from "@gladpros/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@gladpros/ui/card";
 import { useToast } from "@gladpros/ui/toast";
 import { authenticatedFetch } from "@/lib/api/client";
 
@@ -14,152 +14,192 @@ interface Session {
   id: number;
   ip: string;
   userAgent: string | null;
+  cidade: string | null;
+  pais: string | null;
   criadoEm: string;
-  ultimoUsoEm: string;
-  ativo: boolean;
-  isCurrent?: boolean; // Flag para identificar sessão atual (se implementado no backend)
+  ultimaAtividade: string;
+  isCurrent: boolean;
 }
 
-interface SessionsListProps {
-  userId: string;
-}
-
-export function SessionsList({ userId }: SessionsListProps) {
+export function SessionsList() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
+  const [revoking, setRevoking] = useState<number | null>(null);
+  const [revokingAll, setRevokingAll] = useState(false);
   const { success, error } = useToast();
 
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
-      const res = await authenticatedFetch(`/api/usuarios/${userId}/sessions`);
+      const res = await authenticatedFetch('/api/auth/me/sessions');
       if (res.ok) {
         const data = await res.json();
-        setSessions(data.sessions || []);
-      } else if (res.status !== 401) {
-        error('Não foi possível carregar as sessões.');
+        setSessions(data.data ?? []);
       }
-    } catch (err) {
-      console.error('Erro ao buscar sessões:', err);
+    } catch {
+      // silently fail — lista permanece vazia, usuário vê estado vazio
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (userId) {
-      fetchSessions();
-    }
-  }, [userId]);
+    fetchSessions();
+  }, [fetchSessions]);
 
   const handleRevokeSession = async (sessionId: number) => {
+    setRevoking(sessionId);
     try {
-      const res = await authenticatedFetch(`/api/usuarios/sessions/${sessionId}`, {
-        method: 'DELETE'
+      const res = await authenticatedFetch(`/api/auth/me/sessions/${sessionId}`, {
+        method: 'DELETE',
       });
-
       if (res.ok) {
-        success('Sessão revogada com sucesso.');
-        fetchSessions();
+        success('Sessão encerrada', 'O dispositivo foi desconectado com sucesso');
+        await fetchSessions();
       } else {
-        throw new Error('Falha ao revogar');
+        const data = await res.json().catch(() => ({}));
+        error('Erro', (data as { message?: string }).message ?? 'Não foi possível encerrar a sessão');
       }
-    } catch (err) {
-      error('Não foi possível revogar a sessão.');
+    } catch {
+      error('Erro', 'Não foi possível encerrar a sessão');
+    } finally {
+      setRevoking(null);
     }
   };
 
-  const handleRevokeAll = async () => {
-    if (!confirm('Tem certeza? Isso desconectará você de todos os dispositivos.')) return;
-
+  const handleRevokeOthers = async () => {
+    setRevokingAll(true);
     try {
-      const res = await authenticatedFetch(`/api/usuarios/${userId}/sessions`, {
-        method: 'DELETE'
-      });
-
+      const res = await authenticatedFetch('/api/auth/me/sessions', { method: 'POST' });
       if (res.ok) {
-        success('Todas as sessões foram encerradas.');
-        fetchSessions();
+        success('Sessões encerradas', 'Todos os outros dispositivos foram desconectados');
+        await fetchSessions();
       } else {
-        error('Erro ao revogar sessões.');
+        error('Erro', 'Não foi possível encerrar as outras sessões');
       }
-    } catch (err) {
-      error('Erro ao revogar sessões.');
+    } catch {
+      error('Erro', 'Não foi possível encerrar as outras sessões');
+    } finally {
+      setRevokingAll(false);
     }
   };
 
   const getDeviceIcon = (ua: string | null) => {
     if (!ua) return <Globe className="h-5 w-5 text-muted-foreground" />;
-    if (/mobile|android|iphone/i.test(ua)) return <Smartphone className="h-5 w-5 text-primary" />;
+    if (/mobile|android|iphone/i.test(ua)) return <Smartphone className="h-5 w-5 text-sky-500" />;
     return <Laptop className="h-5 w-5 text-purple-500" />;
   };
 
   const getBrowserName = (ua: string | null) => {
     if (!ua) return 'Desconhecido';
-    if (ua.includes('Chrome')) return 'Chrome';
+    if (ua.includes('Chrome') && !ua.includes('Edge')) return 'Chrome';
     if (ua.includes('Firefox')) return 'Firefox';
-    if (ua.includes('Safari')) return 'Safari';
+    if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
     if (ua.includes('Edge')) return 'Edge';
     return 'Navegador Web';
   };
 
-  if (loading) return <div className="p-4 text-center">Carregando sessões...</div>;
+  const formatRelative = (iso: string) => {
+    const d = new Date(iso);
+    return isValid(d) ? formatDistanceToNow(d, { addSuffix: true, locale: ptBR }) : '—';
+  };
+
+  const otherSessions = sessions.filter((s) => !s.isCurrent);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldAlert className="h-4 w-4" />
+            Sessões Ativas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-16 bg-muted/50 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="mt-6">
+    <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-indigo-600" />
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldAlert className="h-4 w-4" />
               Sessões Ativas
             </CardTitle>
-            <CardDescription>Gerencie os dispositivos conectados à sua conta.</CardDescription>
+            <CardDescription className="mt-1">
+              Dispositivos conectados à sua conta. Encerre sessões desconhecidas.
+            </CardDescription>
           </div>
-          {sessions.length > 1 && (
-            <Button variant="destructive" size="sm" onClick={handleRevokeAll}>
-              Desconectar Todos
+          {otherSessions.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRevokeOthers}
+              disabled={revokingAll}
+              className="text-destructive border-destructive/40 hover:bg-destructive/10"
+            >
+              <LogOut className="h-3.5 w-3.5 mr-1.5" />
+              {revokingAll ? 'Encerrando...' : 'Encerrar outras'}
             </Button>
           )}
         </div>
       </CardHeader>
       <CardContent>
         {sessions.length === 0 ? (
-          <p className="text-muted-foreground text-center py-4">Nenhuma sessão ativa encontrada.</p>
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Nenhuma sessão ativa encontrada.
+          </p>
         ) : (
-          <div className="space-y-4">
-            {sessions.map((session) => {
-              const lastUse = session.ultimoUsoEm ? new Date(session.ultimoUsoEm) : null;
-              const lastUseLabel = lastUse && isValid(lastUse)
-                ? formatDistanceToNow(lastUse, { addSuffix: true, locale: ptBR })
-                : 'Data indisponível';
-              return (
-                <div key={session.id} className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-muted/40 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-muted rounded-full">
-                      {getDeviceIcon(session.userAgent)}
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm text-foreground">
-                        {getBrowserName(session.userAgent)}
-                        {session.isCurrent && <Badge variant="secondary" className="ml-2 text-xs">Atual</Badge>}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        IP: {session.ip} • Último uso: {lastUseLabel}
-                      </p>
-                    </div>
+          <div className="space-y-3">
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                className="flex items-center justify-between p-3 border border-border rounded-xl hover:bg-muted/40 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                    {getDeviceIcon(session.userAgent)}
                   </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">
+                        {getBrowserName(session.userAgent)}
+                      </p>
+                      {session.isCurrent && (
+                        <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
+                          Sessão atual
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {session.ip !== '—' && `${session.ip} • `}
+                      {session.cidade ? `${session.cidade}${session.pais ? `, ${session.pais}` : ''} • ` : ''}
+                      Último uso: {formatRelative(session.ultimaAtividade)}
+                    </p>
+                  </div>
+                </div>
+                {!session.isCurrent && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-muted-foreground hover:text-destructive"
+                    className="text-muted-foreground hover:text-destructive shrink-0"
                     onClick={() => handleRevokeSession(session.id)}
-                    title="Revogar acesso"
+                    disabled={revoking === session.id}
+                    aria-label="Encerrar sessão"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                </div>
-              );
-            })}
+                )}
+              </div>
+            ))}
           </div>
         )}
       </CardContent>

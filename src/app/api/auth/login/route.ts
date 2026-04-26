@@ -117,18 +117,60 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   // Verificar senha
   const isValidPassword = await PasswordService.verifyPassword(password, user.senha);
   if (!isValidPassword) {
-    await Promise.all([
-      BlockingService.recordFailedAttempt({ 
-        userId: user.id, 
-        email, 
-        ip, 
-        userAgent,
-        motivo: 'INVALID_PASSWORD'
-      }),
-      AuditLogger.logLogin(user.id, user.email, req, false, {
-        reason: 'invalid_password'
-      })
-    ]);
+    await BlockingService.recordFailedAttempt({
+      userId: user.id,
+      email,
+      ip,
+      userAgent,
+      motivo: 'INVALID_PASSWORD'
+    });
+
+    await AuditLogger.logLogin(user.id, user.email, req, false, {
+      reason: 'invalid_password'
+    });
+
+    const failedAttemptRows = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*) as count
+      FROM TentativaLogin
+      WHERE usuarioId = ${user.id}
+        AND sucesso = FALSE
+        AND criadaEm > COALESCE(
+          (SELECT MAX(criadaEm) FROM TentativaLogin WHERE usuarioId = ${user.id} AND sucesso = TRUE),
+          DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        )
+        AND criadaEm > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+    `;
+    const failedAttempts = Number(failedAttemptRows[0]?.count ?? 0);
+
+    if (failedAttempts >= 5) {
+      await prisma.$executeRaw`
+        UPDATE Usuario
+        SET bloqueado = TRUE, bloqueadoEm = NOW()
+        WHERE id = ${user.id}
+      `;
+
+      const updatedBlockInfo = await BlockingService.checkUserBlock(user.id);
+      let errorMsg = "Conta temporariamente bloqueada devido a múltiplas tentativas incorretas.";
+
+      if (updatedBlockInfo.unlockAt) {
+        const minutesLeft = Math.ceil((updatedBlockInfo.unlockAt.getTime() - Date.now()) / (1000 * 60));
+        errorMsg += ` Tente novamente em ${minutesLeft} minuto(s).`;
+      } else {
+        errorMsg += " Entre em contato com o administrador.";
+      }
+
+      return NextResponse.json(
+        {
+          error: errorMsg,
+          success: false,
+          blocked: true,
+          unlockAt: updatedBlockInfo.unlockAt,
+          requiresPinUnlock: updatedBlockInfo.requiresPinUnlock,
+          requiresSecurityQuestion: updatedBlockInfo.requiresSecurityQuestion
+        },
+        { status: 423 }
+      );
+    }
 
     return NextResponse.json(
       { error: "Credenciais inválidas", success: false }, 

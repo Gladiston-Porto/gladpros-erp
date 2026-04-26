@@ -11,7 +11,7 @@ import { Button } from '@gladpros/ui/button';
 import { ModulePageHeader } from "@gladpros/ui/module-page-header";
 import { Card, CardContent } from "@gladpros/ui/card";
 import ClientesTable from "@/components/clientes/ClientesTable";
-import { ClienteDetailsModal } from "@/components/clientes/ClienteDetailsModal";
+import { ClienteViewDrawer } from "./_components/ClienteViewDrawer";
 import { ClienteService } from "@/shared/services/clienteService";
 import type { ClienteDTO, ClienteFilters } from "@/shared/types/cliente";
 import { useClientesAccess } from "../ClientesAccessContext";
@@ -112,10 +112,10 @@ function ClientesToolbar({
     }
   }, [showExportMenu]);
 
-  const inputCls = "h-9 rounded-md border border-border bg-background text-foreground px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary transition";
+  const inputCls = "h-9 rounded-xl border border-border bg-background text-foreground px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-brand-primary transition";
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-card space-y-3">
       <div className="flex flex-wrap gap-2 items-center">
         {/* Search */}
         <div className="relative flex-1 min-w-[220px]">
@@ -263,7 +263,6 @@ export default function ClientesListPage() {
   const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_CLIENTE_MODULE_CONFIG.defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(DEFAULT_CLIENTE_MODULE_CONFIG.defaultSortDir);
   const [viewClienteId, setViewClienteId] = useState<number | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [showDocumentoColumn, setShowDocumentoColumn] = useState(DEFAULT_CLIENTE_MODULE_CONFIG.showDocumentoColumn);
   const [showEnderecoColumn, setShowEnderecoColumn] = useState(DEFAULT_CLIENTE_MODULE_CONFIG.showEnderecoColumn);
   const [configReady, setConfigReady] = useState(false);
@@ -370,7 +369,6 @@ export default function ClientesListPage() {
 
   const handleView = useCallback((id: number) => {
     setViewClienteId(id);
-    setIsModalOpen(true);
   }, []);
 
   const handleDelete = useCallback(async (id: number) => {
@@ -641,11 +639,10 @@ export default function ClientesListPage() {
 
       <Dialog />
 
-      <ClienteDetailsModal
+      <ClienteViewDrawer
         clienteId={viewClienteId}
-        isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setViewClienteId(null); }}
-        onEdit={canUpdate ? (id) => { setIsModalOpen(false); handleEdit(id); } : undefined}
+        onClose={() => setViewClienteId(null)}
+        onEdit={canUpdate ? (id) => { setViewClienteId(null); handleEdit(id); } : undefined}
       />
 
       <AdvancedPagination

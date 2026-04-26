@@ -202,7 +202,7 @@ export default async function MovimentacaoDetalhesPage({ params: paramsPromise }
             <div>
               <span className="text-sm text-muted-foreground">Registrado em</span>
               <p className="font-medium">
-                {new Date(movimentacao.criadoEm).toLocaleString('pt-BR')}
+                {new Date(movimentacao.criadoEm).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
               </p>
             </div>
             {movimentacao.usuario && (

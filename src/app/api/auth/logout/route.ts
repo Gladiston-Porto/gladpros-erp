@@ -9,7 +9,10 @@ import { hasTokenVersionColumn } from "@/shared/lib/db-metadata"
 import { revokeRefreshToken } from "@/lib/auth/token-service"
 
 export const POST = withErrorHandler(async (request: Request) => {
-  const payload: Record<string, unknown> = { message: 'Logout realizado com sucesso' };
+  const payload: Record<string, unknown> = {
+    message: 'Logout realizado com sucesso',
+    success: true,
+  };
 
   try {
     // Extrair cookies (Next.js Web API Request)

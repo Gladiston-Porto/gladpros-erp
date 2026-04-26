@@ -13,6 +13,8 @@ const addMaterialSchema = z.object({
     quantityPlanned: z.coerce.number().positive(),
     unitCostEstimated: z.coerce.number().optional(),
     unitPrice: z.coerce.number().optional(),
+    hasTax: z.boolean().optional().nullable(),
+    taxRate: z.coerce.number().min(0).max(100).optional().nullable(), // percentage, e.g. 8.25
 });
 
 // GET /api/service-orders/[id]/materials - List materials
@@ -164,7 +166,9 @@ export const POST = withErrorHandler(async (request: Request,
                 quantityPlanned: validated.quantityPlanned,
                 unitCostEstimated: estimatedCost,
                 unitPrice: validated.unitPrice,
-                status: initialStatus
+                status: initialStatus,
+                hasTax: validated.hasTax ?? null,
+                taxRate: validated.taxRate ?? null,
             },
             include: {
                 Material: {

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/shared/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from "@/lib/api/error-handler";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, unlink } from "fs/promises";
 import { resolve, join } from "path";
 import { revalidatePath } from "next/cache";
 
@@ -65,12 +65,29 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: "Caminho inválido", success: false }, { status: 400 });
   }
 
+  // Buscar avatar antigo antes de sobrescrever
+  const oldRows = await prisma.$queryRaw<Array<{ avatarUrl: string | null }>>`
+    SELECT avatarUrl FROM Usuario WHERE id = ${Number(me.id)} LIMIT 1
+  `;
+  const oldAvatarUrl = oldRows[0]?.avatarUrl ?? null;
+
   await writeFile(filePath, Buffer.from(bytes));
 
   const avatarUrl = `/api/uploads/avatars/${fileName}`;
 
   // Atualizar avatarUrl diretamente — coluna existe no schema, sem INFORMATION_SCHEMA
   await prisma.$executeRaw`UPDATE Usuario SET avatarUrl = ${avatarUrl}, atualizadoEm = NOW() WHERE id = ${Number(me.id)}`;
+
+  // Deletar arquivo físico do avatar anterior para evitar acúmulo em disco
+  if (oldAvatarUrl) {
+    const oldFileName = oldAvatarUrl.split('/').pop();
+    if (oldFileName && /^avatar-\d+-\d+\.(jpg|png|gif|webp)$/.test(oldFileName)) {
+      const oldFilePath = resolve(join(AVATARS_DIR, oldFileName));
+      if (oldFilePath.startsWith(AVATARS_DIR)) {
+        await unlink(oldFilePath).catch(() => {}); // ignora se já não existir
+      }
+    }
+  }
 
   // Invalida o cache do layout do dashboard para que o avatar atualize no header
   revalidatePath('/(dashboard)', 'layout');
@@ -82,7 +99,25 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 export const DELETE = withErrorHandler(async (req: NextRequest) => {
   const me = await requireUser(req);
 
+  // Buscar avatar atual para deletar o arquivo físico
+  const rows = await prisma.$queryRaw<Array<{ avatarUrl: string | null }>>`
+    SELECT avatarUrl FROM Usuario WHERE id = ${Number(me.id)} LIMIT 1
+  `;
+  const currentUrl = rows[0]?.avatarUrl ?? null;
+
   await prisma.$executeRaw`UPDATE Usuario SET avatarUrl = NULL, atualizadoEm = NOW() WHERE id = ${Number(me.id)}`;
 
+  // Deletar arquivo físico
+  if (currentUrl) {
+    const fileName = currentUrl.split('/').pop();
+    if (fileName && /^avatar-\d+-\d+\.(jpg|png|gif|webp)$/.test(fileName)) {
+      const filePath = resolve(join(AVATARS_DIR, fileName));
+      if (filePath.startsWith(AVATARS_DIR)) {
+        await unlink(filePath).catch(() => {});
+      }
+    }
+  }
+
+  revalidatePath('/(dashboard)', 'layout');
   return NextResponse.json({ success: true });
 });

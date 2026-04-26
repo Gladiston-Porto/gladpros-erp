@@ -1,7 +1,7 @@
 // src/components/profile/AvatarUpload.tsx
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, X } from 'lucide-react';
 
 import { Button } from "@gladpros/ui/button"
@@ -28,10 +28,27 @@ export function AvatarUpload({
   const [posX, setPosX] = useState(50);
   const [posY, setPosY] = useState(50);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    if (imgRef.current) {
+      imgRef.current.style.setProperty('--pos-x', `${posX}%`);
+      imgRef.current.style.setProperty('--pos-y', `${posY}%`);
+    }
+  }, [posX, posY]);
+
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleFileSelect = (file: File) => {
-    if (!file.type.startsWith('image/')) return;
-    if (file.size > 5 * 1024 * 1024) return;
+    setErrorMsg(null);
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Formato não suportado. Use PNG, JPG, GIF ou WebP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg('Arquivo muito grande. O limite é 5 MB.');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       setPreview(e.target?.result as string);
@@ -92,11 +109,10 @@ export function AvatarUpload({
           >
             {displaySrc ? (
               <img
+                ref={imgRef}
                 src={displaySrc}
                 alt="Foto do perfil"
-                className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-                // eslint-disable-next-line react/forbid-component-props, react/no-inline-styles
-                style={{ objectPosition: `${posX}% ${posY}%` } as React.CSSProperties}
+                className="absolute inset-0 h-full w-full object-cover pointer-events-none object-[var(--pos-x,50%)_var(--pos-y,50%)]"
                 draggable={false}
               />
             ) : (
@@ -147,6 +163,7 @@ export function AvatarUpload({
 
         {/* Área de upload (drag & drop) */}
         {!preview && (
+          <>
           <div
             className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
               dragActive
@@ -172,6 +189,10 @@ export function AvatarUpload({
             </p>
             <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF ou WebP até 5MB</p>
           </div>
+          {errorMsg && (
+            <p className="text-xs text-destructive text-center px-1" role="alert">{errorMsg}</p>
+          )}
+          </>
         )}
 
         {/* Botões de ação */}

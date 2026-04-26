@@ -51,12 +51,40 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     const tipoAcaoMapped: "LOGIN" | "RESET" | "PRIMEIRO_ACESSO" | "DESBLOQUEIO" =
       tipoAcao === "RESET_PASSWORD" ? "RESET" : (tipoAcao as "LOGIN" | "PRIMEIRO_ACESSO");
 
+    const recentMfaFailureRows = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*) as count
+      FROM TentativaLogin
+      WHERE usuarioId = ${userId}
+        AND sucesso = FALSE
+        AND motivo = 'MFA_INVALID'
+        AND criadaEm > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+    `;
+    const recentMfaFailures = Number(recentMfaFailureRows[0]?.count ?? 0);
+    if (recentMfaFailures >= 3) {
+      return NextResponse.json(
+        {
+          error: "Muitas tentativas de MFA. Aguarde 5 minutos.",
+          success: false,
+          retryAfter: 300
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '3',
+            'X-RateLimit-Remaining': '0',
+            'Retry-After': '300'
+          }
+        }
+      );
+    }
+
     // Aplicar rate limiting por userId antes de consultar o usuário completo.
     const rateLimitResult = await mfaRateLimit.checkLimit(req, `mfa:user:${userId}`);
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
         { 
           error: rateLimitResult.message,
+          success: false,
           retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)
         },
         { 
@@ -78,6 +106,40 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     });
 
     if (!mfaResult.valid) {
+      await prisma.$executeRaw`
+        INSERT INTO TentativaLogin (usuarioId, email, sucesso, ip, userAgent, motivo)
+        SELECT id, email, FALSE, ${getClientIP(req)}, ${req.headers.get("user-agent") || undefined}, 'MFA_INVALID'
+        FROM Usuario
+        WHERE id = ${userId}
+      `;
+
+      const updatedMfaFailureRows = await prisma.$queryRaw<Array<{ count: number }>>`
+        SELECT COUNT(*) as count
+        FROM TentativaLogin
+        WHERE usuarioId = ${userId}
+          AND sucesso = FALSE
+          AND motivo = 'MFA_INVALID'
+          AND criadaEm > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+      `;
+      const updatedMfaFailures = Number(updatedMfaFailureRows[0]?.count ?? 0);
+      if (updatedMfaFailures >= 3) {
+        return NextResponse.json(
+          {
+            error: "Muitas tentativas de MFA. Aguarde 5 minutos.",
+            success: false,
+            retryAfter: 300
+          },
+          {
+            status: 429,
+            headers: {
+              'X-RateLimit-Limit': '3',
+              'X-RateLimit-Remaining': '0',
+              'Retry-After': '300'
+            }
+          }
+        );
+      }
+
       return NextResponse.json(
         { error: mfaResult.error || "Código inválido", success: false },
         { status: 401 }
@@ -184,11 +246,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         SET ultimoLoginEm = NOW() 
         WHERE id = ${user.id}
       `,
+      prisma.$executeRaw`
+        DELETE FROM TentativaLogin
+        WHERE usuarioId = ${user.id}
+          AND motivo = 'MFA_INVALID'
+      `,
       clearFailedAttemptsPromise
     ]);
 
-    let refreshToken: string | undefined;
-    refreshToken = refreshResult?.refreshToken;
+    const refreshToken = refreshResult?.refreshToken;
 
     // Se é primeiro acesso, redirecionar para configuração
     if (user.primeiroAcesso) {

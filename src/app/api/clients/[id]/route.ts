@@ -73,7 +73,7 @@ export const GET = withErrorHandler(async (request: NextRequest, { params }: Rou
     return NextResponse.json({ error: 'Not Found', message: 'Cliente não encontrado', success: false }, { status: 404 });
   }
 
-  return NextResponse.json(cliente);
+  return NextResponse.json({ data: cliente, success: true });
 });
 
 // PATCH /api/clients/[id] - Update client
@@ -180,7 +180,7 @@ export const PATCH = withErrorHandler(async (request: NextRequest, { params }: R
     data
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({ data: updated, success: true });
 });
 
 // DELETE /api/clients/[id] - Soft delete client (set ativo=false)
@@ -225,5 +225,5 @@ export const DELETE = withErrorHandler(async (request: NextRequest, { params }: 
     data: { ativo: false, status: 'INATIVO', atualizadoEm: new Date() }
   });
 
-  return NextResponse.json({ message: 'Cliente desativado com sucesso' });
+  return NextResponse.json({ data: null, message: 'Cliente desativado com sucesso', success: true });
 });

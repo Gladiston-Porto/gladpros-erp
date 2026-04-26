@@ -10,6 +10,7 @@ import { can, type Role } from "@/shared/lib/rbac-core";
 import { buildUsuarioSelect } from "@/shared/lib/usuario-query";
 import { UserRole, canManageRole } from "@/shared/lib/user-hierarchy";
 import { logger } from "@/lib/api/logger";
+import { apiRateLimit } from '@/shared/lib/rate-limit';
 
 /**
  * Campos permitidos quando um usuário edita o próprio perfil.
@@ -205,11 +206,30 @@ export const GET = withErrorHandler(async (req: Request, context: unknown) => {
       avatarUrl: found.avatarUrl ?? null,
     };
 
-    return NextResponse.json(normalized, { status: 200 });
+    // Verificar se há worker vinculado a este usuário
+    const workerRecord = await prisma.worker.findFirst({
+      where: { usuarioId: id },
+      select: { id: true, name: true, classification: true },
+    }).catch(() => null);
+
+    return NextResponse.json({
+      ...normalized,
+      workerId: workerRecord?.id ?? null,
+      worker: workerRecord
+        ? { id: workerRecord.id, name: workerRecord.name, classification: workerRecord.classification }
+        : null,
+    }, { status: 200 });
   });
 
 /* PATCH /api/usuarios/:id - parcial */
 export const PATCH = withErrorHandler(async (req: Request, context: unknown) => {
+    const rateCheck = await apiRateLimit.isAllowed(req as Parameters<typeof apiRateLimit.isAllowed>[0]);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests', message: rateCheck.message, success: false },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
+      );
+    }
     const authUser = await requireUser(req);
     const params = await resolveParams(context);
   const idVal = (params as Record<string, unknown>)?.id;
@@ -436,6 +456,13 @@ export const PUT = withErrorHandler(async (req: Request, context: unknown) => {
 /* DELETE /api/usuarios/:id */
 export const DELETE = withErrorHandler(async (req: Request,
   context: { params: Promise<{ id: string }> }) => {
+    const rateCheck = await apiRateLimit.isAllowed(req as Parameters<typeof apiRateLimit.isAllowed>[0]);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests', message: rateCheck.message, success: false },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
+      );
+    }
     const authUser = await requireUser(req);
 
     // Only roles with 'delete' permission can deactivate users

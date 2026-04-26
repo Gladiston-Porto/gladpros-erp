@@ -55,6 +55,26 @@ export function can(role: Role, moduleKey: ModuleKey, action: Action): boolean {
   return allowed.includes(action)
 }
 
+// ── Field-level RBAC ─────────────────────────────────────────────────────────
+
+export type FieldGroup = 'financials' | 'internal_estimates' | 'tax_details' | 'worker_pay'
+
+export const fieldVisibility: Record<FieldGroup, Role[]> = {
+  financials:         ['ADMIN', 'GERENTE', 'FINANCEIRO'],
+  internal_estimates: ['ADMIN', 'GERENTE', 'FINANCEIRO'],
+  tax_details:        ['ADMIN', 'FINANCEIRO'],
+  worker_pay:         ['ADMIN', 'GERENTE', 'FINANCEIRO'],
+}
+
+/**
+ * Check if a role can see a given field group.
+ * ADMIN always has access (short-circuit).
+ */
+export function canSeeFieldGroup(role: Role, group: FieldGroup): boolean {
+  if (role === 'ADMIN') return true
+  return fieldVisibility[group].includes(role)
+}
+
 export function routeToModule(pathname: string): ModuleKey | null {
   // Order matters: more-specific prefixes first
   if (pathname.startsWith("/service-orders") || pathname.startsWith("/api/service-orders") || pathname.startsWith("/ordens-servico")) return "service-orders"

@@ -350,12 +350,12 @@ export default function IntegracaoPage() {
                       <td className="p-3 text-xs max-w-[200px] truncate">{t.motivo}</td>
                       <td className="p-3 text-xs">{t.solicitante.nomeCompleto || t.solicitante.email}</td>
                       <td className="p-3 text-xs text-muted-foreground">
-                        {new Date(t.aberturaEm).toLocaleDateString('pt-BR')}
+                        {new Date(t.aberturaEm).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}
                       </td>
                       <td className="p-3 text-xs">
                         {t.prazoEstimado ? (
                           <span className={new Date(t.prazoEstimado) < new Date() && t.status !== 'CONCLUIDA' && t.status !== 'CANCELADA' ? 'text-red-600 font-medium' : 'text-muted-foreground'}>
-                            {new Date(t.prazoEstimado).toLocaleDateString('pt-BR')}
+                            {new Date(t.prazoEstimado).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">—</span>

@@ -7,11 +7,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-export async function GET(request: NextRequest) {
-  // ⚠️ SEGURANÇA: Apenas em desenvolvimento
-  if (process.env.NODE_ENV !== 'development') {
+export async function GET(_request: NextRequest) {
+  // ⚠️ SEGURANÇA: Apenas em desenvolvimento ou ambiente de teste explícito
+  if (process.env.NODE_ENV !== 'development' && process.env.TEST_MODE !== 'true') {
     return NextResponse.json(
-      { error: 'Endpoint disponível apenas em desenvolvimento' },
+      { error: 'Endpoint disponível apenas em desenvolvimento ou TEST_MODE', success: false },
       { status: 403 }
     );
   }
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     if (!g.__lastMFA) {
       return NextResponse.json(
-        { error: 'Nenhum código MFA gerado recentemente' },
+        { error: 'Nenhum código MFA gerado recentemente', success: false },
         { status: 404 }
       );
     }
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[TEST-HELPER] Erro ao buscar MFA:', error);
     return NextResponse.json(
-      { error: 'Erro ao buscar código MFA' },
+      { error: 'Erro ao buscar código MFA', success: false },
       { status: 500 }
     );
   }

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { can, requireUser, type Role } from '@/shared/lib/rbac';
+import { canSeeFieldGroup } from '@/shared/lib/rbac-core';
 
 // GET /api/service-orders/[id] - Get single service order with full details
 export const GET = withErrorHandler(async (request: Request,
@@ -84,9 +85,22 @@ export const GET = withErrorHandler(async (request: Request,
                         caption: true,
                         vendorName: true,
                         receiptTotal: true,
+                        taxAmount: true,
                         materialItemId: true,
                         createdAt: true,
                         UploadedBy: { select: { id: true, nomeCompleto: true } },
+                        materialItems: {
+                            select: {
+                                materialItemId: true,
+                                quantityOnReceipt: true,
+                                unitCostOnReceipt: true,
+                                hasTax: true,
+                                taxRate: true,
+                                materialItem: {
+                                    select: { id: true, name: true, unit: true },
+                                },
+                            },
+                        },
                     }
                 },
                 technicians: {
@@ -141,6 +155,33 @@ export const GET = withErrorHandler(async (request: Request,
             })),
         };
 
+        // Apply field-level RBAC filtering
+        const canSeeFinancials = canSeeFieldGroup(user.role as Role, 'financials');
+        if (!canSeeFinancials) {
+            delete (responseData as any).materialTotal;
+            delete (responseData as any).laborTotal;
+            delete (responseData as any).total;
+            delete (responseData as any).hourlyRate;
+            delete (responseData as any).agreedClientPrice;
+            delete (responseData as any).materialEstimate;
+            delete (responseData as any).laborEstimate;
+            (responseData as any).materials = (responseData as any).materials?.map((m: any) => {
+                const { unitCostEstimated, unitCostActual, unitPrice, ...rest } = m;
+                return rest;
+            });
+            (responseData as any).workEntries = (responseData as any).workEntries?.map((e: any) => {
+                const { hourlyRate, totalCost, ...rest } = e;
+                return rest;
+            });
+            if ((responseData as any).Invoice) {
+                delete (responseData as any).Invoice.valorTotal;
+                delete (responseData as any).Invoice.subtotal;
+                delete (responseData as any).Invoice.taxAmount;
+                delete (responseData as any).Invoice.saldo;
+                delete (responseData as any).Invoice.valorPago;
+            }
+        }
+
         return NextResponse.json({ data: responseData, success: true }, { status: 200 });
     });
 
@@ -172,6 +213,11 @@ const updateServiceOrderSchema = z.object({
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY']).optional(),
     techNotes: z.string().optional(),
     clientNotes: z.string().optional(),
+
+    // Financial estimates (Fase 1)
+    agreedClientPrice: z.number().positive().optional(),
+    materialEstimate: z.number().positive().optional(),
+    laborEstimate: z.number().positive().optional(),
 });
 
 // PATCH /api/service-orders/[id] - Update service order
@@ -208,6 +254,16 @@ export const PATCH = withErrorHandler(async (request: Request,
         }
 
         const validated = body.data;
+
+        // Write-side RBAC: only financial roles can set financial estimate fields
+        const financialFields = ['agreedClientPrice', 'materialEstimate', 'laborEstimate'] as const;
+        const tryingToWriteFinancial = financialFields.some(f => body.data[f] !== undefined);
+        if (tryingToWriteFinancial && !canSeeFieldGroup(user.role as Role, 'financials')) {
+            return NextResponse.json(
+                { error: 'Forbidden', message: 'Sem permissão para alterar campos financeiros', success: false },
+                { status: 403 }
+            );
+        }
 
         // Check if exists
         const existing = await prisma.serviceOrder.findUnique({
@@ -294,6 +350,10 @@ export const PATCH = withErrorHandler(async (request: Request,
         if (validated.endClientPhone !== undefined) updateData.endClientPhone = validated.endClientPhone;
         if (validated.endClientEmail !== undefined) updateData.endClientEmail = validated.endClientEmail;
         if (validated.endClientNotes !== undefined) updateData.endClientNotes = validated.endClientNotes;
+
+        if (validated.agreedClientPrice !== undefined) updateData.agreedClientPrice = validated.agreedClientPrice;
+        if (validated.materialEstimate !== undefined) updateData.materialEstimate = validated.materialEstimate;
+        if (validated.laborEstimate !== undefined) updateData.laborEstimate = validated.laborEstimate;
 
         const updated = await prisma.serviceOrder.update({
             where: { id: serviceOrderId },

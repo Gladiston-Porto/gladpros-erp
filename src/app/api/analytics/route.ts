@@ -212,9 +212,11 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
         // System health from real failed login rate
+        // > 50 falhas absolutas OU > 40% da taxa → erro
+        // > 30% da taxa → atenção
         const failedLoginRate = loginAttemptsTotal > 0 ? failedLoginsTotal / loginAttemptsTotal : 0;
         const systemHealth: 'good' | 'warning' | 'error' =
-          failedLoginsTotal > 20 ? 'error' : failedLoginRate > 0.3 ? 'warning' : 'good';
+          failedLoginsTotal > 50 ? 'error' : failedLoginRate > 0.4 ? 'warning' : 'good';
 
         return {
           overview: {

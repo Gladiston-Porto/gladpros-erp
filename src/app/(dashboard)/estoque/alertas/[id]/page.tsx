@@ -191,7 +191,7 @@ export default async function AlertaDetalhesPage({ params }: PageProps) {
                 <div>
                   <span className="text-sm text-muted-foreground">Resolvido em</span>
                   <p className="font-medium">
-                    {alerta.dataResolvido && new Date(alerta.dataResolvido).toLocaleString('pt-BR')}
+                    {alerta.dataResolvido && new Date(alerta.dataResolvido).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
                   </p>
                 </div>
                 {alerta.resolvedor && (
@@ -214,7 +214,7 @@ export default async function AlertaDetalhesPage({ params }: PageProps) {
             <div>
               <span className="text-sm text-muted-foreground">Criado em</span>
               <p className="font-medium">
-                {new Date(alerta.dataAlerta).toLocaleString('pt-BR')}
+                {new Date(alerta.dataAlerta).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
               </p>
             </div>
             {alerta.dataVisualizado && (
@@ -222,7 +222,7 @@ export default async function AlertaDetalhesPage({ params }: PageProps) {
                 <div>
                   <span className="text-sm text-muted-foreground">Visualizado em</span>
                   <p className="font-medium">
-                    {new Date(alerta.dataVisualizado).toLocaleString('pt-BR')}
+                    {new Date(alerta.dataVisualizado).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
                   </p>
                 </div>
                 {alerta.visualizador && (

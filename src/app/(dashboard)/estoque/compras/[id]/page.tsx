@@ -295,7 +295,7 @@ export default async function CompraDetalhesPage({ params }: PageProps) {
           <div>
             <span className="text-sm text-muted-foreground">Criado em</span>
             <p className="font-medium">
-              {new Date(compra.criadoEm).toLocaleString('pt-BR')}
+              {new Date(compra.criadoEm).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
             </p>
           </div>
           {compra.criador && (
@@ -308,7 +308,7 @@ export default async function CompraDetalhesPage({ params }: PageProps) {
             <div>
               <span className="text-sm text-muted-foreground">Última atualização</span>
               <p className="font-medium">
-                {new Date(compra.atualizadoEm).toLocaleString('pt-BR')}
+                {new Date(compra.atualizadoEm).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
               </p>
             </div>
           )}

@@ -149,8 +149,10 @@ export function withErrorHandler<T extends any[]>(
     try {
       return await handler(...args);
     } catch (error) {
-      const isExpectedError = error instanceof ZodError ||
-        (typeof error === 'object' && error !== null && 'statusCode' in error)
+      const isExpectedError =
+        error instanceof ZodError ||
+        (typeof error === 'object' && error !== null && 'statusCode' in error) ||
+        (error instanceof Error && (error.message === 'UNAUTHENTICATED' || error.message === 'FORBIDDEN'));
       if (!isExpectedError) {
         logger.error('[API] Erro não tratado no handler', {}, error as Error);
       }

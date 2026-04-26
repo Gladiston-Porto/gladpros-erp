@@ -89,6 +89,7 @@ export const POST = withErrorHandler(async (
         },
       },
       projeto: { select: { titulo: true, numeroProjeto: true } },
+      ServiceOrder: { select: { agreedClientPrice: true } },
     },
   });
 
@@ -111,6 +112,19 @@ export const POST = withErrorHandler(async (
       { error: 'Validation failed', message: 'Cliente não possui email cadastrado', success: false },
       { status: 400 },
     );
+  }
+
+  // Validate: if linked OS has agreedClientPrice, invoice total must match
+  if (invoice.ServiceOrder?.agreedClientPrice) {
+    const agreed = Number(invoice.ServiceOrder.agreedClientPrice);
+    const invoiceTotal = Number(invoice.valorTotal);
+    if (Math.abs(agreed - invoiceTotal) > 0.01) {
+      return NextResponse.json({
+        error: 'Validation failed',
+        message: `O valor do invoice (${invoiceTotal.toFixed(2)}) não corresponde ao valor acordado com o cliente na OS (${agreed.toFixed(2)}). Atualize o invoice antes de enviar.`,
+        success: false,
+      }, { status: 422 });
+    }
   }
 
   // Generate PDF

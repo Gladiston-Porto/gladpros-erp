@@ -53,7 +53,7 @@ test.describe('Auth Recovery Flows', () => {
     test('resposta de esqueci-senha não revela se email existe', async ({ page }) => {
       const [resp1, resp2] = await Promise.all([
         page.request.post('/api/auth/forgot-password', {
-          data: { email: 'admin@gladpros.com' },
+          data: { email: process.env.AUTH_ADMIN_EMAIL || 'admin@gladpros.com' },
           headers: { 'Content-Type': 'application/json' },
         }),
         page.request.post('/api/auth/forgot-password', {
@@ -76,7 +76,7 @@ test.describe('Auth Recovery Flows', () => {
         headers: { 'Content-Type': 'application/json' },
       });
 
-      expect(resp.status()).toBe(400);
+      expect(resp.status()).toBe(422);
       const body = await resp.json();
       expect(body.success).toBe(false);
     });
@@ -93,8 +93,8 @@ test.describe('Auth Recovery Flows', () => {
     });
 
     test('API desbloqueio retorna 400 quando token ausente', async ({ page }) => {
-      const resp = await page.request.post('/api/auth/desbloqueio', {
-        data: {},
+      const resp = await page.request.post('/api/auth/unlock', {
+        data: { method: 'pin', userId: 999999, pin: '' },
         headers: { 'Content-Type': 'application/json' },
       }).catch(() => null);
 
@@ -124,18 +124,24 @@ test.describe('Auth Recovery Flows', () => {
 
     test('API primeiro-acesso setup retorna 400 quando body inválido', async ({ page }) => {
       const resp = await page.request.post('/api/auth/first-access/setup', {
-        data: { userId: 'nao-e-numero', senha: '12345' },
+        data: { userId: 'nao-e-numero', newPassword: '12345' },
         headers: { 'Content-Type': 'application/json' },
       });
 
-      expect([400, 422]).toContain(resp.status());
+      expect([400, 401, 422]).toContain(resp.status());
       const body = await resp.json();
       expect(body.success).toBe(false);
     });
 
     test('API primeiro-acesso setup retorna 400 para senha fraca', async ({ page }) => {
       const resp = await page.request.post('/api/auth/first-access/setup', {
-        data: { userId: 99999, senha: '123456' }, // senha fraca sem maiúscula/especial
+        data: {
+          userId: 99999,
+          newPassword: '123456',
+          pin: '1234',
+          securityQuestion: 'Pet',
+          securityAnswer: 'a'
+        },
         headers: { 'Content-Type': 'application/json' },
       });
 

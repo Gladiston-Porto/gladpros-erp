@@ -69,24 +69,24 @@ export class AuditLogger {
           acaoEnum = 'LOGIN'; // Fallback
       }
 
-      // Salvar usando o modelo Auditoria do Prisma
-      await prisma.auditoria.create({
-        data: {
-          tabela: event.resource || 'system',
-          registroId: event.resourceId ? parseInt(event.resourceId) : 0,
-          acao: acaoEnum,
-          usuarioId: event.userId || null,
-          ip: event.ip || null,
-          payload: event.details ? JSON.stringify({
-            action: event.action,
-            status: event.status,
-            userAgent: event.userAgent,
-            ...event.details
-          }) : undefined
-        }
-      }).catch((error) => {
-        console.error('[AUDIT] Erro ao salvar no modelo Auditoria:', error);
-      });
+      const payload = event.details ? JSON.stringify({
+        action: event.action,
+        status: event.status,
+        userAgent: event.userAgent,
+        ...event.details
+      }) : null;
+
+      await prisma.$executeRaw`
+        INSERT INTO Auditoria (tabela, registroId, acao, usuarioId, ip, payload)
+        VALUES (
+          ${event.resource || 'system'},
+          ${event.resourceId ? parseInt(event.resourceId, 10) : 0},
+          ${acaoEnum},
+          ${event.userId || null},
+          ${event.ip || null},
+          ${payload}
+        )
+      `;
 
     } catch (error) {
       console.error('[AUDIT] Erro no sistema de auditoria:', error);

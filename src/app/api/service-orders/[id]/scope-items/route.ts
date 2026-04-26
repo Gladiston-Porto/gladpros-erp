@@ -93,8 +93,10 @@ export const POST = withErrorHandler(async (request: Request,
 
         const { description, sortOrder } = body.data;
 
-        // Get next sortOrder if not provided
+        // If sortOrder provided by client, use it directly.
+        // If not, query MAX — but wrap in a retry loop to handle concurrent insertions.
         let finalSortOrder = sortOrder;
+
         if (finalSortOrder === undefined) {
             const maxItem = await prisma.serviceOrderScopeItem.findFirst({
                 where: { serviceOrderId },
@@ -104,13 +106,28 @@ export const POST = withErrorHandler(async (request: Request,
             finalSortOrder = (maxItem?.sortOrder ?? -1) + 1;
         }
 
-        const item = await prisma.serviceOrderScopeItem.create({
-            data: {
-                serviceOrderId,
-                description,
-                sortOrder: finalSortOrder
+        // Use createMany-style resilience: if unique constraint hit (P2002), bump sortOrder and retry once
+        let item;
+        try {
+            item = await prisma.serviceOrderScopeItem.create({
+                data: { serviceOrderId, description, sortOrder: finalSortOrder }
+            });
+        } catch (err: unknown) {
+            const prismaErr = err as { code?: string };
+            if (prismaErr?.code === 'P2002') {
+                // sortOrder collision — find real max and add 1
+                const maxItem = await prisma.serviceOrderScopeItem.findFirst({
+                    where: { serviceOrderId },
+                    orderBy: { sortOrder: 'desc' },
+                    select: { sortOrder: true }
+                });
+                item = await prisma.serviceOrderScopeItem.create({
+                    data: { serviceOrderId, description, sortOrder: (maxItem?.sortOrder ?? -1) + 1 }
+                });
+            } else {
+                throw err;
             }
-        });
+        }
 
         return NextResponse.json({ data: item, success: true }, { status: 201 });
     });

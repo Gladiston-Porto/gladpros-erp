@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 // Schema de validação para criação de fornecedor
 const createFornecedorSchema = z.object({
@@ -18,6 +20,11 @@ const createFornecedorSchema = z.object({
 });
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
+        const authUser = await requireUser(request);
+        if (!can(authUser.role as Role, 'estoque', 'create')) {
+            return NextResponse.json({ error: 'Sem permissão', success: false }, { status: 403 });
+        }
+
         const body = await request.json();
         const parsed = createFornecedorSchema.safeParse(body);
 
@@ -28,7 +35,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             );
         }
 
-        let { nome, tipoDocumento, documento, email, telefone } = parsed.data;
+        const { nome, email, telefone } = parsed.data;
+        let { tipoDocumento, documento } = parsed.data;
 
         // Sanitização e Validação de EIN
         if (tipoDocumento === 'EIN' && documento) {
@@ -69,7 +77,12 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         return NextResponse.json(fornecedor, { status: 201 });
     });
 
-export const GET = withErrorHandler(async () => {
+export const GET = withErrorHandler(async (request: NextRequest) => {
+        const authUser = await requireUser(request);
+        if (!can(authUser.role as Role, 'estoque', 'read')) {
+            return NextResponse.json({ error: 'Sem permissão', success: false }, { status: 403 });
+        }
+
         const fornecedores = await prisma.fornecedor.findMany({
             where: { ativo: true },
             orderBy: { nome: 'asc' },

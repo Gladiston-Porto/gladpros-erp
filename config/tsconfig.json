@@ -13,10 +13,10 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "forceConsistentCasingInFileNames": true,
 
-    "baseUrl": ".",                 // ← root do projeto
     "paths": {
-      "@/*": ["src/*"]              // ← "@/lib/xyz" -> "src/lib/xyz"
+      "@/*": ["../src/*"]           // ← relativo a config/ → root/src/
     },
 
     "plugins": [{ "name": "next" }]

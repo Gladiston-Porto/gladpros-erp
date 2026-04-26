@@ -14,6 +14,7 @@ import { Badge } from "@gladpros/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@gladpros/ui/card";
 import { formatCurrency, formatDate, formatQuantity } from '@/lib/estoque/utils/formatters';
 import { MaterialEmbalagemTab } from '@/components/estoque/materiais/MaterialEmbalagemTab';
+import { DynamicBar } from '@/components/ui/dynamic-bar';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -151,16 +152,14 @@ export default async function MaterialDetalhesPage({ params }: PageProps) {
             </div>
             <div className="pt-2">
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
+                <DynamicBar
+                  value={Math.min((saldoTotal / pontoRep) * 100, 100)}
                   className={`h-full transition-all ${abaixoMinimo
                     ? 'bg-destructive'
                     : abaixoPontoReposicao
                       ? 'bg-yellow-500'
                       : 'bg-primary'
                     }`}
-                  style={{
-                    width: `${Math.min((saldoTotal / pontoRep) * 100, 100)}%`,
-                  }}
                 />
               </div>
             </div>

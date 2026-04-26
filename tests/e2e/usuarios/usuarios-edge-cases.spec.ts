@@ -9,7 +9,7 @@
 import { test, expect, getAuthHeaders, mockUsers } from '../fixtures/auth';
 import { seedUsuarios, cleanupUsuarios } from '../fixtures/usuarios-seed';
 
-const BASE = 'http://localhost:3000';
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe.serial('Edge Cases — Módulo Usuários', () => {
   test.beforeAll(async () => { await seedUsuarios(); });

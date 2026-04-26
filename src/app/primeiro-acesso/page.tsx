@@ -5,6 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense } from "react"
 import { validatePassword, getPasswordStrength, type PasswordStrengthResult } from "@/shared/lib/password-client";
 import { authApi } from "@/lib/api/client";
+import { DynamicBar } from "@/components/ui/dynamic-bar";
+
+/** Mapeamento de cor hex → classes Tailwind (evita inline style para cor) */
+const STRENGTH_CLASS: Record<string, { text: string; bg: string }> = {
+  '#ef4444': { text: 'text-red-500',    bg: 'bg-red-500'    },
+  '#f97316': { text: 'text-orange-500', bg: 'bg-orange-500' },
+  '#eab308': { text: 'text-yellow-500', bg: 'bg-yellow-500' },
+  '#84cc16': { text: 'text-lime-500',   bg: 'bg-lime-500'   },
+  '#22c55e': { text: 'text-green-500',  bg: 'bg-green-500'  },
+}
 
 interface SetupStep {
   id: string;
@@ -149,7 +159,7 @@ function FirstAccessSetup() {
               alt="GladPros" 
               width={60} 
               height={60} 
-              className="rounded-lg"
+              className="rounded-2xl"
             />
             <div>
               <h1 className="text-2xl font-bold">Bem-vindo ao GladPros!</h1>
@@ -210,28 +220,32 @@ function FirstAccessSetup() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground/80 mb-2">
+                    <label htmlFor="pa-nova-senha" className="block text-sm font-medium text-foreground/80 mb-2">
                       Nova Senha
                     </label>
                     <input
+                      id="pa-nova-senha"
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30"
                       placeholder="Digite sua nova senha"
+                      autoComplete="new-password"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground/80 mb-2">
+                    <label htmlFor="pa-confirmar-senha" className="block text-sm font-medium text-foreground/80 mb-2">
                       Confirmar Senha
                     </label>
                     <input
+                      id="pa-confirmar-senha"
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30"
                       placeholder="Digite novamente sua senha"
+                      autoComplete="new-password"
                     />
                   </div>
 
@@ -239,17 +253,14 @@ function FirstAccessSetup() {
                     <div className="mt-4 p-4 bg-muted/50 rounded-xl">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-foreground">Força da Senha</span>
-                        <span className={`text-sm font-semibold`} style={{ color: passwordStrength.color }}>
+                        <span className={`text-sm font-semibold ${STRENGTH_CLASS[passwordStrength.color]?.text ?? 'text-muted-foreground'}`}>
                           {passwordStrength.label}
                         </span>
                       </div>
                       <div className="w-full bg-muted rounded-full h-2 mb-3">
-                        <div 
-                          className="h-2 rounded-full transition-all duration-300"
-                          style={{ 
-                            width: `${passwordStrength.score}%`,
-                            backgroundColor: passwordStrength.color
-                          }}
+                        <DynamicBar
+                          value={passwordStrength.score}
+                          className={`h-2 rounded-full transition-all duration-300 ${STRENGTH_CLASS[passwordStrength.color]?.bg ?? 'bg-muted-foreground'}`}
                         />
                       </div>
                       <div className="space-y-1">
@@ -286,10 +297,11 @@ function FirstAccessSetup() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground/80 mb-2">
+                    <label htmlFor="pa-pin" className="block text-sm font-medium text-foreground/80 mb-2">
                       PIN (4 dígitos)
                     </label>
                     <input
+                      id="pa-pin"
                       type="password"
                       value={pin}
                       onChange={(e) => {
@@ -299,14 +311,17 @@ function FirstAccessSetup() {
                       className="w-32 px-3 py-2 border border-border bg-background text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 text-center text-lg tracking-widest"
                       placeholder="****"
                       maxLength={4}
+                      aria-label="PIN de segurança com 4 dígitos"
+                      autoComplete="new-password"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground/80 mb-2">
+                    <label htmlFor="pa-confirmar-pin" className="block text-sm font-medium text-foreground/80 mb-2">
                       Confirmar PIN
                     </label>
                     <input
+                      id="pa-confirmar-pin"
                       type="password"
                       value={confirmPin}
                       onChange={(e) => {
@@ -316,6 +331,8 @@ function FirstAccessSetup() {
                       className="w-32 px-3 py-2 border border-border bg-background text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 text-center text-lg tracking-widest"
                       placeholder="****"
                       maxLength={4}
+                      aria-label="Confirmar PIN de segurança"
+                      autoComplete="new-password"
                     />
                   </div>
 
@@ -363,15 +380,17 @@ function FirstAccessSetup() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground/80 mb-2">
+                    <label htmlFor="pa-resposta-seguranca" className="block text-sm font-medium text-foreground/80 mb-2">
                       Resposta
                     </label>
                     <input
+                      id="pa-resposta-seguranca"
                       type="text"
                       value={securityAnswer}
                       onChange={(e) => setSecurityAnswer(e.target.value)}
                       className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30"
                       placeholder="Digite sua resposta"
+                      autoComplete="off"
                     />
                   </div>
 

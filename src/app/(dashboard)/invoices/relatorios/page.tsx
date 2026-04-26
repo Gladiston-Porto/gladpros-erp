@@ -11,6 +11,7 @@ import { Button } from "@gladpros/ui/button";
 import { Card, CardContent, CardHeader } from "@gladpros/ui/card";
 import { Badge } from "@gladpros/ui/badge";
 import { ArrowLeft, FileText, DollarSign, Clock, AlertTriangle, TrendingUp } from "lucide-react";
+import { DynamicBar } from "@/components/ui/dynamic-bar";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
@@ -152,9 +153,9 @@ export default async function RelatoriosInvoicesPage() {
                       </span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-brand-primary rounded-full transition-all w-(--bar-pct)"
-                        style={{ "--bar-pct": `${pct}%` } as React.CSSProperties}
+                      <DynamicBar
+                        value={pct}
+                        className="h-full bg-brand-primary rounded-full transition-all"
                       />
                     </div>
                   </div>

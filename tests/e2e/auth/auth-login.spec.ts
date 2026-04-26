@@ -12,7 +12,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { seedAuthenticatedSessionWithMFA, seedAuthenticatedSessionFromDatabase } from '../helpers/auth';
+import { resetAuthTestState, seedAuthenticatedSessionWithMFA } from '../helpers/auth';
 
 const ADMIN_EMAIL = process.env.AUTH_ADMIN_EMAIL || 'admin@gladpros.com';
 const ADMIN_PASSWORD = process.env.AUTH_ADMIN_PASSWORD || 'Admin123!@#';
@@ -23,6 +23,7 @@ test.describe('Login Flow', () => {
   test.setTimeout(180000);
 
   test.beforeEach(async ({ page }) => {
+    await resetAuthTestState(page.request, ADMIN_EMAIL);
     await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
   });
 

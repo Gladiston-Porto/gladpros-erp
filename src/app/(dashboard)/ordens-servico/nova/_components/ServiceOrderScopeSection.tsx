@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@gladpros/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@gladpros/ui/card";
@@ -28,12 +29,32 @@ export function ServiceOrderScopeSection({
   setNewScopeItem,
   setScopeItems,
 }: ServiceOrderScopeSectionProps) {
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+
   const addScopeItem = () => {
-    if (!newScopeItem.trim()) {
-      return;
-    }
+    if (!newScopeItem.trim()) return;
     setScopeItems((current) => [...current, newScopeItem.trim()]);
     setNewScopeItem("");
+  };
+
+  const startEdit = (index: number) => {
+    setEditingIndex(index);
+    setEditText(scopeItems[index] ?? "");
+  };
+
+  const confirmEdit = (index: number) => {
+    if (!editText.trim()) return;
+    setScopeItems((current) =>
+      current.map((item, i) => (i === index ? editText.trim() : item))
+    );
+    setEditingIndex(null);
+    setEditText("");
+  };
+
+  const cancelEdit = () => {
+    setEditingIndex(null);
+    setEditText("");
   };
 
   return (
@@ -63,19 +84,62 @@ export function ServiceOrderScopeSection({
                 className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-2"
               >
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="flex-1 text-sm text-foreground">{item}</span>
-                <button
-                  type="button"
-                  aria-label="Remover tarefa"
-                  onClick={() =>
-                    setScopeItems((current) =>
-                      current.filter((_, itemIndex) => itemIndex !== index)
-                    )
-                  }
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+
+                {editingIndex === index ? (
+                  <>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); confirmEdit(index); }
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      className="flex-1 rounded border border-border bg-background px-2 py-0.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Salvar edição"
+                      onClick={() => confirmEdit(index)}
+                      className="text-green-600 hover:text-green-700"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Cancelar edição"
+                      onClick={cancelEdit}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 text-sm text-foreground">{item}</span>
+                    <button
+                      type="button"
+                      aria-label="Editar tarefa"
+                      onClick={() => startEdit(index)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Remover tarefa"
+                      onClick={() =>
+                        setScopeItems((current) =>
+                          current.filter((_, itemIndex) => itemIndex !== index)
+                        )
+                      }
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
               </div>
             ))}
             <div className="flex gap-2">
@@ -84,10 +148,7 @@ export function ServiceOrderScopeSection({
                 value={newScopeItem}
                 onChange={(event) => setNewScopeItem(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    addScopeItem();
-                  }
+                  if (event.key === "Enter") { event.preventDefault(); addScopeItem(); }
                 }}
                 placeholder="Adicionar tarefa ao checklist..."
                 className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -107,10 +168,7 @@ export function ServiceOrderScopeSection({
               step="0.5"
               value={form.estimatedHours}
               onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  estimatedHours: event.target.value,
-                }))
+                setForm((current) => ({ ...current, estimatedHours: event.target.value }))
               }
               className={inputCls}
               placeholder="4"
@@ -123,10 +181,7 @@ export function ServiceOrderScopeSection({
               step="0.01"
               value={form.hourlyRate}
               onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  hourlyRate: event.target.value,
-                }))
+                setForm((current) => ({ ...current, hourlyRate: event.target.value }))
               }
               className={inputCls}
               placeholder="75.00"
@@ -142,9 +197,7 @@ export function ServiceOrderScopeSection({
             onChange={(event) =>
               setForm((current) => ({
                 ...current,
-                materialSupply: event.target.value as
-                  | "CLIENT_PROVIDES"
-                  | "COMPANY_PROVIDES",
+                materialSupply: event.target.value as "CLIENT_PROVIDES" | "COMPANY_PROVIDES",
               }))
             }
             className={inputCls}

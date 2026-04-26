@@ -25,30 +25,38 @@ export const DELETE = withErrorHandler(async (request: Request,
             );
         }
 
-        const existing = await prisma.serviceOrderTechnician.findUnique({
-            where: { serviceOrderId_workerId: { serviceOrderId, workerId } },
-            include: { worker: { select: { name: true } } },
+        // Fetch worker name before delete (separate from the junction table to avoid TOCTOU)
+        const worker = await prisma.worker.findUnique({
+            where: { id: workerId },
+            select: { name: true },
         });
 
-        if (!existing) {
-            return NextResponse.json(
-                { error: 'Not found', message: 'Técnico não está na equipe', success: false },
-                { status: 404 }
-            );
+        // Delete directly — handle P2025 (not found) instead of read-then-delete pattern
+        // This prevents MySQL error 1020 on concurrent requests for the same record
+        try {
+            await prisma.serviceOrderTechnician.delete({
+                where: { serviceOrderId_workerId: { serviceOrderId, workerId } },
+            });
+        } catch (err: unknown) {
+            const prismaErr = err as { code?: string };
+            if (prismaErr?.code === 'P2025') {
+                return NextResponse.json(
+                    { error: 'Not found', message: 'Técnico não está na equipe', success: false },
+                    { status: 404 }
+                );
+            }
+            throw err;
         }
-
-        await prisma.serviceOrderTechnician.delete({
-            where: { serviceOrderId_workerId: { serviceOrderId, workerId } },
-        });
 
         await prisma.serviceOrderHistory.create({
             data: {
                 serviceOrderId,
                 eventType: 'TECHNICIAN_REMOVED',
-                reason: `Técnico removido da equipe: ${existing.worker.name}`,
+                reason: `Técnico removido da equipe: ${worker?.name ?? `ID ${workerId}`}`,
                 createdById: Number(user.id),
             },
         });
 
         return NextResponse.json({ success: true }, { status: 200 });
     });
+

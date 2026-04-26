@@ -122,6 +122,23 @@ export async function seedAuthenticatedSessionFromDatabase(page: Page, email: st
   return { userId: user.id, token };
 }
 
+export async function resetAuthTestState(request: APIRequestContext, email: string) {
+  const { response, text } = await requestJsonWithRetry(
+    request,
+    '/api/test-helpers/auth-state',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      data: { email },
+    },
+    30000
+  );
+
+  if (!response.ok()) {
+    throw new Error(`Falha ao resetar estado auth de ${email}: ${response.status()} ${text}`);
+  }
+}
+
 export async function seedAuthenticatedSessionWithMFA(
   page: Page,
   email: string = 'admin@gladpros.com',

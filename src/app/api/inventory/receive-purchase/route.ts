@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 // Schema for receiving a purchase
 const receivePurchaseSchema = z.object({
@@ -14,7 +16,12 @@ const receivePurchaseSchema = z.object({
 });
 
 // POST /api/inventory/receive-purchase - Receive purchased materials and allocate to service orders
-export const POST = withErrorHandler(async (request: Request) => {
+export const POST = withErrorHandler(async (request: NextRequest) => {
+        const authUser = await requireUser(request);
+        if (!can(authUser.role as Role, 'estoque', 'create')) {
+            return NextResponse.json({ error: 'Sem permissão', success: false }, { status: 403 });
+        }
+
         const body = await request.json();
         const validated = receivePurchaseSchema.parse(body);
 

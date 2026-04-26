@@ -42,6 +42,8 @@ export const PATCH = withErrorHandler(async (
             { status: 403 }
         );
     }
+    // Single-tenant: empresaId comes from user context (fallback 1 for safety)
+    const empresaId = Number((user as any).empresaId) || 1;
 
     const { id, materialId } = await params;
     const serviceOrderId = parseInt(id);
@@ -137,19 +139,19 @@ export const PATCH = withErrorHandler(async (
             const expense = await prisma.$transaction(async (tx) => {
                 // Find/create expense category
                 let categoria = await tx.expenseCategory.findFirst({
-                    where: { empresaId: 1, nome: { contains: 'Compra' } },
+                    where: { empresaId, nome: { contains: 'Compra' } },
                     select: { id: true }
                 });
                 if (!categoria) {
                     categoria = await tx.expenseCategory.create({
-                        data: { empresaId: 1, nome: 'Compras de Estoque', cor: '#F59E0B' },
+                        data: { empresaId, nome: 'Compras de Estoque', cor: '#F59E0B' },
                         select: { id: true }
                     });
                 }
 
                 const newExpense = await tx.expense.create({
                     data: {
-                        empresaId: 1,
+                        empresaId,
                         categoriaId: categoria.id,
                         descricao: `Material de campo: ${mat.name} (OS #${mat.ServiceOrder.ticketNumber})`,
                         valor: totalCost,
@@ -190,19 +192,19 @@ export const PATCH = withErrorHandler(async (
 
             if (!expenseId) {
                 let categoria = await tx.expenseCategory.findFirst({
-                    where: { empresaId: 1, nome: { contains: 'Compra' } },
+                    where: { empresaId, nome: { contains: 'Compra' } },
                     select: { id: true }
                 });
                 if (!categoria) {
                     categoria = await tx.expenseCategory.create({
-                        data: { empresaId: 1, nome: 'Compras de Estoque', cor: '#F59E0B' },
+                        data: { empresaId, nome: 'Compras de Estoque', cor: '#F59E0B' },
                         select: { id: true }
                     });
                 }
 
                 const newExpense = await tx.expense.create({
                     data: {
-                        empresaId: 1,
+                        empresaId,
                         categoriaId: categoria.id,
                         descricao: `Material de campo: ${mat.name} (OS #${mat.ServiceOrder.ticketNumber})`,
                         valor: totalCost,

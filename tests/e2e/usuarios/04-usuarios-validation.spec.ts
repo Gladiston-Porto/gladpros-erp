@@ -8,7 +8,7 @@
 import { test, expect } from '../fixtures/auth';
 import { seedUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
-const BASE = 'http://localhost:3000';
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe.serial('04 — Validação E2E', () => {
   test.beforeAll(async () => { await seedUsuarios(); });

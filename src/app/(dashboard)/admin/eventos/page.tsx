@@ -75,7 +75,8 @@ export default function EventosPage() {
   }, [fetchEvents]);
 
   const formatDate = (iso: string) => {
-    return new Date(iso).toLocaleString('pt-BR', {
+    return new Date(iso).toLocaleString('en-US', {
+      timeZone: 'America/Chicago',
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',

@@ -12,15 +12,26 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { seedAuthenticatedSessionWithMFA } from '../helpers/auth';
+import { resetAuthTestState, seedAuthenticatedSessionWithMFA } from '../helpers/auth';
 
 const ADMIN_EMAIL = process.env.AUTH_ADMIN_EMAIL || 'admin@gladpros.com';
 const ADMIN_PASSWORD = process.env.AUTH_ADMIN_PASSWORD || 'Admin123!@#';
+const ATTACK_EMAIL = process.env.AUTH_ATTACK_EMAIL || ADMIN_EMAIL;
+const ATTACK_PASSWORD = process.env.AUTH_ATTACK_PASSWORD || ADMIN_PASSWORD;
 const AUTH_TIMEOUT_MS = 120000;
+
+function getPendingMfaUserId(body: { user?: { id?: number } }): number | undefined {
+  return typeof body.user?.id === 'number' ? body.user.id : undefined;
+}
 
 test.describe('Auth Security', () => {
   test.describe.configure({ mode: 'serial' });
   test.setTimeout(300000); // testes de rate-limit precisam de tempo extra
+
+  test.beforeEach(async ({ page }) => {
+    await resetAuthTestState(page.request, ADMIN_EMAIL);
+    await resetAuthTestState(page.request, ATTACK_EMAIL);
+  });
 
   test('rate limiting: login com senha errada repetidamente retorna 429 ou 423', async ({ page }) => {
     // Realizar múltiplas tentativas com senha errada
@@ -29,7 +40,7 @@ test.describe('Auth Security', () => {
 
     for (let i = 0; i < 8; i++) {
       const resp = await page.request.post('/api/auth/login', {
-        data: { email: ADMIN_EMAIL, senha: 'SenhaErradaParaTeste999!' },
+        data: { email: ATTACK_EMAIL, password: 'SenhaErradaParaTeste999!' },
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -57,7 +68,7 @@ test.describe('Auth Security', () => {
 
     for (let i = 0; i < 10; i++) {
       const resp = await page.request.post('/api/auth/login', {
-        data: { email: 'qa.bloqueado@teste.local', senha: 'SenhaQualquer123!' },
+        data: { email: ATTACK_EMAIL, password: ATTACK_PASSWORD },
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -144,11 +155,11 @@ test.describe('Auth Security', () => {
 
   test('MFA rate limiting: muitas tentativas de código inválido retornam 429', async ({ page }) => {
     const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, senha: ADMIN_PASSWORD },
+      data: { email: ATTACK_EMAIL, password: ATTACK_PASSWORD },
       headers: { 'Content-Type': 'application/json' },
     });
     const loginBody = await loginResp.json();
-    const userId = loginBody.data?.userId;
+    const userId = getPendingMfaUserId(loginBody);
 
     if (!userId) {
       test.skip(true, 'userId não disponível — fluxo MFA diferente neste ambiente');
@@ -177,11 +188,11 @@ test.describe('Auth Security', () => {
 
   test('senha correta mas email inexistente retorna mesma mensagem (anti-enumeration)', async ({ page }) => {
     const resp1 = await page.request.post('/api/auth/login', {
-      data: { email: 'naoexiste123@teste.local', senha: 'Senha123!@#' },
+      data: { email: 'naoexiste123@teste.local', password: 'Senha123!@#' },
       headers: { 'Content-Type': 'application/json' },
     });
     const resp2 = await page.request.post('/api/auth/login', {
-      data: { email: 'naoexiste456@teste.local', senha: 'OutraSenha456!' },
+      data: { email: 'naoexiste456@teste.local', password: 'OutraSenha456!' },
       headers: { 'Content-Type': 'application/json' },
     });
 

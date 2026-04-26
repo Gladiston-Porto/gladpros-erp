@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
@@ -41,6 +42,11 @@ const createServiceOrderSchema = z.object({
     assignedWorkerId: z.number().optional(),
     projetoId: z.number().optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY']).optional(),
+
+    // Financial estimates (Fase 1)
+    agreedClientPrice: z.number().positive().optional(),
+    materialEstimate: z.number().positive().optional(),
+    laborEstimate: z.number().positive().optional(),
 });
 
 // Generate ticket number
@@ -68,6 +74,29 @@ export const GET = withErrorHandler(async (request: Request) => {
         const assignedWorkerId = searchParams.get('assignedWorkerId');
         const createdById = searchParams.get('createdById');
         const search = searchParams.get('search');
+
+        // Sort — whitelist to prevent Prisma injection
+        const SORT_WHITELIST: Record<string, Prisma.ServiceOrderOrderByWithRelationInput> = {
+            createdAt:    { createdAt: 'desc' },
+            ticketNumber: { ticketNumber: 'asc' },
+            title:        { title: 'asc' },
+            status:       { status: 'asc' },
+            scheduledDate: { scheduledDate: { sort: 'asc', nulls: 'last' } },
+            total:        { total: 'desc' },
+            // cliente sort uses nomeCompleto (never null); nomeFantasia is nullable
+            cliente:      { Cliente: { nomeCompleto: 'asc' } },
+        };
+        const sortKey = searchParams.get('sortKey') ?? 'createdAt';
+        const sortDirParam = searchParams.get('sortDir');
+        const orderBy = (() => {
+            const base = SORT_WHITELIST[sortKey] ?? SORT_WHITELIST['createdAt'];
+            // Allow overriding direction for simple top-level fields
+            if (sortDirParam === 'asc' || sortDirParam === 'desc') {
+                const topField = ['createdAt', 'ticketNumber', 'title', 'status', 'total'].find(f => f === sortKey);
+                if (topField) return { [topField]: sortDirParam };
+            }
+            return base;
+        })();
 
         // Build where clause
         const where: Record<string, unknown> = {};
@@ -99,10 +128,10 @@ export const GET = withErrorHandler(async (request: Request) => {
         // Fetch data with count
         const [data, total] = await Promise.all([
             prisma.serviceOrder.findMany({
-                where,
+                where: where as Prisma.ServiceOrderWhereInput,
                 skip,
                 take: limit,
-                orderBy: { createdAt: 'desc' },
+                orderBy: orderBy as Prisma.ServiceOrderOrderByWithRelationInput,
                 include: {
                     Cliente: {
                         select: { id: true, nomeFantasia: true, nomeCompleto: true }
@@ -263,6 +292,10 @@ export const POST = withErrorHandler(async (request: Request) => {
                     endClientPhone: validated.endClientPhone || null,
                     endClientEmail: validated.endClientEmail || null,
                     endClientNotes: validated.endClientNotes || null,
+
+                    ...(validated.agreedClientPrice !== undefined && { agreedClientPrice: validated.agreedClientPrice }),
+                    ...(validated.materialEstimate !== undefined && { materialEstimate: validated.materialEstimate }),
+                    ...(validated.laborEstimate !== undefined && { laborEstimate: validated.laborEstimate }),
 
                     status: 'DRAFT',
                     createdById: Number(user.id),

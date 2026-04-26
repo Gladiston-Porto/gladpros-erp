@@ -15,10 +15,9 @@
     "incremental": true,
     "forceConsistentCasingInFileNames": true,
 
-    "baseUrl": ".",                 // ← root do projeto
     "paths": {
-      "@/*": ["src/*"],
-      "@/shared/*": ["src/shared/*"]
+      "@/*": ["./src/*"],
+      "@/shared/*": ["./src/shared/*"]
     },
 
     "plugins": [{ "name": "next" }]

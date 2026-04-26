@@ -15,6 +15,7 @@ import { can, type Role } from "@/shared/lib/rbac-core";
 import { withBusinessCache } from "@/shared/lib/cache/business-cache";
 import { AuditoriaService } from "@/shared/lib/audit";
 import { logger } from "@/lib/api/logger";
+import { apiRateLimit } from '@/shared/lib/rate-limit';
 
 // Minimal shapes for raw SQL rows (A10: PII fica fora da listagem)
 type UserRow = {
@@ -178,7 +179,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     const orderKey = (() => {
       switch (sortKey) {
         case "nome": return "nomeCompleto";
-        case "email": return "email";
+        case "email": return "BINARY email";
         case "role": return "nivel";
         case "ativo": return "status";
         case "criadoEm":
@@ -266,9 +267,9 @@ const EstadosMax = z.string().max(32);
 
 // Adapted to the current Prisma schema (required fields are different).
 const UserCreateSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email().max(191),
   // application-level fields are accepted but many are optional in schema
-  nomeCompleto: z.string().optional(),
+  nomeCompleto: z.string().max(191).optional().or(z.literal("")).transform((s) => s || undefined),
   role: Roles.optional(),
   status: Status.optional(),
   telefone: z.string().max(32).optional().or(z.literal(""))
@@ -343,9 +344,22 @@ const UserCreateSchema = z.object({
     }),
   anotacoes: z.string().optional().or(z.literal(""))
     .transform((s) => (s && s.trim().length > 0 ? s : undefined)),
+  sendInviteEmail: z.boolean().optional(),
+  exigirTrocaSenha: z.boolean().optional(),
+  vincularWorker: z.boolean().optional(),
+  workerClassification: z.enum(["W2_EMPLOYEE", "CONTRACTOR_1099", "SUBCONTRACTOR", "OWNER_OPERATOR"]).optional(),
 }).strict();
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+    // Rate limiting — prevenir criação em massa de contas
+    const rateCheck = await apiRateLimit.isAllowed(req);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests', message: rateCheck.message, success: false },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
+      );
+    }
+
     // Verificar autenticação
     const user = await requireUser(req);
     
@@ -396,7 +410,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       );
     }
 
-    const { email: emailAddr, nomeCompleto, role, status, telefone, dataNascimento, endereco1, endereco2, cidade, estado, cep, anotacoes } = parsed.data;
+    const { email: emailAddr, nomeCompleto, role, status, telefone, dataNascimento, endereco1, endereco2, cidade, estado, cep, anotacoes, sendInviteEmail, exigirTrocaSenha, vincularWorker, workerClassification } = parsed.data;
 
     try {
       // Checagem por e-mail via SQL bruto (evita schema/stale do Prisma Client)
@@ -444,8 +458,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       if (cols.has("anotacoes")) { insertCols.push("anotacoes"); values.push(anotacoes ?? null); }
       
       // Campos para controle de primeiro acesso e senha provisória
-      if (cols.has("primeiroAcesso")) { insertCols.push("primeiroAcesso"); values.push(true); }
-      if (cols.has("senhaProvisoria")) { insertCols.push("senhaProvisoria"); values.push(true); }
+      const mustReset = exigirTrocaSenha !== false; // default true
+      if (cols.has("primeiroAcesso")) { insertCols.push("primeiroAcesso"); values.push(mustReset); }
+      if (cols.has("senhaProvisoria")) { insertCols.push("senhaProvisoria"); values.push(mustReset); }
       
       if (cols.has("criadoEm")) { insertCols.push("criadoEm"); values.push(new Date()); }
       if (cols.has("atualizadoEm")) { insertCols.push("atualizadoEm"); values.push(new Date()); }
@@ -456,8 +471,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       await withRetry(() => prisma.$executeRawUnsafe(sql, ...values));
 
     const createdRows = (await withRetry(() => prisma.$queryRaw`
-        SELECT id, email, status, criadoEm FROM Usuario WHERE email = ${emailAddr} LIMIT 1
-    `)) as unknown as Array<{ id: number; email: string; status: string; criadoEm: Date }>;
+      SELECT id, email, status, criadoEm, nomeCompleto, nivel FROM Usuario WHERE email = ${emailAddr} LIMIT 1
+    `)) as unknown as Array<{ id: number; email: string; status: string; criadoEm: Date; nomeCompleto: string | null; nivel: string | null }>;
     const created = createdRows[0];
 
     // 3) e-mail de boas-vindas (include temp password)
@@ -488,13 +503,40 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         logger.error('[POST usuarios] Erro ao registrar auditoria', {}, auditError);
       }
 
-      try {
-        await sendMail(created.email, subject, html);
-      } catch (err) {
-        logger.warn("[SMTP MAILER ERROR]", {}, err);
+      if (sendInviteEmail !== false) {
+        try {
+          await sendMail(created.email, subject, html);
+        } catch (err) {
+          logger.warn("[SMTP MAILER ERROR]", {}, err);
+        }
       }
 
-      return NextResponse.json({ data: created, success: true, message: "Usuário criado com sucesso" }, { status: 201 });
+      // 4) criar Worker vinculado se solicitado
+      let workerLinked = false;
+      if (vincularWorker) {
+        try {
+          await prisma.worker.create({
+            data: {
+              name: nomeCompleto ?? emailAddr,
+              email: emailAddr,
+              emailNormalized: emailAddr.toLowerCase(),
+              usuarioId: created.id,
+              classification: (workerClassification ?? "CONTRACTOR_1099") as "W2_EMPLOYEE" | "CONTRACTOR_1099" | "SUBCONTRACTOR" | "OWNER_OPERATOR",
+              type: "INDIVIDUAL",
+              status: "ACTIVE",
+            },
+          });
+          workerLinked = true;
+        } catch (workerErr) {
+          logger.warn("[POST usuarios] Falha ao criar Worker vinculado", {}, workerErr);
+        }
+      }
+
+      return NextResponse.json({
+        data: { ...created, workerLinked },
+        success: true,
+        message: workerLinked ? "Usuário criado com sucesso e vinculado ao Workforce" : "Usuário criado com sucesso",
+      }, { status: 201 });
     } catch (err: unknown) {
       logger.error("POST /api/usuarios error", {}, err);
       

@@ -8,6 +8,7 @@ import { FilePlus } from "lucide-react";
 import { Button } from "@gladpros/ui/button"
 import { ModulePageHeader } from "@gladpros/ui/module-page-header"
 import { useToast } from "@gladpros/ui/toast";
+import { Input } from "@gladpros/ui/input";
 
 import { authenticatedFetch } from "@/lib/api/client";
 
@@ -46,6 +47,9 @@ const INITIAL_FORM: ServiceOrderFormState = {
   endClientNotes: "",
   assignedWorkerId: undefined,
   priority: "MEDIUM",
+  agreedClientPrice: "",
+  materialEstimate: "",
+  laborEstimate: "",
 };
 
 export default function NovaOrdemServicoPage() {
@@ -156,6 +160,9 @@ export default function NovaOrdemServicoPage() {
           form.scheduleType === "FLEXIBLE" && form.scheduleDateEnd
             ? form.scheduleDateEnd
             : undefined,
+        ...(form.agreedClientPrice && { agreedClientPrice: parseFloat(form.agreedClientPrice) }),
+        ...(form.materialEstimate && { materialEstimate: parseFloat(form.materialEstimate) }),
+        ...(form.laborEstimate && { laborEstimate: parseFloat(form.laborEstimate) }),
       };
 
       const response = await authenticatedFetch("/api/service-orders", {
@@ -189,11 +196,11 @@ export default function NovaOrdemServicoPage() {
       );
 
       const scopeResults = await Promise.allSettled(
-        scopeItems.map((item) =>
+        scopeItems.map((item, index) =>
           authenticatedFetch(`/api/service-orders/${created.id}/scope-items`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ description: item }),
+            body: JSON.stringify({ description: item, sortOrder: index }),
           })
         )
       );
@@ -293,6 +300,73 @@ export default function NovaOrdemServicoPage() {
           labelCls={labelCls}
           setForm={setForm}
         />
+
+        {/* Financial Section */}
+        <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+          <h3 className="font-semibold text-foreground">Valor do Contrato</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Valor Acordado com Cliente</label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={form.agreedClientPrice}
+                onChange={e => setForm(f => ({ ...f, agreedClientPrice: e.target.value }))}
+                className="bg-background border-border"
+                aria-label="Valor acordado com o cliente"
+              />
+              <p className="text-xs text-muted-foreground">Valor total acordado no contrato</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Estimativa de Material</label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={form.materialEstimate}
+                onChange={e => setForm(f => ({ ...f, materialEstimate: e.target.value }))}
+                className="bg-background border-border"
+                aria-label="Estimativa de material"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Estimativa de Mão de Obra</label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={form.laborEstimate}
+                onChange={e => setForm(f => ({ ...f, laborEstimate: e.target.value }))}
+                className="bg-background border-border"
+                aria-label="Estimativa de mão de obra"
+              />
+            </div>
+          </div>
+
+          {/* Margin Preview */}
+          {Number(form.agreedClientPrice) > 0 && (
+            <div className="rounded-xl bg-muted/50 p-3 text-sm">
+              {(() => {
+                const agreed = Number(form.agreedClientPrice) || 0;
+                const matEst = Number(form.materialEstimate) || 0;
+                const labEst = Number(form.laborEstimate) || 0;
+                const totalCost = matEst + labEst;
+                const margin = agreed > 0 ? ((agreed - totalCost) / agreed) * 100 : 0;
+                const color = margin < 0 ? 'text-destructive' : margin < 15 ? 'text-yellow-500' : 'text-green-500';
+                return (
+                  <span>
+                    Margem projetada: <span className={`font-semibold ${color}`}>{margin.toFixed(1)}%</span>
+                    {' '}(${(agreed - totalCost).toFixed(2)} de ${agreed.toFixed(2)})
+                  </span>
+                );
+              })()}
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
           <Button type="button" variant="ghost" onClick={() => router.back()}>

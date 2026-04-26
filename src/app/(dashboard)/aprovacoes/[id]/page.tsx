@@ -226,7 +226,7 @@ export default function AprovacaoDetalhePage() {
                         {apr.comentario && (
                           <div className="mt-2 flex items-start gap-2 rounded-lg bg-muted p-2.5">
                             <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <p className="text-xs text-muted-foreground italic">"{apr.comentario}"</p>
+                            <p className="text-xs text-muted-foreground italic">&quot;{apr.comentario}&quot;</p>
                           </div>
                         )}
                         {apr.dataAprovacao && (

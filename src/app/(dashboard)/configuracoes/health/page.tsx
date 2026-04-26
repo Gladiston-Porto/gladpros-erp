@@ -274,7 +274,7 @@ export default function HealthPage() {
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Total de eventos</p>
-                <p className="text-2xl font-bold">{metrics.events.total.toLocaleString('pt-BR')}</p>
+                <p className="text-2xl font-bold">{metrics.events.total.toLocaleString('en-US')}</p>
               </CardContent>
             </Card>
             <Card>

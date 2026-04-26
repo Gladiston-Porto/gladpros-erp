@@ -336,7 +336,7 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
         {assignments.map((assignment) => (
           <Card key={assignment.id} className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-2">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+              <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
                 {assignment.worker.name.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 overflow-hidden">
@@ -387,7 +387,7 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
           <div className="col-span-full flex flex-col items-center justify-center py-12 text-center text-muted-foreground border rounded-2xl border-dashed">
             <User className="h-12 w-12 mb-4 opacity-20" />
             <p>Nenhum worker alocado neste projeto.</p>
-            <p className="text-sm">Clique em "Adicionar Worker" para começar.</p>
+            <p className="text-sm">Clique em &quot;Adicionar Worker&quot; para começar.</p>
           </div>
         )}
         {loading && (

@@ -27,6 +27,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const parsed = forgotPasswordSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "E-mail inválido", success: false }, { status: 422 })
   const email = parsed.data.email
+  const genericMessage = "Se o e-mail existir, você receberá instruções para redefinir a senha."
 
   const rows: Array<{ id: number; email: string }> = await prisma.$queryRaw`
     SELECT id, email FROM Usuario WHERE email = ${email.toLowerCase().trim()} LIMIT 1
@@ -34,7 +35,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const user = rows[0]
 
   // Sempre responder 200 para não revelar existência
-  let resetUrl: string | undefined
   if (user) {
     const raw = generateToken(32)
     const tokenHash = sha256Hex(raw)
@@ -44,23 +44,22 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       data: { userId: user.id, tokenHash, expiresAt },
     })
 
-    resetUrl = `${baseUrlFrom(req)}/reset-senha/${raw}`
-    // Enviar e-mail com resetUrl
-    try {
-      EmailService.prewarm()
-      const result = await EmailService.sendPasswordReset({
+    const resetUrl = `${baseUrlFrom(req)}/reset-senha/${raw}`
+
+    EmailService.prewarm()
+    void EmailService.sendPasswordReset({
         to: user.email,
         userName: user.email,
         resetLink: resetUrl,
         expiresInHours: 1
-      })
+      }).then((result) => {
       if (!result.success) {
         logger.warn("[ForgotPassword] Falha no envio de email", { error: result.error })
       }
-    } catch (err) {
+    }).catch((err) => {
       logger.error("Falha ao enviar e-mail de reset", {}, err as Error)
-    }
+    })
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, message: genericMessage })
 });

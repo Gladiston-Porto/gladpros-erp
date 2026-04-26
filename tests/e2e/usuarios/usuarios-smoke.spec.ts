@@ -9,7 +9,7 @@
 
 import { test, expect, mockUsers, getAuthHeaders } from '../fixtures/auth';
 
-const BASE = 'http://localhost:3000';
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe('Smoke — Módulo Usuários', () => {
   // ── Autenticação: rotas protegidas retornam 401 sem token ──
@@ -53,8 +53,10 @@ test.describe('Smoke — Módulo Usuários', () => {
     expect(res.status()).toBe(401);
   });
 
-  test('GET /api/usuarios/export/csv sem auth → 401', async ({ request }) => {
-    const res = await request.get(`${BASE}/api/usuarios/export/csv`);
+  test('POST /api/usuarios/export/csv sem auth → 401', async ({ request }) => {
+    const res = await request.post(`${BASE}/api/usuarios/export/csv`, {
+      data: { filters: {} },
+    });
     expect(res.status()).toBe(401);
   });
 

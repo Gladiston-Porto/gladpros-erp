@@ -44,7 +44,7 @@ export function ObservacoesSection({
             onChange={handleFieldChange('obs_cliente')}
             disabled={isLoading}
           />
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-muted-foreground">
             💡 Essas observações serão visíveis ao cliente na proposta final
           </p>
         </div>
@@ -59,16 +59,16 @@ export function ObservacoesSection({
             onChange={handleFieldChange('obs_internas')}
             disabled={isLoading}
           />
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-muted-foreground">
             🔒 Essas observações são privadas e não aparecerão na proposta do cliente
           </p>
         </div>
       </div>
 
       {/* Dicas */}
-      <div className="mt-6 rounded-xl bg-slate-50 p-4 border border-slate-200">
-        <h4 className="text-sm font-medium text-slate-800 mb-2">💡 Dicas para boas observações:</h4>
-        <ul className="text-xs text-slate-600 space-y-1">
+      <div className="mt-6 rounded-xl bg-muted p-4 border border-border">
+        <h4 className="text-sm font-medium text-muted-foreground mb-2">💡 Dicas para boas observações:</h4>
+        <ul className="text-xs text-muted-foreground space-y-1">
           <li>• <strong>Para o cliente:</strong> Mencione prazos especiais, condições de acesso, requisitos de segurança</li>
           <li>• <strong>Internas:</strong> Anote riscos identificados, fornecedores específicos, questões técnicas</li>
           <li>• Seja claro e objetivo nas informações</li>

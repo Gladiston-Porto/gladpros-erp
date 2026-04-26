@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 
 interface Params {
   id: string;
@@ -19,8 +20,8 @@ export const GET = withErrorHandler(async (request: NextRequest,
       return NextResponse.json({ message: "ID de usuário inválido" }, { status: 400 });
     }
 
-    if (Number(authUser.id) !== userId && !['ADMIN', 'GERENTE'].includes(authUser.role)) {
-      return NextResponse.json({ message: "Acesso negado" }, { status: 403 });
+    if (Number(authUser.id) !== userId && !can(authUser.role as Role, 'usuarios', 'update')) {
+      return NextResponse.json({ error: 'Forbidden', message: "Acesso negado", success: false }, { status: 403 });
     }
 
     const rows = await prisma.$queryRaw<Array<{

@@ -140,7 +140,7 @@ const AcaoSchema = z.object({
 export const PUT = withErrorHandler(async (request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
   const user = await requireUser(request);
-  if (!can(user.role as Role, 'aprovacoes', 'write')) {
+  if (!can(user.role as Role, 'aprovacoes', 'update')) {
     return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão para aprovar/rejeitar', success: false }, { status: 403 });
   }
 

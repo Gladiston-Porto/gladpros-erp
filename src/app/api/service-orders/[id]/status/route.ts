@@ -34,9 +34,10 @@ const STATE_MACHINE: Record<ServiceOrderStatus, {
         rules: []
     },
     COMPLETED: {
-        allowed: ['AWAITING_PAYMENT'],
+        allowed: ['AWAITING_PAYMENT', 'WRITE_OFF'],
         rules: [
-            { to: 'AWAITING_PAYMENT', check: 'hasInvoice', msg: 'Fatura não foi gerada' }
+            { to: 'AWAITING_PAYMENT', check: 'hasInvoice', msg: 'Fatura não foi gerada' },
+            { to: 'WRITE_OFF', check: 'noInvoice', msg: 'Não é possível fazer write-off de OS com fatura gerada. Cancele a fatura primeiro.' }
         ]
     },
     AWAITING_PAYMENT: {
@@ -85,6 +86,9 @@ async function checkRule(check: string, order: {
         case 'hasInvoice':
             return order.invoiceId !== null;
 
+        case 'noInvoice':
+            return order.invoiceId === null;
+
         case 'invoiceIsPaid':
             if (!order.invoiceId) return false;
             const invoice = await prisma.invoice.findUnique({
@@ -122,7 +126,16 @@ export const PATCH = withErrorHandler(async (request: Request,
             );
         }
 
-        const body = statusChangeSchema.safeParse(await request.json());
+        let rawBody: unknown;
+        try {
+            rawBody = await request.json();
+        } catch {
+            return NextResponse.json(
+                { error: 'Validation failed', message: 'Corpo da requisição inválido ou vazio', success: false },
+                { status: 400 }
+            );
+        }
+        const body = statusChangeSchema.safeParse(rawBody);
         if (!body.success) {
             return NextResponse.json(
                 {

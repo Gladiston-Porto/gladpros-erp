@@ -4,12 +4,12 @@ export type ServiceOrderClient = {
 };
 
 export type PlannedMaterial = {
-  materialId: number;
+  materialId?: number; // undefined = external field purchase (no stock entry)
   name: string;
   unit: string;
   quantityPlanned: number;
   unitCostEstimated: number;
-  stockQty: number;
+  stockQty: number; // 0 for external materials
 };
 
 export type StockMaterial = {
@@ -44,4 +44,8 @@ export type ServiceOrderFormState = {
   endClientNotes: string;
   assignedWorkerId: number | undefined;
   priority: string;
+  // Financial estimates (Fase 1)
+  agreedClientPrice: string;
+  materialEstimate: string;
+  laborEstimate: string;
 };

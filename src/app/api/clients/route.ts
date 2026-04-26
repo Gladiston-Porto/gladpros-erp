@@ -41,5 +41,5 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
             name: c.nomeFantasia || c.nomeCompleto || c.nomeChave
         }));
 
-        return NextResponse.json(mappedClients);
+        return NextResponse.json({ data: mappedClients, success: true });
     });

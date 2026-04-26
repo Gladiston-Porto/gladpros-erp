@@ -29,6 +29,7 @@ type ServiceOrderSidebarProps = {
   order: {
     AssignedWorker: { id: number; name: string; classification: string } | null;
     Invoice: { id: number; numeroInvoice: string; status: string; valorTotal: number } | null;
+    attachments: Array<{ type: string; receiptTotal: number | null; taxAmount: number | null }>;
     clientNotes: string | null;
     endClientName: string | null;
     endClientPhone: string | null;
@@ -95,7 +96,18 @@ export function ServiceOrderSidebar({
     return sum + (Number(cost) * Number(material.quantityPlanned));
   }, 0);
   const actualTotal = Number(order.laborTotal) + Number(order.materialTotal);
-  const effectiveTotal = actualTotal > 0 ? actualTotal : estimatedLaborTotal + estimatedMaterialTotal;
+
+  // Breakdown from receipt attachments
+  const purchaseReceipts = order.attachments.filter(a => a.type === 'RECEIPT');
+  const returnReceipts = order.attachments.filter(a => a.type === 'RETURN_RECEIPT');
+  const purchaseSubtotal = purchaseReceipts.reduce((sum, a) => sum + Number(a.receiptTotal || 0), 0);
+  const taxTotal = purchaseReceipts.reduce((sum, a) => sum + Number(a.taxAmount || 0), 0);
+  const returnTotal = returnReceipts.reduce((sum, a) => sum + Number(a.receiptTotal || 0), 0);
+  const returnTaxTotal = returnReceipts.reduce((sum, a) => sum + Number(a.taxAmount || 0), 0);
+  const netReceiptCost = purchaseSubtotal + taxTotal - returnTotal - returnTaxTotal;
+
+  const netCost = actualTotal - returnTotal;
+  const effectiveTotal = netCost > 0 ? netCost : estimatedLaborTotal + estimatedMaterialTotal;
 
   return (
     <div className="space-y-6">
@@ -131,7 +143,7 @@ export function ServiceOrderSidebar({
                         </span>
                       )}
                     </div>
-                    {event.reason && <p className="mt-1 text-muted-foreground">"{event.reason}"</p>}
+                    {event.reason && <p className="mt-1 text-muted-foreground">&quot;{event.reason}&quot;</p>}
                     <p className="mt-1 text-xs text-muted-foreground">
                       {new Date(event.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Chicago" })}
                       {event.CreatedBy && ` • ${event.CreatedBy.nomeCompleto}`}
@@ -179,9 +191,27 @@ export function ServiceOrderSidebar({
                 <span className="text-muted-foreground">Materiais</span>
                 <span className="font-medium text-green-600">{formatCurrency(Number(order.materialTotal))}</span>
               </div>
-              <div className="flex justify-between border-t border-dashed pt-1 text-sm font-medium">
-                <span>Subtotal Real</span>
-                <span className="text-green-600">{formatCurrency(actualTotal)}</span>
+              {taxTotal > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Impostos s/ compras</span>
+                  <span className="font-medium text-amber-500">+{formatCurrency(taxTotal)}</span>
+                </div>
+              )}
+              {returnTotal > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Devoluções</span>
+                  <span className="font-medium text-red-500">-{formatCurrency(returnTotal)}</span>
+                </div>
+              )}
+              {returnTaxTotal > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Impostos s/ devol.</span>
+                  <span className="font-medium text-red-400">-{formatCurrency(returnTaxTotal)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-dashed pt-1 text-sm font-semibold">
+                <span>Custo Líquido</span>
+                <span className="text-foreground">{formatCurrency(netCost)}</span>
               </div>
             </div>
           )}
@@ -199,6 +229,64 @@ export function ServiceOrderSidebar({
           )}
         </CardContent>
       </Card>
+
+      {/* Receipt breakdown card — shown when there are receipts */}
+      {(purchaseReceipts.length > 0 || returnReceipts.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <DollarSign className="h-4 w-4" />
+              Notas Fiscais
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {purchaseReceipts.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Compras ({purchaseReceipts.length} NF{purchaseReceipts.length > 1 ? 's' : ''})</p>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal materiais</span>
+                  <span className="font-medium">{formatCurrency(purchaseSubtotal)}</span>
+                </div>
+                {taxTotal > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Impostos TX</span>
+                    <span className="font-medium text-amber-500">+{formatCurrency(taxTotal)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold border-t border-dashed pt-1">
+                  <span>Total compras</span>
+                  <span>{formatCurrency(purchaseSubtotal + taxTotal)}</span>
+                </div>
+              </div>
+            )}
+            {returnReceipts.length > 0 && (
+              <div className="space-y-1 border-t pt-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Devoluções ({returnReceipts.length} NF{returnReceipts.length > 1 ? 's' : ''})</p>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Valor devolvido</span>
+                  <span className="font-medium text-orange-500">-{formatCurrency(returnTotal)}</span>
+                </div>
+                {returnTaxTotal > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Impostos recuperados</span>
+                    <span className="font-medium text-orange-400">-{formatCurrency(returnTaxTotal)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold border-t border-dashed pt-1">
+                  <span>Total devoluções</span>
+                  <span className="text-orange-500">-{formatCurrency(returnTotal + returnTaxTotal)}</span>
+                </div>
+              </div>
+            )}
+            {purchaseReceipts.length > 0 && returnReceipts.length > 0 && (
+              <div className="flex justify-between font-bold border-t pt-2">
+                <span>Custo líquido NFs</span>
+                <span className={netReceiptCost >= 0 ? 'text-foreground' : 'text-green-600'}>{formatCurrency(netReceiptCost)}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

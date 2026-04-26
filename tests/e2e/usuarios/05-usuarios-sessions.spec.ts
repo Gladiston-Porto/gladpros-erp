@@ -5,7 +5,7 @@
 import { test, expect, mockUsers, getAuthHeaders } from '../fixtures/auth';
 import { seedUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
-const BASE = 'http://localhost:3000';
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe.serial('05 — Sessões de Usuário', () => {
   test.beforeAll(async () => { await seedUsuarios(); });

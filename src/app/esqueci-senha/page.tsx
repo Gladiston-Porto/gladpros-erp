@@ -29,7 +29,7 @@ export default function EsqueciSenhaPage() {
       if (process.env.NODE_ENV === 'development' && typeof res.data === 'object' && res.data !== null && 'resetUrl' in (res.data as Record<string, unknown>)) {
         const url = (res.data as { resetUrl?: string }).resetUrl
         if (url) {
-          console.log('[DEV] Link de redefinição gerado:', url)
+          console.warn('[DEV] Link de redefinição gerado:', url)
           setMsg({ 
             t: "ok", 
             m: "E-mail enviado! Em modo de desenvolvimento, verifique o console do navegador para o link de teste." 

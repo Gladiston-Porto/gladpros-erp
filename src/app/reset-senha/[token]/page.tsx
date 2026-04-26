@@ -3,6 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
+import { DynamicBar } from "@/components/ui/dynamic-bar"
 import { useParams } from "next/navigation"
 import { AuthPassword } from "@gladpros/ui/auth-password";
 import { PasswordService } from "@/shared/lib/password";
@@ -59,7 +60,6 @@ export default function ResetSenhaPage() {
                     criteriosAtendidos <= 2 ? 1 : 
                     criteriosAtendidos <= 4 ? 2 : 3
 
-  const corForca = ['transparent', '#ef4444', '#f59e0b', '#10b981'][forcaSenha]
   const textoForca = ['', 'Fraca', 'Média', 'Forte'][forcaSenha]
 
   async function onSubmit(e: React.FormEvent) {
@@ -168,12 +168,9 @@ export default function ResetSenhaPage() {
                       </span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="h-2 rounded-full transition-all duration-300 ease-in-out"
-                        style={{ 
-                          width: `${(criteriosAtendidos / 5) * 100}%`,
-                          backgroundColor: corForca
-                        }}
+                      <DynamicBar
+                        value={(criteriosAtendidos / 5) * 100}
+                        className={`h-2 rounded-full transition-all duration-300 ease-in-out ${(['bg-transparent', 'bg-red-500', 'bg-amber-500', 'bg-emerald-500'] as const)[forcaSenha] ?? 'bg-transparent'}`}
                       />
                     </div>
                   </div>
@@ -211,7 +208,7 @@ export default function ResetSenhaPage() {
                     </div>
                     
                     {passwordValidation.valid && (
-                      <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-2xl">
                         <div className="flex items-center text-green-700 text-sm">
                           <span className="w-5 h-5 rounded-full bg-green-500 text-white text-xs flex items-center justify-center mr-2">
                             ✓

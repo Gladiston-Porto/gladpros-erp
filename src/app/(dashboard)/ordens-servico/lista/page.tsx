@@ -124,6 +124,8 @@ export default function ServiceOrdersListPage() {
       params.set("limit", String(PAGE_SIZE));
       if (search)       params.set("search", search);
       if (statusFilter) params.set("status", statusFilter);
+      params.set("sortKey", sortKey);
+      params.set("sortDir", sortDir);
       const res = await fetch(`/api/service-orders?${params}`);
       if (!res.ok) throw new Error("Erro ao carregar ordens");
       const json = await res.json();
@@ -134,29 +136,15 @@ export default function ServiceOrdersListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, sortKey, sortDir]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("asc"); }
+    setPage(1);
   };
-
-  const sortedOrders = [...orders].sort((a, b) => {
-    let av: string | number = "", bv: string | number = "";
-    switch (sortKey) {
-      case "ticketNumber":  av = a.ticketNumber;   bv = b.ticketNumber;   break;
-      case "title":         av = a.title;           bv = b.title;          break;
-      case "cliente":       av = a.cliente.name;    bv = b.cliente.name;   break;
-      case "status":        av = a.status;          bv = b.status;         break;
-      case "total":         av = Number(a.total);   bv = Number(b.total);  break;
-      case "scheduledDate": av = a.scheduledDate || ""; bv = b.scheduledDate || ""; break;
-      case "createdAt":     av = a.createdAt;       bv = b.createdAt;      break;
-    }
-    if (typeof av === "string") { av = av.toLowerCase(); bv = (bv as string).toLowerCase(); }
-    return av < bv ? (sortDir === "asc" ? -1 : 1) : av > bv ? (sortDir === "asc" ? 1 : -1) : 0;
-  });
 
   const fmt$ = (v: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
   const fmtDate = (s: string | null) => s ? new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" }) : "-";
@@ -267,7 +255,7 @@ export default function ServiceOrdersListPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {sortedOrders.map(order => (
+                  {orders.map(order => (
                     <tr
                       key={order.id}
                       className="cursor-pointer transition-colors hover:bg-muted/40"
@@ -341,10 +329,12 @@ export default function ServiceOrdersListPage() {
                       </td>
                     </tr>
                   ))}
-                  {sortedOrders.length === 0 && (
+                  {orders.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-3 py-16 text-center text-sm text-muted-foreground">
-                        Nenhuma ordem de serviço encontrada.
+                      <td colSpan={8} className="px-3 py-16 text-center">
+                        <ClipboardList className="mx-auto mb-3 size-8 text-muted-foreground/40" />
+                        <p className="text-sm font-medium text-muted-foreground">Nenhuma ordem encontrada</p>
+                        <p className="mt-1 text-xs text-muted-foreground/60">Tente ajustar os filtros ou crie uma nova OS</p>
                       </td>
                     </tr>
                   )}

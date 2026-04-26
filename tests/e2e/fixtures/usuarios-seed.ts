@@ -125,11 +125,7 @@ async function cleanDependentRows(ids: number[]): Promise<void> {
 }
 
 export async function teardownUsuarios(): Promise<void> {
-  const ids = seedUsers.map(u => u.id);
-  const ph = ids.map(() => '?').join(',');
-  await cleanDependentRows(ids);
-  await prisma.$executeRawUnsafe(`DELETE FROM Usuario WHERE email LIKE '%@e2e-test.com'`);
-  await prisma.$executeRawUnsafe(`DELETE FROM Usuario WHERE id IN (${ph})`, ...ids);
+  await cleanupUsuarios();
 }
 
 export { prisma as seedPrisma };

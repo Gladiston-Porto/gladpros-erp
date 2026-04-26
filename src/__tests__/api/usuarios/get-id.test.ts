@@ -35,6 +35,9 @@ jest.mock('@/lib/prisma', () => ({
       delete: jest.fn(),
       count: jest.fn(),
     },
+    worker: {
+      findFirst: jest.fn(),
+    },
     $queryRaw: jest.fn(),
     $queryRawUnsafe: jest.fn(),
     $executeRaw: jest.fn(),
@@ -121,6 +124,7 @@ describe('GET /api/usuarios/:id', () => {
   it('200 — admin can read any user', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
     (prisma.$queryRawUnsafe as jest.Mock).mockResolvedValueOnce([mockUser]);
+    (prisma.worker.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const { GET } = await import('@/app/api/usuarios/[id]/route');
     const res = await GET(makeRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);
@@ -131,6 +135,7 @@ describe('GET /api/usuarios/:id', () => {
   it('200 — user can read own profile', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 5, role: 'USUARIO', email: 'user@test.com' } as any);
     (prisma.$queryRawUnsafe as jest.Mock).mockResolvedValueOnce([mockUser]);
+    (prisma.worker.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const { GET } = await import('@/app/api/usuarios/[id]/route');
     const res = await GET(makeRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);

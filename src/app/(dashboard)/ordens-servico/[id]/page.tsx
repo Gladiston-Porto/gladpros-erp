@@ -1,5 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
+import type { AttachmentItem } from "./_components/ServiceOrderDetailModals";
 import { useParams, useRouter } from "next/navigation";
 import { useDeferredValue, useEffect, useState, useCallback } from "react";
 import { useToast } from "@gladpros/ui/toast";
@@ -8,7 +9,7 @@ import {
     FileText, Plus, Trash2, Play, CheckCircle, XCircle,
     AlertCircle, RefreshCw, ListChecks, Check, Square,
     ExternalLink, Star, ShieldCheck, HandCoins, Pen, TimerIcon, Copy,
-    Paperclip, Upload, Camera, Receipt, ClipboardList
+    Paperclip, Upload, Camera, Receipt, ClipboardList, X
 } from "lucide-react";
 import { ModulePageHeader } from "@gladpros/ui/module-page-header";
 import { Badge } from "@gladpros/ui/badge";
@@ -40,7 +41,9 @@ type ServiceOrderAttachment = {
     caption: string | null;
     vendorName: string | null;
     receiptTotal: number | null;
+    taxAmount: number | null;
     materialItemId: number | null;
+    materialItems: Array<{ materialItemId: number; quantityOnReceipt: number | null; unitCostOnReceipt: number | null; hasTax: boolean | null; taxRate: number | null; materialItem: { id: number; name: string; unit: string | null } }>;
     createdAt: string;
     approvalStatus: string; // PENDING | APPROVED | REJECTED | NA
     approvedAt: string | null;
@@ -101,6 +104,10 @@ type ServiceOrder = {
     total: number;
     laborTotal: number;
     materialTotal: number;
+    agreedClientPrice: number | null;
+    materialEstimate: number | null;
+    laborEstimate: number | null;
+    marginStatus: string;
     techNotes: string | null;
     clientNotes: string | null;
     createdAt: string;
@@ -218,6 +225,7 @@ export default function ServiceOrderDetailPage() {
     // Modal states
     const [showAddMaterial, setShowAddMaterial] = useState(false);
     const [showAddWorkEntry, setShowAddWorkEntry] = useState(false);
+    const [showEditWorkEntryModal, setShowEditWorkEntryModal] = useState(false);
     const [showTechAssign, setShowTechAssign] = useState(false);
 
     // Add Material form
@@ -236,9 +244,21 @@ export default function ServiceOrderDetailPage() {
         notes: ""
     });
 
+    // Edit Work Entry
+    type WorkEntryItem = ServiceOrder['workEntries'][0];
+    const [editingWorkEntry, setEditingWorkEntry] = useState<WorkEntryItem | null>(null);
+    const [editWorkEntryForm, setEditWorkEntryForm] = useState({
+        startedAt: "",
+        endedAt: "",
+        notes: "",
+        hourlyRate: ""
+    });
+
     // Scope Items state
     const [scopeItems, setScopeItems] = useState<ScopeItem[]>([]);
     const [newScopeItem, setNewScopeItem] = useState("");
+    const [editingScopeId, setEditingScopeId] = useState<number | null>(null);
+    const [editingScopeText, setEditingScopeText] = useState("");
 
     // History state
     const [history, setHistory] = useState<HistoryEvent[]>([]);
@@ -259,13 +279,15 @@ export default function ServiceOrderDetailPage() {
 
     // Add Material mode: stock search vs. external (field purchase)
     const [addMaterialMode, setAddMaterialMode] = useState<'stock' | 'external'>('stock');
-    const [externalMaterial, setExternalMaterial] = useState({ name: '', unit: 'un', qty: '1', cost: '' });
+    const [externalMaterial, setExternalMaterial] = useState({ name: '', unit: 'un', qty: '1', cost: '', hasTax: true, taxRate: '8.25' });
 
-    // Cancel / Reopen reason modals (replace window.prompt())
+    // Cancel / Reopen / WriteOff reason modals (replace window.prompt())
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelReasonText, setCancelReasonText] = useState('');
     const [showReopenModal, setShowReopenModal] = useState(false);
     const [reopenReasonText, setReopenReasonText] = useState('');
+    const [showWriteOffModal, setShowWriteOffModal] = useState(false);
+    const [writeOffReasonText, setWriteOffReasonText] = useState('');
 
     // Attachments (fotos antes/depois + notas fiscais)
     const [showUploadModal, setShowUploadModal] = useState(false);
@@ -274,7 +296,7 @@ export default function ServiceOrderDetailPage() {
     const [uploadCaption, setUploadCaption] = useState('');
     const [uploadVendor, setUploadVendor] = useState('');
     const [uploadTotal, setUploadTotal] = useState('');
-    const [uploadMaterialIds, setUploadMaterialIds] = useState<number[]>([]);
+    const [uploadMaterialLinks, setUploadMaterialLinks] = useState<Array<{ materialItemId: number; quantityOnReceipt: string; unitCostOnReceipt: string; hasTax: boolean; taxRate: string }>>([]);
     const [uploadLoading, setUploadLoading] = useState(false);
 
     // Return modal
@@ -481,6 +503,60 @@ export default function ServiceOrderDetailPage() {
         }
     };
 
+    // Open edit modal pre-populated with existing entry values
+    const openEditWorkEntry = (entry: WorkEntryItem) => {
+        const toLocalInput = (iso: string) => {
+            const d = new Date(iso);
+            const pad = (n: number) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+        setEditingWorkEntry(entry);
+        setEditWorkEntryForm({
+            startedAt:  toLocalInput(entry.startedAt),
+            endedAt:    toLocalInput(entry.endedAt),
+            notes:      entry.notes ?? "",
+            hourlyRate: String(entry.hourlyRate),
+        });
+        setShowEditWorkEntryModal(true);
+    };
+
+    // Save edited work entry
+    const updateWorkEntry = async () => {
+        if (!order || !editingWorkEntry) return;
+        if (!editWorkEntryForm.startedAt || !editWorkEntryForm.endedAt) {
+            toast.error('Horário de início e fim são obrigatórios');
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const payload: Record<string, unknown> = {
+                startedAt: editWorkEntryForm.startedAt,
+                endedAt:   editWorkEntryForm.endedAt,
+                notes:     editWorkEntryForm.notes || null,
+            };
+            const rate = parseFloat(editWorkEntryForm.hourlyRate);
+            if (!isNaN(rate)) payload.hourlyRate = rate;
+
+            const res = await fetch(`/api/service-orders/${order.id}/work-entries/${editingWorkEntry.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || data.error || 'Erro ao salvar');
+            }
+            toast.success('Registro atualizado');
+            setShowEditWorkEntryModal(false);
+            setEditingWorkEntry(null);
+            loadOrder();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Erro');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     // Assign Tech handler
     const assignTech = async (techId: number) => {
         if (!order) return;
@@ -514,7 +590,7 @@ export default function ServiceOrderDetailPage() {
             });
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.error || 'Erro ao mudar status');
+                throw new Error(data.message || data.error || 'Erro ao mudar status');
             }
             toast.success(`Status alterado para ${getStatusLabel(newStatus)}`);
             loadOrder();
@@ -576,7 +652,7 @@ export default function ServiceOrderDetailPage() {
         }
     };
 
-    const openReturnModal = (mat: any) => {
+    const openReturnModal = (mat: ServiceOrder['materials'][0]) => {
         const quantityUsed = Number(mat.quantityUsed || 0);
         const quantityPlanned = Number(mat.quantityPlanned);
         const maxQty = quantityPlanned - quantityUsed;
@@ -620,7 +696,7 @@ export default function ServiceOrderDetailPage() {
 
             // Suggest uploading return receipt for store returns
             if (returnDest === 'STORE') {
-                setUploadType('RETURN_RECEIPT' as any);
+                setUploadType('RETURN_RECEIPT');
                 setShowUploadModal(true);
             }
         } catch (err) {
@@ -737,6 +813,8 @@ export default function ServiceOrderDetailPage() {
                     unit: externalMaterial.unit || 'un',
                     quantityPlanned: parseFloat(externalMaterial.qty) || 1,
                     unitCostEstimated: externalMaterial.cost ? parseFloat(externalMaterial.cost) : undefined,
+                    hasTax: externalMaterial.hasTax,
+                    taxRate: externalMaterial.taxRate ? parseFloat(externalMaterial.taxRate) : undefined,
                 }),
             });
             if (!res.ok) {
@@ -745,7 +823,7 @@ export default function ServiceOrderDetailPage() {
             }
             toast.success('Material de campo adicionado!');
             setShowAddMaterial(false);
-            setExternalMaterial({ name: '', unit: 'un', qty: '1', cost: '' });
+            setExternalMaterial({ name: '', unit: 'un', qty: '1', cost: '', hasTax: true, taxRate: '8.25' });
             setAddMaterialMode('stock');
             loadOrder();
         } catch (err) {
@@ -786,6 +864,26 @@ export default function ServiceOrderDetailPage() {
                 throw new Error(d.message || 'Erro ao remover item');
             }
             setScopeItems(prev => prev.filter(i => i.id !== itemId));
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Erro');
+        }
+    };
+
+    const editScopeItem = async (itemId: number, description: string) => {
+        if (!order || !description.trim()) return;
+        try {
+            const res = await fetch(`/api/service-orders/${order.id}/scope-items/${itemId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description: description.trim() }),
+            });
+            if (!res.ok) {
+                const d = await res.json();
+                throw new Error(d.message || 'Erro ao editar item');
+            }
+            setScopeItems(prev => prev.map(i => i.id === itemId ? { ...i, description: description.trim() } : i));
+            setEditingScopeId(null);
+            setEditingScopeText("");
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Erro');
         }
@@ -837,6 +935,8 @@ export default function ServiceOrderDetailPage() {
             unit: mat.unit ?? 'un',
             quantityPlanned: String(mat.quantityPlanned),
             unitCostEstimated: mat.unitCostEstimated ? String(mat.unitCostEstimated) : '',
+            hasTax: (mat as Record<string, unknown>).hasTax as boolean ?? true,
+            taxRate: (mat as Record<string, unknown>).taxRate != null ? String((mat as Record<string, unknown>).taxRate) : '8.25',
         });
         setShowEditMaterialModal(true);
     };
@@ -853,6 +953,8 @@ export default function ServiceOrderDetailPage() {
                     unit: editMaterialForm.unit.trim() || 'un',
                     quantityPlanned: parseFloat(editMaterialForm.quantityPlanned) || 1,
                     unitCostEstimated: editMaterialForm.unitCostEstimated ? parseFloat(editMaterialForm.unitCostEstimated) : undefined,
+                    hasTax: editMaterialForm.hasTax,
+                    taxRate: editMaterialForm.taxRate ? parseFloat(editMaterialForm.taxRate) : undefined,
                 }),
             });
             if (!res.ok) {
@@ -927,7 +1029,17 @@ export default function ServiceOrderDetailPage() {
             if (uploadType === 'RECEIPT' || uploadType === 'RETURN_RECEIPT') {
                 if (uploadVendor.trim()) formData.append('vendorName', uploadVendor.trim());
                 if (uploadTotal.trim()) formData.append('receiptTotal', uploadTotal.trim());
-                if (uploadMaterialIds.length > 0) formData.append('materialItemIds', uploadMaterialIds.join(','));
+                if (uploadMaterialLinks.length > 0) {
+                    formData.append('materialLinks', JSON.stringify(
+                        uploadMaterialLinks.map(l => ({
+                            materialItemId: l.materialItemId,
+                            quantityOnReceipt: l.quantityOnReceipt ? parseFloat(l.quantityOnReceipt) : null,
+                            unitCostOnReceipt: l.unitCostOnReceipt ? parseFloat(l.unitCostOnReceipt) : null,
+                            hasTax: l.hasTax,
+                            taxRate: l.taxRate ? parseFloat(l.taxRate) : null,
+                        }))
+                    ));
+                }
             }
             const res = await fetch(`/api/service-orders/${order.id}/attachments`, {
                 method: 'POST',
@@ -943,7 +1055,7 @@ export default function ServiceOrderDetailPage() {
             setUploadCaption('');
             setUploadVendor('');
             setUploadTotal('');
-            setUploadMaterialIds([]);
+            setUploadMaterialLinks([]);
             loadOrder();
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Erro no upload');
@@ -1022,13 +1134,28 @@ export default function ServiceOrderDetailPage() {
     const [reimbursementLoading, setReimbursementLoading] = useState<number | null>(null);
     const [approvalLoading, setApprovalLoading] = useState<number | null>(null);
 
+    // Edit Attachment
+    const [showEditAttachmentModal, setShowEditAttachmentModal] = useState(false);
+    const [editingAttachment, setEditingAttachment] = useState<AttachmentItem | null>(null);
+    const [editAttachmentForm, setEditAttachmentForm] = useState({
+        caption: '',
+        type: 'BEFORE_PHOTO' as AttachmentType,
+        vendorName: '',
+        receiptTotal: '',
+        linkedMaterials: [] as Array<{ materialItemId: number; quantityOnReceipt: string; unitCostOnReceipt: string; hasTax: boolean; taxRate: string }>,
+    });
+
+    // Delete Attachment confirmation
+    const [showDeleteAttachmentConfirm, setShowDeleteAttachmentConfirm] = useState(false);
+    const [attachmentToDelete, setAttachmentToDelete] = useState<AttachmentItem | null>(null);
+
     // Current user role (for approve/reject gates)
     const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
     // Edit material modal
     const [showEditMaterialModal, setShowEditMaterialModal] = useState(false);
     const [editingMaterialId, setEditingMaterialId] = useState<number | null>(null);
-    const [editMaterialForm, setEditMaterialForm] = useState({ name: '', unit: 'un', quantityPlanned: '1', unitCostEstimated: '' });
+    const [editMaterialForm, setEditMaterialForm] = useState({ name: '', unit: 'un', quantityPlanned: '1', unitCostEstimated: '', hasTax: true, taxRate: '8.25' });
 
     // Reject field purchase modal
     const [showRejectPurchaseModal, setShowRejectPurchaseModal] = useState(false);
@@ -1188,6 +1315,96 @@ export default function ServiceOrderDetailPage() {
         }
     };
 
+    // Open edit attachment modal pre-populated
+    const openEditAttachment = (att: AttachmentItem) => {
+        setEditingAttachment(att);
+        setEditAttachmentForm({
+            caption:           att.caption ?? '',
+            type:              att.type,
+            vendorName:        att.vendorName ?? '',
+            receiptTotal:      att.receiptTotal != null ? String(att.receiptTotal) : '',
+            linkedMaterials: att.materialItems.map(m => ({
+                materialItemId: m.materialItemId,
+                quantityOnReceipt: m.quantityOnReceipt != null ? String(m.quantityOnReceipt) : '',
+                unitCostOnReceipt: m.unitCostOnReceipt != null ? String(m.unitCostOnReceipt) : '',
+                hasTax: m.hasTax ?? true,
+                taxRate: m.taxRate != null ? String(m.taxRate) : '8.25',
+            })),
+        });
+        setShowEditAttachmentModal(true);
+    };
+
+    // Save attachment metadata edits
+    const updateAttachment = async () => {
+        if (!order || !editingAttachment) return;
+        setActionLoading(true);
+        try {
+            const payload: Record<string, unknown> = {
+                caption:    editAttachmentForm.caption || null,
+                type:       editAttachmentForm.type,
+                vendorName: editAttachmentForm.vendorName || null,
+            };
+            const total = parseFloat(editAttachmentForm.receiptTotal);
+            payload.receiptTotal = isNaN(total) ? null : total;
+
+            // Send full desired set — API does delete+recreate atomically
+            payload.materialLinks = editAttachmentForm.linkedMaterials.map(l => ({
+                materialItemId:    l.materialItemId,
+                quantityOnReceipt: l.quantityOnReceipt ? parseFloat(l.quantityOnReceipt) : null,
+                unitCostOnReceipt: l.unitCostOnReceipt ? parseFloat(l.unitCostOnReceipt) : null,
+                hasTax:            l.hasTax,
+                taxRate:           l.taxRate ? parseFloat(l.taxRate) : null,
+            }));
+
+            const res = await fetch(`/api/service-orders/${order.id}/attachments/${editingAttachment.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+                const d = await res.json();
+                throw new Error(d.message || d.error || 'Erro ao salvar');
+            }
+            toast.success('Anexo atualizado');
+            setShowEditAttachmentModal(false);
+            setEditingAttachment(null);
+            loadOrder();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Erro');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    // Trigger delete confirmation modal
+    const deleteAttachment = (att: AttachmentItem) => {
+        setAttachmentToDelete(att);
+        setShowDeleteAttachmentConfirm(true);
+    };
+
+    // Execute the confirmed delete
+    const confirmDeleteAttachment = async () => {
+        if (!order || !attachmentToDelete) return;
+        setActionLoading(true);
+        try {
+            const res = await fetch(`/api/service-orders/${order.id}/attachments/${attachmentToDelete.id}`, {
+                method: 'DELETE',
+            });
+            if (!res.ok) {
+                const d = await res.json();
+                throw new Error(d.message || d.error || 'Erro ao remover');
+            }
+            toast.success('Anexo removido');
+            setShowDeleteAttachmentConfirm(false);
+            setAttachmentToDelete(null);
+            loadOrder();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Erro');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
@@ -1208,13 +1425,17 @@ export default function ServiceOrderDetailPage() {
     const hasOpenModal =
         showAddMaterial ||
         showAddWorkEntry ||
+        showEditWorkEntryModal ||
+        showEditAttachmentModal ||
+        showDeleteAttachmentConfirm ||
         showConsumeMaterial ||
         showTechAssign ||
         showUploadModal ||
         showEditModal ||
         showSignatureModal ||
         showCancelModal ||
-        showReopenModal;
+        showReopenModal ||
+        showWriteOffModal;
 
     if (loading) {
         return (
@@ -1343,6 +1564,12 @@ export default function ServiceOrderDetailPage() {
                             <Button onClick={() => { setCancelReasonText(''); setShowCancelModal(true); }} disabled={actionLoading} variant="ghost" className="text-destructive">
                                 <XCircle className="h-4 w-4 mr-2" />
                                 Cancelar
+                            </Button>
+                        )}
+                        {['COMPLETED', 'AWAITING_PAYMENT'].includes(order.status) && (
+                            <Button onClick={() => { setWriteOffReasonText(''); setShowWriteOffModal(true); }} disabled={actionLoading} variant="ghost" className="text-destructive">
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Write-Off
                             </Button>
                         )}
                         {order.status === 'CANCELED' && (
@@ -1523,6 +1750,11 @@ export default function ServiceOrderDetailPage() {
                                                     {mat.unitCostActual || mat.unitCostEstimated
                                                         ? formatCurrency(Number(mat.unitCostActual || mat.unitCostEstimated))
                                                         : '-'}
+                                                    {!!(mat as Record<string, unknown>).hasTax && (
+                                                        <div className="text-[10px] text-amber-500 font-medium">
+                                                            +{(mat as Record<string, unknown>).taxRate != null ? String((mat as Record<string, unknown>).taxRate) : '8.25'}% TX
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="py-2 text-center">
                                                     <Badge
@@ -1718,18 +1950,31 @@ export default function ServiceOrderDetailPage() {
                             ) : (
                                 <div className="space-y-3">
                                     {order.workEntries.map((entry) => (
-                                        <div key={entry.id} className="flex items-start justify-between p-3 bg-muted/40 rounded-lg">
-                                            <div>
+                                        <div key={entry.id} className="flex items-start justify-between p-3 bg-muted/40 rounded-lg gap-2">
+                                            <div className="flex-1 min-w-0">
                                                 <p className="font-medium">{entry.Worker.name}</p>
                                                 <p className="text-sm text-muted-foreground">
                                                     {formatDateTime(entry.startedAt)} - {formatDateTime(entry.endedAt)}
                                                 </p>
                                                 {entry.notes && <p className="text-sm mt-1">{entry.notes}</p>}
                                             </div>
-                                            <div className="text-right">
-                                                <p className="font-mono">{Math.floor(entry.totalMinutes / 60)}h {entry.totalMinutes % 60 > 0 ? `${entry.totalMinutes % 60}min` : ''}</p>
-                                                <p className="text-xs text-muted-foreground">{formatCurrency(Number(entry.hourlyRate))}/h</p>
-                                                <p className="text-sm font-medium text-green-600">{formatCurrency(Number(entry.totalCost))}</p>
+                                            <div className="flex items-start gap-2">
+                                                <div className="text-right">
+                                                    <p className="font-mono">{Math.floor(entry.totalMinutes / 60)}h {entry.totalMinutes % 60 > 0 ? `${entry.totalMinutes % 60}min` : ''}</p>
+                                                    <p className="text-xs text-muted-foreground">{formatCurrency(Number(entry.hourlyRate))}/h</p>
+                                                    <p className="text-sm font-medium text-green-600">{formatCurrency(Number(entry.totalCost))}</p>
+                                                </div>
+                                                {['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'AWAITING_PAYMENT'].includes(order.status) && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                                                        title="Editar registro"
+                                                        onClick={() => openEditWorkEntry(entry)}
+                                                    >
+                                                        <Pen className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -1751,35 +1996,76 @@ export default function ServiceOrderDetailPage() {
                                 <p className="text-center text-muted-foreground py-4">Sem itens de checklist</p>
                             ) : (
                                 <div className="space-y-2">
+                                    {scopeItems.length === 0 && (
+                                        <p className="text-sm text-muted-foreground py-2">Nenhuma tarefa adicionada ainda.</p>
+                                    )}
                                     {scopeItems.map((item, index) => (
                                         <div
                                             key={item.id}
                                             className={`group flex items-center gap-2 p-2 rounded hover:bg-muted/40 ${item.status === 'DONE' ? 'opacity-60' : ''}`}
                                         >
                                             <span className="text-xs font-mono text-muted-foreground w-5 shrink-0 select-none">{index + 1}.</span>
-                                            <div
-                                                className="flex items-center gap-2 flex-1 cursor-pointer"
-                                                onClick={() => ['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(order.status) && toggleScopeItem(item)}
-                                            >
-                                                {item.status === 'DONE' ? (
-                                                    <Check className="h-4 w-4 text-green-600 shrink-0" />
-                                                ) : (
-                                                    <Square className="h-4 w-4 text-muted-foreground shrink-0" />
-                                                )}
-                                                <span className={item.status === 'DONE' ? 'line-through text-muted-foreground' : ''}>
-                                                    {item.description}
-                                                </span>
-                                            </div>
-                                            {['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(order.status) && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-6 w-6 p-0 shrink-0 text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100"
-                                                    title="Remover item"
-                                                    onClick={(e) => { e.stopPropagation(); deleteScopeItem(item.id); }}
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </Button>
+
+                                            {editingScopeId === item.id ? (
+                                                <>
+                                                    <input
+                                                        type="text"
+                                                        autoFocus
+                                                        value={editingScopeText}
+                                                        onChange={(e) => setEditingScopeText(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') { e.preventDefault(); void editScopeItem(item.id, editingScopeText); }
+                                                            if (e.key === 'Escape') { setEditingScopeId(null); setEditingScopeText(""); }
+                                                        }}
+                                                        className="flex-1 border border-border rounded px-2 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                                                    />
+                                                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0 text-green-600 hover:bg-green-500/10"
+                                                        title="Salvar" onClick={() => void editScopeItem(item.id, editingScopeText)}>
+                                                        <Check className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0 text-muted-foreground"
+                                                        title="Cancelar" onClick={() => { setEditingScopeId(null); setEditingScopeText(""); }}>
+                                                        <X className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div
+                                                        className="flex items-center gap-2 flex-1 cursor-pointer"
+                                                        onClick={() => ['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(order.status) && toggleScopeItem(item)}
+                                                    >
+                                                        {item.status === 'DONE' ? (
+                                                            <Check className="h-4 w-4 text-green-600 shrink-0" />
+                                                        ) : (
+                                                            <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                        )}
+                                                        <span className={item.status === 'DONE' ? 'line-through text-muted-foreground' : ''}>
+                                                            {item.description}
+                                                        </span>
+                                                    </div>
+                                                    {['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(order.status) && (
+                                                        <>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="h-6 w-6 p-0 shrink-0 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100"
+                                                                title="Editar item"
+                                                                onClick={(e) => { e.stopPropagation(); setEditingScopeId(item.id); setEditingScopeText(item.description); }}
+                                                            >
+                                                                <Pen className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="h-6 w-6 p-0 shrink-0 text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100"
+                                                                title="Remover item"
+                                                                onClick={(e) => { e.stopPropagation(); deleteScopeItem(item.id); }}
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     ))}
@@ -1821,7 +2107,7 @@ export default function ServiceOrderDetailPage() {
                                     setUploadCaption('');
                                     setUploadVendor('');
                                     setUploadTotal('');
-                                    setUploadMaterialIds([]);
+                                    setUploadMaterialLinks([]);
                                     setShowUploadModal(true);
                                 }}
                             >
@@ -1848,27 +2134,49 @@ export default function ServiceOrderDetailPage() {
                                                 </p>
                                                 <div className="grid grid-cols-3 gap-2">
                                                     {photos.map(att => (
-                                                        <a
-                                                            key={att.id}
-                                                            href={`/api/uploads/${att.filepath}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="block aspect-square rounded-lg overflow-hidden border border-border bg-muted hover:opacity-80 transition-opacity"
-                                                            title={att.caption || att.filename}
-                                                        >
-                                                            {att.mime.startsWith('image/') ? (
-                                                                // eslint-disable-next-line @next/next/no-img-element
-                                                                <img
-                                                                    src={`/api/uploads/${att.filepath}`}
-                                                                    alt={att.caption || att.filename}
-                                                                    className="w-full h-full object-cover"
-                                                                />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center">
-                                                                    <FileText className="h-8 w-8 text-muted-foreground" />
-                                                                </div>
-                                                            )}
-                                                        </a>
+                                                        <div key={att.id} className="group relative aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                                                            <a
+                                                                href={`/api/uploads/${att.filepath}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="block w-full h-full hover:opacity-80 transition-opacity"
+                                                                title={att.caption || att.filename}
+                                                            >
+                                                                {att.mime.startsWith('image/') ? (
+                                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                                    <img
+                                                                        src={`/api/uploads/${att.filepath}`}
+                                                                        alt={att.caption || att.filename}
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center">
+                                                                        <FileText className="h-8 w-8 text-muted-foreground" />
+                                                                    </div>
+                                                                )}
+                                                            </a>
+                                                            <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button
+                                                                    type="button"
+                                                                    aria-label="Editar foto"
+                                                                    title="Editar"
+                                                                    onClick={() => openEditAttachment(att)}
+                                                                    className="h-6 w-6 rounded bg-black/60 text-white flex items-center justify-center hover:bg-black/80"
+                                                                >
+                                                                    <Pen className="h-3 w-3" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    aria-label="Remover foto"
+                                                                    title="Remover"
+                                                                    onClick={() => deleteAttachment(att)}
+                                                                    disabled={actionLoading}
+                                                                    className="h-6 w-6 rounded bg-black/60 text-white flex items-center justify-center hover:bg-red-600/90"
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     ))}
                                                 </div>
                                             </div>
@@ -1916,6 +2224,25 @@ export default function ServiceOrderDetailPage() {
                                                                         <ExternalLink className="h-3 w-3" />
                                                                     </Button>
                                                                 </a>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-foreground"
+                                                                    title="Editar anexo"
+                                                                    onClick={() => openEditAttachment(att)}
+                                                                >
+                                                                    <Pen className="h-3 w-3" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive"
+                                                                    title="Remover anexo"
+                                                                    onClick={() => deleteAttachment(att)}
+                                                                    disabled={actionLoading}
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </Button>
                                                             </div>
                                                             {/* NF action buttons — RECEIPT type only */}
                                                             {att.type === 'RECEIPT' && (
@@ -1963,22 +2290,110 @@ export default function ServiceOrderDetailPage() {
                                         </div>
                                     )}
 
+                                    {/* Return Receipts (Notas de Devolução) */}
+                                    {order.attachments.filter(a => a.type === 'RETURN_RECEIPT').length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1">
+                                                <RefreshCw className="h-3 w-3 text-orange-500" />
+                                                Notas de Devolução
+                                            </p>
+                                            <div className="space-y-2">
+                                                {order.attachments
+                                                    .filter(a => a.type === 'RETURN_RECEIPT')
+                                                    .map(att => (
+                                                        <div key={att.id} className="flex flex-col gap-1 p-2 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2 min-w-0">
+                                                                    <RefreshCw className="h-4 w-4 text-orange-500 shrink-0" />
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-sm font-medium truncate">{att.vendorName || att.filename}</p>
+                                                                        {att.receiptTotal && (
+                                                                            <p className="text-xs text-red-500 font-medium">
+                                                                                -{formatCurrency(Number(att.receiptTotal))} (reembolsado)
+                                                                            </p>
+                                                                        )}
+                                                                        {att.caption && <p className="text-xs text-muted-foreground truncate">{att.caption}</p>}
+                                                                        {att.materialItems && att.materialItems.length > 0 && (
+                                                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                                                Materiais: {att.materialItems.map(m => m.materialItem.name).join(', ')}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <a
+                                                                    href={`/api/uploads/${att.filepath}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    title="Abrir arquivo"
+                                                                    aria-label="Abrir devolução em nova aba"
+                                                                    className="shrink-0 ml-2"
+                                                                >
+                                                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                                                        <ExternalLink className="h-3 w-3" />
+                                                                    </Button>
+                                                                </a>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-foreground"
+                                                                    title="Editar devolução"
+                                                                    onClick={() => openEditAttachment(att)}
+                                                                >
+                                                                    <Pen className="h-3 w-3" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive"
+                                                                    title="Remover devolução"
+                                                                    onClick={() => deleteAttachment(att)}
+                                                                    disabled={actionLoading}
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Other attachments */}
                                     {order.attachments.filter(a => a.type === 'OTHER').length > 0 && (
                                         <div>
                                             <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Outros</p>
                                             <div className="space-y-1">
                                                 {order.attachments.filter(a => a.type === 'OTHER').map(att => (
-                                                    <a
-                                                        key={att.id}
-                                                        href={`/api/uploads/${att.filepath}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-2 text-sm text-primary hover:underline"
-                                                    >
-                                                        <Paperclip className="h-3 w-3" />
-                                                        {att.caption || att.filename}
-                                                    </a>
+                                                    <div key={att.id} className="flex items-center gap-2">
+                                                        <a
+                                                            href={`/api/uploads/${att.filepath}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-2 text-sm text-primary hover:underline flex-1 min-w-0"
+                                                        >
+                                                            <Paperclip className="h-3 w-3 shrink-0" />
+                                                            <span className="truncate">{att.caption || att.filename}</span>
+                                                        </a>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 w-6 p-0 shrink-0 text-muted-foreground hover:text-foreground"
+                                                            title="Editar"
+                                                            onClick={() => openEditAttachment(att)}
+                                                        >
+                                                            <Pen className="h-3 w-3" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 w-6 p-0 shrink-0 text-muted-foreground hover:text-destructive"
+                                                            title="Remover"
+                                                            onClick={() => deleteAttachment(att)}
+                                                            disabled={actionLoading}
+                                                        >
+                                                            <Trash2 className="h-3 w-3" />
+                                                        </Button>
+                                                    </div>
                                                 ))}
                                             </div>
                                         </div>
@@ -2007,7 +2422,7 @@ export default function ServiceOrderDetailPage() {
                                             <span className="ml-2 text-lg font-bold">{order.npsScore}/5</span>
                                         </div>
                                         {order.npsComment && (
-                                            <p className="text-sm text-muted-foreground italic">"{order.npsComment}"</p>
+                                            <p className="text-sm text-muted-foreground italic">&quot;{order.npsComment}&quot;</p>
                                         )}
                                         <p className="text-xs text-muted-foreground">Avaliação registrada</p>
                                     </div>
@@ -2070,6 +2485,92 @@ export default function ServiceOrderDetailPage() {
                 />
             </div>
 
+            {/* P&L — Rentabilidade (only when agreedClientPrice is set and field is visible to user) */}
+            {order.agreedClientPrice && (
+                <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                        <span>💰</span> P&amp;L — Análise de Rentabilidade
+                    </h3>
+                    {(() => {
+                        const agreed = Number(order.agreedClientPrice);
+                        const matEst = Number(order.materialEstimate || 0);
+                        const labEst = Number(order.laborEstimate || 0);
+                        const matActual = Number(order.materialTotal || 0);
+                        const labActual = Number(order.laborTotal || 0);
+                        const totalCost = matActual + labActual;
+                        const margin = agreed > 0 ? agreed - totalCost : 0;
+                        const marginPct = agreed > 0 ? (margin / agreed) * 100 : 0;
+                        const consumedPct = agreed > 0 ? (totalCost / agreed) * 100 : 0;
+                        const status = order.marginStatus || 'OK';
+                        const statusColor: Record<string, string> = {
+                            OK: 'text-green-500',
+                            WARNING: 'text-yellow-500',
+                            ALERT: 'text-orange-500',
+                            CRITICAL: 'text-red-500',
+                            LOSS: 'text-destructive',
+                        };
+                        const barColor: Record<string, string> = {
+                            OK: 'bg-green-500',
+                            WARNING: 'bg-yellow-500',
+                            ALERT: 'bg-orange-500',
+                            CRITICAL: 'bg-red-500',
+                            LOSS: 'bg-destructive',
+                        };
+                        return (
+                            <div className="space-y-3">
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div className="space-y-1">
+                                        <p className="text-muted-foreground">Valor Acordado</p>
+                                        <p className="font-semibold text-foreground">{formatCurrency(agreed)}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-muted-foreground">Custo Total Atual</p>
+                                        <p className="font-semibold text-foreground">{formatCurrency(totalCost)}</p>
+                                    </div>
+                                    {(matEst > 0 || labEst > 0) && (
+                                        <>
+                                            <div className="space-y-1">
+                                                <p className="text-muted-foreground">Est. Material</p>
+                                                <p className="text-sm text-foreground">{formatCurrency(matEst)}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-muted-foreground">Est. Mão de Obra</p>
+                                                <p className="text-sm text-foreground">{formatCurrency(labEst)}</p>
+                                            </div>
+                                        </>
+                                    )}
+                                    <div className="space-y-1">
+                                        <p className="text-muted-foreground">Custo Material</p>
+                                        <p className="text-sm text-foreground">{formatCurrency(matActual)}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-muted-foreground">Custo Mão de Obra</p>
+                                        <p className="text-sm text-foreground">{formatCurrency(labActual)}</p>
+                                    </div>
+                                </div>
+                                <div className="pt-2 border-t border-border">
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span className="text-muted-foreground">Margem</span>
+                                        <span className={`font-bold ${statusColor[status] ?? 'text-green-500'}`}>
+                                            {formatCurrency(margin)} ({marginPct.toFixed(1)}%)
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-muted rounded-full h-2">
+                                        <div
+                                            className={`h-2 rounded-full ${barColor[status] ?? 'bg-green-500'}`}
+                                            style={{ width: `${Math.min(consumedPct, 100).toFixed(1)}%` } as React.CSSProperties}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {consumedPct.toFixed(1)}% do orçamento consumido
+                                    </p>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+            )}
+
             {/* Edit Material Modal */}
             {showEditMaterialModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -2121,6 +2622,31 @@ export default function ServiceOrderDetailPage() {
                                     placeholder="0.00"
                                     className="w-full border border-border rounded-md px-3 py-1.5 text-sm bg-background mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 />
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={editMaterialForm.hasTax}
+                                        onChange={e => setEditMaterialForm(f => ({ ...f, hasTax: e.target.checked }))}
+                                        className="rounded border-border"
+                                    />
+                                    <span className="text-xs font-medium text-muted-foreground">Tem imposto (TX)</span>
+                                </label>
+                                {editMaterialForm.hasTax && (
+                                    <div className="flex items-center gap-1 ml-auto">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={editMaterialForm.taxRate}
+                                            onChange={e => setEditMaterialForm(f => ({ ...f, taxRate: e.target.value }))}
+                                            className="w-16 border border-border rounded-md px-2 py-1 text-sm bg-background focus:outline-none"
+                                        />
+                                        <span className="text-xs text-muted-foreground">%</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="flex gap-2 pt-1">
@@ -2189,10 +2715,11 @@ export default function ServiceOrderDetailPage() {
                         </p>
 
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground uppercase">
+                            <label htmlFor="return-qty" className="text-xs font-medium text-muted-foreground uppercase">
                                 Quantidade a devolver (max: {returnItem.maxQty} {returnItem.unit})
                             </label>
                             <input
+                                id="return-qty"
                                 type="number"
                                 min="0.001"
                                 step="0.001"
@@ -2358,8 +2885,19 @@ export default function ServiceOrderDetailPage() {
                     addMaterial={addMaterial}
                     addMaterialMode={addMaterialMode}
                     addWorkEntry={addWorkEntry}
-                    allOrderMaterials={(order?.materials ?? []).map((m: any) => ({
-                        id: m.id, name: m.name, quantityPlanned: Number(m.quantityPlanned), unit: m.unit
+                    allOrderMaterials={(order?.materials ?? []).map((m) => ({
+                        id: m.id,
+                        name: m.name,
+                        quantityPlanned: Number(m.quantityPlanned),
+                        unit: m.unit,
+                        unitCostEstimated: m.unitCostEstimated != null ? Number(m.unitCostEstimated) : null,
+                        unitCostActual: m.unitCostActual != null ? Number(m.unitCostActual) : null,
+                        hasTax: (m as Record<string, unknown>).hasTax as boolean | null ?? null,
+                        taxRate: (m as Record<string, unknown>).taxRate != null ? Number((m as Record<string, unknown>).taxRate) : null,
+                    }))}
+                    orderAttachments={(order?.attachments ?? []).map(a => ({
+                        id: a.id,
+                        materialItems: (a.materialItems ?? []).map(mi => ({ materialItemId: mi.materialItemId })),
                     }))}
                     assignTech={assignTech}
                     cancelReasonText={cancelReasonText}
@@ -2376,6 +2914,7 @@ export default function ServiceOrderDetailPage() {
                     materialQty={materialQty}
                     materialSearch={materialSearch}
                     reopenReasonText={reopenReasonText}
+                    writeOffReasonText={writeOffReasonText}
                     saveEdit={saveEdit}
                     selectedMaterial={selectedMaterial}
                     setAddMaterialMode={setAddMaterialMode}
@@ -2387,6 +2926,7 @@ export default function ServiceOrderDetailPage() {
                     setMaterialQty={setMaterialQty}
                     setMaterialSearch={setMaterialSearch}
                     setReopenReasonText={setReopenReasonText}
+                    setWriteOffReasonText={setWriteOffReasonText}
                     setSelectedMaterial={setSelectedMaterial}
                     setShowAddMaterial={setShowAddMaterial}
                     setShowAddWorkEntry={setShowAddWorkEntry}
@@ -2394,6 +2934,7 @@ export default function ServiceOrderDetailPage() {
                     setShowConsumeMaterial={setShowConsumeMaterial}
                     setShowEditModal={setShowEditModal}
                     setShowReopenModal={setShowReopenModal}
+                    setShowWriteOffModal={setShowWriteOffModal}
                     setShowSignatureModal={setShowSignatureModal}
                     setShowTechAssign={setShowTechAssign}
                     setShowUploadModal={setShowUploadModal}
@@ -2401,7 +2942,7 @@ export default function ServiceOrderDetailPage() {
                     setSignatureData={setSignatureData}
                     setUploadCaption={setUploadCaption}
                     setUploadFile={setUploadFile}
-                    setUploadMaterialIds={setUploadMaterialIds}
+                    setUploadMaterialLinks={setUploadMaterialLinks}
                     setUploadTotal={setUploadTotal}
                     setUploadType={setUploadType}
                     setUploadVendor={setUploadVendor}
@@ -2412,6 +2953,7 @@ export default function ServiceOrderDetailPage() {
                     showConsumeMaterial={showConsumeMaterial}
                     showEditModal={showEditModal}
                     showReopenModal={showReopenModal}
+                    showWriteOffModal={showWriteOffModal}
                     showSignatureModal={showSignatureModal}
                     showTechAssign={showTechAssign}
                     showUploadModal={showUploadModal}
@@ -2424,12 +2966,31 @@ export default function ServiceOrderDetailPage() {
                     uploadCaption={uploadCaption}
                     uploadFile={uploadFile}
                     uploadLoading={uploadLoading}
-                    uploadMaterialIds={uploadMaterialIds}
+                    uploadMaterialLinks={uploadMaterialLinks}
                     uploadSignature={uploadSignature}
                     uploadTotal={uploadTotal}
                     uploadType={uploadType}
                     uploadVendor={uploadVendor}
                     workEntryForm={workEntryForm}
+                    showEditWorkEntryModal={showEditWorkEntryModal}
+                    setShowEditWorkEntryModal={setShowEditWorkEntryModal}
+                    editingWorkEntry={editingWorkEntry}
+                    setEditingWorkEntry={setEditingWorkEntry}
+                    editWorkEntryForm={editWorkEntryForm}
+                    setEditWorkEntryForm={setEditWorkEntryForm}
+                    updateWorkEntry={updateWorkEntry}
+                    showEditAttachmentModal={showEditAttachmentModal}
+                    setShowEditAttachmentModal={setShowEditAttachmentModal}
+                    editingAttachment={editingAttachment}
+                    setEditingAttachment={setEditingAttachment}
+                    editAttachmentForm={editAttachmentForm}
+                    setEditAttachmentForm={setEditAttachmentForm}
+                    updateAttachment={updateAttachment}
+                    showDeleteAttachmentConfirm={showDeleteAttachmentConfirm}
+                    setShowDeleteAttachmentConfirm={setShowDeleteAttachmentConfirm}
+                    attachmentToDelete={attachmentToDelete}
+                    setAttachmentToDelete={setAttachmentToDelete}
+                    confirmDeleteAttachment={confirmDeleteAttachment}
                 />
             ) : null}
         </div>

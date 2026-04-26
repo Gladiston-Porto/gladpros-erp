@@ -6,11 +6,13 @@ import Link from "next/link";
 import { useConfirm } from "@gladpros/ui/confirm-dialog";
 import { useToast } from "@gladpros/ui/toast";
 import { AdvancedPagination } from "@gladpros/ui/advanced-pagination";
-import { Plus, Users } from "lucide-react";
+import { ChevronDown, Download, FileText, Plus, Shield, Users, UserCheck, UserX } from "lucide-react";
 import { Button } from '@gladpros/ui/button';
 import { ModulePageHeader } from "@gladpros/ui/module-page-header";
 import { Card, CardContent } from "@gladpros/ui/card";
+import { StatCard } from "@gladpros/ui/stat-card";
 import { usersApi } from '@/lib/api/client';
+import { UserViewDrawer } from "./_components/UserViewDrawer";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { UsersTable } from "./_components/UsersTable";
 import { UsersToolbar } from "./_components/UsersToolbar";
@@ -28,7 +30,7 @@ function exportUsersToCSV(users: Usuario[]): void {
     u.telefone ?? '',
     u.cidade ?? '',
     u.estado ?? '',
-    u.criadoEm ? new Date(u.criadoEm).toLocaleDateString('en-US') : '',
+    u.criadoEm ? new Date(u.criadoEm).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }) : '',
   ]);
   const csv = [headers, ...rows]
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
@@ -42,12 +44,8 @@ function exportUsersToCSV(users: Usuario[]): void {
   URL.revokeObjectURL(url);
 }
 
-async function getUsers(params?: any, init?: RequestInit) {
+async function getUsers(params?: Record<string, string | number | undefined>, init?: RequestInit) {
   return usersApi.getUsers(params, init);
-}
-
-async function deleteUser(id: string | number) {
-  return usersApi.deleteUser(id);
 }
 
 async function toggleUserStatus(id: string | number) {
@@ -69,7 +67,13 @@ export default function UsersPage() {
   const [sortKey, setSortKey] = useState<"nome" | "email" | "role" | "ativo" | "criadoEm">("criadoEm");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectionResetKey, setSelectionResetKey] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [bulkExportMenuOpen, setBulkExportMenuOpen] = useState(false);
+  const bulkExportMenuRef = useRef<HTMLDivElement>(null);
+  const [viewUserId, setViewUserId] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const debouncedQuery = useDebouncedValue(q, 300);
 
@@ -101,11 +105,12 @@ export default function UsersPage() {
       if (ac.signal.aborted) return;
       setData(res.items);
       setTotal(res.total);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
         return;
       }
-      toast.error("Erro", err.message || "Erro ao carregar usuários");
+      const message = err instanceof Error ? err.message : 'Erro ao carregar usuários';
+      toast.error("Erro", message || "Erro ao carregar usuários");
     } finally {
       if (!ac.signal.aborted) {
         setLoading(false);
@@ -123,25 +128,18 @@ export default function UsersPage() {
     };
   }, []);
 
-  async function onDelete(id: number) {
-    const ok = await confirm({ title: "Remover usuário", message: "Tem certeza que deseja remover este usuário?", confirmText: "Remover", tone: "danger" });
-    if (!ok) return;
-    try {
-      await deleteUser(String(id));
-      toast.success('Removido', 'Usuário removido com sucesso');
-      load();
-    } catch (error) {
-      toast.error('Erro', 'Falha ao remover usuário');
-    }
-  }
-
   async function onToggleStatus(id: number, currentStatus: boolean) {
     const action = currentStatus ? "desativar" : "ativar";
+    const targetUser = data.find((u) => u.id === id);
     const ok = await confirm({
       title: `${action.charAt(0).toUpperCase() + action.slice(1)} usuário`,
       message: `Tem certeza que deseja ${action} este usuário?`,
       confirmText: action.charAt(0).toUpperCase() + action.slice(1),
-      tone: currentStatus ? "danger" : "default"
+      tone: currentStatus ? "danger" : "default",
+      subject: targetUser
+        ? { name: targetUser.nomeCompleto, description: targetUser.email, avatarUrl: targetUser.avatarUrl }
+        : undefined,
+      impactNote: currentStatus ? "O histórico e os dados do usuário serão preservados." : undefined,
     });
     if (!ok) return;
 
@@ -191,28 +189,6 @@ export default function UsersPage() {
   }, [data, total]);
 
   // Ações em lote
-  const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-
-    const ok = await confirm({
-      title: "Remover usuários",
-      message: `Tem certeza que deseja remover ${selectedIds.length} usuário(s)?`,
-      confirmText: "Remover",
-      tone: "danger"
-    });
-
-    if (!ok) return;
-
-    try {
-      await Promise.all(selectedIds.map((id) => deleteUser(String(id))));
-      toast.success('Removidos', `${selectedIds.length} usuário(s) removido(s) com sucesso`);
-      setSelectedIds([]);
-      load();
-    } catch (error) {
-      toast.error('Erro', 'Falha ao remover usuários');
-    }
-  };
-
   const handleBulkStatusChange = async (newStatus: boolean) => {
     if (selectedIds.length === 0) return;
 
@@ -230,17 +206,117 @@ export default function UsersPage() {
       await Promise.all(selectedIds.map((id) => toggleUserStatus(String(id))));
       toast.success('Sucesso', `Status de ${selectedIds.length} usuário(s) alterado`);
       setSelectedIds([]);
+      setSelectionResetKey(k => k + 1);
       load();
     } catch (error) {
       toast.error('Erro', 'Erro ao alterar status dos usuários');
     }
   };
 
-  const handleExport = () => {
+  const handleBulkExportCSV = () => {
     if (selectedIds.length === 0) return;
+    setBulkExportMenuOpen(false);
     const selectedUsers = data.filter((u) => selectedIds.includes(u.id));
     exportUsersToCSV(selectedUsers);
   };
+
+  const handleBulkExportPDF = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkExportMenuOpen(false);
+    setExporting(true);
+    try {
+      const res = await fetch('/api/usuarios/export/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          ids: selectedIds,
+          filename: `usuarios-selecionados-${new Date().toISOString().slice(0, 10)}.pdf`,
+        }),
+      });
+      if (!res.ok) throw new Error('Falha ao exportar PDF');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `usuarios-selecionados-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Exportado', 'PDF gerado com sucesso.');
+    } catch {
+      toast.error('Erro', 'Não foi possível exportar o PDF.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    setExportMenuOpen(false);
+    setExporting(true);
+    try {
+      const filters = { q: debouncedQuery || undefined, role: role || undefined, status: status || undefined };
+      const res = await fetch('/api/usuarios/export/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ filters }),
+      });
+      if (!res.ok) throw new Error('Falha ao exportar CSV');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `usuarios-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Exportado', 'CSV gerado com sucesso.');
+    } catch {
+      toast.error('Erro', 'Não foi possível exportar o CSV.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    setExportMenuOpen(false);
+    setExporting(true);
+    try {
+      const filters = { q: debouncedQuery || undefined, role: role || undefined, status: status || undefined };
+      const res = await fetch('/api/usuarios/export/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ filters, filename: `usuarios-${new Date().toISOString().slice(0, 10)}.pdf` }),
+      });
+      if (!res.ok) throw new Error('Falha ao exportar PDF');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `usuarios-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Exportado', 'PDF gerado com sucesso.');
+    } catch {
+      toast.error('Erro', 'Não foi possível exportar o PDF.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Fechar menu ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+      if (bulkExportMenuRef.current && !bulkExportMenuRef.current.contains(e.target as Node)) {
+        setBulkExportMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -254,14 +330,63 @@ export default function UsersPage() {
           { label: 'Usuários' },
         ]}
         actions={
-          <Button asChild size="default">
-            <Link href="/usuarios/novo">
-              <Plus className="h-4 w-4" />
-              Novo Usuário
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <div ref={exportMenuRef} className="relative">
+              <Button
+                variant="outline"
+                size="default"
+                onClick={() => setExportMenuOpen((v) => !v)}
+                disabled={exporting}
+                title="Exportar"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">{exporting ? 'Exportando…' : 'Exportar'}</span>
+                <ChevronDown className="ml-1 h-3.5 w-3.5" />
+              </Button>
+              {exportMenuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                  <button
+                    type="button"
+                    onClick={handleExportCSV}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition hover:bg-muted"
+                  >
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    Exportar CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportPDF}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition hover:bg-muted"
+                  >
+                    <FileText className="h-4 w-4 text-red-500" />
+                    Exportar PDF
+                  </button>
+                </div>
+              )}
+            </div>
+            <Button asChild size="default">
+              <Link href="/usuarios/novo">
+                <Plus className="h-4 w-4" />
+                Novo Usuário
+              </Link>
+            </Button>
+          </div>
         }
       />
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Total de usuários" value={total} icon={<Users className="h-5 w-5" />} compact />
+        <StatCard
+          title="Ativos"
+          value={heroStats.active}
+          icon={<UserCheck className="h-5 w-5" />}
+          description={`${heroStats.activeShare}% do total`}
+          compact
+        />
+        <StatCard title="Inativos" value={heroStats.inactive} icon={<UserX className="h-5 w-5" />} compact />
+        <StatCard title="Administradores" value={heroStats.roles.ADMIN} icon={<Shield className="h-5 w-5" />} compact />
+      </div>
 
       {selectedIds.length > 0 && (
         <Card>
@@ -270,8 +395,38 @@ export default function UsersPage() {
             <div className="flex flex-wrap gap-2 md:ml-auto">
               <button type="button" onClick={() => handleBulkStatusChange(true)} className="rounded-md border border-border px-3 py-1 text-sm text-emerald-600 transition hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">Ativar</button>
               <button type="button" onClick={() => handleBulkStatusChange(false)} className="rounded-md border border-border px-3 py-1 text-sm text-amber-600 transition hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30">Desativar</button>
-              <button type="button" onClick={handleBulkDelete} className="rounded-md border border-border px-3 py-1 text-sm text-destructive transition hover:border-destructive hover:bg-destructive/5">Excluir</button>
-              <button type="button" onClick={handleExport} disabled={exporting} className="rounded-md border border-border px-3 py-1 text-sm text-primary transition hover:bg-muted disabled:cursor-wait disabled:opacity-60">{exporting ? 'Exportando...' : 'Exportar'}</button>
+              <div ref={bulkExportMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setBulkExportMenuOpen((v) => !v)}
+                  disabled={exporting}
+                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-sm text-primary transition hover:bg-muted disabled:cursor-wait disabled:opacity-60"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {exporting ? 'Exportando...' : 'Exportar'}
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+                {bulkExportMenuOpen && (
+                  <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                    <button
+                      type="button"
+                      onClick={handleBulkExportCSV}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition hover:bg-muted"
+                    >
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      Exportar CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBulkExportPDF}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition hover:bg-muted"
+                    >
+                      <FileText className="h-4 w-4 text-red-500" />
+                      Exportar PDF
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -286,30 +441,6 @@ export default function UsersPage() {
         onStatus={updateStatus}
         total={total}
         showNew={false}
-        users={data.filter((u) => selectedIds.includes(u.id))}
-        scope="selected"
-        exporting={exporting}
-        onExportAllFiltered={async (format) => {
-          if (format === 'csv') {
-            exportUsersToCSV(data);
-          } else {
-            setExporting(true);
-            try {
-              const blob = await usersApi.exportUsers('pdf', { q, role, status, sortKey, sortDir });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `usuarios.pdf`;
-              a.click();
-              URL.revokeObjectURL(url);
-              toast.success('Exportação', 'PDF baixado com sucesso');
-            } catch (err: any) {
-              toast.error('Erro', err.message || 'Falha ao exportar PDF');
-            } finally {
-              setExporting(false);
-            }
-          }
-        }}
       />
 
       <Card>
@@ -320,9 +451,10 @@ export default function UsersPage() {
             <UsersTable
               data={data}
               onEdit={(id) => router.push(`/usuarios/${id}`)}
-              onDelete={onDelete}
+              onView={(id) => setViewUserId(id)}
               onToggleStatus={onToggleStatus}
               onSelectedChange={setSelectedIds}
+              resetKey={selectionResetKey}
               sortKey={sortKey}
               sortDir={sortDir}
               onSortChange={(k, d) => { setSortKey(k); setSortDir(d); }}
@@ -332,6 +464,8 @@ export default function UsersPage() {
       </Card>
 
       <Dialog />
+
+      <UserViewDrawer userId={viewUserId} onClose={() => setViewUserId(null)} />
 
       <AdvancedPagination
         currentPage={page}

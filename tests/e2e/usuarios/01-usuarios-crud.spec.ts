@@ -8,7 +8,7 @@
 import { test, expect, mockUsers, getAuthHeaders } from '../fixtures/auth';
 import { seedUsuarios, cleanupUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
-const BASE = 'http://localhost:3000';
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
   let createdUserId: number | null = null;
@@ -34,9 +34,9 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
 
     expect(res.status()).toBe(201);
     const body = await res.json();
-    expect(body.ok).toBe(true);
-    expect(body.email).toBe(testEmail);
-    createdUserId = body.id;
+    expect(body.success).toBe(true);
+    expect(body.data.email).toBe(testEmail);
+    createdUserId = body.data.id;
     expect(createdUserId).toBeGreaterThan(0);
   });
 
@@ -88,7 +88,8 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
     expect(res.status()).toBe(200);
     const body = await res.json();
     const emails = body.items.map((u: { email: string }) => u.email);
-    const sorted = [...emails].sort();
+    const collator = new Intl.Collator('en-US', { sensitivity: 'base', ignorePunctuation: true, numeric: true });
+    const sorted = [...emails].sort(collator.compare);
     expect(emails).toEqual(sorted);
   });
 
@@ -159,13 +160,13 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
     const r1 = await request.put(`${BASE}/api/usuarios/${createdUserId}/toggle-status`, { headers: adminHeaders });
     expect(r1.status()).toBe(200);
     const b1 = await r1.json();
-    expect(b1.status).toBe('INATIVO');
+    expect(b1.data.status).toBe('INATIVO');
 
     // INATIVO → ATIVO
     const r2 = await request.put(`${BASE}/api/usuarios/${createdUserId}/toggle-status`, { headers: adminHeaders });
     expect(r2.status()).toBe(200);
     const b2 = await r2.json();
-    expect(b2.status).toBe('ATIVO');
+    expect(b2.data.status).toBe('ATIVO');
   });
 
   // ── DELETE: soft-delete ──

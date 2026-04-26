@@ -35,7 +35,7 @@ export function MaterialSection({ materiais, onMateriaisChange }: MaterialSectio
   return (
     <div className="flex flex-col gap-3">
       {materiais.map((material) => (
-        <div key={material.id} className="grid grid-cols-12 items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div key={material.id} className="grid grid-cols-12 items-end gap-2 rounded-xl border border-border bg-muted p-3">
           <div className="col-span-2">
             <Label required>Código</Label>
             <Input 
@@ -88,7 +88,7 @@ export function MaterialSection({ materiais, onMateriaisChange }: MaterialSectio
       <div>
         <button 
           onClick={addMaterial} 
-          className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-[var(--gp-blue)] shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
+          className="rounded-xl bg-card px-4 py-2 text-sm font-medium text-brand-primary shadow-sm ring-1 ring-inset ring-border hover:bg-muted min-h-[48px]"
         >
           + Adicionar material
         </button>

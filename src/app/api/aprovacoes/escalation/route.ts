@@ -48,7 +48,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
     const user = await requireUser(request);
-    if (!can(user.role as Role, 'aprovacoes', 'write')) {
+    if (!can(user.role as Role, 'aprovacoes', 'update')) {
       return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
     }
     const body = await request.json();

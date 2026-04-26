@@ -11,7 +11,7 @@
 import { test, expect, getAuthHeaders, mockUsers } from '../fixtures/auth';
 import { seedUsuarios, cleanupUsuarios } from '../fixtures/usuarios-seed';
 
-const BASE = 'http://localhost:3000';
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe.serial('Regressão — Guards de P1/P2 (Usuários)', () => {
   test.beforeAll(async () => { await seedUsuarios(); });
@@ -96,14 +96,19 @@ test.describe.serial('Regressão — Guards de P1/P2 (Usuários)', () => {
   // ── P1-04: Export CSV requer autenticação ──
   // Bug original: rota de export não tinha requireUser
 
-  test('[P1-04] GET /api/usuarios/export/csv sem auth → 401', async ({ request }) => {
-    const res = await request.get(`${BASE}/api/usuarios/export/csv`);
+  test('[P1-04] POST /api/usuarios/export/csv sem auth → 401', async ({ request }) => {
+    const res = await request.post(`${BASE}/api/usuarios/export/csv`, {
+      data: { filters: {} },
+    });
     expect(res.status()).toBe(401);
   });
 
-  test('[P1-04] GET /api/usuarios/export/csv com CLIENTE → 403', async ({ request }) => {
+  test('[P1-04] POST /api/usuarios/export/csv com CLIENTE → 403', async ({ request }) => {
     const headers = await getAuthHeaders(mockUsers.cliente);
-    const res = await request.get(`${BASE}/api/usuarios/export/csv`, { headers });
+    const res = await request.post(`${BASE}/api/usuarios/export/csv`, {
+      headers,
+      data: { filters: {} },
+    });
     expect(res.status()).toBe(403);
   });
 

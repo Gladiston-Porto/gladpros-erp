@@ -908,6 +908,27 @@ model Usuario {
   // Triagem
   TriagensSolicitadas Triagem[] @relation("TriagemSolicitante")
   TriagensResponsavel Triagem[] @relation("TriagemResponsavel")
+
+  // Preferências do usuário
+  UserPreference UserPreference?
+}
+
+model UserPreference {
+  id                  Int      @id @default(autoincrement())
+  userId              Int      @unique
+  tema                String   @default("system") @db.VarChar(16)
+  idioma              String   @default("pt-BR") @db.VarChar(16)
+  timezone            String   @default("America/Chicago") @db.VarChar(64)
+  formatoData         String   @default("MM/dd/yyyy") @db.VarChar(20)
+  formatoMoeda        String   @default("USD") @db.VarChar(8)
+  itensPorPagina      Int      @default(20)
+  notificacoesEmail   Boolean  @default(true)
+  notificacoesSistema Boolean  @default(true)
+  criadoEm            DateTime @default(now())
+  atualizadoEm        DateTime @updatedAt
+  Usuario             Usuario  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 enum Cliente_tipo {
@@ -3232,6 +3253,12 @@ model ServiceOrder {
   laborTotal    Decimal @default(0) @db.Decimal(12, 2)
   materialTotal Decimal @default(0) @db.Decimal(12, 2)
 
+  // Agreed Client Price + Estimates (Fase 1)
+  agreedClientPrice Decimal? @map("agreed_client_price") @db.Decimal(12, 2)
+  materialEstimate  Decimal? @map("material_estimate") @db.Decimal(12, 2)
+  laborEstimate     Decimal? @map("labor_estimate") @db.Decimal(12, 2)
+  marginStatus      String   @default("OK") @map("margin_status") @db.VarChar(20) // OK|WARNING|ALERT|CRITICAL|LOSS
+
   // Project link
   projetoId        Int?
   warrantyTicketId Int? @unique @map("warranty_ticket_id")
@@ -3294,6 +3321,10 @@ model ServiceOrderMaterial {
   unitCostEstimated Decimal? @db.Decimal(12, 2)
   unitCostActual    Decimal? @db.Decimal(12, 2)
   unitPrice         Decimal? @db.Decimal(12, 2)
+
+  // Tax (default shown in UI as 8.25% Texas — nullable: null = not yet specified)
+  hasTax  Boolean?
+  taxRate Decimal? @db.Decimal(5, 2) // e.g. 8.25 for 8.25%
 
   // Status
   status     ServiceOrderMaterialStatus @default(PENDING)
@@ -4406,7 +4437,8 @@ model ServiceOrderAttachment {
   // Contexto adicional
   caption      String?  @db.VarChar(500)  // Legenda ou descrição
   vendorName   String?  @db.VarChar(200)  // Para NF: nome da loja (Home Depot, etc.)
-  receiptTotal Decimal? @db.Decimal(12, 2) // Para NF: valor total da nota
+  receiptTotal Decimal? @db.Decimal(12, 2) // Para NF: valor total da nota (digitado pelo usuário — inclui frete, etc.)
+  taxAmount    Decimal? @db.Decimal(12, 2) // Valor calculado de imposto dos materiais vinculados (referência interna)
 
   uploadedBy Int
   createdAt  DateTime @default(now())
@@ -4425,8 +4457,12 @@ model ServiceOrderAttachment {
 
 // Junction table: many-to-many between attachments and materials
 model AttachmentMaterial {
-  attachmentId   Int
-  materialItemId Int
+  attachmentId      Int
+  materialItemId    Int
+  quantityOnReceipt Decimal? @db.Decimal(10, 2)
+  unitCostOnReceipt Decimal? @db.Decimal(10, 2)
+  hasTax            Boolean? // null = not specified
+  taxRate           Decimal? @db.Decimal(5, 2) // e.g. 8.25
 
   attachment   ServiceOrderAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
   materialItem ServiceOrderMaterial   @relation(fields: [materialItemId], references: [id], onDelete: Cascade)

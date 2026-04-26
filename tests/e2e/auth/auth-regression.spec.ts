@@ -18,24 +18,32 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { seedAuthenticatedSessionWithMFA } from '../helpers/auth';
+import { resetAuthTestState, seedAuthenticatedSessionWithMFA } from '../helpers/auth';
 
 const ADMIN_EMAIL = process.env.AUTH_ADMIN_EMAIL || 'admin@gladpros.com';
 const ADMIN_PASSWORD = process.env.AUTH_ADMIN_PASSWORD || 'Admin123!@#';
 const AUTH_TIMEOUT_MS = 120000;
 
+function getPendingMfaUserId(body: { user?: { id?: number } }): number | undefined {
+  return typeof body.user?.id === 'number' ? body.user.id : undefined;
+}
+
 test.describe('Auth Regression Guards', () => {
   test.describe.configure({ mode: 'serial' });
   test.setTimeout(300000);
 
+  test.beforeEach(async ({ page }) => {
+    await resetAuthTestState(page.request, ADMIN_EMAIL);
+  });
+
   // [SEC-001] MFA code nunca em response body
   test('[SEC-001] resposta de mfa/resend nunca contém código de 6 dígitos', async ({ page }) => {
     const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, senha: ADMIN_PASSWORD },
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
       headers: { 'Content-Type': 'application/json' },
     });
     const loginBody = await loginResp.json();
-    const userId = loginBody.data?.userId;
+    const userId = getPendingMfaUserId(loginBody);
 
     if (!userId) {
       test.skip(true, 'userId não disponível neste ambiente');
@@ -76,7 +84,7 @@ test.describe('Auth Regression Guards', () => {
     // Tentar com um email de usuário sabidamente inativo
     // Se não existir, o teste documenta o comportamento esperado
     const resp = await page.request.post('/api/auth/login', {
-      data: { email: 'qa.inativo@teste.local', senha: 'Admin123!@#' },
+      data: { email: 'qa.inativo@teste.local', password: 'Admin123!@#' },
       headers: { 'Content-Type': 'application/json' },
     });
 
@@ -92,7 +100,7 @@ test.describe('Auth Regression Guards', () => {
   // [API-001] success: false em todos os erros de API
   test('[API-001] login com credenciais inválidas retorna { success: false }', async ({ page }) => {
     const resp = await page.request.post('/api/auth/login', {
-      data: { email: 'invalido@teste.com', senha: 'SenhaInvalida123!' },
+      data: { email: 'invalido@teste.com', password: 'SenhaInvalida123!' },
       headers: { 'Content-Type': 'application/json' },
     });
 
@@ -102,11 +110,11 @@ test.describe('Auth Regression Guards', () => {
 
   test('[API-001] mfa/verify com código inválido retorna { success: false }', async ({ page }) => {
     const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, senha: ADMIN_PASSWORD },
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
       headers: { 'Content-Type': 'application/json' },
     });
     const loginBody = await loginResp.json();
-    const userId = loginBody.data?.userId;
+    const userId = getPendingMfaUserId(loginBody);
 
     if (!userId) {
       test.skip(true, 'userId não disponível');
@@ -126,11 +134,11 @@ test.describe('Auth Regression Guards', () => {
   // [API-002] success: true em respostas de sucesso
   test('[API-002] mfa/resend com userId válido retorna { success: true }', async ({ page }) => {
     const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, senha: ADMIN_PASSWORD },
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
       headers: { 'Content-Type': 'application/json' },
     });
     const loginBody = await loginResp.json();
-    const userId = loginBody.data?.userId;
+    const userId = getPendingMfaUserId(loginBody);
 
     if (!userId) {
       test.skip(true, 'userId não disponível');
@@ -165,11 +173,11 @@ test.describe('Auth Regression Guards', () => {
   test('[UI-001] página /mfa renderiza mensagem específica de erro da API (não mensagem genérica)', async ({ page }) => {
     // Verificar que o componente não usa "Algo deu errado" como fallback hardcoded
     const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, senha: ADMIN_PASSWORD },
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
       headers: { 'Content-Type': 'application/json' },
     });
     const loginBody = await loginResp.json();
-    const userId = loginBody.data?.userId;
+    const userId = getPendingMfaUserId(loginBody);
 
     if (!userId) {
       test.skip(true, 'userId não disponível');
@@ -182,7 +190,7 @@ test.describe('Auth Regression Guards', () => {
     );
 
     // Submeter código inválido via UI
-    const codeInput = page.locator('input[maxlength="6"], input[name="code"]').first();
+    const codeInput = page.locator('input[type="text"], input[name="code"]').first();
     if (await codeInput.isVisible({ timeout: 5000 }).catch(() => false)) {
       await codeInput.fill('000000');
       await page.getByRole('button', { name: /Verificar|Confirmar|Entrar/i }).click();
