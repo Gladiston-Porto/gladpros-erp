@@ -442,19 +442,46 @@ export default function NovaOrdemServicoPage() {
 
           {/* Margin Preview */}
           {Number(form.agreedClientPrice) > 0 && (
-            <div className="rounded-xl bg-muted/50 p-3 text-sm">
+            <div className="rounded-xl border border-border p-3 text-sm space-y-1">
               {(() => {
                 const agreed = Number(form.agreedClientPrice) || 0;
                 const matEst = Number(form.materialEstimate) || 0;
                 const labEst = Number(form.laborEstimate) || 0;
                 const totalCost = matEst + labEst;
-                const margin = agreed > 0 ? ((agreed - totalCost) / agreed) * 100 : 0;
-                const color = margin < 0 ? 'text-destructive' : margin < 15 ? 'text-yellow-500' : 'text-green-500';
+                const costRatio = agreed > 0 ? totalCost / agreed : 0;
+                const marginPct = agreed > 0 ? ((agreed - totalCost) / agreed) * 100 : 0;
+                const profit = agreed - totalCost;
+
+                let status = 'OK';
+                let badge = 'bg-green-500/10 text-green-600';
+                let statusLabel = '✅ OK';
+                if (costRatio > 1.1)       { status = 'LOSS';     badge = 'bg-destructive/10 text-destructive'; statusLabel = '⛔ Prejuízo projetado'; }
+                else if (costRatio > 1.0)  { status = 'CRITICAL'; badge = 'bg-red-500/10 text-red-600';         statusLabel = '🔴 CRÍTICO — custo > receita'; }
+                else if (costRatio >= 0.85) { status = 'ALERT';    badge = 'bg-orange-500/10 text-orange-600';   statusLabel = '🟠 Alerta — margem baixa'; }
+                else if (costRatio >= 0.70) { status = 'WARNING';  badge = 'bg-yellow-500/10 text-yellow-600';   statusLabel = '⚠️ Atenção — margem reduzida'; }
+
+                const fmt = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
                 return (
-                  <span>
-                    Margem projetada: <span className={`font-semibold ${color}`}>{margin.toFixed(1)}%</span>
-                    {' '}(${(agreed - totalCost).toFixed(2)} de ${agreed.toFixed(2)})
-                  </span>
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-medium">Previsão de margem</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge}`}>{statusLabel}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Custo total estimado</span>
+                      <span className="font-medium text-foreground">{fmt(totalCost)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Valor acordado</span>
+                      <span className="font-medium text-foreground">{fmt(agreed)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs border-t border-border pt-1">
+                      <span className="text-muted-foreground">Margem projetada</span>
+                      <span className={`font-bold ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                        {fmt(profit)} ({marginPct.toFixed(1)}%)
+                      </span>
+                    </div>
+                  </>
                 );
               })()}
             </div>

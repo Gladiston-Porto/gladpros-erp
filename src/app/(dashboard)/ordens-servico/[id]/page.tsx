@@ -289,6 +289,12 @@ export default function ServiceOrderDetailPage() {
     const [showWriteOffModal, setShowWriteOffModal] = useState(false);
     const [writeOffReasonText, setWriteOffReasonText] = useState('');
 
+    // Change Order (agreedClientPrice update with audit)
+    const [showChangeOrderModal, setShowChangeOrderModal] = useState(false);
+    const [changeOrderNewPrice, setChangeOrderNewPrice] = useState('');
+    const [changeOrderReason, setChangeOrderReason] = useState('');
+    const [changeOrderLoading, setChangeOrderLoading] = useState(false);
+
     // Attachments (fotos antes/depois + notas fiscais)
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [uploadType, setUploadType] = useState<AttachmentType>('BEFORE_PHOTO');
@@ -598,6 +604,34 @@ export default function ServiceOrderDetailPage() {
             toast.error(err instanceof Error ? err.message : 'Erro');
         } finally {
             setActionLoading(false);
+        }
+    };
+
+    const handleChangeOrder = async () => {
+        if (!order) return;
+        const newPrice = parseFloat(changeOrderNewPrice);
+        if (!Number.isFinite(newPrice) || newPrice <= 0) { toast.error('Valor inválido'); return; }
+        if (changeOrderReason.trim().length < 10) { toast.error('Descreva o motivo (mín. 10 caracteres)'); return; }
+        setChangeOrderLoading(true);
+        try {
+            const res = await fetch(`/api/service-orders/${order.id}/change-order`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newAgreedClientPrice: newPrice, reason: changeOrderReason.trim() }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || data.error || 'Erro ao salvar change order');
+            }
+            toast.success('Change order registrado. Margem recalculada.');
+            setShowChangeOrderModal(false);
+            setChangeOrderNewPrice('');
+            setChangeOrderReason('');
+            loadOrder();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Erro');
+        } finally {
+            setChangeOrderLoading(false);
         }
     };
 
@@ -2565,9 +2599,90 @@ export default function ServiceOrderDetailPage() {
                                         {consumedPct.toFixed(1)}% do orçamento consumido
                                     </p>
                                 </div>
+                                {/* Change Order button — ADMIN/GERENTE only */}
+                                {['ADMIN', 'GERENTE'].includes(currentUserRole ?? '') && (
+                                    <div className="pt-2 border-t border-border">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setChangeOrderNewPrice(order.agreedClientPrice ? String(Number(order.agreedClientPrice)) : '');
+                                                setShowChangeOrderModal(true);
+                                            }}
+                                            className="text-xs text-brand-primary hover:underline flex items-center gap-1"
+                                        >
+                                            ✏️ Emitir Change Order (alterar valor acordado)
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         );
                     })()}
+                </div>
+            )}
+
+            {/* Change Order Modal */}
+            {showChangeOrderModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-background border border-border rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+                        <div>
+                            <h3 className="font-semibold text-foreground text-base">✏️ Change Order — Alterar Valor Acordado</h3>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Esta ação registra um Change Order com auditoria. O motivo é obrigatório.
+                            </p>
+                        </div>
+                        {order.agreedClientPrice && (
+                            <p className="text-sm text-muted-foreground">
+                                Valor atual: <span className="font-semibold text-foreground">{formatCurrency(Number(order.agreedClientPrice))}</span>
+                            </p>
+                        )}
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground block mb-1">Novo Valor Acordado (USD)</label>
+                                <input
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    value={changeOrderNewPrice}
+                                    onChange={e => setChangeOrderNewPrice(e.target.value)}
+                                    placeholder="1220.00"
+                                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label="Novo valor acordado"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground block mb-1">Motivo do Change Order *</label>
+                                <textarea
+                                    value={changeOrderReason}
+                                    onChange={e => setChangeOrderReason(e.target.value)}
+                                    placeholder="Ex: Cliente solicitou serviço adicional de instalação elétrica — aprovado em reunião de 04/26."
+                                    rows={3}
+                                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label="Motivo do change order"
+                                />
+                                <p className="text-xs text-muted-foreground mt-0.5">{changeOrderReason.length}/10 caracteres mínimos</p>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-1">
+                            <button
+                                type="button"
+                                onClick={() => { setShowChangeOrderModal(false); setChangeOrderNewPrice(''); setChangeOrderReason(''); }}
+                                className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+                                disabled={changeOrderLoading}
+                                aria-label="Cancelar change order"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleChangeOrder}
+                                disabled={changeOrderLoading}
+                                className="px-4 py-2 text-sm rounded-lg bg-brand-primary text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                                aria-label="Confirmar change order"
+                            >
+                                {changeOrderLoading ? 'Salvando...' : 'Confirmar Change Order'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 

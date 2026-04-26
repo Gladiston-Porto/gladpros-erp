@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { computeMarginStatus, fireMarginAlertsIfNeeded } from '@/shared/services/marginService';
 
 /**
  * Resolve o preço unitário de faturamento de um material.
@@ -61,18 +62,11 @@ export async function recalculateTotals(serviceOrderId: number): Promise<void> {
     let marginStatus = 'OK';
     const so2 = await prisma.serviceOrder.findUnique({
         where: { id: serviceOrderId },
-        select: { agreedClientPrice: true },
+        select: { agreedClientPrice: true, orderNumber: true },
     });
     if (so2?.agreedClientPrice) {
-        const agreed = Number(so2.agreedClientPrice);
-        if (agreed > 0) {
-            const totalCost = laborTotal + materialTotal;
-            const pct = totalCost / agreed;
-            if (pct >= 1.1) marginStatus = 'LOSS';
-            else if (pct >= 1.0) marginStatus = 'CRITICAL';
-            else if (pct >= 0.85) marginStatus = 'ALERT';
-            else if (pct >= 0.7) marginStatus = 'WARNING';
-        }
+        const result = computeMarginStatus(Number(so2.agreedClientPrice), materialTotal, laborTotal);
+        if (result) marginStatus = result.status;
     }
 
     await prisma.serviceOrder.update({
@@ -84,4 +78,9 @@ export async function recalculateTotals(serviceOrderId: number): Promise<void> {
             marginStatus,
         },
     });
+
+    // Fire alerts/notifications for actionable statuses (non-blocking)
+    if (so2?.agreedClientPrice && (marginStatus === 'ALERT' || marginStatus === 'CRITICAL' || marginStatus === 'LOSS')) {
+        fireMarginAlertsIfNeeded(serviceOrderId, Number(so2.agreedClientPrice), materialTotal, laborTotal, so2.orderNumber ?? undefined).catch(() => {/* non-blocking */});
+    }
 }

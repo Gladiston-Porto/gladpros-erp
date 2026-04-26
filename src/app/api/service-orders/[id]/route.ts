@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { can, requireUser, type Role } from '@/shared/lib/rbac';
 import { canSeeFieldGroup } from '@/shared/lib/rbac-core';
+import { recalculateOSMargin } from '@/shared/services/marginService';
 
 // GET /api/service-orders/[id] - Get single service order with full details
 export const GET = withErrorHandler(async (request: Request,
@@ -363,6 +364,17 @@ export const PATCH = withErrorHandler(async (request: Request,
                 AssignedWorker: { select: { id: true, name: true } }
             }
         });
+
+        // If agreedClientPrice changed, recompute marginStatus against actual costs
+        if (validated.agreedClientPrice !== undefined) {
+            recalculateOSMargin(
+                serviceOrderId,
+                Number(updated.agreedClientPrice),
+                Number(updated.materialTotal),
+                Number(updated.laborTotal),
+                updated.orderNumber ?? undefined
+            ).catch(() => {/* non-blocking */});
+        }
 
         return NextResponse.json({ data: updated, success: true }, { status: 200 });
     });
