@@ -278,18 +278,35 @@ export const PATCH = withErrorHandler(async (request: Request,
             );
         }
 
-        // Only allow editing if in DRAFT status (or specific fields in other statuses)
-        if (existing.status !== 'DRAFT' && existing.status !== 'SCHEDULED') {
-            // Allow only notes to be edited after scheduling
-            const allowedFields = ['techNotes', 'clientNotes'];
-            const providedFields = Object.keys(validated);
-            const disallowedFields = providedFields.filter(f => !allowedFields.includes(f));
+        // Field editing rules by status:
+        // DRAFT / SCHEDULED    → all fields allowed
+        // IN_PROGRESS          → title, description, priority, notes allowed
+        // COMPLETED+           → only notes allowed (job is done, no structural changes)
+        const terminalStatuses = ['COMPLETED', 'AWAITING_PAYMENT', 'CLOSED', 'CANCELED', 'WRITTEN_OFF'];
 
+        if (existing.status === 'IN_PROGRESS') {
+            const allowedInProgress = ['title', 'description', 'priority', 'techNotes', 'clientNotes'];
+            const providedFields = Object.keys(validated);
+            const disallowedFields = providedFields.filter(f => !allowedInProgress.includes(f));
             if (disallowedFields.length > 0) {
                 return NextResponse.json(
                     {
                         error: 'Validation failed',
-                        message: `Não é possível editar ${disallowedFields.join(', ')} no status ${existing.status}`,
+                        message: `Não é possível editar ${disallowedFields.join(', ')} enquanto a OS está em andamento. Use Change Order para alterar valores financeiros.`,
+                        success: false,
+                    },
+                    { status: 400 }
+                );
+            }
+        } else if (terminalStatuses.includes(existing.status as string)) {
+            const allowedTerminal = ['techNotes', 'clientNotes'];
+            const providedFields = Object.keys(validated);
+            const disallowedFields = providedFields.filter(f => !allowedTerminal.includes(f));
+            if (disallowedFields.length > 0) {
+                return NextResponse.json(
+                    {
+                        error: 'Validation failed',
+                        message: `Apenas observações podem ser editadas no status ${existing.status}.`,
                         success: false,
                     },
                     { status: 400 }
