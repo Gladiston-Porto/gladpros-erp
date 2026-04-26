@@ -50,7 +50,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
       )
     }
     
-    // Mascarar dados financeiros se necessário
+    // Mascarar dados financeiros se necessário (Fase 0 — USUARIO não vê dados financeiros)
     const maskFinancials = shouldMaskFinancials(user.role)
     if (maskFinancials) {
       return NextResponse.json({
@@ -58,6 +58,12 @@ export const GET = withErrorHandler(async (request: NextRequest,
           ...projeto,
           orcamento: undefined,
           custoTotal: undefined,
+          custoPrevisto: undefined,
+          custoReal: undefined,
+          margemPrevista: undefined,
+          margemReal: undefined,
+          lucroPrevisto: undefined,
+          lucroReal: undefined,
         },
         success: true,
       })
@@ -113,7 +119,7 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     const service = new ProjectService()
     const projeto = await service.atualizar(projetoId, data, Number(user.id))
     
-    // Mascarar dados financeiros se necessário
+    // Mascarar dados financeiros se necessário (Fase 0 — USUARIO não vê dados financeiros)
     const maskFinancials = shouldMaskFinancials(user.role)
     if (maskFinancials) {
       return NextResponse.json({
@@ -121,6 +127,12 @@ export const PUT = withErrorHandler(async (request: NextRequest,
           ...projeto,
           orcamento: undefined,
           custoTotal: undefined,
+          custoPrevisto: undefined,
+          custoReal: undefined,
+          margemPrevista: undefined,
+          margemReal: undefined,
+          lucroPrevisto: undefined,
+          lucroReal: undefined,
         },
         success: true,
       })
