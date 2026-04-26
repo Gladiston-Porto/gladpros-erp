@@ -15,6 +15,7 @@ import {
   Receipt,
   ClipboardList,
   ChevronRight,
+  BarChart3,
 } from "lucide-react"
 
 export default async function RelatoriosHubPage() {
@@ -22,6 +23,14 @@ export default async function RelatoriosHubPage() {
   if (!can(user.role as Role, "reports", "read")) redirect("/403")
 
   const modulos = [
+    {
+      href: "/relatorios/financeiro-executivo",
+      label: "Financial Executive Dashboard",
+      description: "P&L per job, margin health, collection rate and jobs over budget",
+      icon: BarChart3,
+      color: "#0098DA",
+      module: "reports" as const,
+    },
     {
       href: "/clientes/relatorios",
       label: "Clientes",
