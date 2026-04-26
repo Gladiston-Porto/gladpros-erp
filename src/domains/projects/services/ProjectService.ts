@@ -30,6 +30,7 @@ import { ProjectHistoryService } from "./ProjectHistoryService";
 import { ProjectMaterialMetricsService } from "./ProjectMaterialMetricsService";
 import { ITriageGateway } from "../interfaces/triage-gateway.interface";
 import { getTriageGateway } from "../gateways";
+import { NotificationService } from "@/shared/lib/notifications";
 
 export class ProjectServiceError extends Error {
   constructor(
@@ -396,6 +397,13 @@ export class ProjectService {
       acao: ACAO_HISTORICO.ATUALIZACAO,
       detalhes: { mensagem: `Projeto ${projeto.numeroProjeto} atualizado` },
     });
+
+    // Disparar alertas de orçamento se custoReal foi atualizado (non-blocking)
+    if (data.valorRealizado !== undefined) {
+      this.checkAndFireBudgetAlerts(projeto.id, projeto.numeroProjeto).catch((err) =>
+        console.error('[ProjectService] BudgetAlert error:', err)
+      );
+    }
 
     return this.mapearParaResponse(projeto);
   }
@@ -1094,6 +1102,79 @@ export class ProjectService {
         })),
       }
     );
+  }
+
+  /**
+   * Dispara BudgetAlert persistente + notificação quando custoReal ultrapassa thresholds do projeto.
+   * Chamado de forma não-bloqueante após atualizar custoReal.
+   */
+  private async checkAndFireBudgetAlerts(projetoId: number, numeroProjeto: string): Promise<void> {
+    const proj = await this.prisma.projeto.findUnique({
+      where: { id: projetoId },
+      select: { custoPrevisto: true, custoReal: true },
+    });
+    if (!proj?.custoPrevisto || !proj?.custoReal) return;
+
+    const budget = Number(proj.custoPrevisto);
+    const actual = Number(proj.custoReal);
+    if (budget <= 0) return;
+
+    const pct = (actual / budget) * 100;
+
+    // Determine severity: CRITICAL (>110%), ALERT (>100%), WARNING (>80%)
+    let severity: "WARNING" | "ALERT" | "CRITICAL" | null = null;
+    if (pct >= 110) severity = "CRITICAL";
+    else if (pct >= 100) severity = "ALERT";
+    else if (pct >= 80) severity = "WARNING";
+
+    if (!severity) return;
+
+    // Avoid duplicate alerts for the same severity in the same day
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const existing = await this.prisma.budgetAlert.findFirst({
+      where: {
+        projectId: projetoId,
+        severity,
+        triggeredAt: { gte: today },
+      },
+    });
+    if (existing) return;
+
+    // Persist BudgetAlert
+    await this.prisma.budgetAlert.create({
+      data: {
+        projectId: projetoId,
+        severity,
+        thresholdPct: pct >= 110 ? 110 : pct >= 100 ? 100 : 80,
+        custoAtual: actual,
+        budgetTotal: budget,
+        percentUsed: Number(pct.toFixed(2)),
+        message: `Project ${numeroProjeto}: cost is at ${pct.toFixed(1)}% of budget (${severity})`,
+      },
+    });
+
+    // Notify GERENTE and ADMIN
+    const managers = await this.prisma.usuario.findMany({
+      where: { nivel: { in: ["ADMIN", "GERENTE"] }, status: "ATIVO" },
+      select: { id: true },
+    });
+
+    const title =
+      severity === "CRITICAL" ? `⛔ Project Over Budget: ${numeroProjeto}` :
+      severity === "ALERT" ? `🔴 Project At Budget Limit: ${numeroProjeto}` :
+      `⚠️ Project Budget Warning: ${numeroProjeto}`;
+    const message = `Cost is at ${pct.toFixed(1)}% of budget ($${actual.toFixed(2)} / $${budget.toFixed(2)}).`;
+
+    for (const mgr of managers) {
+      NotificationService.create({
+        userId: mgr.id,
+        type: severity === "CRITICAL" ? "error" : "warning",
+        title,
+        message,
+        data: { projetoId, severity, percentUsed: pct.toFixed(1) },
+      }).catch(() => {/* non-blocking */});
+    }
   }
 
   /**

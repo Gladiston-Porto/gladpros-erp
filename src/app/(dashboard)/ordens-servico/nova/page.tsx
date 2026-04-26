@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { FilePlus } from "lucide-react";
 
@@ -57,6 +57,7 @@ const INITIAL_FORM: ServiceOrderFormState = {
 
 export default function NovaOrdemServicoPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<ServiceOrderClient[]>([]);
@@ -71,6 +72,29 @@ export default function NovaOrdemServicoPage() {
   const [scopeItems, setScopeItems] = useState<string[]>([]);
   const [newScopeItem, setNewScopeItem] = useState("");
   const [form, setForm] = useState<ServiceOrderFormState>(INITIAL_FORM);
+  const [carryOverSource, setCarryOverSource] = useState<string | null>(null);
+
+  // Carry-over: if ?propostaId=X is in URL, pre-fill financial fields from proposta
+  useEffect(() => {
+    const propostaId = searchParams.get("propostaId");
+    if (!propostaId) return;
+    authenticatedFetch(`/api/propostas/${propostaId}`)
+      .then((r) => r.json())
+      .then((json) => {
+        const p = json.data ?? json;
+        if (!p?.id) return;
+        setForm((prev) => ({
+          ...prev,
+          ...(p.precoPropostaCliente ? { agreedClientPrice: String(Number(p.precoPropostaCliente)) } : {}),
+          ...(p.valorEstimado ? { materialEstimate: String(Number(p.valorEstimado)) } : {}),
+          ...(p.clienteId ? { clienteId: p.clienteId } : {}),
+          ...(p.titulo ? { title: p.titulo } : {}),
+          ...(p.descricao ? { description: p.descricao } : {}),
+        }));
+        setCarryOverSource(`Proposta #${p.numeroProposta || propostaId}`);
+      })
+      .catch(() => {/* silent — carry-over is best-effort */});
+  }, [searchParams]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -257,6 +281,14 @@ export default function NovaOrdemServicoPage() {
           </Button>
         }
       />
+
+      {/* Carry-over banner */}
+      {carryOverSource && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-brand-primary/10 border border-brand-primary/30 text-sm text-brand-primary">
+          <span className="font-medium">📋 Dados pré-preenchidos de {carryOverSource}.</span>
+          <span className="text-muted-foreground">Revise e ajuste antes de salvar.</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <ServiceOrderClientSection
