@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser, requireRoles } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 import { z } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
 
@@ -23,6 +24,10 @@ const empresaUpdateSchema = z.object({
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
+
+  if (!can(user.role as Role, 'configuracoes', 'read')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
 
   const empresa = await prisma.empresa.findFirst({
     select: {
@@ -60,7 +65,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
  */
 export const PUT = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
-  requireRoles(user.role, ['ADMIN']);
+
+  if (!can(user.role as Role, 'configuracoes', 'update')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
 
   const body = await request.json();
   const validData = empresaUpdateSchema.parse(body);

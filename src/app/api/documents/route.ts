@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 /**
  * GET /api/documents - Listar documentos reais (anexos de propostas e projetos)
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
-  await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'documents', 'read')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
 
   // Fetch real document attachments from proposal and project tables
   const [propostaAnexos, projetoAnexos] = await Promise.all([
@@ -54,7 +58,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 });
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'documents', 'create')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
   return NextResponse.json(
     { error: 'Upload de documentos deve ser feito via formulários de Proposta ou Projeto' },
     { status: 501 }

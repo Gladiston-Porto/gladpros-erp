@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 import { z } from 'zod';
 
 const createLocalizacaoSchema = z.object({
@@ -13,7 +14,10 @@ const createLocalizacaoSchema = z.object({
 
 // GET /api/estoque/localizacoes - List locations
 export const GET = withErrorHandler(async (request: NextRequest) => {
-  await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'estoque', 'read')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
   const { searchParams } = new URL(request.url);
 
   const ativo = searchParams.get('ativo');
@@ -44,7 +48,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
 // POST /api/estoque/localizacoes - Create location
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'estoque', 'create')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
   const body = await request.json();
   const validated = createLocalizacaoSchema.parse(body);
 

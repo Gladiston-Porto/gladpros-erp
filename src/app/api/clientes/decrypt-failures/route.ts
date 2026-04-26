@@ -17,7 +17,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     }
 
     const authUser = await requireUser(request);
-    if (!hasRole(authUser.role, ['ADMIN'])) {
+    if (authUser.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Forbidden', message: 'Sem permissão para acessar este endpoint', success: false },
         { status: 403 }

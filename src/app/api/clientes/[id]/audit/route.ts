@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { clienteParamsSchema } from '@/shared/lib/validations/cliente'
 import { AuditService } from '@/shared/lib/audit'
-import { hasRole, requireUser } from '@/shared/lib/rbac'
+import { requireUser } from '@/shared/lib/rbac'
+import { can, type Role } from '@/shared/lib/rbac-core'
 import { z } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
 
@@ -11,9 +12,9 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 export const GET = withErrorHandler(async (request: Request,
   ctx: { params: Promise<{ id: string }> }) => {
     const user = await requireUser(request)
-    if (!hasRole(user.role, ['ADMIN', 'GERENTE'])) {
+    if (!can(user.role as Role, 'clientes', 'read')) {
       return NextResponse.json(
-        { error: 'Forbidden', message: 'Sem permissão para visualizar auditoria do cliente', success: false },
+        { error: 'Forbidden', message: 'Sem permissão', success: false },
         { status: 403 }
       )
     }

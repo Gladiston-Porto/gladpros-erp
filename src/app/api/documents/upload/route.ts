@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/shared/lib/rbac';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { can, type Role } from '@/shared/lib/rbac-core';
 import { randomUUID } from 'crypto';
 
 // MIME type → allowed magic bytes (primeiros bytes do arquivo)
@@ -37,6 +38,9 @@ function sanitizeFileName(name: string): string {
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
+  if (!can(user.role as Role, 'documents', 'create')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
 
   const formData = await request.formData();
   const file = formData.get('file') as File;

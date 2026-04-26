@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 import { prisma } from '@/lib/prisma';
 
 function parseDocumentId(id: string): { type: 'proposta' | 'projeto'; numericId: number } | null {
@@ -17,7 +18,10 @@ function parseDocumentId(id: string): { type: 'proposta' | 'projeto'; numericId:
 
 export const GET = withErrorHandler(async (request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
-  await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'documents', 'read')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
   const { id } = await params;
 
   const parsed = parseDocumentId(id);

@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 // Compartilhamento de documentos ainda não tem modelo no banco.
 // Auth adicionada; funcionalidade real será implementada quando o modelo existir.
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'documents', 'update')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
   const body = await request.json();
   const { shareWith, permissions } = body;
 
@@ -23,7 +27,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 });
 
 export const DELETE = withErrorHandler(async (request: NextRequest) => {
-  await requireUser(request);
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'documents', 'delete')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
 

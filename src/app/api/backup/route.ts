@@ -9,7 +9,10 @@ import { requireUser, requireRoles } from '@/shared/lib/rbac';
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
-  requireRoles(user.role, ['ADMIN']);
+
+  if (user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+  }
 
   // Gather real database stats
   const [

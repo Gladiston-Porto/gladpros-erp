@@ -6,6 +6,10 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 export const POST = withErrorHandler(async (request: NextRequest) => {
     const user = await requireUser(request);
 
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
+
     const body = await request.json();
     const { type, includeDocuments } = body;
 

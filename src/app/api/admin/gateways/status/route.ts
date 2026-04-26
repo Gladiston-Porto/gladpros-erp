@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 import { getFinanceGateway, getInventoryGateway, getTriageGateway } from '@/domains/projects/gateways';
 
 // GET /api/admin/gateways/status — Health check for all gateways (admin only)
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
 
-  if (String(user.role).toUpperCase() !== 'ADMIN') {
-    return NextResponse.json({ error: 'Acesso restrito a administradores' }, { status: 403 });
+  if (!can(user.role as Role, 'configuracoes', 'read')) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
   }
 
   const isMock = process.env.USE_MOCK_GATEWAYS === 'true' || process.env.NODE_ENV === 'test';
