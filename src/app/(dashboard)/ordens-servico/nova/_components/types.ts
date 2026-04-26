@@ -48,4 +48,8 @@ export type ServiceOrderFormState = {
   agreedClientPrice: string;
   materialEstimate: string;
   laborEstimate: string;
+  // Tax Classification (Fase 2)
+  propertyType: "RESIDENTIAL" | "COMMERCIAL" | "MIXED_USE" | "EXEMPT_ORGANIZATION" | "GOVERNMENT";
+  serviceCategory: "REPAIR" | "REMODEL" | "RESTORATION" | "NEW_CONSTRUCTION" | "MAINTENANCE" | "INSPECTION" | "CONSULTATION" | "OTHER";
+  contractType: "LUMP_SUM" | "SEPARATED";
 };

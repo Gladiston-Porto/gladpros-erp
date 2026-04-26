@@ -118,6 +118,11 @@ type InvoiceDetailContentProps = {
     descontoPercentual: number;
     taxRate: number;
     taxAmount: number;
+    taxableAmount?: number | null;
+    nonTaxableAmount?: number | null;
+    taxMode?: string | null;
+    taxScenario?: string | null;
+    taxExplanation?: string | null;
     valorTotal: number;
     valorPago: number;
     saldo: number;
@@ -216,12 +221,28 @@ export function InvoiceDetailContent({
                 </span>
               </div>
             )}
-            <div className="flex justify-between text-foreground/80">
-              <span>Taxa ({(financialTotals.taxRate * 100).toFixed(2)}%)</span>
-              <span className="font-medium">
-                {formatInvoiceCurrency(financialTotals.taxAmount)}
-              </span>
-            </div>
+            {financialTotals.taxMode === "NON_TAXABLE" ? (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Sales Tax</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
+                  Non-Taxable
+                </span>
+              </div>
+            ) : financialTotals.taxMode === "MANUAL_REVIEW" ? (
+              <div className="flex justify-between text-sm text-yellow-600">
+                <span>Sales Tax</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-medium">
+                  ⚠ Pending Review
+                </span>
+              </div>
+            ) : financialTotals.taxAmount > 0 ? (
+              <div className="flex justify-between text-foreground/80">
+                <span>Sales Tax ({(financialTotals.taxRate * 100).toFixed(2)}%)</span>
+                <span className="font-medium">
+                  {formatInvoiceCurrency(financialTotals.taxAmount)}
+                </span>
+              </div>
+            ) : null}
             <div className="flex justify-between border-t border-border pt-2 text-lg font-bold text-foreground">
               <span>Total</span>
               <span>{formatInvoiceCurrency(financialTotals.valorTotal)}</span>
@@ -339,6 +360,68 @@ export function InvoiceDetailContent({
             )}
           </div>
         </div>
+
+        {/* Tax Classification Card */}
+        {invoice.taxMode && (
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="mb-4 font-semibold text-foreground">Sales Tax</h3>
+            <div className="space-y-3">
+              <div>
+                <div className="text-xs text-muted-foreground">Status</div>
+                {invoice.taxMode === "NON_TAXABLE" && (
+                  <span className="inline-flex rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
+                    Non-Taxable
+                  </span>
+                )}
+                {invoice.taxMode === "MANUAL_REVIEW" && !invoice.manualTaxOverride && (
+                  <span className="inline-flex rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-medium text-yellow-600">
+                    ⚠ Pending Review
+                  </span>
+                )}
+                {invoice.taxMode === "MANUAL_REVIEW" && invoice.manualTaxOverride && (
+                  <span className="inline-flex rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600">
+                    Reviewed / Override
+                  </span>
+                )}
+                {(invoice.taxMode === "TAX_EXCLUDED" || invoice.taxMode === "TAX_INCLUDED") && (
+                  <span className="inline-flex rounded-full bg-brand-primary/10 px-2 py-0.5 text-xs font-medium text-brand-primary">
+                    Taxable
+                  </span>
+                )}
+              </div>
+
+              {invoice.taxScenario && (
+                <div>
+                  <div className="text-xs text-muted-foreground">Scenario</div>
+                  <div className="text-sm font-medium text-foreground">{invoice.taxScenario}</div>
+                </div>
+              )}
+
+              {invoice.taxExplanation && (
+                <div>
+                  <div className="text-xs text-muted-foreground">Rule Applied</div>
+                  <div className="text-xs text-foreground/70">{invoice.taxExplanation}</div>
+                </div>
+              )}
+
+              {(invoice.taxAddressCity || invoice.taxAddressState) && (
+                <div>
+                  <div className="text-xs text-muted-foreground">Jurisdiction</div>
+                  <div className="text-sm text-foreground">
+                    {[invoice.taxAddressCity, invoice.taxAddressState].filter(Boolean).join(", ")}
+                  </div>
+                </div>
+              )}
+
+              {invoice.manualTaxOverride && invoice.manualTaxOverrideReason && (
+                <div className="rounded-lg bg-blue-500/10 p-2">
+                  <div className="text-xs font-medium text-blue-600">Override Reason</div>
+                  <div className="text-xs text-foreground/70">{invoice.manualTaxOverrideReason}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

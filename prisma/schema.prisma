@@ -435,6 +435,10 @@ model Proposta {
   tokenExpiresAt             DateTime?
   tokenPublico               String?                           @unique @db.VarChar(100)
   validadeProposta           DateTime?
+  // Tax Classification (Fase 2)
+  propertyType    PropertyType?    @default(RESIDENTIAL) @map("property_type")
+  serviceCategory ServiceCategory? @default(REPAIR)      @map("service_category")
+  contractType    ContractType?    @default(LUMP_SUM)    @map("contract_type")
   AnexoProposta              AnexoProposta[]
   Projeto                    ProjetoLegacy?
   Projetos                   Projeto[]                         @relation("PropostaProjetos")
@@ -885,6 +889,7 @@ model Usuario {
   // Financeiro - Invoices
   InvoicesCriadas        Invoice[]        @relation("InvoiceCriador")
   InvoicesAtualizadas    Invoice[]        @relation("InvoiceAtualizador")
+  InvoicesTaxReviewed    Invoice[]        @relation("InvoiceTaxReviewer")
   InvoicePaymentsCriados InvoicePayment[]
 
   // Financeiro - Despesas
@@ -2005,7 +2010,26 @@ model Invoice {
   descontoPercentual  Decimal        @default(0) @db.Decimal(5, 2)
   // taxRateId removed
   taxRate             Decimal        @default(0.0825) @db.Decimal(5, 4)
-  taxAmount           Decimal        @default(0) @db.Decimal(15, 2)
+  taxAmount           Decimal        @default(0)      @db.Decimal(15, 2)
+
+  // Sales Tax Classification (Fase 2) — inherited from ServiceOrder or set manually
+  propertyType          PropertyType?    @map("property_type")
+  serviceCategory       ServiceCategory? @map("service_category")
+  contractType          ContractType?    @map("contract_type")
+  taxMode               TaxMode?         @default(NON_TAXABLE)  @map("tax_mode")
+  taxScenario           String?          @db.VarChar(1)   @map("tax_scenario")    // A|B|C|D|E
+  taxableAmount         Decimal          @default(0)      @db.Decimal(15, 2) @map("taxable_amount")
+  nonTaxableAmount      Decimal          @default(0)      @db.Decimal(15, 2) @map("non_taxable_amount")
+  taxExplanation        String?          @db.Text         @map("tax_explanation")
+  taxAddressCity        String?          @db.VarChar(100) @map("tax_address_city")
+  taxAddressState       String?          @db.VarChar(10)  @map("tax_address_state")
+  taxAddressZip         String?          @db.VarChar(20)  @map("tax_address_zip")
+  // Manual Override — only ADMIN/FINANCEIRO
+  manualTaxOverride     Boolean          @default(false)  @map("manual_tax_override")
+  manualTaxOverrideReason String?        @db.VarChar(500) @map("manual_tax_override_reason")
+  taxReviewedById       Int?             @map("tax_reviewed_by_id")
+  taxReviewedAt         DateTime?        @map("tax_reviewed_at")
+
   valorTotal          Decimal        @default(0) @db.Decimal(15, 2)
   valorPago           Decimal        @default(0) @db.Decimal(15, 2)
   saldo               Decimal        @default(0) @db.Decimal(15, 2)
@@ -2026,12 +2050,13 @@ model Invoice {
   pdfSha256           String?        @db.Char(64)
 
   // Relations
-  projeto     Projeto?          @relation(fields: [projetoId], references: [id])
-  cliente     Cliente           @relation(fields: [clienteId], references: [id])
-  empresa     Empresa           @relation(fields: [empresaId], references: [id])
+  projeto          Projeto?          @relation(fields: [projetoId], references: [id])
+  cliente          Cliente           @relation(fields: [clienteId], references: [id])
+  empresa          Empresa           @relation(fields: [empresaId], references: [id])
   // taxRateRel removed
-  criador     Usuario           @relation("InvoiceCriador", fields: [criadoPor], references: [id])
-  atualizador Usuario?          @relation("InvoiceAtualizador", fields: [atualizadoPor], references: [id])
+  criador          Usuario           @relation("InvoiceCriador", fields: [criadoPor], references: [id])
+  atualizador      Usuario?          @relation("InvoiceAtualizador", fields: [atualizadoPor], references: [id])
+  taxReviewedBy    Usuario?          @relation("InvoiceTaxReviewer", fields: [taxReviewedById], references: [id])
   itens       InvoiceItem[]
   pagamentos  InvoicePayment[]
   lembretes   InvoiceReminder[]
@@ -2047,6 +2072,8 @@ model Invoice {
   @@index([criadoEm])
   @@index([empresaId, status])
   @@index([clienteId, status])
+  @@index([taxMode])
+  @@index([taxReviewedById])
 }
 
 model InvoiceItem {
@@ -3258,6 +3285,11 @@ model ServiceOrder {
   materialEstimate  Decimal? @map("material_estimate") @db.Decimal(12, 2)
   laborEstimate     Decimal? @map("labor_estimate") @db.Decimal(12, 2)
   marginStatus      String   @default("OK") @map("margin_status") @db.VarChar(20) // OK|WARNING|ALERT|CRITICAL|LOSS
+
+  // Tax Classification (Fase 2)
+  propertyType    PropertyType?    @default(RESIDENTIAL) @map("property_type")
+  serviceCategory ServiceCategory? @default(REPAIR)      @map("service_category")
+  contractType    ContractType?    @default(LUMP_SUM)    @map("contract_type")
 
   // Project link
   projetoId        Int?
@@ -4550,4 +4582,37 @@ model EstimatedTaxPayment {
   @@index([empresaId, taxYear])
   @@index([status])
   @@map("estimated_tax_payments")
+}
+
+// ── Fase 2: Texas Sales Tax Classification ───────────────────────────────────
+
+enum PropertyType {
+  RESIDENTIAL
+  COMMERCIAL
+  MIXED_USE
+  EXEMPT_ORGANIZATION
+  GOVERNMENT
+}
+
+enum ServiceCategory {
+  REPAIR
+  REMODEL
+  RESTORATION
+  NEW_CONSTRUCTION
+  MAINTENANCE
+  INSPECTION
+  CONSULTATION
+  OTHER
+}
+
+enum ContractType {
+  LUMP_SUM
+  SEPARATED
+}
+
+enum TaxMode {
+  NON_TAXABLE    // No sales tax charged to client (e.g. residential lump-sum)
+  TAX_EXCLUDED   // Tax added on top of price
+  TAX_INCLUDED   // Tax already embedded in final price (reverse calc)
+  MANUAL_REVIEW  // Cannot auto-calculate; requires ADMIN/FINANCEIRO review
 }

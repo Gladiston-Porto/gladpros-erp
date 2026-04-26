@@ -5,6 +5,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser, can, type Role } from '@/shared/lib/rbac';
 import * as nodemailer from 'nodemailer';
 import logger from '@/shared/lib/logger';
+import { validateTaxBeforeSend } from '@/shared/services/salesTaxService';
 
 import { checkEmailRateLimit, EMAIL_RATE_LIMIT } from './email-rate-limit';
 
@@ -125,6 +126,22 @@ export const POST = withErrorHandler(async (
         success: false,
       }, { status: 422 });
     }
+  }
+
+  // Block send if tax classification requires manual review and override not set
+  const taxBlockers = validateTaxBeforeSend({
+    taxMode: invoice.taxMode,
+    manualTaxOverride: invoice.manualTaxOverride,
+    propertyType: invoice.propertyType,
+    serviceCategory: invoice.serviceCategory,
+    contractType: invoice.contractType,
+  });
+  if (taxBlockers.length > 0) {
+    return NextResponse.json({
+      error: 'Tax review required',
+      message: taxBlockers[0],
+      success: false,
+    }, { status: 422 });
   }
 
   // Generate PDF

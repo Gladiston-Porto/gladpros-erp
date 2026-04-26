@@ -50,6 +50,9 @@ const INITIAL_FORM: ServiceOrderFormState = {
   agreedClientPrice: "",
   materialEstimate: "",
   laborEstimate: "",
+  propertyType: "RESIDENTIAL",
+  serviceCategory: "REPAIR",
+  contractType: "LUMP_SUM",
 };
 
 export default function NovaOrdemServicoPage() {
@@ -163,6 +166,9 @@ export default function NovaOrdemServicoPage() {
         ...(form.agreedClientPrice && { agreedClientPrice: parseFloat(form.agreedClientPrice) }),
         ...(form.materialEstimate && { materialEstimate: parseFloat(form.materialEstimate) }),
         ...(form.laborEstimate && { laborEstimate: parseFloat(form.laborEstimate) }),
+        propertyType: form.propertyType,
+        serviceCategory: form.serviceCategory,
+        contractType: form.contractType,
       };
 
       const response = await authenticatedFetch("/api/service-orders", {
@@ -300,6 +306,84 @@ export default function NovaOrdemServicoPage() {
           labelCls={labelCls}
           setForm={setForm}
         />
+
+        {/* Tax Classification Section */}
+        <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+          <div>
+            <h3 className="font-semibold text-foreground">Classificação Fiscal (Texas Sales Tax)</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Determine se sales tax se aplica a este serviço. Residencial + lump-sum = sem cobrança de tax ao cliente.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Tipo de Propriedade</label>
+              <select
+                value={form.propertyType}
+                onChange={e => setForm(f => ({ ...f, propertyType: e.target.value as typeof f.propertyType }))}
+                className="w-full h-10 rounded-xl bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                aria-label="Tipo de propriedade"
+              >
+                <option value="RESIDENTIAL">Residencial</option>
+                <option value="COMMERCIAL">Comercial</option>
+                <option value="MIXED_USE">Uso Misto</option>
+                <option value="EXEMPT_ORGANIZATION">Organização Isenta</option>
+                <option value="GOVERNMENT">Governo</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Categoria do Serviço</label>
+              <select
+                value={form.serviceCategory}
+                onChange={e => setForm(f => ({ ...f, serviceCategory: e.target.value as typeof f.serviceCategory }))}
+                className="w-full h-10 rounded-xl bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                aria-label="Categoria do serviço"
+              >
+                <option value="REPAIR">Reparo</option>
+                <option value="REMODEL">Reforma</option>
+                <option value="RESTORATION">Restauração</option>
+                <option value="NEW_CONSTRUCTION">Nova Construção</option>
+                <option value="MAINTENANCE">Manutenção</option>
+                <option value="INSPECTION">Inspeção</option>
+                <option value="CONSULTATION">Consultoria</option>
+                <option value="OTHER">Outro</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Tipo de Contrato</label>
+              <select
+                value={form.contractType}
+                onChange={e => setForm(f => ({ ...f, contractType: e.target.value as typeof f.contractType }))}
+                className="w-full h-10 rounded-xl bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                aria-label="Tipo de contrato"
+              >
+                <option value="LUMP_SUM">Preço Único (Lump-Sum)</option>
+                <option value="SEPARATED">Separado (Labor + Material)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Tax preview */}
+          <div className="rounded-xl bg-muted/50 p-3 text-sm flex items-start gap-2">
+            <span className="mt-0.5">
+              {form.propertyType === "RESIDENTIAL" && form.contractType === "LUMP_SUM" && (
+                <span className="text-green-600 dark:text-green-400">✓ Residencial + Lump-Sum: <strong>Sem sales tax</strong> cobrado ao cliente. Empresa paga tax na compra de materiais.</span>
+              )}
+              {form.propertyType === "RESIDENTIAL" && form.contractType === "SEPARATED" && (
+                <span className="text-blue-600 dark:text-blue-400">ℹ Residencial + Separado: Sales tax aplicado somente em materiais (não em mão de obra).</span>
+              )}
+              {form.propertyType === "COMMERCIAL" && (
+                <span className="text-yellow-600 dark:text-yellow-400">⚠ Comercial: Sales tax de 8.25% aplicado sobre o subtotal total.</span>
+              )}
+              {(form.propertyType === "MIXED_USE" || form.propertyType === "EXEMPT_ORGANIZATION" || form.propertyType === "GOVERNMENT") && (
+                <span className="text-orange-600 dark:text-orange-400">⚠ Requer revisão manual por ADMIN ou Financeiro antes de enviar o invoice.</span>
+              )}
+            </span>
+          </div>
+        </div>
 
         {/* Financial Section */}
         <div className="bg-card rounded-2xl border border-border p-6 space-y-4">

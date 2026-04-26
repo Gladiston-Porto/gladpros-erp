@@ -47,6 +47,10 @@ const createServiceOrderSchema = z.object({
     agreedClientPrice: z.number().positive().optional(),
     materialEstimate: z.number().positive().optional(),
     laborEstimate: z.number().positive().optional(),
+    // Tax Classification (Fase 2)
+    propertyType: z.enum(['RESIDENTIAL', 'COMMERCIAL', 'MIXED_USE', 'EXEMPT_ORGANIZATION', 'GOVERNMENT']).optional(),
+    serviceCategory: z.enum(['REPAIR', 'REMODEL', 'RESTORATION', 'NEW_CONSTRUCTION', 'MAINTENANCE', 'INSPECTION', 'CONSULTATION', 'OTHER']).optional(),
+    contractType: z.enum(['LUMP_SUM', 'SEPARATED']).optional(),
 });
 
 // Generate ticket number
@@ -296,6 +300,9 @@ export const POST = withErrorHandler(async (request: Request) => {
                     ...(validated.agreedClientPrice !== undefined && { agreedClientPrice: validated.agreedClientPrice }),
                     ...(validated.materialEstimate !== undefined && { materialEstimate: validated.materialEstimate }),
                     ...(validated.laborEstimate !== undefined && { laborEstimate: validated.laborEstimate }),
+                    ...(validated.propertyType !== undefined && { propertyType: validated.propertyType }),
+                    ...(validated.serviceCategory !== undefined && { serviceCategory: validated.serviceCategory }),
+                    ...(validated.contractType !== undefined && { contractType: validated.contractType }),
 
                     status: 'DRAFT',
                     createdById: Number(user.id),

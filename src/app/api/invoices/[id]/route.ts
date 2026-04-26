@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
+import { calculateInvoiceTax, validateTaxBeforeSend } from '@/shared/services/salesTaxService';
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -34,6 +36,14 @@ const updateInvoiceSchema = z.object({
     )
     .min(1)
     .optional(),
+  // Tax classification fields (Fase 2)
+  propertyType: z.nativeEnum(PropertyType).optional(),
+  serviceCategory: z.nativeEnum(ServiceCategory).optional(),
+  contractType: z.nativeEnum(ContractType).optional(),
+  taxMode: z.nativeEnum(TaxMode).optional(),
+  // Manual tax override — enforced at API level (ADMIN/FINANCEIRO only)
+  manualTaxOverride: z.boolean().optional(),
+  manualTaxOverrideReason: z.string().max(500).optional(),
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -165,6 +175,12 @@ export const PUT = withErrorHandler(
         descontoPercentual: true,
         taxRate: true,
         itens: true,
+        propertyType: true,
+        serviceCategory: true,
+        contractType: true,
+        taxMode: true,
+        taxAddressState: true,
+        manualTaxOverride: true,
       },
     });
 
@@ -184,6 +200,17 @@ export const PUT = withErrorHandler(
         },
         { status: 400 },
       );
+    }
+
+    // RBAC: only ADMIN or FINANCEIRO can set manualTaxOverride
+    if (body.manualTaxOverride !== undefined) {
+      const role = user.role as Role;
+      if (role !== 'ADMIN' && role !== 'FINANCEIRO') {
+        return NextResponse.json(
+          { error: 'Forbidden', message: 'Apenas ADMIN ou FINANCEIRO podem alterar a configuração de imposto manualmente', success: false },
+          { status: 403 },
+        );
+      }
     }
 
     const invoice = await prisma.$transaction(async (tx) => {
@@ -252,6 +279,45 @@ export const PUT = withErrorHandler(
           valorTotal: new Decimal(valorTotal),
           saldo: new Decimal(novoSaldo),
         };
+      } else if (
+        body.propertyType !== undefined ||
+        body.serviceCategory !== undefined ||
+        body.contractType !== undefined
+      ) {
+        // Recalculate sales tax when classification changes (no line item change)
+        const classification = {
+          propertyType: body.propertyType ?? existingInvoice.propertyType,
+          serviceCategory: body.serviceCategory ?? existingInvoice.serviceCategory,
+          contractType: body.contractType ?? existingInvoice.contractType,
+          serviceAddressState: existingInvoice.taxAddressState ?? 'TX',
+        };
+
+        const itemsForTax = existingInvoice.itens.map((i) => ({
+          tipo: i.tipo,
+          taxable: i.taxavel,
+          total: Number(i.subtotal),
+        }));
+
+        const taxResult = calculateInvoiceTax({
+          subtotal: Number(existingInvoice.subtotal),
+          lineItems: itemsForTax,
+          classification,
+        });
+
+        financialUpdate = {
+          taxMode: taxResult.taxMode,
+          taxScenario: taxResult.scenario,
+          taxableAmount: new Decimal(taxResult.taxableAmount),
+          nonTaxableAmount: new Decimal(taxResult.nonTaxableAmount),
+          taxAmount: new Decimal(taxResult.taxAmount),
+          taxExplanation: taxResult.taxExplanation,
+          valorTotal: new Decimal(
+            Number(existingInvoice.subtotal) + taxResult.taxAmount
+          ),
+          saldo: new Decimal(
+            Math.max(0, Number(existingInvoice.subtotal) + taxResult.taxAmount - Number(existingInvoice.valorPago))
+          ),
+        };
       }
 
       const updated = await tx.invoice.update({
@@ -261,6 +327,18 @@ export const PUT = withErrorHandler(
           ...(body.notas !== undefined && { notas: body.notas }),
           ...(body.termos !== undefined && { termos: body.termos }),
           ...(body.status && { status: body.status }),
+          // Tax classification fields
+          ...(body.propertyType !== undefined && { propertyType: body.propertyType }),
+          ...(body.serviceCategory !== undefined && { serviceCategory: body.serviceCategory }),
+          ...(body.contractType !== undefined && { contractType: body.contractType }),
+          // Manual override (RBAC enforced above before reaching here)
+          ...(body.manualTaxOverride !== undefined && {
+            manualTaxOverride: body.manualTaxOverride,
+            taxMode: body.manualTaxOverride ? TaxMode.MANUAL_REVIEW : undefined,
+            taxReviewedById: Number(user.id),
+            taxReviewedAt: new Date(),
+          }),
+          ...(body.manualTaxOverrideReason !== undefined && { manualTaxOverrideReason: body.manualTaxOverrideReason }),
           ...financialUpdate,
           atualizadoPor: Number(user.id),
         },

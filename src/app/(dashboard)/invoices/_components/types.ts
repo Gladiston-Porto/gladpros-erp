@@ -89,6 +89,19 @@ export interface InvoiceDetail {
   descontoPercentual: number;
   taxRate: number;
   taxAmount: number;
+  // Tax Classification (Fase 2)
+  propertyType?: string | null;
+  serviceCategory?: string | null;
+  contractType?: string | null;
+  taxMode?: string | null;
+  taxScenario?: string | null;
+  taxableAmount?: number | null;
+  nonTaxableAmount?: number | null;
+  taxExplanation?: string | null;
+  taxAddressCity?: string | null;
+  taxAddressState?: string | null;
+  manualTaxOverride?: boolean;
+  manualTaxOverrideReason?: string | null;
   valorTotal: number;
   valorPago: number;
   saldo: number;

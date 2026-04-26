@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { can, requireUser, type Role } from '@/shared/lib/rbac';
 import { resolveUnitPrice } from '@/server/services/serviceOrderTotals';
+import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
 
 // Helper: Add business days (skip weekends)
 function addBusinessDays(date: Date, days: number): Date {
@@ -56,7 +57,6 @@ export const POST = withErrorHandler(async (request: Request,
                     include: { Worker: { select: { name: true } } }
                 }
             },
-            // also fetch agreedClientPrice via select on the base
         });
 
         if (!order) {
@@ -109,6 +109,22 @@ export const POST = withErrorHandler(async (request: Request,
         const grandTotal = valorTotal;
         const dueDate = addBusinessDays(new Date(), 5); // Net 5
 
+        // Calculate sales tax (Fase 2) — inherit classification from OS
+        const lineItems = [
+            ...(laborTotal > 0 ? [{ tipo: 'SERVICE', total: laborTotal }] : []),
+            ...(materialTotal > 0 ? [{ tipo: 'MATERIAL', total: materialTotal }] : []),
+        ];
+        const taxResult = calculateInvoiceTax({
+            subtotal: grandTotal,
+            lineItems,
+            classification: {
+                propertyType: order.propertyType,
+                serviceCategory: order.serviceCategory,
+                contractType: order.contractType,
+                serviceAddressState: order.serviceState ?? 'TX',
+            },
+        });
+
         // C14 + C18: Wrap all mutations in a single transaction to prevent orphan invoices
         // and ensure history is recorded for the COMPLETED → AWAITING_PAYMENT transition.
         // C13: Re-check idempotency inside the transaction (serializable) to prevent
@@ -148,11 +164,29 @@ export const POST = withErrorHandler(async (request: Request,
                     numeroInvoice: invoiceNumber,
                     clienteId: order.clienteId,
                     projetoId: order.projetoId,
-                    valorTotal: grandTotal,
+                    valorTotal: taxResult.taxMode === 'NON_TAXABLE'
+                        ? grandTotal
+                        : grandTotal + taxResult.taxAmount,
                     subtotal: grandTotal,
                     descontoValor: 0,
-                    saldo: grandTotal,
+                    saldo: taxResult.taxMode === 'NON_TAXABLE'
+                        ? grandTotal
+                        : grandTotal + taxResult.taxAmount,
                     valorPago: 0,
+                    // Tax fields (Fase 2)
+                    taxRate: taxResult.taxRate,
+                    taxAmount: taxResult.taxAmount,
+                    propertyType: order.propertyType,
+                    serviceCategory: order.serviceCategory,
+                    contractType: order.contractType,
+                    taxMode: taxResult.taxMode,
+                    taxScenario: taxResult.scenario,
+                    taxableAmount: taxResult.taxableAmount,
+                    nonTaxableAmount: taxResult.nonTaxableAmount,
+                    taxExplanation: taxResult.taxExplanation,
+                    taxAddressCity: order.serviceCity,
+                    taxAddressState: order.serviceState ?? 'TX',
+                    taxAddressZip: order.serviceZip,
                     dataEmissao: new Date(),
                     dataVencimento: dueDate,
                     status: 'DRAFT',
