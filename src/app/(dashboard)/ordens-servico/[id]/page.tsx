@@ -341,7 +341,10 @@ export default function ServiceOrderDetailPage() {
             setScopeItems([]);
             setHistory([]);
         } finally {
-            setLoading(false);
+            // Only clear loading if the request was not aborted (prevents StrictMode flash)
+            if (!signal?.aborted) {
+                setLoading(false);
+            }
         }
     }, [orderId]);
 
@@ -1473,10 +1476,54 @@ export default function ServiceOrderDetailPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-24">
-                <div className="text-center">
-                    <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    <p className="text-sm text-muted-foreground">Carregando ordem...</p>
+            <div className="space-y-6">
+                {/* Header skeleton */}
+                <div className="rounded-2xl bg-hero-gradient p-6">
+                    <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                            <div className="h-4 w-32 animate-pulse rounded bg-white/20" />
+                            <div className="h-7 w-48 animate-pulse rounded bg-white/30" />
+                            <div className="h-4 w-64 animate-pulse rounded bg-white/20" />
+                        </div>
+                        <div className="flex gap-2">
+                            <div className="h-9 w-24 animate-pulse rounded-lg bg-white/20" />
+                            <div className="h-9 w-24 animate-pulse rounded-lg bg-white/20" />
+                        </div>
+                    </div>
+                    <div className="mt-4 flex gap-3">
+                        <div className="h-6 w-20 animate-pulse rounded-full bg-white/20" />
+                        <div className="h-6 w-16 animate-pulse rounded-full bg-white/20" />
+                    </div>
+                </div>
+                {/* Stats cards skeleton */}
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                    {[...Array(4)].map((_, i) => (
+                        <Card key={i} className="rounded-2xl border-none shadow-sm">
+                            <CardContent className="p-4">
+                                <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                                <div className="mt-2 h-6 w-28 animate-pulse rounded bg-muted" />
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+                {/* Tabs skeleton */}
+                <Card className="rounded-2xl border-none shadow-sm">
+                    <CardContent className="p-6">
+                        <div className="mb-4 flex gap-2">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="h-8 w-24 animate-pulse rounded-lg bg-muted" />
+                            ))}
+                        </div>
+                        <div className="space-y-3">
+                            {[...Array(4)].map((_, i) => (
+                                <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+                <div className="flex items-center justify-center pt-2 text-sm text-muted-foreground">
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    Carregando ordem de serviço...
                 </div>
             </div>
         );
