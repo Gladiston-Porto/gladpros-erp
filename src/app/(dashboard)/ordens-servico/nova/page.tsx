@@ -383,6 +383,15 @@ export default function NovaOrdemServicoPage() {
               )}
             </span>
           </div>
+
+          {/* Out-of-state warning */}
+          {form.serviceState && form.serviceState.trim().toUpperCase() !== "TX" && (
+            <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 flex items-start gap-2">
+              <span className="text-yellow-600 dark:text-yellow-400 font-medium text-sm">
+                ⚠ Serviço fora do Texas ({form.serviceState.toUpperCase()}): Sales tax deste estado será revisada manualmente. O invoice não poderá ser enviado até revisão por ADMIN ou Financeiro.
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Financial Section */}

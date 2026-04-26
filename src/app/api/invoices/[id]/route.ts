@@ -361,6 +361,25 @@ export const PUT = withErrorHandler(
         },
       });
 
+      // AuditLog específico para manualTaxOverride
+      if (body.manualTaxOverride !== undefined) {
+        await tx.auditLog.create({
+          data: {
+            id: crypto.randomUUID(),
+            userId: Number(user.id),
+            entidade: 'Invoice',
+            entidadeId: String(invoiceId),
+            acao: body.manualTaxOverride ? 'TAX_OVERRIDE_SET' : 'TAX_OVERRIDE_CLEARED',
+            diff: JSON.stringify({
+              manualTaxOverride: body.manualTaxOverride,
+              manualTaxOverrideReason: body.manualTaxOverrideReason ?? null,
+              reviewedBy: user.id,
+              reviewedAt: new Date().toISOString(),
+            }),
+          },
+        });
+      }
+
       return updated;
     });
 

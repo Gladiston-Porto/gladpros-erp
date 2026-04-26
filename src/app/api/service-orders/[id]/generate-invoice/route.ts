@@ -4,6 +4,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { can, requireUser, type Role } from '@/shared/lib/rbac';
 import { resolveUnitPrice } from '@/server/services/serviceOrderTotals';
 import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
+import { NotificationService } from '@/shared/lib/notifications';
 
 // Helper: Add business days (skip weekends)
 function addBusinessDays(date: Date, days: number): Date {
@@ -292,6 +293,23 @@ export const POST = withErrorHandler(async (request: Request,
                 },
                 success: true
             }, { status: 200 });
+        }
+
+        // Send MANUAL_REVIEW alert to ADMIN/FINANCEIRO (fire-and-forget, non-blocking)
+        if (taxResult.taxMode === 'MANUAL_REVIEW') {
+            const reviewers = await prisma.usuario.findMany({
+                where: { nivel: { in: ['ADMIN', 'FINANCEIRO'] }, status: 'ATIVO' },
+                select: { id: true },
+            });
+            await Promise.allSettled(reviewers.map(r =>
+                NotificationService.create({
+                    userId: r.id,
+                    type: 'warning',
+                    title: 'Revisão de Sales Tax Necessária',
+                    message: `Invoice ${result.invoice.numeroInvoice} requer revisão fiscal manual antes de ser enviada ao cliente.`,
+                    data: { invoiceId: result.invoice.id, reason: taxResult.taxExplanation },
+                })
+            ));
         }
 
         return NextResponse.json({

@@ -130,6 +130,11 @@ model Cliente {
   documentoEnc    String?
   docLast4        String?                  @db.VarChar(4)
   docHash         String?                  @unique @db.Char(64)
+  // Tax Exemption Certificate (Fase 2)
+  taxExemptCertNumber String?              @db.VarChar(50)
+  taxExemptCertExpiry DateTime?
+  taxExemptCertType   String?              @db.VarChar(50)
+  taxExemptCertFileKey String?             @db.VarChar(255)
   observacoes     String?
   ativo           Boolean                  @default(true)
   criadoEm        DateTime                 @default(now())
@@ -2163,6 +2168,10 @@ enum InvoiceItem_tipo {
   MATERIAL
   EQUIPMENT
   OTHER
+  LABOR
+  PERMIT_FEE
+  SUBCONTRACTOR
+  DISCOUNT
 }
 
 enum InvoicePayment_metodo {

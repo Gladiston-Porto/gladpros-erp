@@ -46,6 +46,11 @@ export default function InvoiceDetailPage() {
     notas: '',
   });
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [showTaxOverrideModal, setShowTaxOverrideModal] = useState(false);
+  const [taxOverrideReason, setTaxOverrideReason] = useState('');
+  const [taxOverrideMode, setTaxOverrideMode] = useState('TAX_EXCLUDED');
+  const [processingOverride, setProcessingOverride] = useState(false);
 
   async function fetchInvoice(signal?: AbortSignal) {
     try {
@@ -84,6 +89,43 @@ export default function InvoiceDetailPage() {
 
     return () => controller.abort();
   }, [invoiceId]);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        const d = data?.data ?? data;
+        if (d?.role) setCurrentUserRole(d.role);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleTaxOverride = async () => {
+    if (!invoice || !taxOverrideReason.trim()) return;
+    setProcessingOverride(true);
+    try {
+      const res = await authenticatedFetch(`/api/invoices/${invoiceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          manualTaxOverride: true,
+          manualTaxOverrideReason: taxOverrideReason.trim(),
+          taxMode: taxOverrideMode,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Erro ao salvar override');
+      }
+      showSuccess('Configuração fiscal atualizada');
+      setShowTaxOverrideModal(false);
+      void fetchInvoice();
+    } catch (err: any) {
+      showError('Erro', err.message);
+    } finally {
+      setProcessingOverride(false);
+    }
+  };
 
   const handleSendInvoice = async () => {
     if (!invoice) {
@@ -218,6 +260,78 @@ export default function InvoiceDetailPage() {
       />
 
       <InvoiceDetailContent invoice={invoice} financialTotals={financialTotals} />
+
+      {/* Tax Override Button (ADMIN/FINANCEIRO only) */}
+      {(currentUserRole === 'ADMIN' || currentUserRole === 'FINANCEIRO') &&
+        invoice.taxMode === 'MANUAL_REVIEW' && !invoice.manualTaxOverride && (
+        <div className="mt-4 rounded-2xl border border-yellow-500/40 bg-yellow-500/10 p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">⚠ Esta invoice requer revisão fiscal manual</p>
+            <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-0.5">{invoice.taxExplanation}</p>
+          </div>
+          <button
+            onClick={() => setShowTaxOverrideModal(true)}
+            className="ml-4 shrink-0 rounded-xl bg-yellow-500 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-600 transition-colors"
+            aria-label="Revisar classificação fiscal"
+          >
+            Revisar Tax
+          </button>
+        </div>
+      )}
+
+      {/* Tax Override Modal */}
+      {showTaxOverrideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl border border-border">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Revisar Classificação Fiscal</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground">Modo Fiscal</label>
+                <select
+                  value={taxOverrideMode}
+                  onChange={e => setTaxOverrideMode(e.target.value)}
+                  className="mt-1 w-full h-10 rounded-xl bg-background border border-border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                  aria-label="Modo fiscal"
+                >
+                  <option value="NON_TAXABLE">Non-Taxable (Residencial / Isento)</option>
+                  <option value="TAX_EXCLUDED">Taxable — Tax Excludido do Preço</option>
+                  <option value="TAX_INCLUDED">Taxable — Tax Incluído no Preço</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-foreground">Motivo do Override *</label>
+                <textarea
+                  value={taxOverrideReason}
+                  onChange={e => setTaxOverrideReason(e.target.value)}
+                  placeholder="Ex: Confirmado com contador — serviço residencial, lump-sum, tax não aplicável."
+                  rows={3}
+                  className="mt-1 w-full rounded-xl bg-background border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
+                  aria-label="Motivo do override fiscal"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowTaxOverrideModal(false)}
+                  className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleTaxOverride}
+                  disabled={processingOverride || !taxOverrideReason.trim()}
+                  className="rounded-xl bg-brand-primary px-4 py-2 text-sm font-medium text-white hover:bg-brand-primary/90 transition-colors disabled:opacity-50"
+                  aria-label="Confirmar override fiscal"
+                >
+                  {processingOverride ? 'Salvando...' : 'Confirmar Override'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <InvoicePaymentDialog
         open={showPaymentDialog}
