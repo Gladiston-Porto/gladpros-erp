@@ -348,11 +348,30 @@ export default function ServiceOrderDetailPage() {
         }
     }, [orderId]);
 
+    // Pre-fetch technicians in parallel with the OS so the modal opens instantly
+    const loadTechnicians = useCallback(async (signal?: AbortSignal) => {
+        if (!orderId) return;
+        setTechniciansLoading(true);
+        try {
+            const res = await fetch('/api/technicians', { signal });
+            if (signal?.aborted) return;
+            if (!res.ok) return;
+            const json = await res.json();
+            if (!signal?.aborted) setTechnicians(json.data || []);
+        } catch {
+            // non-critical — modal will show empty list + retry button
+        } finally {
+            if (!signal?.aborted) setTechniciansLoading(false);
+        }
+    }, [orderId]);
+
     useEffect(() => {
         const controller = new AbortController();
+        // Fire both in parallel — technicians load in background while OS data loads
         loadOrder(controller.signal);
+        loadTechnicians(controller.signal);
         return () => controller.abort();
-    }, [loadOrder]);
+    }, [loadOrder, loadTechnicians]);
 
     // Add scope item
     const addScopeItem = async () => {
@@ -403,32 +422,6 @@ export default function ServiceOrderDetailPage() {
             });
         return () => controller.abort();
     }, [showAddMaterial]);
-
-    // Load technicians when modal opens
-    useEffect(() => {
-        if (!(showAddWorkEntry || showTechAssign || showTeamModal)) return;
-        const controller = new AbortController();
-        setTechniciansLoading(true);
-        fetch('/api/technicians', { signal: controller.signal })
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.json();
-            })
-            .then(json => {
-                if (!controller.signal.aborted) {
-                    setTechnicians(json.data || []);
-                }
-            })
-            .catch(err => {
-                if (err instanceof Error && err.name === 'AbortError') return;
-                console.error('[Technicians] Erro ao carregar:', err);
-                if (!controller.signal.aborted) setTechnicians([]);
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) setTechniciansLoading(false);
-            });
-        return () => controller.abort();
-    }, [showAddWorkEntry, showTechAssign, showTeamModal]);
 
     // Load current user role once for approve/reject gates
     useEffect(() => {
@@ -3006,7 +2999,12 @@ export default function ServiceOrderDetailPage() {
                             <div className="max-h-48 overflow-y-auto space-y-1">
                                 {(() => {
                                     if (techniciansLoading) {
-                                        return <p className="text-sm text-muted-foreground text-center py-2">Carregando técnicos...</p>;
+                                        return (
+                                            <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                                Carregando técnicos disponíveis...
+                                            </div>
+                                        );
                                     }
                                     const teamIds = (order.technicians ?? []).map((m) => m.workerId);
                                     const available = technicians.filter((t) => {
