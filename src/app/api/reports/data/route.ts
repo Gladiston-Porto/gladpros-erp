@@ -5,46 +5,7 @@ import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { prisma } from '@/lib/prisma';
 
-// Mock data for reports
-const mockReportsData = {
-  proposalsReport: {
-    total: 45,
-    byStatus: {
-      rascunho: 8,
-      enviada: 15,
-      aprovada: 12,
-      rejeitada: 5,
-      finalizada: 5
-    },
-    byMonth: [
-      { month: 'Jan', count: 5 },
-      { month: 'Fev', count: 8 },
-      { month: 'Mar', count: 12 },
-      { month: 'Abr', count: 7 },
-      { month: 'Mai', count: 13 }
-    ],
-    averageValue: 8750,
-    totalValue: 393750
-  },
-  clientsReport: {
-    total: 28,
-    active: 22,
-    newThisMonth: 3,
-    topByRevenue: [
-      { name: 'Tech Solutions Ltda', revenue: 45000, proposals: 8 },
-      { name: 'Inovação Digital', revenue: 32000, proposals: 6 },
-      { name: 'Global Systems', revenue: 28000, proposals: 5 }
-    ]
-  },
-  performanceReport: {
-    conversionRate: 26.67, // approved / sent
-    averageProposalTime: 7.5, // days
-    successRate: 71.43, // approved / (approved + rejected)
-    monthlyGrowth: 15.2
-  }
-};
-
-export const GET = withErrorHandler(async (request: NextRequest) => {
+export const GET= withErrorHandler(async (request: NextRequest) => {
     const user = await requireUser(request);
     if (!can(user.role as Role, 'reports', 'read')) {
       return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
@@ -54,19 +15,93 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const type = searchParams.get('type') || 'all';
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const since = startDate ? new Date(startDate) : undefined;
+    const until = endDate ? new Date(endDate) : undefined;
+    const dateFilter = since || until ? { criadoEm: { ...(since ? { gte: since } : {}), ...(until ? { lte: until } : {}) } } : {};
 
-    let data = mockReportsData;
+    const [proposalsReport, clientsReport, performanceReport] = await Promise.all([
+      // Proposals aggregation
+      (type === 'all' || type === 'proposalsReport') ? (async () => {
+        const [total, byStatusRaw, totalValueAgg] = await Promise.all([
+          prisma.proposta.count({ where: { deletedAt: null, ...dateFilter } }),
+          prisma.proposta.groupBy({
+            by: ['status'],
+            where: { deletedAt: null, ...dateFilter },
+            _count: { id: true },
+          }),
+          prisma.proposta.aggregate({
+            where: { deletedAt: null, ...dateFilter },
+            _sum: { valorEstimado: true },
+            _avg: { valorEstimado: true },
+          }),
+        ]);
+        const byStatus: Record<string, number> = {};
+        byStatusRaw.forEach(r => { byStatus[r.status.toLowerCase()] = r._count.id; });
+        return {
+          total,
+          byStatus,
+          totalValue: Number(totalValueAgg._sum.valorEstimado ?? 0),
+          averageValue: Number(totalValueAgg._avg.valorEstimado ?? 0),
+        };
+      })() : Promise.resolve(null),
 
-    // Filter by type if specified
-    if (type !== 'all') {
-      data = { [type]: mockReportsData[type as keyof typeof mockReportsData] } as typeof mockReportsData;
-    }
+      // Clients aggregation
+      (type === 'all' || type === 'clientsReport') ? (async () => {
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        const [total, active, newThisMonth, topByProposals] = await Promise.all([
+          prisma.cliente.count({ where: dateFilter }),
+          prisma.cliente.count({ where: { ativo: true, ...dateFilter } }),
+          prisma.cliente.count({ where: { criadoEm: { gte: startOfMonth } } }),
+          prisma.proposta.groupBy({
+            by: ['clienteId'],
+            where: { deletedAt: null },
+            _count: { id: true },
+            _sum: { valorEstimado: true },
+            orderBy: { _sum: { valorEstimado: 'desc' } },
+            take: 5,
+          }),
+        ]);
+        const clientIds = topByProposals.map(r => r.clienteId).filter((id): id is number => id !== null);
+        const topClients = clientIds.length > 0 ? await prisma.cliente.findMany({
+          where: { id: { in: clientIds } },
+          select: { id: true, nomeCompleto: true, nomeFantasia: true },
+        }) : [];
+        const topByRevenue = topByProposals.map(r => {
+          const c = topClients.find(cl => cl.id === r.clienteId);
+          return {
+            name: c ? (c.nomeFantasia || c.nomeCompleto) : `Cliente #${r.clienteId}`,
+            revenue: Number(r._sum.valorEstimado ?? 0),
+            proposals: r._count.id,
+          };
+        });
+        return { total, active, newThisMonth, topByRevenue };
+      })() : Promise.resolve(null),
+
+      // Performance aggregation
+      (type === 'all' || type === 'performanceReport') ? (async () => {
+        const [sent, approved, rejected] = await Promise.all([
+          prisma.proposta.count({ where: { deletedAt: null, status: 'ENVIADA', ...dateFilter } }),
+          prisma.proposta.count({ where: { deletedAt: null, status: 'APROVADA', ...dateFilter } }),
+          prisma.proposta.count({ where: { deletedAt: null, status: 'REJEITADA', ...dateFilter } }),
+        ]);
+        const conversionRate = sent > 0 ? Number(((approved / sent) * 100).toFixed(2)) : 0;
+        const successRate = (approved + rejected) > 0 ? Number(((approved / (approved + rejected)) * 100).toFixed(2)) : 0;
+        return { conversionRate, successRate, totalSent: sent, totalApproved: approved, totalRejected: rejected };
+      })() : Promise.resolve(null),
+    ]);
+
+    const data: Record<string, unknown> = {};
+    if (proposalsReport !== null) data.proposalsReport = proposalsReport;
+    if (clientsReport !== null) data.clientsReport = clientsReport;
+    if (performanceReport !== null) data.performanceReport = performanceReport;
 
     return NextResponse.json({
       success: true,
       data,
       filters: { type, startDate, endDate },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }, { headers: { 'Cache-Control': 'no-store, private' } });
   });
 
