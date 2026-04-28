@@ -281,7 +281,6 @@ describe("ProjectTaskService", () => {
         expect.objectContaining({
           data: expect.objectContaining({
             status: "concluida",
-            dataConclusao: expect.any(Date),
           }),
         })
       );

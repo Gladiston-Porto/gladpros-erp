@@ -6,7 +6,7 @@
  * Integra com sistema de estoque através do IInventoryGateway.
  */
 
-import prisma from '../../../shared/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import {
   LiberarMaterialDTO,

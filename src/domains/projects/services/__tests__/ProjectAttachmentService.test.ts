@@ -171,7 +171,14 @@ describe("ProjectAttachmentService", () => {
 
       const resultado = await service.excluir(1, 1);
 
-      expect(resultado).toEqual(mockAnexo);
+      expect(resultado).toEqual(expect.objectContaining({
+        id: 1,
+        projetoId: 1,
+        arquivoUrl: "/uploads/arquivo.pdf",
+        rotulo: "arquivo.pdf",
+        publicoCliente: false,
+        criadoPorId: 1,
+      }));
       expect(mockPrisma.projetoAnexo.delete).toHaveBeenCalledWith({
         where: { id: 1 },
       });

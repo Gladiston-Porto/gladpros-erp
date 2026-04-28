@@ -5,7 +5,7 @@
 
 import { InventoryMovementService } from '../inventory-movement.service';
 import { IInventoryGateway, RespostaIntegracaoEstoque, StatusIntegracaoEstoque, TipoMovimentacaoEstoque } from '../../interfaces/inventory-gateway.interface';
-import prisma from '../../../../shared/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 // Mock do Prisma
 jest.mock('@/lib/prisma', () => ({
