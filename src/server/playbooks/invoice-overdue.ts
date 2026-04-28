@@ -78,8 +78,9 @@ export function createInvoiceOverdueSteps(ctx: InvoiceOverdueContext): PlaybookS
 
         const valor = Number(invoice.saldo ?? invoice.valorTotal ?? 0);
         const dataVenc = invoice.dataVencimento
-          ? new Date(invoice.dataVencimento).toLocaleDateString('pt-BR')
+          ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(invoice.dataVencimento))
           : 'N/A';
+        const valorFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(valor);
 
         // Fetch project info separately if linked
         let projeto: { numeroProjeto: string; titulo: string; responsavelId: number | null; criadoPor: number } | null = null;
@@ -90,14 +91,14 @@ export function createInvoiceOverdueSteps(ctx: InvoiceOverdueContext): PlaybookS
           });
         }
 
-        const msg = `Invoice ${invoice.numeroInvoice ?? ctx.invoiceId} (R$ ${valor.toFixed(2)}) venceu em ${dataVenc}${projeto ? ` — Projeto ${projeto.numeroProjeto}` : ''}`;
+        const msg = `Invoice ${invoice.numeroInvoice ?? ctx.invoiceId} (${valorFormatted}) overdue since ${dataVenc}${projeto ? ` — Project ${projeto.numeroProjeto}` : ''}`;
 
         // Notify project responsible
         if (projeto?.responsavelId) {
           await NotificationService.create({
             userId: projeto.responsavelId,
             type: 'warning',
-            title: 'Invoice vencida',
+            title: 'Overdue Invoice',
             message: msg,
             data: { type: 'invoice_overdue', invoiceId: ctx.invoiceId, projetoId: ctx.projetoId },
           }).catch(() => {});
@@ -108,7 +109,7 @@ export function createInvoiceOverdueSteps(ctx: InvoiceOverdueContext): PlaybookS
           await NotificationService.create({
             userId: projeto.criadoPor,
             type: 'warning',
-            title: 'Invoice vencida',
+            title: 'Overdue Invoice',
             message: msg,
             data: { type: 'invoice_overdue', invoiceId: ctx.invoiceId, projetoId: ctx.projetoId },
           }).catch(() => {});
@@ -125,7 +126,7 @@ export function createInvoiceOverdueSteps(ctx: InvoiceOverdueContext): PlaybookS
             await NotificationService.create({
               userId: admin.id,
               type: 'warning',
-              title: 'Invoice vencida',
+              title: 'Overdue Invoice',
               message: msg,
               data: { type: 'invoice_overdue', invoiceId: ctx.invoiceId, projetoId: ctx.projetoId },
             }).catch(() => {});

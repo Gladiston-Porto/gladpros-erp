@@ -275,6 +275,7 @@ type ServiceOrderDetailModalsProps = {
     signatureLoading: boolean;
     stockMaterials: StockMaterial[];
     technicians: Technician[];
+    orderTechnicians: Array<{ workerId: number; worker: { id: number; name: string } }>;
     uploadCaption: string;
     uploadFile: File | null;
     uploadLoading: boolean;
@@ -431,6 +432,7 @@ export function ServiceOrderDetailModals({
     signatureData,
     signatureLoading,
     technicians,
+    orderTechnicians,
     uploadAttachment,
     uploadCaption,
     uploadFile,
@@ -740,6 +742,11 @@ export function ServiceOrderDetailModals({
                             <div className="space-y-4">
                                 <div>
                                     <label className="text-sm text-muted-foreground">Tecnico *</label>
+                                    {orderTechnicians.length === 0 && (
+                                        <p className="text-xs text-yellow-600 mt-1 mb-1">
+                                            ⚠️ Nenhum técnico vinculado à OS. Mostrando todos os disponíveis.
+                                        </p>
+                                    )}
                                     <select
                                         title="Selecione um tecnico"
                                         value={workEntryForm.workerId}
@@ -747,11 +754,18 @@ export function ServiceOrderDetailModals({
                                         className="w-full mt-1 border border-border rounded-lg px-3 py-2 bg-background text-foreground"
                                     >
                                         <option value={0}>Selecione um tecnico...</option>
-                                        {technicians.map((tech) => (
-                                            <option key={tech.id} value={tech.id}>
-                                                {tech.name}
-                                            </option>
-                                        ))}
+                                        {orderTechnicians.length > 0
+                                            ? orderTechnicians.map((t) => (
+                                                <option key={t.workerId} value={t.workerId}>
+                                                    {t.worker.name}
+                                                </option>
+                                            ))
+                                            : technicians.map((tech) => (
+                                                <option key={tech.id} value={tech.id}>
+                                                    {tech.name}
+                                                </option>
+                                            ))
+                                        }
                                     </select>
                                 </div>
                                 <div>

@@ -1,4 +1,5 @@
 import { Badge } from "@gladpros/ui/badge";
+import { Mail, CheckCircle2, XCircle, Clock, AlertTriangle } from "lucide-react";
 
 import {
   formatInvoiceCurrency,
@@ -288,8 +289,9 @@ export function InvoiceDetailContent({
           </div>
         )}
 
-        {(invoice.notas || invoice.termos) && (
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <InvoiceSendHistory lembretes={invoice.lembretes} />
+
+        {(invoice.notas || invoice.termos) && (          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             {invoice.notas && (
               <div className="mb-4">
                 <h3 className="mb-2 font-medium text-foreground">Notas</h3>
@@ -422,6 +424,120 @@ export function InvoiceDetailContent({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── Send History ──────────────────────────────────────────────────────────────
+
+type ReminderTipo = "INITIAL_SEND" | "REMINDER" | "OVERDUE_NOTICE" | "RECEIPT" | string;
+type ReminderStatus = "SENT" | "FAILED" | "PENDING" | string;
+
+function getReminderTipoLabel(tipo: ReminderTipo): string {
+  const labels: Record<string, string> = {
+    INITIAL_SEND: "Invoice Sent",
+    REMINDER: "Payment Reminder",
+    OVERDUE_NOTICE: "Overdue Notice",
+    RECEIPT: "Payment Receipt",
+  };
+  return labels[tipo] ?? tipo;
+}
+
+function getReminderStatusIcon(status: ReminderStatus) {
+  if (status === "SENT")
+    return <CheckCircle2 className="h-4 w-4 text-green-500" aria-hidden />;
+  if (status === "FAILED")
+    return <XCircle className="h-4 w-4 text-destructive" aria-hidden />;
+  return <Clock className="h-4 w-4 text-muted-foreground" aria-hidden />;
+}
+
+function getReminderStatusBadge(status: ReminderStatus) {
+  if (status === "SENT")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
+        <CheckCircle2 className="h-3 w-3" />
+        Delivered
+      </span>
+    );
+  if (status === "FAILED")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+        <XCircle className="h-3 w-3" />
+        Failed
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+      <Clock className="h-3 w-3" />
+      Pending
+    </span>
+  );
+}
+
+export function InvoiceSendHistory({ lembretes }: { lembretes: InvoiceDetail["lembretes"] }) {
+  if (!lembretes || lembretes.length === 0) return null;
+
+  const fmtDate = (d: string) =>
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Chicago",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(d));
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <div className="mb-4 flex items-center gap-2">
+        <Mail className="h-5 w-5 text-brand-primary" aria-hidden />
+        <h2 className="text-lg font-semibold text-foreground">
+          Email Send History ({lembretes.length})
+        </h2>
+      </div>
+
+      <div className="space-y-3">
+        {lembretes.map((lembrete) => (
+          <div
+            key={lembrete.id}
+            className="flex items-start justify-between rounded-xl bg-muted/50 p-4"
+          >
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="mt-0.5 shrink-0">
+                {getReminderStatusIcon(lembrete.status)}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-foreground">
+                    {getReminderTipoLabel(lembrete.tipo)}
+                  </span>
+                  {getReminderStatusBadge(lembrete.status)}
+                </div>
+                <div className="mt-0.5 text-sm text-muted-foreground">
+                  To: {lembrete.destinatario}
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground/70">
+                  {lembrete.assunto}
+                </div>
+                {lembrete.erro && (
+                  <div className="mt-1 flex items-center gap-1 text-xs text-destructive">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    {lembrete.erro}
+                  </div>
+                )}
+                {lembrete.diasAposVencimento != null && lembrete.diasAposVencimento > 0 && (
+                  <div className="mt-0.5 text-xs text-yellow-600">
+                    {lembrete.diasAposVencimento} day{lembrete.diasAposVencimento !== 1 ? "s" : ""} past due
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="ml-4 shrink-0 text-right text-xs text-muted-foreground">
+              {fmtDate(lembrete.dataEnvio)}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

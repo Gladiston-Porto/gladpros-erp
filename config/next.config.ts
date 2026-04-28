@@ -58,23 +58,27 @@ const nextConfig: NextConfig = {
   }),
 };
 
-export default withSentryConfig(nextConfig, {
-  org: 'gladpros',
-  project: 'gladpros',
+// Em dev: skip Sentry (reduz ~3000 módulos por rota e evita restart por memória)
+// Em prod: Sentry ativo com source maps e upload automático
+export default isDev
+  ? nextConfig
+  : withSentryConfig(nextConfig, {
+      org: 'gladpros',
+      project: 'gladpros',
 
-  // Faz upload de source maps para o Sentry durante o build (erros mostram linha real)
-  silent: !process.env.CI,
+      // Faz upload de source maps para o Sentry durante o build (erros mostram linha real)
+      silent: !process.env.CI,
 
-  // Desabilita telemetria do SDK no build
-  telemetry: false,
+      // Desabilita telemetria do SDK no build
+      telemetry: false,
 
-  // Não injeta código automático do Sentry nos routes (já fazemos manualmente)
-  autoInstrumentServerFunctions: false,
-  autoInstrumentMiddleware: false,
-  autoInstrumentAppDirectory: false,
+      // Não injeta código automático do Sentry nos routes (já fazemos manualmente)
+      autoInstrumentServerFunctions: false,
+      autoInstrumentMiddleware: false,
+      autoInstrumentAppDirectory: false,
 
-  // Source maps: só em produção
-  sourcemaps: {
-    disable: process.env.NODE_ENV !== 'production',
-  },
-});
+      // Source maps: só em produção
+      sourcemaps: {
+        disable: false,
+      },
+    });

@@ -82,7 +82,7 @@ export const propostaFormSchema = z.object({
   faturamento: faturamentoInfoSchema,
   obsCliente: z.string().optional(),
   obsInternas: z.string().optional(),
-  status: z.enum(['RASCUNHO', 'PENDENTE_APROVACAO', 'APROVADA', 'REJEITADA', 'CANCELADA', 'ENVIADA', 'ASSINADA']),
+  status: z.enum(['RASCUNHO', 'ENVIADA', 'ASSINADA', 'APROVADA', 'CANCELADA']),
 })
 
 export type PropostaFormValidated = z.infer<typeof propostaFormSchema>

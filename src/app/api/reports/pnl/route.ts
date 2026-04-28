@@ -50,18 +50,16 @@ export async function GET(request: NextRequest) {
       const [osTotal, osData] = await Promise.all([
         prisma.serviceOrder.count({
           where: {
-            deletedAt: null,
             ...(dateFilter ? { completedAt: dateFilter } : {}),
           },
         }),
         prisma.serviceOrder.findMany({
           where: {
-            deletedAt: null,
             ...(dateFilter ? { completedAt: dateFilter } : {}),
           },
           select: {
             id: true,
-            orderNumber: true,
+            ticketNumber: true,
             title: true,
             status: true,
             laborTotal: true,
@@ -88,7 +86,7 @@ export async function GET(request: NextRequest) {
         pnlItems.push({
           id: os.id,
           type: 'os',
-          reference: os.orderNumber ?? `OS-${os.id}`,
+          reference: os.ticketNumber ?? `OS-${os.id}`,
           title: os.title,
           status: os.status,
           clientName: os.Cliente?.nomeCompleto || os.Cliente?.nomeFantasia || '—',
@@ -116,14 +114,12 @@ export async function GET(request: NextRequest) {
       const [projTotal, projData] = await Promise.all([
         prisma.projeto.count({
           where: {
-            deletedAt: null,
-            ...(dateFilter ? { dataFim: dateFilter } : {}),
+            ...(dateFilter ? { dataConclusaoReal: dateFilter } : {}),
           },
         }),
         prisma.projeto.findMany({
           where: {
-            deletedAt: null,
-            ...(dateFilter ? { dataFim: dateFilter } : {}),
+            ...(dateFilter ? { dataConclusaoReal: dateFilter } : {}),
           },
           select: {
             id: true,
@@ -132,20 +128,20 @@ export async function GET(request: NextRequest) {
             status: true,
             custoPrevisto: true,
             custoReal: true,
-            precoCliente: true,
+            valorEstimado: true,
             margemPrevista: true,
             margemReal: true,
-            dataFim: true,
+            dataConclusaoReal: true,
             Cliente: { select: { nomeCompleto: true, nomeFantasia: true } },
           },
-          orderBy: { dataFim: 'desc' },
+          orderBy: { dataConclusaoReal: 'desc' },
           take: type === 'project' ? pageSize : 500,
           skip: type === 'project' ? (page - 1) * pageSize : 0,
         }),
       ]);
 
       for (const proj of projData) {
-        const agreed = Number(proj.precoCliente ?? 0);
+        const agreed = Number(proj.valorEstimado ?? 0);
         const totalCost = Number(proj.custoReal ?? proj.custoPrevisto ?? 0);
         const grossMargin = agreed - totalCost;
         const marginPct = agreed > 0 ? (grossMargin / agreed) * 100 : Number(proj.margemReal ?? proj.margemPrevista ?? 0);
@@ -164,7 +160,7 @@ export async function GET(request: NextRequest) {
           grossMargin,
           marginPct: Number(marginPct.toFixed(2)),
           marginStatus: marginPct < 0 ? 'LOSS' : marginPct < 10 ? 'CRITICAL' : marginPct < 20 ? 'WARNING' : 'OK',
-          completedAt: proj.dataFim,
+          completedAt: proj.dataConclusaoReal,
         });
       }
 

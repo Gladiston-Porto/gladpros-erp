@@ -17,8 +17,6 @@ export const StatusPropostaEnum = z.enum([
   'ASSINADA',
   'APROVADA',
   'CANCELADA',
-  'PENDENTE_APROVACAO',
-  'REJEITADA',
 ]);
 
 export const StatusPermiteEnum = z.enum([

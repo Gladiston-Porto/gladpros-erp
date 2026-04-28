@@ -606,6 +606,21 @@ Estas variáveis existem no código e têm impacto direto na performance. Um age
 - Nunca adicionar `REDIS_ENABLED=true` sem Redis real — causa timeout de ~1s no primeiro login após restart.
 - Nunca remover `connection_limit` da `DATABASE_URL` sem justificar.
 
+### ⚠️ Sentry — desativado em desenvolvimento
+
+O `withSentryConfig` foi **desativado intencionalmente no modo dev** (`config/next.config.ts`).
+
+**Motivo**: o Sentry adicionava ~3.000 módulos extras por rota durante a compilação webpack, causando:
+- Compilações de 60–340 segundos por rota (vs 15–25s sem Sentry)
+- Restart automático do dev server por estouro de memória (`⚠ Server is approaching the used memory threshold`)
+- Perda do cache de compilação a cada restart, forçando recompilação total como se fosse a primeira vez
+
+**Estado atual**:
+- `npm run dev` → Sentry **desativado** (sem overhead de compilação, sem envio de erros para o painel)
+- `npm run build` / produção → Sentry **ativo** normalmente (source maps, captura de erros, painel)
+
+**Regra**: nunca reativar `withSentryConfig` no modo dev sem justificativa clara. Em produção, o Sentry deve estar sempre ativo.
+
 ---
 
 ## 17. Skills especializadas disponíveis

@@ -21,10 +21,8 @@ export function ResumoPrecoSidebar({
   onInternoChange,
   onStatusChange,
 }: ResumoPrecoSidebarProps) {
-  const statusBadgeColor = status === StatusPropostaValues.PENDENTE_APROVACAO ? 'orange'
-    : status === StatusPropostaValues.APROVADA ? 'green' : 'red'
+  const statusBadgeColor = status === StatusPropostaValues.APROVADA ? 'green' : 'red'
   const statusLabel = status === StatusPropostaValues.RASCUNHO ? 'Rascunho'
-    : status === StatusPropostaValues.PENDENTE_APROVACAO ? 'Aguardando'
     : status === StatusPropostaValues.APROVADA ? 'Aprovada' : 'Cancelada'
 
   return (

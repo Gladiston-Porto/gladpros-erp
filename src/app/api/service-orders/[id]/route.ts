@@ -189,7 +189,7 @@ export const GET = withErrorHandler(async (request: Request,
 // Update schema
 const updateServiceOrderSchema = z.object({
     title: z.string().min(1).optional(),
-    description: z.string().optional(),
+    description: z.string().nullish(),
     scheduleType: z.enum(['FIXED', 'FLEXIBLE']).optional(),
     scheduledDate: z.string().nullable().optional(),
     scheduleDateStart: z.string().nullable().optional(),
@@ -212,8 +212,8 @@ const updateServiceOrderSchema = z.object({
     assignedWorkerId: z.number().nullable().optional(),
     projetoId: z.number().nullable().optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY']).optional(),
-    techNotes: z.string().optional(),
-    clientNotes: z.string().optional(),
+    techNotes: z.string().nullish(),
+    clientNotes: z.string().nullish(),
 
     // Financial estimates (Fase 1)
     agreedClientPrice: z.number().positive().optional(),
@@ -280,33 +280,29 @@ export const PATCH = withErrorHandler(async (request: Request,
 
         // Field editing rules by status:
         // DRAFT / SCHEDULED    → all fields allowed
-        // IN_PROGRESS          → title, description, priority, notes allowed
-        // COMPLETED+           → only notes allowed (job is done, no structural changes)
-        const terminalStatuses = ['COMPLETED', 'AWAITING_PAYMENT', 'CLOSED', 'CANCELED', 'WRITTEN_OFF'];
+        // IN_PROGRESS          → informational fields allowed; financial/structural locked (use Change Order)
+        // COMPLETED+           → same informational fields allowed; financial/structural still locked
+        //
+        // "Informational" fields: title, description, priority, techNotes, clientNotes
+        // "Structural/Financial" fields: hourlyRate, estimatedHours, materialSupply, assignedWorkerId,
+        //   scheduleType, scheduledDate, scheduleDateStart, scheduleDateEnd, address fields, projetoId
+        //
+        // Rationale: a closed/awaiting-payment OS may still need text corrections (typos, better
+        // description for the invoice, client notes). What must not change post-execution is pricing
+        // and assignment — those require a Change Order process.
+        const INFORMATIONAL_FIELDS = ['title', 'description', 'priority', 'techNotes', 'clientNotes'];
+        const nonEditableAfterStart = [
+            'COMPLETED', 'AWAITING_PAYMENT', 'CLOSED', 'CANCELED', 'WRITTEN_OFF', 'IN_PROGRESS',
+        ];
 
-        if (existing.status === 'IN_PROGRESS') {
-            const allowedInProgress = ['title', 'description', 'priority', 'techNotes', 'clientNotes'];
+        if (nonEditableAfterStart.includes(existing.status as string)) {
             const providedFields = Object.keys(validated);
-            const disallowedFields = providedFields.filter(f => !allowedInProgress.includes(f));
+            const disallowedFields = providedFields.filter(f => !INFORMATIONAL_FIELDS.includes(f));
             if (disallowedFields.length > 0) {
                 return NextResponse.json(
                     {
                         error: 'Validation failed',
-                        message: `Não é possível editar ${disallowedFields.join(', ')} enquanto a OS está em andamento. Use Change Order para alterar valores financeiros.`,
-                        success: false,
-                    },
-                    { status: 400 }
-                );
-            }
-        } else if (terminalStatuses.includes(existing.status as string)) {
-            const allowedTerminal = ['techNotes', 'clientNotes'];
-            const providedFields = Object.keys(validated);
-            const disallowedFields = providedFields.filter(f => !allowedTerminal.includes(f));
-            if (disallowedFields.length > 0) {
-                return NextResponse.json(
-                    {
-                        error: 'Validation failed',
-                        message: `Apenas observações podem ser editadas no status ${existing.status}.`,
+                        message: `Não é possível editar ${disallowedFields.join(', ')} após o início da OS. Use Change Order para alterar valores financeiros.`,
                         success: false,
                     },
                     { status: 400 }
@@ -389,7 +385,7 @@ export const PATCH = withErrorHandler(async (request: Request,
                 Number(updated.agreedClientPrice),
                 Number(updated.materialTotal),
                 Number(updated.laborTotal),
-                updated.orderNumber ?? undefined
+                updated.ticketNumber ?? undefined
             ).catch(() => {/* non-blocking */});
         }
 

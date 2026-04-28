@@ -46,7 +46,7 @@ export const POST = withErrorHandler(async (
 
   const existing = await prisma.serviceOrder.findUnique({
     where: { id: serviceOrderId },
-    select: { id: true, agreedClientPrice: true, materialTotal: true, laborTotal: true, orderNumber: true },
+    select: { id: true, agreedClientPrice: true, materialTotal: true, laborTotal: true, ticketNumber: true },
   });
   if (!existing) {
     return NextResponse.json({ error: 'Not found', message: 'OS não encontrada', success: false }, { status: 404 });
@@ -59,7 +59,7 @@ export const POST = withErrorHandler(async (
     const so = await tx.serviceOrder.update({
       where: { id: serviceOrderId },
       data: { agreedClientPrice: newPrice },
-      select: { id: true, agreedClientPrice: true, materialTotal: true, laborTotal: true, orderNumber: true, marginStatus: true },
+      select: { id: true, agreedClientPrice: true, materialTotal: true, laborTotal: true, ticketNumber: true, marginStatus: true },
     });
 
     await tx.auditLog.create({
@@ -88,7 +88,7 @@ export const POST = withErrorHandler(async (
     newPrice,
     Number(updated.materialTotal),
     Number(updated.laborTotal),
-    updated.orderNumber ?? undefined
+    updated.ticketNumber ?? undefined
   ).catch(() => {/* non-blocking */});
 
   return NextResponse.json({

@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { generateInvoicePDF } from '@/shared/lib/services/invoice-pdf';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser, can, type Role } from '@/shared/lib/rbac';
-import * as nodemailer from 'nodemailer';
+import { EmailService } from '@/shared/lib/email';
+import { renderBaseTemplate } from '@/shared/lib/emails/template-base';
 import logger from '@/shared/lib/logger';
 import { validateTaxBeforeSend } from '@/shared/services/salesTaxService';
 
@@ -16,18 +17,6 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
-}
-
-function getTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'localhost',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
 }
 
 function formatCurrency(val: number): string {
@@ -188,48 +177,77 @@ export const POST = withErrorHandler(async (
   };
 
   const pdfBuffer = await generateInvoicePDF(invoiceData);
-  const clienteNome = escapeHtml(invoice.cliente.nomeCompleto || invoice.cliente.nomeFantasia || invoice.cliente.nomeChave || '');
-  const vencimento = new Date(invoice.dataVencimento).toLocaleDateString('pt-BR');
+  const clienteNome = invoice.cliente.nomeCompleto || invoice.cliente.nomeFantasia || invoice.cliente.nomeChave || '';
+  const dueDateFormatted = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(invoice.dataVencimento));
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #0098DA;">Invoice ${invoice.numeroInvoice}</h2>
-      <p>Prezado(a) ${clienteNome},</p>
-      <p>Segue em anexo a invoice <strong>${invoice.numeroInvoice}</strong> referente aos serviços prestados.</p>
-      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <tr style="background: #f7f7f7;">
-          <td style="padding: 10px; border: 1px solid #ddd;"><strong>Valor Total</strong></td>
-          <td style="padding: 10px; border: 1px solid #ddd;">${formatCurrency(Number(invoice.valorTotal))}</td>
-        </tr>
+  const content = `
+    <p>Dear ${escapeHtml(clienteNome)},</p>
+    <p>Please find attached invoice <strong>${escapeHtml(invoice.numeroInvoice)}</strong> for services rendered.</p>
+
+    <div class="card">
+      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
         <tr>
-          <td style="padding: 10px; border: 1px solid #ddd;"><strong>Vencimento</strong></td>
-          <td style="padding: 10px; border: 1px solid #ddd;">${vencimento}</td>
+          <td style="padding:8px 0; color:#6B7280; font-size:14px;">Total Amount</td>
+          <td style="padding:8px 0; text-align:right; font-weight:700; font-size:16px; color:#111827;">${formatCurrency(Number(invoice.valorTotal))}</td>
         </tr>
-        <tr style="background: #f7f7f7;">
-          <td style="padding: 10px; border: 1px solid #ddd;"><strong>Saldo</strong></td>
-          <td style="padding: 10px; border: 1px solid #ddd;">${formatCurrency(Number(invoice.saldo))}</td>
+        <tr style="border-top:1px solid #E5E7EB;">
+          <td style="padding:8px 0; color:#6B7280; font-size:14px;">Due Date</td>
+          <td style="padding:8px 0; text-align:right; color:#111827;">${escapeHtml(dueDateFormatted)}</td>
         </tr>
+        <tr style="border-top:1px solid #E5E7EB;">
+          <td style="padding:8px 0; color:#6B7280; font-size:14px;">Balance Due</td>
+          <td style="padding:8px 0; text-align:right; font-weight:700; color:${Number(invoice.saldo) > 0 ? '#B91C1C' : '#15803D'};">${formatCurrency(Number(invoice.saldo))}</td>
+        </tr>
+        ${invoice.projeto ? `
+        <tr style="border-top:1px solid #E5E7EB;">
+          <td style="padding:8px 0; color:#6B7280; font-size:14px;">Project</td>
+          <td style="padding:8px 0; text-align:right; color:#111827;">${escapeHtml(invoice.projeto.titulo ?? '')}</td>
+        </tr>` : ''}
       </table>
-      ${invoice.projeto ? `<p><strong>Projeto:</strong> ${escapeHtml(invoice.projeto.titulo ?? '')}</p>` : ''}
-      <p style="color: #666; font-size: 12px; margin-top: 30px;">
-        Este é um email automático enviado pelo sistema GladPros.
-      </p>
     </div>
+
+    <p style="color:#6B7280; font-size:13px;">
+      The PDF is attached to this email. If you have any questions about this invoice, please don't hesitate to contact us.
+    </p>
   `;
 
+  const subject = `Invoice ${invoice.numeroInvoice} — ${formatCurrency(Number(invoice.valorTotal))}`;
+
+  const html = renderBaseTemplate({
+    subject,
+    preheader: `Invoice ${invoice.numeroInvoice} for ${formatCurrency(Number(invoice.valorTotal))} — due ${dueDateFormatted}`,
+    title: `Invoice ${escapeHtml(invoice.numeroInvoice)}`,
+    subtitle: `Due ${dueDateFormatted}`,
+    content,
+    supportEmail: 'office@gladpros.com',
+    footerNote: 'This is an automated email sent by GladPros billing system.',
+  });
+
   try {
-    const transporter = getTransporter();
-    const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || 'GladPros <noreply@gladpros.com>',
-      to: invoice.cliente.email,
-      subject: `Invoice ${invoice.numeroInvoice} — ${formatCurrency(Number(invoice.valorTotal))}`,
+    const result = await EmailService.send({
+      to: invoice.cliente.email!,
+      subject,
       html,
+      bcc: process.env.INVOICE_BCC_EMAIL || 'office@gladpros.com',
       attachments: [{
         filename: `${invoice.numeroInvoice}.pdf`,
         content: pdfBuffer,
         contentType: 'application/pdf',
       }],
     });
+
+    if (!result.success) {
+      logger.error({ error: result.error, invoiceId }, 'Erro ao enviar email da invoice');
+      return NextResponse.json(
+        { error: 'Internal server error', message: 'Falha ao enviar email. Verifique a configuração SMTP.', success: false },
+        { status: 500 },
+      );
+    }
 
     // Update status + create reminder in transaction
     const newStatus = invoice.status === 'DRAFT' ? 'SENT' : invoice.status;
@@ -249,7 +267,7 @@ export const POST = withErrorHandler(async (
           metodo: 'EMAIL',
           destinatario: invoice.cliente.email!,
           assunto: `Invoice ${invoice.numeroInvoice}`,
-          mensagem: 'Invoice enviada com PDF anexo',
+          mensagem: 'Invoice sent with PDF attachment',
           status: 'SENT',
         },
       });
@@ -268,7 +286,7 @@ export const POST = withErrorHandler(async (
 
     return NextResponse.json({
       data: {
-        messageId: info.messageId,
+        messageId: result.messageId,
         sentTo: invoice.cliente.email,
         statusUpdated: invoice.status === 'DRAFT' ? 'SENT' : null,
       },

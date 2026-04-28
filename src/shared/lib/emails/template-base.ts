@@ -129,7 +129,6 @@ export function renderBaseTemplate(params: BaseTemplateParams) {
             <td class="header">
               <div class="brand">
                 <img src="${logoUrl}" width="140" alt="GladPros" style="display:block; border:0;"/>
-                <div class="brand-name">GladPros</div>
               </div>
             </td>
           </tr>

@@ -17,6 +17,7 @@
     "typescript.preferences.includePackageJsonAutoImports": "auto",
     "typescript.preferences.importModuleSpecifier": "relative",
     "powershell.cwd": "gladpros-nextjs",
-    "prisma.pinToPrisma6": true
+    "prisma.pinToPrisma6": true,
+    "liveServer.settings.multiRootWorkspaceName": "gladpros-nextjs"
   }
 }

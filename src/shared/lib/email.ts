@@ -1,7 +1,5 @@
 // src/lib/email.ts
 import * as nodemailer from 'nodemailer';
-import type Mail from 'nodemailer/lib/mailer';
-import type SMTPPool from 'nodemailer/lib/smtp-pool';
 import { renderBaseTemplate } from './emails/template-base';
 
 interface EmailConfig {
@@ -23,9 +21,11 @@ function shouldDebugEmail() {
 }
 
 export class EmailService {
-  private static transporter: Mail<SMTPPool.SentMessageInfo, SMTPPool.Options> | null = null;
+  private static transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
   private static isInitialized = false;
   private static initializingPromise: Promise<void> | null = null;
+  private static lastFailedAt: number | null = null;
+  private static readonly RESET_AFTER_FAILURE_MS = 60_000; // reset singleton 60s após falha
 
   private static getConfig(): EmailConfig {
     return {
@@ -37,7 +37,27 @@ export class EmailService {
     };
   }
 
+  /** Reseta o singleton para que a próxima chamada recrie o transporter (ex: após falha SMTP). */
+  static reset(): void {
+    if (this.transporter) {
+      try { (this.transporter as { close?: () => void }).close?.(); } catch { /* ignore */ }
+    }
+    this.transporter = null;
+    this.isInitialized = false;
+    this.initializingPromise = null;
+    this.lastFailedAt = null;
+  }
+
   private static async initializeTransporter(): Promise<void> {
+    // Auto-reset se houve falha recente e já passou o tempo de espera
+    if (
+      this.isInitialized &&
+      this.lastFailedAt !== null &&
+      Date.now() - this.lastFailedAt > this.RESET_AFTER_FAILURE_MS
+    ) {
+      this.reset();
+    }
+
     if (this.isInitialized) return;
     if (this.initializingPromise) {
       await this.initializingPromise;
@@ -47,6 +67,8 @@ export class EmailService {
     this.initializingPromise = (async () => {
       const config = this.getConfig();
       
+      // Sem pool: false = uma conexão por sendMail — mais resiliente a falhas temporárias.
+      // Pool manteria conexões em estado quebrado após timeout/queda do servidor.
       this.transporter = nodemailer.createTransport({
         host: config.host,
         port: config.port,
@@ -58,17 +80,13 @@ export class EmailService {
         tls: {
           rejectUnauthorized: false
         },
-        pool: true,              // Reutilizar conexão SMTP (2º envio ~700ms vs ~22s)
-        maxConnections: 3,
-        connectionTimeout: 5000, // 5s para conectar (Hostinger responde em <2s normalmente)
-        greetingTimeout: 5000,   // 5s para greeting SMTP
-        socketTimeout: 10000     // 10s para operações no socket
+        connectionTimeout: 10000, // 10s para conectar
+        greetingTimeout: 10000,   // 10s para greeting SMTP
+        socketTimeout: 30000      // 30s para operações no socket
       });
 
-      // Não chamar verify() — é bloqueante e pode levar >80s.
-      // Erros de conexão serão capturados no momento do sendMail().
       if (shouldDebugEmail()) {
-        console.log('[Email] Transporter singleton configurado (lazy, sem verify)');
+        console.log('[Email] Transporter configurado (sem pool, resiliente a falhas temporárias)');
       }
       this.isInitialized = true;
     })();
@@ -80,7 +98,7 @@ export class EmailService {
     }
   }
 
-  private static async getTransporter(): Promise<Mail<SMTPPool.SentMessageInfo, SMTPPool.Options>> {
+  private static async getTransporter(): Promise<ReturnType<typeof nodemailer.createTransport>> {
     await this.initializeTransporter();
     return this.transporter!;
   }
@@ -98,10 +116,24 @@ export class EmailService {
   }
 
   /**
-   * Send a generic email. Wraps the private sendEmail method.
+   * Send a generic email. Supports optional attachments (e.g. PDF invoices).
    */
-  static async send({ to, subject, html, text }: { to: string; subject: string; html: string; text?: string }) {
-    return this.sendEmail({ to, subject, html, text });
+  static async send({
+    to,
+    subject,
+    html,
+    text,
+    attachments,
+    bcc,
+  }: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+    attachments?: Array<{ filename: string; content: Buffer; contentType: string }>;
+    bcc?: string;
+  }) {
+    return this.sendEmail({ to, subject, html, text, attachments, bcc });
   }
 
   static async sendMFA({
@@ -202,12 +234,16 @@ export class EmailService {
     to,
     subject,
     html,
-    text
+    text,
+    attachments,
+    bcc,
   }: {
     to: string;
     subject: string;
     html: string;
     text?: string;
+    attachments?: Array<{ filename: string; content: Buffer; contentType: string }>;
+    bcc?: string;
   }): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
       if (process.env.NODE_ENV === 'development' && !process.env.SMTP_USER) {
@@ -215,7 +251,9 @@ export class EmailService {
         if (shouldDebugEmail()) {
           console.log('\n📧 [EMAIL DEV MODE]');
           console.log('Para:', to);
+          if (bcc) console.log('BCC:', bcc);
           console.log('Assunto:', subject);
+          if (attachments?.length) console.log('Anexos:', attachments.map(a => a.filename).join(', '));
           console.log('Conteúdo:', text || html.replace(/<[^>]*>/g, ''));
           console.log('📧 [/EMAIL DEV MODE]\n');
         }
@@ -234,17 +272,23 @@ export class EmailService {
         to,
         subject,
         html,
-        text: text || html.replace(/<[^>]*>/g, '')
+        text: text || html.replace(/<[^>]*>/g, ''),
+        ...(bcc ? { bcc } : {}),
+        ...(attachments?.length ? { attachments } : {}),
       };
 
       const info = await transporter.sendMail(mailOptions);
       
+      // Reset lastFailedAt em caso de sucesso (SMTP voltou ao ar)
+      this.lastFailedAt = null;
       return { 
         success: true, 
         messageId: info.messageId 
       };
 
     } catch (error) {
+      // Marcar falha para que o singleton possa se auto-resetar na próxima tentativa
+      this.lastFailedAt = Date.now();
       console.error('[Email] Erro ao enviar:', error);
       return { 
         success: false, 

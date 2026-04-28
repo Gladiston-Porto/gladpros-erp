@@ -2,9 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { PortalTokenService } from "@/domains/projects/services/PortalTokenService";
 import { PortalChangeOrderService } from "../PortalChangeOrderService";
 
-jest.mock("@/shared/lib/prisma", () => ({
-  __esModule: true,
-  default: {
+jest.mock("@/lib/prisma", () => ({
+  prisma: {
     changeOrder: {
       findMany: jest.fn(),
       findFirst: jest.fn(),

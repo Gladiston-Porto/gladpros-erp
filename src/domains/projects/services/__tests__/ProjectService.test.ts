@@ -1,6 +1,5 @@
-﻿jest.mock("@/shared/lib/prisma", () => ({
-  __esModule: true,
-  default: {
+jest.mock("@/lib/prisma", () => ({
+  prisma: {
     cliente: { findUnique: jest.fn() },
     usuario: { findUnique: jest.fn() },
     proposta: { findUnique: jest.fn() },

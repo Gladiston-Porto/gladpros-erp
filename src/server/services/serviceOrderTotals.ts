@@ -62,7 +62,7 @@ export async function recalculateTotals(serviceOrderId: number): Promise<void> {
     let marginStatus = 'OK';
     const so2 = await prisma.serviceOrder.findUnique({
         where: { id: serviceOrderId },
-        select: { agreedClientPrice: true, orderNumber: true },
+        select: { agreedClientPrice: true, ticketNumber: true },
     });
     if (so2?.agreedClientPrice) {
         const result = computeMarginStatus(Number(so2.agreedClientPrice), materialTotal, laborTotal);
@@ -81,6 +81,6 @@ export async function recalculateTotals(serviceOrderId: number): Promise<void> {
 
     // Fire alerts/notifications for actionable statuses (non-blocking)
     if (so2?.agreedClientPrice && (marginStatus === 'ALERT' || marginStatus === 'CRITICAL' || marginStatus === 'LOSS')) {
-        fireMarginAlertsIfNeeded(serviceOrderId, Number(so2.agreedClientPrice), materialTotal, laborTotal, so2.orderNumber ?? undefined).catch(() => {/* non-blocking */});
+        fireMarginAlertsIfNeeded(serviceOrderId, Number(so2.agreedClientPrice), materialTotal, laborTotal, so2.ticketNumber ?? undefined).catch(() => {/* non-blocking */});
     }
 }

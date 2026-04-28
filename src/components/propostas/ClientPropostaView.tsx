@@ -29,13 +29,10 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
   const [loading, setLoading] = useState(false)
   const [signature, setSignature] = useState('')
   const [termsAccepted, setTermsAccepted] = useState(false)
-  const [clientName, setClientName] = useState('')
+  const [clientName, setClientName] = useState(
+    proposta.cliente?.nomeCompleto || proposta.cliente?.razaoSocial || ''
+  )
   const router = useRouter()
-
-    // Pre-fill client name
-    if (proposta.cliente) {
-      setClientName(proposta.cliente.nomeCompleto || proposta.cliente.razaoSocial || '')
-    }
 
   const handleSign = async () => {
     if (!signature.trim() || !termsAccepted || !clientName.trim()) {

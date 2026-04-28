@@ -8,9 +8,8 @@ import { MockTriageGateway, resetTriageGateway, getTriagensEmMemoria } from '../
 import prisma from '../../../../shared/lib/prisma';
 
 // Mock do Prisma
-jest.mock('../../../../shared/lib/prisma', () => ({
-  __esModule: true,
-  default: {
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
     projeto: {
       findUnique: jest.fn(),
       update: jest.fn(),

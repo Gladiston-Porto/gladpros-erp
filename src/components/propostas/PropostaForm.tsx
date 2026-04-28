@@ -257,10 +257,9 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
         }
     }
 
-    const statusBadgeVariant = status === StatusPropostaValues.PENDENTE_APROVACAO ? "orange" : status === StatusPropostaValues.APROVADA ? "success" : "destructive"
+    const statusBadgeVariant = status === StatusPropostaValues.APROVADA ? "success" : "destructive"
     const statusLabel = status === StatusPropostaValues.RASCUNHO ? "Rascunho" :
-        status === StatusPropostaValues.PENDENTE_APROVACAO ? "Aguardando" :
-            status === StatusPropostaValues.APROVADA ? "Aprovada" : "Cancelada"
+        status === StatusPropostaValues.APROVADA ? "Aprovada" : "Cancelada"
 
     return (
         <div className="min-h-screen bg-background">

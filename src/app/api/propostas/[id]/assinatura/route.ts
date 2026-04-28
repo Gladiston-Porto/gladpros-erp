@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { logger } from '@/lib/api/logger';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 const signatureSchema = z.object({
   assinaturaTipo: z.enum(['DIGITAL_DESENHADA', 'DIGITAL_NOME']),
@@ -19,6 +21,11 @@ const signatureSchema = z.object({
  */
 export const POST = withErrorHandler(async (request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'propostas', 'update')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
+
     const { id } = await params;
     const propostaId = id;
     const body = await request.json()

@@ -1,11 +1,16 @@
 'use client'
 
-import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 
 /**
  * Global error boundary — catches errors in the root layout.
  * Must define its own <html> and <body> since it replaces the root layout entirely.
+ *
+ * Sentry is loaded via dynamic import ONLY in production.
+ * In dev, process.env.NODE_ENV === 'development' causes dead code elimination:
+ * webpack removes the import('@sentry/nextjs') branch entirely, avoiding the
+ * @opentelemetry/instrumentation "critical dependency" warning that appeared on
+ * every route compilation and was responsible for +3000 modules per route in dev.
  */
 export default function GlobalError({
   error,
@@ -15,7 +20,9 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    if (process.env.NODE_ENV === 'production') {
+      void import('@sentry/nextjs').then(Sentry => Sentry.captureException(error));
+    }
   }, [error]);
 
   return (

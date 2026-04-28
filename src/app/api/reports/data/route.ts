@@ -84,7 +84,7 @@ export const GET= withErrorHandler(async (request: NextRequest) => {
         const [sent, approved, rejected] = await Promise.all([
           prisma.proposta.count({ where: { deletedAt: null, status: 'ENVIADA', ...dateFilter } }),
           prisma.proposta.count({ where: { deletedAt: null, status: 'APROVADA', ...dateFilter } }),
-          prisma.proposta.count({ where: { deletedAt: null, status: 'REJEITADA', ...dateFilter } }),
+          prisma.proposta.count({ where: { deletedAt: null, status: 'CANCELADA', ...dateFilter } }),
         ]);
         const conversionRate = sent > 0 ? Number(((approved / sent) * 100).toFixed(2)) : 0;
         const successRate = (approved + rejected) > 0 ? Number(((approved / (approved + rejected)) * 100).toFixed(2)) : 0;

@@ -219,7 +219,7 @@ export const PATCH = withErrorHandler(async (request: Request,
             );
         }
 
-        // Execute transition in transaction
+        // Execute transition in transaction (timeout: 30s for OS with many materials)
         const updated = await prisma.$transaction(async (tx) => {
             // C15: Release stock reservations on CANCELED (creates CANCELAMENTO_RESERVA movements)
             if (newStatus === 'CANCELED') {
@@ -285,7 +285,7 @@ export const PATCH = withErrorHandler(async (request: Request,
                     AssignedWorker: { select: { id: true, name: true } }
                 }
             });
-        });
+        }, { timeout: 30000 });
 
         // Emit domain events (best-effort, outside transaction)
         eventBus.emit({

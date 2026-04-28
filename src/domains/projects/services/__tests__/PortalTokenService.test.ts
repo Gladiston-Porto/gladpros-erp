@@ -2,9 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { PortalTokenService, PortalTokenServiceError } from "../PortalTokenService";
 import { hashPortalAccessToken } from "../portal-token";
 
-jest.mock("@/shared/lib/prisma", () => ({
-  __esModule: true,
-  default: {
+jest.mock("@/lib/prisma", () => ({
+  prisma: {
     projeto: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),

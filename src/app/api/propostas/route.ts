@@ -8,6 +8,7 @@ import { createPropostaSchema } from '@/schemas/proposta.schema';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
+import { generateNumeroProposta } from '@/shared/lib/services/proposta-numbering';
 import type { Prisma, Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, Proposta_status, PropostaMaterial_status, PropostaEtapa_status } from '@prisma/client';
 
 export const GET = withErrorHandler(async (request: NextRequest) => {
@@ -22,6 +23,20 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const status = searchParams.get('status');
   const search = searchParams.get('search');
   const clienteId = searchParams.get('clienteId');
+
+  const sortKey = searchParams.get('sortKey') ?? 'criadoEm';
+  const sortDir = (searchParams.get('sortDir') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
+
+  // Whitelist to prevent Prisma injection — same pattern as OS module
+  const SORT_WHITELIST: Record<string, Prisma.PropostaOrderByWithRelationInput> = {
+    criadoEm:       { criadoEm: sortDir },
+    numeroProposta: { numeroProposta: sortDir },
+    titulo:         { titulo: sortDir },
+    status:         { status: sortDir },
+    valorEstimado:  { valorEstimado: sortDir },
+    cliente:        { Cliente: { nomeCompleto: sortDir } },
+  };
+  const orderBy = SORT_WHITELIST[sortKey] ?? SORT_WHITELIST['criadoEm'];
 
   const where: Prisma.PropostaWhereInput = { deletedAt: null };
   if (status) where.status = status as Proposta_status;
@@ -39,7 +54,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
-      orderBy: { criadoEm: 'desc' },
+      orderBy,
       include: {
         Cliente: { select: { id: true, nomeCompleto: true, email: true } },
         _count: { select: { PropostaMaterial: true, PropostaEtapa: true, AnexoProposta: true } }
@@ -89,10 +104,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const body: PropostaFormData = createPropostaSchema.parse(await request.json());
     const payload = adaptPropostaFormToAPI(body);
     try {
+    const numeroProposta = await generateNumeroProposta();
 
     const newProposta = await prisma.proposta.create({
       data: ({
-        numeroProposta: `PROP-${Date.now().toString().slice(-6)}`, // Auto-generate
+        numeroProposta,
         clienteId: payload.clienteId,
         titulo: payload.titulo || 'Sem título',
         descricaoEscopo: payload.descricao || '',

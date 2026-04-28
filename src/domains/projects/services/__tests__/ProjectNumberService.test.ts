@@ -1,6 +1,5 @@
-﻿jest.mock("@/shared/lib/prisma", () => ({
-  __esModule: true,
-  default: {
+jest.mock("@/lib/prisma", () => ({
+  prisma: {
     projeto: {
       findFirst: jest.fn(),
       count: jest.fn(),

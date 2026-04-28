@@ -2,9 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ProjectMaterialMetricsService } from "../ProjectMaterialMetricsService";
 
-jest.mock("@/shared/lib/prisma", () => ({
-  __esModule: true,
-  default: {
+jest.mock("@/lib/prisma", () => ({
+  prisma: {
     projetoMaterial: {
       findMany: jest.fn(),
       update: jest.fn(),

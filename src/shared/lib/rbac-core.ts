@@ -92,7 +92,7 @@ export function routeToModule(pathname: string): ModuleKey | null {
   if (pathname.startsWith("/financeiro") || pathname.startsWith("/api/financeiro") || pathname.startsWith("/dashboard/financeiro")) return "financeiro"
   if (pathname.startsWith("/clientes") || pathname.startsWith("/api/clientes") || pathname.startsWith("/api/clients")) return "clientes"
   if (pathname.startsWith("/projetos") || pathname.startsWith("/api/projetos") || pathname.startsWith("/meus-projetos") || pathname.startsWith("/api/meus-projetos")) return "projetos"
-  if (pathname.startsWith("/propostas") || pathname.startsWith("/api/propostas") || pathname.startsWith("/proposta-modular")) return "propostas"
+  if (pathname.startsWith("/propostas") || pathname.startsWith("/api/propostas")) return "propostas"
   if (pathname.startsWith("/estoque") || pathname.startsWith("/api/estoque") || pathname.startsWith("/api/inventory")) return "estoque"
   return null
 }

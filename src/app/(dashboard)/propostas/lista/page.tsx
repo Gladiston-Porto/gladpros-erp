@@ -95,6 +95,8 @@ export default function PropostasPage() {
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
+        params.set("sortKey", sortKey);
+        params.set("sortDir", sortDir);
         if (status) {
           params.set("status", status);
         }
@@ -113,7 +115,7 @@ export default function PropostasPage() {
         }
 
         const payload = await response.json();
-        const items: PropostaDTO[] = (payload.items || []).map((proposta: any) => ({
+        const items: PropostaDTO[] = (payload.data || []).map((proposta: any) => ({
           id: String(proposta.id),
           numeroProposta: proposta.numeroProposta || "",
           titulo: proposta.titulo || "",
@@ -127,39 +129,6 @@ export default function PropostasPage() {
           valor: proposta.valorEstimado ?? undefined,
           criadoEm: proposta.criadoEm,
         }));
-
-        items.sort((a, b) => {
-          let aVal: any = a[sortKey];
-          let bVal: any = b[sortKey];
-
-          if (sortKey === "cliente") {
-            aVal = a.cliente
-              ? a.cliente.razaoSocial ||
-                a.cliente.nomeCompleto ||
-                a.cliente.nomeFantasia ||
-                ""
-              : "";
-            bVal = b.cliente
-              ? b.cliente.razaoSocial ||
-                b.cliente.nomeCompleto ||
-                b.cliente.nomeFantasia ||
-                ""
-              : "";
-          }
-
-          if (typeof aVal === "string") {
-            aVal = aVal.toLowerCase();
-            bVal = (bVal || "").toString().toLowerCase();
-          }
-
-          if (aVal < bVal) {
-            return sortDir === "asc" ? -1 : 1;
-          }
-          if (aVal > bVal) {
-            return sortDir === "asc" ? 1 : -1;
-          }
-          return 0;
-        });
 
         setTotal(payload.pagination?.total ?? items.length);
         setPropostas(items);

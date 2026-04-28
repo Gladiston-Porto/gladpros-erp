@@ -26,18 +26,16 @@ export async function GET(request: NextRequest) {
     const [total, data] = await Promise.all([
       prisma.serviceOrder.count({
         where: {
-          deletedAt: null,
           marginStatus: { in: statusFilter },
         },
       }),
       prisma.serviceOrder.findMany({
         where: {
-          deletedAt: null,
           marginStatus: { in: statusFilter },
         },
         select: {
           id: true,
-          orderNumber: true,
+          ticketNumber: true,
           title: true,
           status: true,
           marginStatus: true,
@@ -49,7 +47,7 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           completedAt: true,
           Cliente: { select: { nomeCompleto: true, nomeFantasia: true } },
-          AssignedWorker: { select: { nome: true } },
+          AssignedWorker: { select: { name: true } },
         },
         orderBy: [
           // LOSS first, then CRITICAL, then ALERT
@@ -77,12 +75,12 @@ export async function GET(request: NextRequest) {
 
       return {
         id: os.id,
-        orderNumber: os.orderNumber ?? `OS-${os.id}`,
+        orderNumber: os.ticketNumber ?? `OS-${os.id}`,
         title: os.title,
         status: os.status,
         marginStatus: os.marginStatus,
         clientName: os.Cliente?.nomeCompleto || os.Cliente?.nomeFantasia || '—',
-        assignedWorker: os.AssignedWorker?.nome ?? null,
+        assignedWorker: os.AssignedWorker?.name ?? null,
         agreedClientPrice: agreed,
         laborCost: labor,
         materialCost: material,

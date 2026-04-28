@@ -3,9 +3,8 @@ import { PortalTokenService } from "@/domains/projects/services/PortalTokenServi
 
 const mockFindUnique = jest.fn();
 
-jest.mock("@/shared/lib/prisma", () => ({
-  __esModule: true,
-  default: {
+jest.mock("@/lib/prisma", () => ({
+  prisma: {
     projectCloseout: {
       findUnique: (...args: unknown[]) => mockFindUnique(...args),
     },

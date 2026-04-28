@@ -2,9 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { PortalTokenService } from "@/domains/projects/services/PortalTokenService";
 import { PortalInvoiceService } from "../PortalInvoiceService";
 
-jest.mock("@/shared/lib/prisma", () => ({
-  __esModule: true,
-  default: {
+jest.mock("@/lib/prisma", () => ({
+  prisma: {
     invoice: {
       findMany: jest.fn(),
       findFirst: jest.fn(),

@@ -167,7 +167,7 @@ async function fireMarginAlert(
     users.map((u) =>
       NotificationService.create({
         userId: u.id,
-        type: "WARNING",
+        type: "warning",
         title: MARGIN_TITLE_MAP[result.status],
         message: mensagem,
         data: { serviceOrderId, marginStatus: result.status, marginPct: result.marginPct },

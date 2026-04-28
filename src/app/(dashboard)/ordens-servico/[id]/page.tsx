@@ -319,6 +319,17 @@ export default function ServiceOrderDetailPage() {
     const [teamSearch, setTeamSearch] = useState('');
     const [teamLoading, setTeamLoading] = useState<number | null>(null);
 
+    // Bulk material purchase confirmation
+    const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<number>>(new Set());
+    const [bulkConfirmLoading, setBulkConfirmLoading] = useState(false);
+
+    // Cost correction for CONSUMED field materials (ADMIN/FINANCEIRO only)
+    const [showCorrectCost, setShowCorrectCost] = useState(false);
+    const [correctingMaterial, setCorrectingMaterial] = useState<{ id: number; name: string; unitCostActual: number | null } | null>(null);
+    const [correctCostValue, setCorrectCostValue] = useState('');
+    const [correctCostReason, setCorrectCostReason] = useState('');
+    const [correctCostLoading, setCorrectCostLoading] = useState(false);
+
     const orderId = params?.id as string;
 
     const loadOrder = useCallback(async (signal?: AbortSignal) => {
@@ -958,8 +969,74 @@ export default function ServiceOrderDetailPage() {
         }
     };
 
+    const bulkConfirmPurchases = async () => {
+        if (!order || bulkSelectedIds.size === 0) return;
+        setBulkConfirmLoading(true);
+        try {
+            const items = order.materials
+                .filter((m: any) => bulkSelectedIds.has(m.id))
+                .map((m: any) => ({
+                    materialId: m.id,
+                    quantityUsed: Number(m.quantityPlanned),
+                    unitCostEstimated: Number(m.unitCostEstimated || 0) || undefined,
+                }));
+
+            const res = await fetch(`/api/service-orders/${order.id}/materials/bulk-confirm`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items }),
+            });
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.message ?? d.error ?? 'Erro ao confirmar compras');
+
+            const { succeeded, needsApproval, failed } = d.data;
+            const parts: string[] = [];
+            if (succeeded.length > 0) parts.push(`${succeeded.length} confirmado(s)`);
+            if (needsApproval.length > 0) parts.push(`${needsApproval.length} aguardando aprovação`);
+            if (failed.length > 0) parts.push(`${failed.length} falhou`);
+            toast.success(parts.join(' · '));
+
+            setBulkSelectedIds(new Set());
+            loadOrder();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Erro');
+        } finally {
+            setBulkConfirmLoading(false);
+        }
+    };
+
+    const openCorrectCostModal = (mat: { id: number; name: string; unitCostActual: number | null; unitCostEstimated: number | null }) => {
+        setCorrectingMaterial({ id: mat.id, name: mat.name, unitCostActual: mat.unitCostActual });
+        setCorrectCostValue(String(mat.unitCostActual ?? mat.unitCostEstimated ?? ''));
+        setCorrectCostReason('');
+        setShowCorrectCost(true);
+    };
+
+    const submitCorrectCost = async () => {
+        if (!order || !correctingMaterial) return;
+        const val = parseFloat(correctCostValue);
+        if (!val || val <= 0) { alert('Informe um valor válido'); return; }
+        if (!correctCostReason.trim()) { alert('Motivo é obrigatório'); return; }
+        setCorrectCostLoading(true);
+        try {
+            const res = await fetch(`/api/service-orders/${order.id}/materials/${correctingMaterial.id}/correct-cost`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ unitCostActual: val, reason: correctCostReason }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || 'Erro ao corrigir custo');
+            setShowCorrectCost(false);
+            setCorrectingMaterial(null);
+            await loadOrder();
+        } catch (e: unknown) {
+            alert(e instanceof Error ? e.message : 'Erro ao corrigir custo');
+        } finally {
+            setCorrectCostLoading(false);
+        }
+    };
+
     const openEditMaterial = (mat: ServiceOrder['materials'][0]) => {
-        setEditingMaterialId(mat.id);
         setEditMaterialForm({
             name: mat.name,
             unit: mat.unit ?? 'un',
@@ -1778,12 +1855,27 @@ export default function ServiceOrderDetailPage() {
                                 <Package className="h-5 w-5" />
                                 Materiais ({order.materials.length})
                             </CardTitle>
-                            {['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(order.status) && (
-                                <Button variant="ghost" size="sm" onClick={() => setShowAddMaterial(true)}>
-                                    <Plus className="h-4 w-4 mr-1" />
-                                    Adicionar
-                                </Button>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {bulkSelectedIds.size > 0 && (
+                                    <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="h-8 bg-green-600 hover:bg-green-700 text-white"
+                                        onClick={bulkConfirmPurchases}
+                                        disabled={bulkConfirmLoading}
+                                        aria-label={`Confirmar ${bulkSelectedIds.size} compra(s) selecionadas`}
+                                    >
+                                        <Check className="h-3.5 w-3.5 mr-1.5" />
+                                        {bulkConfirmLoading ? 'Confirmando...' : `Confirmar Selecionadas (${bulkSelectedIds.size})`}
+                                    </Button>
+                                )}
+                                {['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(order.status) && (
+                                    <Button variant="ghost" size="sm" onClick={() => setShowAddMaterial(true)}>
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        Adicionar
+                                    </Button>
+                                )}
+                            </div>
                         </CardHeader>
                         <CardContent>
                             {order.materials.length === 0 ? (
@@ -1792,6 +1884,29 @@ export default function ServiceOrderDetailPage() {
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="text-left border-b border-border">
+                                            <th className="pb-2 w-8">
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-border"
+                                                    aria-label="Selecionar todos os materiais elegíveis para compra em lote"
+                                                    checked={
+                                                        bulkSelectedIds.size > 0 &&
+                                                        order.materials
+                                                            .filter((m: any) => !m.Material && ['PENDING', 'NEEDS_PURCHASE'].includes(m.status) && m.fieldExpense?.status !== 'AGUARDANDO_APROVACAO' && ['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(order.status))
+                                                            .every((m: any) => bulkSelectedIds.has(m.id))
+                                                    }
+                                                    onChange={(e) => {
+                                                        const eligible = order.materials.filter(
+                                                            (m: any) => !m.Material && ['PENDING', 'NEEDS_PURCHASE'].includes(m.status) && m.fieldExpense?.status !== 'AGUARDANDO_APROVACAO' && ['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(order.status)
+                                                        );
+                                                        if (e.target.checked) {
+                                                            setBulkSelectedIds(new Set(eligible.map((m: any) => m.id)));
+                                                        } else {
+                                                            setBulkSelectedIds(new Set());
+                                                        }
+                                                    }}
+                                                />
+                                            </th>
                                             <th className="pb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Material</th>
                                             <th className="pb-2 text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Qtd</th>
                                             <th className="pb-2 text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Custo Est.</th>
@@ -1802,6 +1917,26 @@ export default function ServiceOrderDetailPage() {
                                     <tbody>
                                         {order.materials.map((mat) => (
                                             <tr key={mat.id} className="border-b border-border">
+                                                <td className="py-2">
+                                                    {!mat.Material && ['PENDING', 'NEEDS_PURCHASE'].includes(mat.status) && mat.fieldExpense?.status !== 'AGUARDANDO_APROVACAO' && ['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(order.status) ? (
+                                                        <input
+                                                            type="checkbox"
+                                                            className="rounded border-border"
+                                                            aria-label={`Selecionar ${mat.name} para compra em lote`}
+                                                            checked={bulkSelectedIds.has(mat.id)}
+                                                            onChange={(e) => {
+                                                                setBulkSelectedIds(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (e.target.checked) next.add(mat.id);
+                                                                    else next.delete(mat.id);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <span className="w-4 block" />
+                                                    )}
+                                                </td>
                                                 <td className="py-2">
                                                     <div>
                                                         <span className="font-medium">{mat.name}</span>
@@ -1954,6 +2089,21 @@ export default function ServiceOrderDetailPage() {
                                                             >
                                                                 <XCircle className="h-3 w-3 mr-1" />
                                                                 Devolver
+                                                            </Button>
+                                                        )}
+                                                        {/* Corrigir custo — ADMIN/FINANCEIRO, campo-comprado (CONSUMED sem estoque) */}
+                                                        {mat.status === 'CONSUMED' && !mat.Material &&
+                                                         ['ADMIN', 'FINANCEIRO'].includes(currentUserRole ?? '') && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="h-7 px-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                                                title="Corrigir custo após lançamento"
+                                                                onClick={() => openCorrectCostModal(mat as any)}
+                                                                disabled={actionLoading}
+                                                            >
+                                                                <Pen className="h-3 w-3 mr-1" />
+                                                                Corrigir
                                                             </Button>
                                                         )}
                                                         {!mat.Material && ['PENDING', 'NEEDS_PURCHASE'].includes(mat.status) && (mat.fieldExpense == null || mat.fieldExpense.status === 'REJEITADA') && ['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(order.status) && (
@@ -2951,6 +3101,66 @@ export default function ServiceOrderDetailPage() {
                 </div>
             )}
 
+            {/* Cost Correction Modal — ADMIN/FINANCEIRO only */}
+            {showCorrectCost && correctingMaterial && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+                        <h3 className="font-semibold text-base">Corrigir Custo de Material</h3>
+                        <p className="text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">{correctingMaterial.name}</span>
+                        </p>
+                        <p className="text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 rounded-lg px-3 py-2">
+                            ⚠️ Esta correção cria uma trilha de auditoria. Informe o motivo detalhado.
+                        </p>
+                        <div>
+                            <label className="text-sm text-muted-foreground">Novo custo unitário (USD) *</label>
+                            <input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={correctCostValue}
+                                onChange={(e) => setCorrectCostValue(e.target.value)}
+                                className="w-full mt-1 border border-border rounded-lg px-3 py-2 bg-background text-foreground text-sm"
+                                placeholder="0.00"
+                                autoFocus
+                            />
+                            {correctingMaterial.unitCostActual !== null && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Valor atual: ${Number(correctingMaterial.unitCostActual).toFixed(2)}
+                                </p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="text-sm text-muted-foreground">Motivo da correção *</label>
+                            <textarea
+                                value={correctCostReason}
+                                onChange={(e) => setCorrectCostReason(e.target.value)}
+                                rows={3}
+                                className="w-full mt-1 border border-border rounded-lg px-3 py-2 bg-background text-foreground text-sm"
+                                placeholder="Ex: Nota fiscal apresentava valor diferente do informado no campo..."
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="ghost"
+                                className="flex-1"
+                                onClick={() => { setShowCorrectCost(false); setCorrectingMaterial(null); }}
+                                disabled={correctCostLoading}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                className="flex-1"
+                                onClick={submitCorrectCost}
+                                disabled={correctCostLoading || !correctCostValue || !correctCostReason.trim()}
+                            >
+                                {correctCostLoading ? 'Salvando...' : 'Confirmar Correção'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Team Management Modal */}
             {showTeamModal && order && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -3122,6 +3332,7 @@ export default function ServiceOrderDetailPage() {
                     signatureLoading={signatureLoading}
                     stockMaterials={stockMaterials}
                     technicians={technicians}
+                    orderTechnicians={order.technicians ?? []}
                     uploadAttachment={uploadAttachment}
                     uploadCaption={uploadCaption}
                     uploadFile={uploadFile}

@@ -44,7 +44,6 @@ export async function GET(request: NextRequest) {
     const [osData, invoiceData] = await Promise.all([
       prisma.serviceOrder.findMany({
         where: {
-          deletedAt: null,
           completedAt: { gte: rangeStart, lte: rangeEnd },
         },
         select: {
@@ -58,15 +57,14 @@ export async function GET(request: NextRequest) {
       }),
       prisma.invoice.findMany({
         where: {
-          deletedAt: null,
-          createdAt: { gte: rangeStart, lte: rangeEnd },
+          criadoEm: { gte: rangeStart, lte: rangeEnd },
         },
         select: {
           id: true,
           valorTotal: true,
           status: true,
-          Pagamentos: {
-            select: { amount: true },
+          pagamentos: {
+            select: { valor: true },
           },
         },
       }),
@@ -98,8 +96,8 @@ export async function GET(request: NextRequest) {
     for (const inv of invoiceData) {
       invoiceCount++;
       invoiceTotal += Number(inv.valorTotal ?? 0);
-      for (const pmt of inv.Pagamentos) {
-        invoicePaid += Number(pmt.amount ?? 0);
+      for (const pmt of inv.pagamentos) {
+        invoicePaid += Number(pmt.valor ?? 0);
       }
     }
 

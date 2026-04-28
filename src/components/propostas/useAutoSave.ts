@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react'
+import { authenticatedFetch } from '@/lib/api/client'
 import { PropostaFormData } from './types'
 
-export function useAutoSave(formData: PropostaFormData, enabled: boolean = true) {
+export function useAutoSave(
+  formData: PropostaFormData,
+  enabled: boolean = true,
+  onSessionExpired?: () => void
+) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSaveRef = useRef<string>('')
 
@@ -9,15 +14,21 @@ export function useAutoSave(formData: PropostaFormData, enabled: boolean = true)
     try {
       const rascunhoData = { ...data, status: 'RASCUNHO' }
 
-      await fetch('/api/propostas/rascunho', {
+      const response = await authenticatedFetch('/api/propostas/rascunho', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rascunhoData),
       })
+
+      // authenticatedFetch já redireciona para /login em 401,
+      // mas chamamos o callback para que o componente possa avisar o usuário antes
+      if (response.status === 401 && onSessionExpired) {
+        onSessionExpired()
+      }
     } catch {
-      // auto-save silencioso — erros não interrompem o usuário
+      // auto-save silencioso — erros de rede não interrompem o usuário
     }
-  }, [])
+  }, [onSessionExpired])
 
   const debouncedSave = useCallback((data: PropostaFormData) => {
     if (!enabled) return

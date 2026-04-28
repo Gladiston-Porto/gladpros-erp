@@ -135,6 +135,17 @@ export interface InvoiceDetail {
     email: string;
   };
   criadoEm: string;
+  lembretes?: Array<{
+    id: number;
+    tipo: string;
+    dataEnvio: string;
+    metodo: string;
+    destinatario: string;
+    assunto: string;
+    status: string;
+    erro?: string | null;
+    diasAposVencimento?: number | null;
+  }>;
 }
 
 export interface InvoicePaymentData {

@@ -154,5 +154,11 @@ export function normalizeInvoiceDetail(raw: any): InvoiceDetail {
           subtotal: Number(item.subtotal ?? 0),
         }))
       : [],
+    lembretes: Array.isArray(raw.lembretes)
+      ? raw.lembretes.map((l: any) => ({
+          ...l,
+          dataEnvio: l.dataEnvio ?? l.criadoEm,
+        }))
+      : [],
   };
 }
