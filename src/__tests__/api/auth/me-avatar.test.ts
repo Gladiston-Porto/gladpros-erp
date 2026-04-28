@@ -17,6 +17,7 @@ jest.mock('next/server', () => ({
 jest.mock('../../../lib/prisma', () => ({
   prisma: {
     $executeRaw: jest.fn().mockResolvedValue(1),
+    $queryRaw: jest.fn().mockResolvedValue([{ avatarUrl: null }]),
   },
 }))
 

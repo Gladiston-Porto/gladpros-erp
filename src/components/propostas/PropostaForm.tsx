@@ -46,6 +46,8 @@ import { useCalcularTotais } from './hooks'
 import { useAutoSave } from './useAutoSave'
 import { propostaFormSchema } from './validation'
 import { colors } from "@gladpros/ui/tokens"; // Import tokens correctly
+import { TemplateSelector, type TemplateData } from './TemplateSelector'
+import { SaveAsTemplateButton } from './SaveAsTemplateButton'
 
 interface PropostaFormProps {
     initialData?: PropostaFormData;
@@ -198,6 +200,29 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
         ])
     const rmEtapa = (id: string) => setEtapas((arr) => arr.filter((e) => e.id !== id))
 
+    const handleApplyTemplate = (data: TemplateData) => {
+        if (data.titulo) setCliente(prev => ({ ...prev, titulo: data.titulo! }))
+        if (data.escopo) setEscopo(data.escopo)
+        if (data.condicoes) setComerciais(prev => ({ ...prev, condicoes_gerais: data.condicoes! }))
+        if (data.observacoes) setObsCliente(data.observacoes)
+        if (data.etapasJson) {
+            try {
+                const parsed = JSON.parse(data.etapasJson)
+                if (Array.isArray(parsed)) {
+                    setEtapas(parsed.map((e: Record<string, unknown>) => ({ ...e, id: crypto.randomUUID() })) as Etapa[])
+                }
+            } catch { /* invalid JSON — ignore */ }
+        }
+        if (data.materiaisJson) {
+            try {
+                const parsed = JSON.parse(data.materiaisJson)
+                if (Array.isArray(parsed)) {
+                    setMateriais(parsed.map((m: Record<string, unknown>) => ({ ...m, id: crypto.randomUUID() })) as Material[])
+                }
+            } catch { /* invalid JSON — ignore */ }
+        }
+    }
+
     const handleClienteChange = (clienteId: string) => {
         const clienteSelecionado = clientes.find(c => c.id === clienteId)
         if (clienteSelecionado) {
@@ -273,6 +298,15 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                     {status === StatusPropostaValues.RASCUNHO && (
                         <div className="hidden sm:flex items-center rounded-xl bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-600">Rascunho</div>
                     )}
+                    <TemplateSelector onSelect={handleApplyTemplate} />
+                    <SaveAsTemplateButton
+                        titulo={cliente.titulo}
+                        escopo={escopo}
+                        condicoes={comerciais.condicoes_gerais}
+                        observacoes={obsCliente}
+                        etapas={etapas}
+                        materiais={materiais}
+                    />
                     {saveStatus === 'saving' && <span className="text-xs text-muted-foreground">Salvando…</span>}
                     {saveStatus === 'saved' && <span className="text-xs text-emerald-600">✓ Salvo</span>}
                     {saveStatus === 'error' && <span className="text-xs text-destructive">✗ Erro</span>}

@@ -94,7 +94,7 @@ describe("ProjectHistoryService", () => {
           acao: ACAO_HISTORICO.CRIACAO,
           detalhes: "Projeto criado",
           criadoEm: new Date(),
-          usuario: {
+          Usuario: {
             id: 1,
             nome: "João Silva",
             email: "joao@example.com",
@@ -117,10 +117,10 @@ describe("ProjectHistoryService", () => {
         take: 50,
         orderBy: { criadoEm: "desc" },
         include: {
-          usuario: {
+          Usuario: {
             select: {
               id: true,
-              nome: true,
+              nomeCompleto: true,
               email: true,
             },
           },
@@ -156,10 +156,10 @@ describe("ProjectHistoryService", () => {
         take: 10,
         orderBy: { criadoEm: "desc" },
         include: {
-          usuario: {
+          Usuario: {
             select: {
               id: true,
-              nome: true,
+              nomeCompleto: true,
               email: true,
             },
           },
@@ -187,12 +187,12 @@ describe("ProjectHistoryService", () => {
         projetoId: 1,
         acao: ACAO_HISTORICO.CRIACAO,
         detalhes: "Projeto criado",
-        usuario: {
+        Usuario: {
           id: 1,
           nome: "João Silva",
           email: "joao@example.com",
         },
-        projeto: {
+        Projeto: {
           id: 1,
           numeroProjeto: "PRJ-2025-0001",
           titulo: "Projeto Teste",
@@ -207,14 +207,14 @@ describe("ProjectHistoryService", () => {
       expect(mockPrisma.projetoHistorico.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
         include: {
-          usuario: {
+          Usuario: {
             select: {
               id: true,
-              nome: true,
+              nomeCompleto: true,
               email: true,
             },
           },
-          projeto: {
+          Projeto: {
             select: {
               id: true,
               numeroProjeto: true,
@@ -242,7 +242,7 @@ describe("ProjectHistoryService", () => {
         acao: ACAO_HISTORICO.STATUS_ALTERADO,
         detalhes: "Status alterado",
         criadoEm: new Date(),
-        usuario: {
+        Usuario: {
           id: 1,
           nome: "João Silva",
           email: "joao@example.com",
@@ -263,10 +263,10 @@ describe("ProjectHistoryService", () => {
           criadoEm: "desc",
         },
         include: {
-          usuario: {
+          Usuario: {
             select: {
               id: true,
-              nome: true,
+              nomeCompleto: true,
               email: true,
             },
           },

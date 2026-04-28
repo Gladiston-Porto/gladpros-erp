@@ -369,6 +369,26 @@ model ProjetoLegacy {
   @@map("Projeto")
 }
 
+model CatalogoItem {
+  id          Int      @id @default(autoincrement())
+  empresaId   Int      @default(1)
+  codigo      String?  @db.VarChar(50)
+  nome        String   @db.VarChar(300)
+  descricao   String?  @db.Text
+  categoria   String?  @db.VarChar(100)
+  unidade     String   @default("unit") @db.VarChar(30)
+  precoUnitario Decimal? @db.Decimal(12, 2)
+  tipo        String   @default("servico") @db.VarChar(30) // servico | material | equipamento
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([empresaId])
+  @@index([nome])
+  @@index([categoria])
+}
+
 model Proposta {
   id                         Int                               @id @default(autoincrement())
   numeroProposta             String                            @unique @db.VarChar(20)
@@ -451,6 +471,7 @@ model Proposta {
   PropostaEtapa              PropostaEtapa[]
   PropostaLog                PropostaLog[]
   PropostaMaterial           PropostaMaterial[]
+  Invoices                   Invoice[]
 
   @@index([clienteId])
   @@index([dataCriacao, id])
@@ -509,6 +530,25 @@ model PropostaMaterial {
   Proposta               Proposta                @relation(fields: [propostaId], references: [id], onDelete: Cascade)
 
   @@index([propostaId])
+}
+
+model PropostaTemplate {
+  id            Int       @id @default(autoincrement())
+  empresaId     Int       @default(1)
+  nome          String    @db.VarChar(200)
+  descricao     String?   @db.Text
+  titulo        String?   @db.VarChar(300)
+  escopo        String?   @db.LongText
+  condicoes     String?   @db.LongText
+  observacoes   String?   @db.LongText
+  etapasJson    String?   @db.LongText
+  materiaisJson String?   @db.LongText
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  @@index([empresaId])
+  @@index([deletedAt])
 }
 
 model Projeto {
@@ -2016,6 +2056,7 @@ model Invoice {
   id                  Int            @id @default(autoincrement())
   numeroInvoice       String         @unique @db.VarChar(50)
   projetoId           Int?
+  propostaId          Int?
   clienteId           Int
   dataEmissao         DateTime       @default(now())
   dataVencimento      DateTime
@@ -2066,6 +2107,7 @@ model Invoice {
 
   // Relations
   projeto          Projeto?          @relation(fields: [projetoId], references: [id])
+  proposta         Proposta?         @relation(fields: [propostaId], references: [id])
   cliente          Cliente           @relation(fields: [clienteId], references: [id])
   empresa          Empresa           @relation(fields: [empresaId], references: [id])
   // taxRateRel removed
@@ -2082,6 +2124,7 @@ model Invoice {
   @@index([numeroInvoice])
   @@index([clienteId])
   @@index([projetoId])
+  @@index([propostaId])
   @@index([status])
   @@index([dataVencimento])
   @@index([criadoEm])
