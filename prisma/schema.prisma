@@ -1123,6 +1123,8 @@ enum PropostaLog_action {
   CANCELLED
   ATTACH_ADDED
   ATTACH_REMOVED
+  EMAIL_FAILED
+  APPROVAL_INTERNA
 }
 
 enum PropostaEtapa_status {

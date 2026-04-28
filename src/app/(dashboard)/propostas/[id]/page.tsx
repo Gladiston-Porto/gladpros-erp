@@ -7,6 +7,7 @@ import { adaptAPIToPropostaForm, PropostaComRelacoes } from "@/components/propos
 import { notFound, redirect } from "next/navigation";
 import { ClientesProvider } from "@/components/propostas/ClientesContext";
 import { ConvertProposalButton } from "@/components/propostas/ConvertProposalButton";
+import { AprovacoesInternasPanel } from "@/components/propostas/AprovacoesInternasPanel";
 import { Button } from "@gladpros/ui/button";
 import { Download } from "lucide-react";
 
@@ -65,6 +66,17 @@ export default async function PropostaPage({ params }: PropostaPageProps) {
           status={proposta.status}
         />
       </div>
+
+      {(can(user.role as Role, 'propostas', 'update') &&
+        ['ADMIN', 'FINANCEIRO', 'GERENTE'].includes(user.role)) && (
+        <AprovacoesInternasPanel
+          propostaId={proposta.id}
+          aprovacaoInternaFinanceira={proposta.aprovacaoInternaFinanceira ?? false}
+          aprovacaoInternaTecnica={proposta.aprovacaoInternaTecnica ?? false}
+          userRole={user.role}
+        />
+      )}
+
       <ClientesProvider>
         <PropostaForm initialData={formData} propostaId={id} />
       </ClientesProvider>

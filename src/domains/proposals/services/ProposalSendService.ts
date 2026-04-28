@@ -58,7 +58,20 @@ export async function sendProposal(
       proposalTitle: proposta.titulo,
       proposalValue: proposta.valorEstimado ? Number(proposta.valorEstimado) : null,
       currency: proposta.moeda || 'USD',
-    }).catch((err) => console.error('[ProposalSendService] Erro ao enviar email:', err));
+    }).catch(async (err) => {
+      console.error('[ProposalSendService] Erro ao enviar email:', err);
+      await prisma.propostaLog.create({
+        data: {
+          id: randomUUID(),
+          propostaId,
+          actorId: Number(audit.actorId),
+          action: 'EMAIL_FAILED',
+          newJson: JSON.stringify({ error: err?.message ?? String(err), to: cliente.email }),
+          ip: audit.ip,
+          userAgent: audit.userAgent,
+        },
+      }).catch(() => {}); // Never fail on log error
+    });
   }
 
   return { success: true, data: updated };

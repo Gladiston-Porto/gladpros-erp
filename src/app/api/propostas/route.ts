@@ -34,6 +34,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     titulo:         { titulo: sortDir },
     status:         { status: sortDir },
     valorEstimado:  { valorEstimado: sortDir },
+    valor:          { valorEstimado: sortDir }, // alias used by frontend
     cliente:        { Cliente: { nomeCompleto: sortDir } },
   };
   const orderBy = SORT_WHITELIST[sortKey] ?? SORT_WHITELIST['criadoEm'];
@@ -63,18 +64,28 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     prisma.proposta.count({ where })
   ]);
 
-  const mapped = items.map((p) => ({
-    id: p.id,
-    numeroProposta: p.numeroProposta,
-    titulo: p.titulo,
-    status: p.status,
-    valorEstimado: p.valorEstimado ? Number(p.valorEstimado) : null,
-    criadoEm: p.criadoEm,
-    cliente: p.Cliente ? { id: p.Cliente.id, nome: p.Cliente.nomeCompleto, email: p.Cliente.email } : null,
-    etapasCount: p._count?.PropostaEtapa ?? 0,
-    materiaisCount: p._count?.PropostaMaterial ?? 0,
-    anexosCount: p._count?.AnexoProposta ?? 0
-  }));
+  const mapped = items.map((p) => {
+    const now = Date.now();
+    const diasAteVencimento = p.validadeProposta
+      ? Math.ceil((new Date(p.validadeProposta).getTime() - now) / (1000 * 60 * 60 * 24))
+      : null;
+    return {
+      id: p.id,
+      numeroProposta: p.numeroProposta,
+      titulo: p.titulo,
+      status: p.status,
+      valorEstimado: p.valorEstimado ? Number(p.valorEstimado) : null,
+      criadoEm: p.criadoEm,
+      validadeProposta: p.validadeProposta ?? null,
+      diasAteVencimento,
+      aprovacaoInternaFinanceira: p.aprovacaoInternaFinanceira ?? false,
+      aprovacaoInternaTecnica: p.aprovacaoInternaTecnica ?? false,
+      cliente: p.Cliente ? { id: p.Cliente.id, nome: p.Cliente.nomeCompleto, email: p.Cliente.email } : null,
+      etapasCount: p._count?.PropostaEtapa ?? 0,
+      materiaisCount: p._count?.PropostaMaterial ?? 0,
+      anexosCount: p._count?.AnexoProposta ?? 0
+    };
+  });
 
   return NextResponse.json({
     data: mapped,

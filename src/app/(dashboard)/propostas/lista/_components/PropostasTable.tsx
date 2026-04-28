@@ -195,11 +195,30 @@ export function PropostasTable({
                     : "-"}
                 </td>
                 <td className="px-3 py-3">
-                  <StatusBadge status={proposta.status} />
+                  <div className="flex flex-col gap-1">
+                    <StatusBadge status={proposta.status} />
+                    {proposta.diasAteVencimento !== null && proposta.diasAteVencimento !== undefined && (
+                      <span
+                        className={`inline-block self-start rounded px-1.5 py-0.5 text-xs font-medium ${
+                          proposta.diasAteVencimento < 0
+                            ? 'bg-destructive/10 text-destructive'
+                            : proposta.diasAteVencimento <= 7
+                            ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {proposta.diasAteVencimento < 0
+                          ? 'Expirada'
+                          : proposta.diasAteVencimento === 0
+                          ? 'Expira hoje'
+                          : `Exp. em ${proposta.diasAteVencimento}d`}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-3">
-                  {proposta.valor
-                    ? `$ ${proposta.valor.toLocaleString("en-US", {
+                  {(proposta.valorEstimado ?? proposta.valor)
+                    ? `$ ${(proposta.valorEstimado ?? proposta.valor)!.toLocaleString("en-US", {
                         minimumFractionDigits: 2,
                       })}`
                     : "-"}

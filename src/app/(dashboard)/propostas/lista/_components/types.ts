@@ -17,6 +17,11 @@ export type PropostaDTO = {
   };
   status: StatusProposta;
   valor?: number;
+  valorEstimado?: number | null;
+  validadeProposta?: string | null;
+  diasAteVencimento?: number | null;
+  aprovacaoInternaFinanceira?: boolean;
+  aprovacaoInternaTecnica?: boolean;
   criadoEm: string;
   atualizadoEm?: string;
 };

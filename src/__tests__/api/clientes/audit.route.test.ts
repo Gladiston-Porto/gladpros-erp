@@ -81,20 +81,16 @@ describe('/api/clientes/[id]/audit - GET', () => {
     expect(json.data[0].usuario).not.toHaveProperty('email')
   })
 
-  it('returns 403 when role is USUARIO', async () => {
+  it('returns 200 when role is USUARIO (has read access to clientes)', async () => {
     mockRequireUser.mockResolvedValue({ id: '5', role: 'USUARIO' })
-    mockHasRole.mockReturnValue(false)
     const res = await GET(makeRequest('5'), makeContext('5'))
-    const json = await res.json()
-    expect(res.status).toBe(403)
-    expect(json.success).toBe(false)
+    expect(res.status).toBe(200)
   })
 
-  it('returns 403 when role is FINANCEIRO', async () => {
+  it('returns 200 when role is FINANCEIRO (has read access to clientes)', async () => {
     mockRequireUser.mockResolvedValue({ id: '3', role: 'FINANCEIRO' })
-    mockHasRole.mockReturnValue(false)
     const res = await GET(makeRequest('5'), makeContext('5'))
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(200)
   })
 
   it('returns 422 on invalid id param', async () => {

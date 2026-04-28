@@ -35,6 +35,14 @@ import { NextRequest } from 'next/server';
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
+    $queryRaw: jest.fn().mockResolvedValue([
+      { COLUMN_NAME: 'id' },
+      { COLUMN_NAME: 'email' },
+      { COLUMN_NAME: 'nomeCompleto' },
+      { COLUMN_NAME: 'role' },
+      { COLUMN_NAME: 'status' },
+      { COLUMN_NAME: 'criadoEm' },
+    ]),
     $queryRawUnsafe: jest.fn(),
   },
 }));

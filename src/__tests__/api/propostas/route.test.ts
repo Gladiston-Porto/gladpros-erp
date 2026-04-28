@@ -25,6 +25,27 @@ jest.mock('../../../lib/prisma', () => ({
       count: jest.fn(),
       create: jest.fn(),
     },
+    numeracaoProposta: {
+      findFirst: jest.fn(),
+      upsert: jest.fn(),
+    },
+    $transaction: jest.fn().mockImplementation((fn) => {
+      if (typeof fn === 'function') {
+        const tx = {
+          proposta: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            findUnique: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockResolvedValue({ id: 1, numeroProposta: 'GP-202501-00001' }),
+          },
+          numeracaoProposta: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            upsert: jest.fn(),
+          },
+        };
+        return fn(tx);
+      }
+      return Promise.all(fn);
+    }),
   },
 }))
 
