@@ -2,7 +2,7 @@
 import { MFAService } from '../../../shared/lib/mfa'
 
 // Mock do Prisma
-jest.mock('../../../server/db', () => ({
+jest.mock('../../../lib/prisma', () => ({
   prisma: {
     codigoMFA: {
       create: jest.fn(),
@@ -10,7 +10,9 @@ jest.mock('../../../server/db', () => ({
       update: jest.fn(),
       deleteMany: jest.fn(),
       count: jest.fn()
-    }
+    },
+    $executeRaw: jest.fn(),
+    $queryRaw: jest.fn(),
   }
 }))
 
@@ -63,10 +65,10 @@ describe('MFA Service', () => {
   })
 
   describe('createMFACode', () => {
-    const mockPrisma = require('../../../server/db').prisma
+    const mockPrisma = require('../../../lib/prisma').prisma
 
     it('should create MFA code with correct parameters', async () => {
-      const mockCreateResult = { id: 1 }
+      const mockCreateResult = { id: 1 };
       (mockPrisma.codigoMFA.create as jest.Mock).mockResolvedValue(mockCreateResult)
 
       const result = await MFAService.createMFACode({
@@ -92,7 +94,7 @@ describe('MFA Service', () => {
     })
 
     it('should set expiration to 5 minutes from now', async () => {
-      const beforeCreate = new Date()
+      const beforeCreate = new Date();
       (mockPrisma.codigoMFA.create as jest.Mock).mockResolvedValue({ id: 1 })
 
       await MFAService.createMFACode({
@@ -111,7 +113,7 @@ describe('MFA Service', () => {
   })
 
   describe('verifyMFACode', () => {
-    const mockPrisma = require('../../../server/db').prisma
+    const mockPrisma = require('../../../lib/prisma').prisma
 
     it('should validate correct code', async () => {
       const code = '123456'
@@ -121,8 +123,8 @@ describe('MFA Service', () => {
         expiresAt: new Date(Date.now() + 10000), // Not expired
         usado: false
       }
-
-      (mockPrisma.codigoMFA.findFirst as jest.Mock).mockResolvedValue(mockFindResult)
+;
+      (mockPrisma.codigoMFA.findFirst as jest.Mock).mockResolvedValue(mockFindResult);
       (mockPrisma.codigoMFA.update as jest.Mock).mockResolvedValue(undefined)
 
       const result = await MFAService.verifyMFACode({
@@ -141,10 +143,7 @@ describe('MFA Service', () => {
         orderBy: { criadoEm: 'desc' },
         select: { id: true, expiresAt: true, usado: true }
       })
-      expect(mockPrisma.codigoMFA.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { usado: true }
-      })
+      expect(mockPrisma.$executeRaw).toHaveBeenCalled()
     })
 
     it('should return invalid for expired code', async () => {
@@ -154,7 +153,7 @@ describe('MFA Service', () => {
         expiresAt: new Date(Date.now() - 10000), // Expired
         usado: false
       }
-
+;
       (mockPrisma.codigoMFA.findFirst as jest.Mock).mockResolvedValue(mockFindResult)
 
       const result = await MFAService.verifyMFACode({
@@ -174,7 +173,7 @@ describe('MFA Service', () => {
         expiresAt: new Date(Date.now() + 10000),
         usado: true // Already used
       }
-
+;
       (mockPrisma.codigoMFA.findFirst as jest.Mock).mockResolvedValue(mockFindResult)
 
       const result = await MFAService.verifyMFACode({

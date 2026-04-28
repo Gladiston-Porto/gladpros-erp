@@ -58,7 +58,7 @@ jest.mock('@/lib/api/error-handler', () => ({
 import { NextRequest } from 'next/server';
 import { requireUser, can } from '@/shared/lib/rbac';
 import { prisma } from '@/lib/prisma';
-import { emailRateLimitMap } from '@/app/api/invoices/[id]/send/route';
+import { emailRateLimitMap } from '@/app/api/invoices/[id]/send/email-rate-limit';
 
 const mockRequireUser = requireUser as jest.MockedFunction<typeof requireUser>;
 const mockCan = can as jest.MockedFunction<typeof can>;

@@ -17,9 +17,6 @@ const config = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@/shared/(.*)$': '<rootDir>/src/shared/$1',
   },
-  transformIgnorePatterns: [
-    '/node_modules/(?!(jsdom|parse5|nwsapi|cssstyle|whatwg-url)/)',
-  ],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',
@@ -81,4 +78,12 @@ const config = {
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-module.exports = createJestConfig(config)
+// We wrap it to forcibly override transformIgnorePatterns since next/jest overrides our custom value
+const baseConfig = createJestConfig(config)
+module.exports = async () => {
+  const resolved = await baseConfig()
+  resolved.transformIgnorePatterns = [
+    '/node_modules/(?!(jsdom|parse5|nwsapi|cssstyle|whatwg-url|jose)/)',
+  ]
+  return resolved
+}
