@@ -161,8 +161,8 @@ describe('InventoryMovementService', () => {
         nome: 'Material Teste',
         codigo: 'MAT-001',
         unidade: 'UN',
-        quantidadeAlocada: 100,
-        quantidadeUsada: 0,
+        quantidadePlanejada: 100,
+        quantidadeLiberada: 0,
         status: 'DISPONIVEL',
       };
       const mockMovimentacaoPendente = {
