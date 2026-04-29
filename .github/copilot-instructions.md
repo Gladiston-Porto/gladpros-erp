@@ -5,12 +5,14 @@
 ```bash
 # Development
 npm run dev          # starts Next.js dev server (auto-builds @gladpros/ui first)
+npm run storybook    # Storybook for @gladpros/ui component development (port 6006)
 
 # Build & Validate
 npm run build        # production build (auto-builds packages first)
 npm run lint         # ESLint — zero warnings allowed
 npm run lint:fix     # auto-fix lint errors
 npm run type-check   # tsc --noEmit (uses tsconfig.typecheck.json)
+npm run secret:scan  # scan for accidental secrets in source files
 
 # Testing
 npm test                           # unit tests (jsdom environment)
@@ -22,12 +24,14 @@ npm run test:e2e                   # Playwright E2E tests
 npx playwright test tests/e2e/clientes/clientes-crud.spec.ts  # single E2E spec
 
 # Database
-npm run db:migrate   # prisma migrate dev
+npm run db:migrate   # prisma migrate dev (requires shadow DB — see note below)
 npm run db:generate  # prisma generate (must run after schema changes)
 npm run db:studio    # Prisma Studio UI
 ```
 
-> Full suite: `npm run check` (lint + type-check + unit tests)
+> Full suite: `npm run check` (lint + type-check + unit tests) — `npm run check:all` also runs a production build.
+
+> **⚠️ Schema changes:** The MySQL user may lack shadow DB permissions, causing `prisma migrate dev` to fail. In that case use `npx prisma db push --accept-data-loss` to apply schema changes directly. No migration history file is created; rollback must be done manually. Always run `npm run db:generate` afterwards.
 
 ## Stack
 - **Framework**: Next.js 15 (App Router), React 19, TypeScript
@@ -268,6 +272,8 @@ These affect runtime performance and must be set in production:
 | `TOKEN_VERSION_COLUMN_EXISTS` | `1` | Skips `INFORMATION_SCHEMA` query on boot — prevents ~10s cold start latency |
 | `RBAC_TRUST_JWT` | `1` | Skips DB lookup per request — JWT already verified in middleware |
 | `REDIS_DISABLED` | `true` | Forces in-memory rate limiter (use when Redis is not available) |
+
+> **⚠️ Sentry is intentionally disabled in `npm run dev`** (`config/next.config.ts`). It adds ~3,000 extra webpack modules per route, causing 60-340s compile times and OOM restarts. Sentry remains active for `npm run build` / production. Never re-enable `withSentryConfig` in dev mode.
 
 ## Specialized Agents & Chat Modes
 
