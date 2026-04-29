@@ -144,6 +144,44 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
     const [obsCliente, setObsCliente] = useState(initialData?.obsCliente || "")
     const [obsInternas, setObsInternas] = useState(initialData?.obsInternas || "")
 
+    // Tax classification state
+    const [propertyType, setPropertyType] = useState<PropostaFormData['propertyType']>(initialData?.propertyType ?? 'RESIDENTIAL')
+    const [serviceCategory, setServiceCategory] = useState<PropostaFormData['serviceCategory']>(initialData?.serviceCategory ?? 'REPAIR')
+    const [contractType, setContractType] = useState<PropostaFormData['contractType']>(initialData?.contractType ?? 'LUMP_SUM')
+
+    // Stock availability check state
+    const [estoqueCheck, setEstoqueCheck] = useState<Record<number, { disponivel: number; needsToPurchase: boolean; shortfall: number }>>({})
+    const [checkingStock, setCheckingStock] = useState(false)
+
+    const handleCheckEstoque = async () => {
+        const linkedItems = materiais.filter((m) => m.estoqueItemId)
+        if (linkedItems.length === 0) {
+            showToast({ title: 'Estoque', message: 'Nenhum material vinculado ao estoque', type: 'info' })
+            return
+        }
+        setCheckingStock(true)
+        try {
+            const { authenticatedFetch } = await import('@/lib/api/client')
+            const res = await authenticatedFetch('/api/propostas/estoque-check', {
+                method: 'POST',
+                body: JSON.stringify({ items: linkedItems.map((m) => ({ estoqueItemId: m.estoqueItemId!, quantidade: m.quantidade })) }),
+            })
+            if (!res.ok) throw new Error('Falha ao verificar estoque')
+            const json = await res.json()
+            const map: Record<number, { disponivel: number; needsToPurchase: boolean; shortfall: number }> = {}
+            for (const item of json.data) {
+                map[item.estoqueItemId] = { disponivel: item.disponivel, needsToPurchase: item.needsToPurchase, shortfall: item.shortfall }
+            }
+            setEstoqueCheck(map)
+            const needsBuy = json.data.filter((i: { needsToPurchase: boolean }) => i.needsToPurchase).length
+            showToast({ title: 'Estoque verificado', message: needsBuy > 0 ? `${needsBuy} item(s) precisam ser comprados` : 'Todos os itens têm estoque disponível', type: needsBuy > 0 ? 'warning' : 'success' })
+        } catch {
+            showToast({ title: 'Erro', message: 'Erro ao verificar estoque', type: 'error' })
+        } finally {
+            setCheckingStock(false)
+        }
+    }
+
     // Exibir erro de clientes se houver
     useEffect(() => {
         if (clientesError) {
@@ -174,8 +212,11 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
         faturamento,
         obsCliente,
         obsInternas,
-        status
-    }), [cliente, escopo, prazos, permite, quaisPermites, normas, inspecoes, materiais, etapas, comerciais, interno, faturamento, obsCliente, obsInternas, status])
+        status,
+        propertyType,
+        serviceCategory,
+        contractType,
+    }), [cliente, escopo, prazos, permite, quaisPermites, normas, inspecoes, materiais, etapas, comerciais, interno, faturamento, obsCliente, obsInternas, status, propertyType, serviceCategory, contractType])
 
     const { debouncedSave } = useAutoSave(formData, !loading && !propostaId)
 
@@ -226,12 +267,22 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
     const handleClienteChange = (clienteId: string) => {
         const clienteSelecionado = clientes.find(c => c.id === clienteId)
         if (clienteSelecionado) {
+            // Build a best-effort service address from client address fields
+            const clientAddress = [
+                clienteSelecionado.addressStreet,
+                clienteSelecionado.addressUnit,
+                clienteSelecionado.addressCity,
+                clienteSelecionado.addressState,
+                clienteSelecionado.addressZip,
+            ].filter(Boolean).join(', ')
+
             setCliente(prev => ({
                 ...prev,
                 id: clienteId,
-                contato_nome: clienteSelecionado.nomeCompleto || clienteSelecionado.razaoSocial || clienteSelecionado.nomeFantasia || '',
+                contato_nome: clienteSelecionado.nomeCompleto,
                 contato_email: clienteSelecionado.email,
                 contato_telefone: clienteSelecionado.telefone || '',
+                local_endereco: clientAddress || prev.local_endereco,
             }))
         }
     }
@@ -349,7 +400,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                         <SelectContent>
                                             {clientes.map(c => (
                                                 <SelectItem key={c.id} value={c.id}>
-                                                    {c.nomeCompleto || c.razaoSocial || c.nomeFantasia}
+                                                    {c.nomeCompleto}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -379,10 +430,49 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                 />
                             </div>
                             <div className="md:col-span-2">
-                                <Label className="mb-2 block">Endereço de Execução <span className="text-destructive" aria-hidden="true">*</span></Label>
+                                <Label className="mb-2 block">Endereço do Serviço — Linha 1 <span className="text-destructive" aria-hidden="true">*</span></Label>
                                 <Input
-                                    value={cliente.local_endereco}
-                                    onChange={(e) => setCliente({ ...cliente, local_endereco: e.target.value })}
+                                    placeholder="Ex: 1234 Elm St"
+                                    value={cliente.serviceAddressLine1 || ''}
+                                    onChange={(e) => setCliente({ ...cliente, serviceAddressLine1: e.target.value })}
+                                    aria-label="Endereço do serviço linha 1"
+                                />
+                            </div>
+                            <div>
+                                <Label className="mb-2 block">Apt / Suite / Unit</Label>
+                                <Input
+                                    placeholder="Ex: Suite 200"
+                                    value={cliente.serviceAddressLine2 || ''}
+                                    onChange={(e) => setCliente({ ...cliente, serviceAddressLine2: e.target.value })}
+                                    aria-label="Endereço do serviço linha 2"
+                                />
+                            </div>
+                            <div>
+                                <Label className="mb-2 block">City</Label>
+                                <Input
+                                    placeholder="Ex: Dallas"
+                                    value={cliente.serviceAddressCity || ''}
+                                    onChange={(e) => setCliente({ ...cliente, serviceAddressCity: e.target.value })}
+                                    aria-label="Cidade do serviço"
+                                />
+                            </div>
+                            <div>
+                                <Label className="mb-2 block">State</Label>
+                                <Input
+                                    placeholder="TX"
+                                    maxLength={2}
+                                    value={cliente.serviceAddressState || 'TX'}
+                                    onChange={(e) => setCliente({ ...cliente, serviceAddressState: e.target.value.toUpperCase() })}
+                                    aria-label="Estado do serviço"
+                                />
+                            </div>
+                            <div>
+                                <Label className="mb-2 block">ZIP Code</Label>
+                                <Input
+                                    placeholder="Ex: 75201"
+                                    value={cliente.serviceAddressZip || ''}
+                                    onChange={(e) => setCliente({ ...cliente, serviceAddressZip: e.target.value })}
+                                    aria-label="ZIP Code do serviço"
                                 />
                             </div>
                             <div className="md:col-span-2">
@@ -393,6 +483,76 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                     value={escopo}
                                     onChange={(e) => setEscopo(e.target.value)}
                                 />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Tax Classification */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Classificação Fiscal (TX Sales Tax)</CardTitle>
+                            <CardDescription>Determina como o imposto de vendas do Texas (8.25%) é aplicado nesta proposta.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <Label className="mb-2 block">Tipo de Propriedade</Label>
+                                <Select value={propertyType} onValueChange={(v) => setPropertyType(v as PropostaFormData['propertyType'])}>
+                                    <SelectTrigger aria-label="Tipo de propriedade">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="RESIDENTIAL">Residential</SelectItem>
+                                        <SelectItem value="COMMERCIAL">Commercial</SelectItem>
+                                        <SelectItem value="MIXED_USE">Mixed-Use</SelectItem>
+                                        <SelectItem value="EXEMPT_ORGANIZATION">Exempt Organization</SelectItem>
+                                        <SelectItem value="GOVERNMENT">Government</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label className="mb-2 block">Tipo de Serviço</Label>
+                                <Select value={serviceCategory} onValueChange={(v) => setServiceCategory(v as PropostaFormData['serviceCategory'])}>
+                                    <SelectTrigger aria-label="Tipo de serviço">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="REPAIR">Repair</SelectItem>
+                                        <SelectItem value="REMODEL">Remodel</SelectItem>
+                                        <SelectItem value="NEW_CONSTRUCTION">New Construction</SelectItem>
+                                        <SelectItem value="RESTORATION">Restoration</SelectItem>
+                                        <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                                        <SelectItem value="INSPECTION">Inspection</SelectItem>
+                                        <SelectItem value="CONSULTATION">Consultation</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label className="mb-2 block">Tipo de Contrato</Label>
+                                <Select value={contractType} onValueChange={(v) => setContractType(v as PropostaFormData['contractType'])}>
+                                    <SelectTrigger aria-label="Tipo de contrato">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="LUMP_SUM">Lump Sum (preço fechado)</SelectItem>
+                                        <SelectItem value="SEPARATED">Separated (mão de obra + material separados)</SelectItem>
+                                        <SelectItem value="COST_PLUS">Cost Plus</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="md:col-span-3 rounded-lg bg-muted/40 border border-border p-3 text-sm text-muted-foreground">
+                                <span className="font-medium text-foreground">Regra TX: </span>
+                                {propertyType === 'RESIDENTIAL' && contractType === 'LUMP_SUM' && (
+                                    <span>Residencial + Lump Sum → <strong className="text-green-600">Não tributável ao cliente</strong> (GladPros paga tax nos materiais)</span>
+                                )}
+                                {propertyType === 'RESIDENTIAL' && contractType === 'SEPARATED' && (
+                                    <span>Residencial + Separado → <strong className="text-yellow-600">Apenas materiais tributados (8.25%)</strong></span>
+                                )}
+                                {propertyType === 'COMMERCIAL' && (
+                                    <span>Comercial → <strong className="text-orange-600">Subtotal total tributado (8.25%)</strong></span>
+                                )}
+                                {(propertyType === 'MIXED_USE' || propertyType === 'EXEMPT_ORGANIZATION' || propertyType === 'GOVERNMENT') && (
+                                    <span><strong className="text-destructive">Revisão manual necessária</strong> — contate ADMIN ou FINANCEIRO antes de enviar.</span>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -442,7 +602,12 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle>Materiais</CardTitle>
-                            <Button size="sm" variant="outline" onClick={addMaterial}>+ Adicionar</Button>
+                            <div className="flex gap-2">
+                                <Button size="sm" variant="outline" onClick={handleCheckEstoque} disabled={checkingStock} aria-label="Verificar disponibilidade no estoque">
+                                    {checkingStock ? 'Verificando...' : '🔍 Verificar Estoque'}
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={addMaterial}>+ Adicionar</Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {materiais.map((m, idx) => (
@@ -451,11 +616,11 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                         <Label className="text-xs">Código</Label>
                                         <Input className="h-9" value={m.codigo} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, codigo: e.target.value } : x)))} />
                                     </div>
-                                    <div className="col-span-4">
+                                    <div className="col-span-3">
                                         <Label className="text-xs">Nome</Label>
                                         <Input className="h-9" value={m.nome} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, nome: e.target.value } : x)))} />
                                     </div>
-                                    <div className="col-span-2">
+                                    <div className="col-span-1">
                                         <Label className="text-xs">Qtd</Label>
                                         <Input className="h-9" type="number" value={m.quantidade} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, quantidade: Number(e.target.value) } : x)))} />
                                     </div>
@@ -467,8 +632,27 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                         <Label className="text-xs">$ Unit</Label>
                                         <Input className="h-9" type="number" step="0.01" value={m.preco ?? ""} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, preco: Number(e.target.value) } : x)))} />
                                     </div>
-                                    <div className="col-span-1">
-                                        <Button size="icon" variant="destructive" className="h-9 w-9" onClick={() => rmMaterial(m.id)}>X</Button>
+                                    <div className="col-span-2">
+                                        <Label className="text-xs">Est. Item ID</Label>
+                                        <Input
+                                            className="h-9"
+                                            type="number"
+                                            placeholder="ID do estoque"
+                                            value={m.estoqueItemId ?? ''}
+                                            onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, estoqueItemId: e.target.value ? Number(e.target.value) : undefined } : x)))}
+                                            aria-label={`ID do item no estoque para ${m.nome}`}
+                                        />
+                                    </div>
+                                    <div className="col-span-1 flex flex-col items-center gap-1">
+                                        {m.estoqueItemId && estoqueCheck[m.estoqueItemId] && (
+                                            <span
+                                                className={`text-xs font-medium px-1 rounded ${estoqueCheck[m.estoqueItemId].needsToPurchase ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-600'}`}
+                                                title={estoqueCheck[m.estoqueItemId].needsToPurchase ? `Faltam ${estoqueCheck[m.estoqueItemId].shortfall} ${m.unidade}` : 'Em estoque'}
+                                            >
+                                                {estoqueCheck[m.estoqueItemId].needsToPurchase ? '⚠ Comprar' : '✓ OK'}
+                                            </span>
+                                        )}
+                                        <Button size="icon" variant="destructive" className="h-9 w-9" onClick={() => rmMaterial(m.id)} aria-label={`Remover material ${m.nome}`}>X</Button>
                                     </div>
                                 </div>
                             ))}

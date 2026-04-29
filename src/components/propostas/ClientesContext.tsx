@@ -4,11 +4,17 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 
 interface ClienteAPI {
   id: string
-  nomeCompleto?: string
-  razaoSocial?: string
-  nomeFantasia?: string
+  // The API returns `nomeCompletoOuRazao` as a pre-computed display name.
+  // We normalize it to `nomeCompleto` so form consumers don't need to know the API field name.
+  nomeCompleto: string
   email: string
   telefone?: string
+  // Address fields returned by the clientes API (for auto-populating form)
+  addressStreet?: string
+  addressUnit?: string
+  addressCity?: string
+  addressState?: string
+  addressZip?: string
 }
 
 interface ClientesContextType {
@@ -36,7 +42,19 @@ export function ClientesProvider({ children }: { children: ReactNode }) {
       }
       
       const data = await response.json()
-      setClientes(data.data || [])
+      // Normalize API response: convert numeric id → string, map nomeCompletoOuRazao → nomeCompleto
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setClientes((data.data || []).map((c: any): ClienteAPI => ({
+        id: String(c.id),
+        nomeCompleto: c.nomeCompletoOuRazao || c.nomeCompleto || c.razaoSocial || c.nomeFantasia || 'Cliente sem nome',
+        email: c.email || '',
+        telefone: c.telefone || undefined,
+        addressStreet: c.addressStreet || undefined,
+        addressUnit: c.addressUnit || undefined,
+        addressCity: c.addressCity || undefined,
+        addressState: c.addressState || undefined,
+        addressZip: c.addressZip || undefined,
+      })))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {

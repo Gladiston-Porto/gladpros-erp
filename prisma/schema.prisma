@@ -460,10 +460,23 @@ model Proposta {
   tokenExpiresAt             DateTime?
   tokenPublico               String?                           @unique @db.VarChar(100)
   validadeProposta           DateTime?
-  // Tax Classification (Fase 2)
+  // Tax Classification (Fase 2 — used by salesTaxService)
   propertyType    PropertyType?    @default(RESIDENTIAL) @map("property_type")
   serviceCategory ServiceCategory? @default(REPAIR)      @map("service_category")
   contractType    ContractType?    @default(LUMP_SUM)    @map("contract_type")
+  // Structured service address (Fase 3 — where the work happens, may differ from client address)
+  serviceAddressLine1        String?  @db.VarChar(200)
+  serviceAddressLine2        String?  @db.VarChar(100)
+  serviceAddressCity         String?  @db.VarChar(100)
+  serviceAddressState        String?  @default("TX") @db.VarChar(2)
+  serviceAddressZip          String?  @db.VarChar(10)
+  // Computed TX sales tax (Fase 3 — stored for display on proposal PDF/portal)
+  taxScenario                String?  @db.VarChar(2)
+  taxMode                    TaxMode? @default(NON_TAXABLE)
+  taxRate                    Decimal? @db.Decimal(6, 4)
+  taxAmount                  Decimal? @db.Decimal(12, 2)
+  taxExplanation             String?  @db.Text
+  taxRequiresReview          Boolean? @default(false)
   AnexoProposta              AnexoProposta[]
   Projeto                    ProjetoLegacy?
   Projetos                   Projeto[]                         @relation("PropostaProjetos")
@@ -517,6 +530,7 @@ model PropostaLog {
 model PropostaMaterial {
   id                     Int                     @id @default(autoincrement())
   propostaId             Int
+  estoqueItemId          Int?                    // Optional link to EstoqueItem for stock check
   codigo                 String?                 @db.VarChar(50)
   nome                   String
   quantidade             Decimal                 @default(0.000) @db.Decimal(12, 3)
@@ -530,6 +544,7 @@ model PropostaMaterial {
   Proposta               Proposta                @relation(fields: [propostaId], references: [id], onDelete: Cascade)
 
   @@index([propostaId])
+  @@index([estoqueItemId])
 }
 
 model PropostaTemplate {

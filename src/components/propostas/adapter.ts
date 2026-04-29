@@ -15,6 +15,12 @@ export interface PropostaAPIPayload {
   contatoEmail: string
   contatoTelefone?: string
   localExecucaoEndereco: string
+  // Structured service address
+  serviceAddressLine1?: string
+  serviceAddressLine2?: string
+  serviceAddressCity?: string
+  serviceAddressState?: string
+  serviceAddressZip?: string
 
   // Prazos
   tempoParaAceite: number
@@ -58,6 +64,11 @@ export interface PropostaAPIPayload {
   // Observações
   observacoesCliente?: string
   observacoesInternas?: string
+
+  // Tax classification (sent to API which computes the actual tax via salesTaxService)
+  propertyType?: string
+  serviceCategory?: string
+  contractType?: string
 
   // Materiais e etapas (simplified for DB)
   materiais: Array<{
@@ -154,6 +165,18 @@ export function adaptPropostaFormToAPI(formData: PropostaFormData): PropostaAPIP
     observacoesCliente: formData.obsCliente,
     observacoesInternas: formData.obsInternas,
 
+    // Structured service address
+    serviceAddressLine1: formData.cliente.serviceAddressLine1 || undefined,
+    serviceAddressLine2: formData.cliente.serviceAddressLine2 || undefined,
+    serviceAddressCity: formData.cliente.serviceAddressCity || undefined,
+    serviceAddressState: formData.cliente.serviceAddressState || 'TX',
+    serviceAddressZip: formData.cliente.serviceAddressZip || undefined,
+
+    // Tax classification
+    propertyType: formData.propertyType,
+    serviceCategory: formData.serviceCategory,
+    contractType: formData.contractType,
+
     // Materiais adaptados
     materiais: formData.materiais.map(m => ({
       codigo: m.codigo,
@@ -210,7 +233,8 @@ export function adaptAPIToPropostaForm(proposta: PropostaComRelacoes): PropostaF
     preco: Number(m.precoUnitario || 0),
     status: (m.status === 'PLANEJADO' ? 'necessario' : 'opcional') as any, // Simplified map
     obs: m.observacao || '',
-    fornecedor: m.fornecedorPreferencial || ''
+    fornecedor: m.fornecedorPreferencial || '',
+    estoqueItemId: m.estoqueItemId ?? undefined,
   }));
 
   // Map etapas
@@ -232,7 +256,12 @@ export function adaptAPIToPropostaForm(proposta: PropostaComRelacoes): PropostaF
       contato_email: proposta.contatoEmail,
       contato_telefone: proposta.contatoTelefone || '',
       local_endereco: proposta.localExecucaoEndereco,
-      titulo: proposta.titulo
+      titulo: proposta.titulo,
+      serviceAddressLine1: proposta.serviceAddressLine1 || '',
+      serviceAddressLine2: proposta.serviceAddressLine2 || '',
+      serviceAddressCity: proposta.serviceAddressCity || '',
+      serviceAddressState: proposta.serviceAddressState || 'TX',
+      serviceAddressZip: proposta.serviceAddressZip || '',
     },
     escopo: proposta.descricaoEscopo,
     prazos: {
@@ -274,6 +303,9 @@ export function adaptAPIToPropostaForm(proposta: PropostaComRelacoes): PropostaF
     },
     obsCliente: proposta.observacoesParaCliente || '',
     obsInternas: proposta.observacoesInternas || '',
-    status: proposta.status as StatusProposta
+    status: proposta.status as StatusProposta,
+    propertyType: (proposta.propertyType as PropostaFormData['propertyType']) ?? 'RESIDENTIAL',
+    serviceCategory: (proposta.serviceCategory as PropostaFormData['serviceCategory']) ?? 'REPAIR',
+    contractType: (proposta.contractType as PropostaFormData['contractType']) ?? 'LUMP_SUM',
   };
 }

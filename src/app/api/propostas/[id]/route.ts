@@ -7,7 +7,34 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { updatePropostaSchema } from '@/schemas/proposta.schema';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
-import type { Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, PropostaMaterial_status, PropostaEtapa_status } from '@prisma/client';
+import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
+import type { Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, PropostaMaterial_status, PropostaEtapa_status, PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
+
+function computePropostaTax(payload: {
+  valorEstimado: number;
+  propertyType?: string | null;
+  serviceCategory?: string | null;
+  contractType?: string | null;
+  serviceAddressState?: string | null;
+}) {
+  const result = calculateInvoiceTax({
+    subtotal: payload.valorEstimado || 0,
+    classification: {
+      propertyType: (payload.propertyType as PropertyType) ?? null,
+      serviceCategory: (payload.serviceCategory as ServiceCategory) ?? null,
+      contractType: (payload.contractType as ContractType) ?? null,
+      serviceAddressState: payload.serviceAddressState ?? 'TX',
+    },
+  });
+  return {
+    taxScenario: result.scenario,
+    taxMode: result.taxMode as TaxMode,
+    taxRate: result.taxRate,
+    taxAmount: result.taxAmount,
+    taxExplanation: result.taxExplanation,
+    taxRequiresReview: result.requiresManualReview,
+  };
+}
 
 interface RouteParams {
   params: Promise<{
@@ -59,6 +86,14 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
     // Convert form data to API/DB payload
     const payload = adaptPropostaFormToAPI(body)
 
+    const taxFields = computePropostaTax({
+      valorEstimado: payload.valorEstimado,
+      propertyType: payload.propertyType,
+      serviceCategory: payload.serviceCategory,
+      contractType: payload.contractType,
+      serviceAddressState: payload.serviceAddressState,
+    });
+
     const updatedProposta = await prisma.$transaction(async (tx) => {
       // 1. Update main fields
       await tx.proposta.update({
@@ -73,6 +108,15 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
           contatoEmail: payload.contatoEmail,
           contatoTelefone: payload.contatoTelefone,
           localExecucaoEndereco: payload.localExecucaoEndereco,
+          serviceAddressLine1: payload.serviceAddressLine1,
+          serviceAddressLine2: payload.serviceAddressLine2,
+          serviceAddressCity: payload.serviceAddressCity,
+          serviceAddressState: payload.serviceAddressState ?? 'TX',
+          serviceAddressZip: payload.serviceAddressZip,
+          propertyType: (payload.propertyType as PropertyType) ?? undefined,
+          serviceCategory: (payload.serviceCategory as ServiceCategory) ?? undefined,
+          contractType: (payload.contractType as ContractType) ?? undefined,
+          ...taxFields,
           tempoParaAceite: payload.tempoParaAceite,
           validadeProposta: payload.validadeProposta,
           prazoExecucaoEstimadoDias: payload.prazoExecucaoDias,

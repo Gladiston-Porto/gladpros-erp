@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Clock } from "lucide-react";
 
 import { AdvancedPagination } from "@gladpros/ui/advanced-pagination"
 import { Button } from "@gladpros/ui/button"
@@ -222,6 +222,23 @@ export default function PropostasPage() {
     }
   };
 
+  const handleExpirar = async () => {
+    try {
+      const response = await authenticatedFetch('/api/propostas/expirar', { method: 'POST' })
+      if (!response.ok) throw new Error('Falha')
+      const result = await response.json()
+      const count = result.data?.expiredCount ?? 0
+      if (count > 0) {
+        toast.success(`${count} proposta(s) vencida(s) cancelada(s) com sucesso`)
+        setReloadKey((current) => current + 1)
+      } else {
+        toast.success('Nenhuma proposta vencida encontrada')
+      }
+    } catch {
+      toast.error('Erro ao expirar propostas')
+    }
+  }
+
   const handleExportAllFiltered = async (format: "csv" | "pdf") => {
     setExporting(true);
     try {
@@ -266,12 +283,18 @@ export default function PropostasPage() {
           { label: "Propostas" },
         ]}
         actions={
-          <Button asChild size="default">
-            <Link href="/propostas/nova">
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Proposta
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="default" onClick={handleExpirar} title="Cancelar propostas enviadas com validade vencida">
+              <Clock className="h-4 w-4 mr-2" />
+              Expirar Vencidas
+            </Button>
+            <Button asChild size="default">
+              <Link href="/propostas/nova">
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Proposta
+              </Link>
+            </Button>
+          </div>
         }
       />
 

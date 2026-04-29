@@ -55,8 +55,14 @@ const clienteInfoSchema = z.object({
   contato_nome: z.string().min(1, 'Nome do contato é obrigatório'),
   contato_email: z.string().email('Email inválido'),
   contato_telefone: z.string().optional(),
-  local_endereco: z.string().min(1, 'Endereço é obrigatório'),
+  local_endereco: z.string().optional().default(''),
   titulo: z.string().min(1, 'Título é obrigatório'),
+  // Structured service address fields (where the work happens)
+  serviceAddressLine1: z.string().optional(),
+  serviceAddressLine2: z.string().optional(),
+  serviceAddressCity: z.string().optional(),
+  serviceAddressState: z.string().length(2).optional().default('TX'),
+  serviceAddressZip: z.string().optional(),
 });
 
 const prazosInfoSchema = z.object({
@@ -143,6 +149,11 @@ export const createPropostaSchema = z.object({
   obsInternas: z.string().optional().default(''),
 
   status: StatusPropostaEnum.default('RASCUNHO'),
+
+  // Tax classification (determines TX sales tax treatment — used by salesTaxService)
+  propertyType: z.enum(['RESIDENTIAL', 'COMMERCIAL', 'MIXED_USE', 'EXEMPT_ORGANIZATION', 'GOVERNMENT']).optional().default('RESIDENTIAL'),
+  serviceCategory: z.enum(['NEW_CONSTRUCTION', 'REPAIR', 'REMODEL', 'RESTORATION', 'MAINTENANCE', 'INSPECTION', 'CONSULTATION']).optional().default('REPAIR'),
+  contractType: z.enum(['LUMP_SUM', 'SEPARATED', 'COST_PLUS']).optional().default('LUMP_SUM'),
 });
 
 export type CreatePropostaInput = z.infer<typeof createPropostaSchema>;

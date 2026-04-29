@@ -1,14 +1,43 @@
 # GladPros — Project Guidelines
 
+## Commands
+
+```bash
+# Development
+npm run dev          # starts Next.js dev server (auto-builds @gladpros/ui first)
+
+# Build & Validate
+npm run build        # production build (auto-builds packages first)
+npm run lint         # ESLint — zero warnings allowed
+npm run lint:fix     # auto-fix lint errors
+npm run type-check   # tsc --noEmit (uses tsconfig.typecheck.json)
+
+# Testing
+npm test                           # unit tests (jsdom environment)
+npm run test:unit                  # alias for unit tests
+npx jest path/to/file.test.ts      # run a single test file
+npx jest -t "test name"            # run tests matching a name pattern
+npm run test:integration           # integration tests (node environment, runs serially)
+npm run test:e2e                   # Playwright E2E tests
+npx playwright test tests/e2e/clientes/clientes-crud.spec.ts  # single E2E spec
+
+# Database
+npm run db:migrate   # prisma migrate dev
+npm run db:generate  # prisma generate (must run after schema changes)
+npm run db:studio    # Prisma Studio UI
+```
+
+> Full suite: `npm run check` (lint + type-check + unit tests)
+
 ## Stack
 - **Framework**: Next.js 15 (App Router), React 19, TypeScript
-- **Database**: MySQL + Prisma ORM 6.x
-- **UI**: @gladpros/ui (43 components), shadcn/ui (new-york style), Tailwind CSS 4
-- **Auth**: JWT (jose), MFA, RBAC with role hierarchy
+- **Database**: MySQL 8 + Prisma ORM 6.x
+- **UI**: @gladpros/ui (internal monorepo package, 43+ components), shadcn/ui (new-york style), Tailwind CSS **v4**
+- **Auth**: JWT (jose), MFA via TOTP, RBAC with role hierarchy
 - **Validation**: Zod schemas
 - **Charts**: Recharts, Chart.js
 - **Animations**: Framer Motion
-- **Testing**: Jest (unit), Playwright (E2E)
+- **Testing**: Jest (unit/integration), Playwright (E2E)
 
 ## Operation Context
 - **Location**: Dallas, Texas, USA
@@ -16,8 +45,45 @@
 - **Timezone**: `America/Chicago` — never use UTC for display
 - **Interface language**: Portuguese (pt-BR) labels for now — i18n planned for later
 - **Business**: Construction/services company ERP
-- **Tenant**: Single-tenant (empresaId=1, GladPros)
+- **Tenant**: Single-tenant (`empresaId=1`, GladPros) — no multi-tenant logic
 - **Legal entity**: GladPros LLC (Texas) — S-Corp election possible (`Empresa.tipoTributacao`)
+
+## Architecture
+
+### Monorepo Structure
+The project uses npm workspaces. Internal packages live in `packages/`:
+- `packages/ui` → `@gladpros/ui` — shared component library (built before dev/build)
+- `packages/auth-core`, `packages/proposals-core`, etc. — domain logic shared between app and packages
+
+`src/` is organized by concern, not by feature:
+```
+src/
+  app/          # Next.js App Router pages + API routes
+  shared/       # Cross-cutting utilities (rbac, auth, helpers, hooks)
+  lib/          # Infrastructure (prisma, security, cache, crypto)
+  components/   # Feature-specific React components
+  domains/      # Domain logic (business rules, not UI)
+  services/     # Service layer (external integrations)
+  schemas/      # Zod schemas shared between API and UI
+```
+
+### Middleware Pipeline (middleware.ts)
+Every request goes through (in order):
+1. IP block check
+2. Rate limiting (in-memory or Redis)
+3. JWT verification — propagates `x-user-id`, `x-user-role`, `x-user-email` headers
+4. Route protection — redirects unauthenticated users to `/login`
+5. Security headers (CSP with nonce in production)
+6. CORS enforcement
+
+Public routes that skip auth: `/api/auth/*`, `/api/portal/*`, `/api/webhooks/*`
+
+### Test Structure
+- **Unit** (`npm test`): `src/**/__tests__/**/*.test.ts` — jsdom environment, mocked DB
+- **Integration** (`npm run test:integration`): `src/**/__tests__/integration/**/*.test.ts` — real DB, node environment, serial execution
+- **E2E** (`npm run test:e2e`): `tests/e2e/**/*.spec.ts` — Playwright, full browser
+
+Coverage thresholds are enforced per module in `config/jest.config.js`. When auditing a module, add its threshold entry there.
 
 ## Business Entity & Tax Context
 
@@ -87,6 +153,48 @@ CLIENTE (6)    → Limited external access (portal only)
 - GERENTE manages USUARIO, FINANCEIRO, ESTOQUE only
 - Other roles cannot manage users
 
+### Performance — Required Patterns
+
+```typescript
+// ❌ N+1 — NEVER await inside a loop
+items.map(async (item) => await prisma.something.findUnique(...))
+
+// ✅ Use include/relation or Promise.all for independent queries
+const [data, total] = await Promise.all([
+  prisma.model.findMany({ where, take, skip, select: { id: true, name: true } }),
+  prisma.model.count({ where }),
+])
+
+// ❌ Unbounded findMany — NEVER list without pagination
+prisma.ordemServico.findMany()
+
+// ✅ Always paginate
+prisma.model.findMany({ take: pageSize, skip: (page - 1) * pageSize, orderBy: { criadoEm: 'desc' } })
+```
+
+Ensure filterable fields have `@@index` in the Prisma schema. Call `requireUser()` only once per request.
+
+### Tailwind v4 Syntax
+This project uses Tailwind **v4** — the syntax differs from v3:
+```tsx
+// ❌ v3 — not valid in this project
+className="w-[var(--size)]"
+
+// ✅ v4 — CSS custom property shorthand
+style={{ '--bar': '50%' } as React.CSSProperties}
+className="w-(--bar)"
+
+// Static arbitrary values still work:
+className="w-[200px]"  // ✅
+```
+Theme configuration is in `app/globals.css`, not `tailwind.config.js`.
+
+### Sensitive Data
+- SSN/ITIN/EIN: encrypted via AES-GCM (`src/shared/lib/crypto.ts`), stored as `documentoEnc` + `docLast4` + `docHash`. Never expose full value.
+- JWT tokens: `httpOnly` cookies only — never `localStorage`
+- Passwords: bcrypt, salt ≥ 12 — never log or return
+- All critical actions must create an `AuditLog` record
+
 ## Design System
 
 ### Brand Colors
@@ -150,3 +258,39 @@ Every main page should have:
 - Focus management in dialogs/modals
 - Keyboard navigation support
 - Skip links available via `SkipLinks` component
+
+## Key Environment Variables
+
+These affect runtime performance and must be set in production:
+
+| Variable | Value | Effect |
+|---|---|---|
+| `TOKEN_VERSION_COLUMN_EXISTS` | `1` | Skips `INFORMATION_SCHEMA` query on boot — prevents ~10s cold start latency |
+| `RBAC_TRUST_JWT` | `1` | Skips DB lookup per request — JWT already verified in middleware |
+| `REDIS_DISABLED` | `true` | Forces in-memory rate limiter (use when Redis is not available) |
+
+## Specialized Agents & Chat Modes
+
+Use these for complex tasks within Copilot Chat:
+
+| Agent / Mode | When to use |
+|---|---|
+| `@erp-architect` | Schema changes, cross-module impact, architectural decisions |
+| `@bug-hunter` | Stack traces, root cause analysis, minimal patches |
+| `@api-audit` | Creating or reviewing API routes against project standards |
+| `@security-review` | Auth, RBAC gaps, OWASP, token/data exposure |
+| `@db-migration` | Prisma schema changes and migration safety |
+| `@test-generator` | Generating Jest/Playwright tests for existing modules |
+
+Reusable prompts (use `/prompt-name` in Copilot Chat):
+`/new-feature`, `/fix-bug`, `/rbac-review`, `/review-page`, `/audit-queries`, `/deploy-checklist`, `/generate-tests`
+
+## Detailed References
+
+- API route standards → `.github/instructions/api-routes.instructions.md`
+- Page component patterns → `.github/instructions/react-pages.instructions.md`
+- Component patterns → `.github/instructions/react-components.instructions.md`
+- Prisma schema rules → `.github/instructions/prisma-schema.instructions.md`
+- Test patterns → `.github/instructions/tests.instructions.md`
+- Tax/fiscal rules → `.github/skills/financial-tax-compliance/SKILL.md`
+- Full business rules & anti-patterns → `AGENTS.md`

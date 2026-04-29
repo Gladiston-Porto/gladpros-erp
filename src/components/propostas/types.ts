@@ -11,6 +11,8 @@ export interface Material {
   status: "necessario" | "opcional" | "substituivel";
   fornecedor?: string;
   obs?: string;
+  estoqueItemId?: number; // soft-link to EstoqueItem for stock availability check
+  estoqueDisponivel?: number; // read-only: populated when checking stock
 }
 
 export interface Etapa {
@@ -29,8 +31,14 @@ export interface ClienteInfo {
   contato_nome: string;
   contato_email: string;
   contato_telefone?: string;
-  local_endereco: string;
+  local_endereco: string; // kept as legacy/fallback text
   titulo: string;
+  // Structured service address (where work happens — may differ from client billing address)
+  serviceAddressLine1?: string;
+  serviceAddressLine2?: string;
+  serviceAddressCity?: string;
+  serviceAddressState?: string; // 2-letter state code, default "TX"
+  serviceAddressZip?: string;
 }
 
 export interface PrazosInfo {
@@ -128,6 +136,11 @@ export interface PropostaFormData {
 
   // Status
   status: StatusProposta;
+
+  // Tax classification (used by salesTaxService for TX sales tax)
+  propertyType?: 'RESIDENTIAL' | 'COMMERCIAL' | 'MIXED_USE' | 'EXEMPT_ORGANIZATION' | 'GOVERNMENT';
+  serviceCategory?: 'NEW_CONSTRUCTION' | 'REPAIR' | 'REMODEL' | 'RESTORATION' | 'MAINTENANCE' | 'INSPECTION' | 'CONSULTATION';
+  contractType?: 'LUMP_SUM' | 'SEPARATED' | 'COST_PLUS';
 }
 
 export interface TotaisCalculados {

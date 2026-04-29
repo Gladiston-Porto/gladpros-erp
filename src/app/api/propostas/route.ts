@@ -9,7 +9,35 @@ import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { generateNumeroProposta } from '@/shared/lib/services/proposta-numbering';
-import type { Prisma, Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, Proposta_status, PropostaMaterial_status, PropostaEtapa_status } from '@prisma/client';
+import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
+import type { Prisma, Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, Proposta_status, PropostaMaterial_status, PropostaEtapa_status, PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
+
+/** Compute TX sales tax for a proposal and return fields ready for Prisma upsert. */
+function computePropostaTax(payload: {
+  valorEstimado: number;
+  propertyType?: string | null;
+  serviceCategory?: string | null;
+  contractType?: string | null;
+  serviceAddressState?: string | null;
+}) {
+  const result = calculateInvoiceTax({
+    subtotal: payload.valorEstimado || 0,
+    classification: {
+      propertyType: (payload.propertyType as PropertyType) ?? null,
+      serviceCategory: (payload.serviceCategory as ServiceCategory) ?? null,
+      contractType: (payload.contractType as ContractType) ?? null,
+      serviceAddressState: payload.serviceAddressState ?? 'TX',
+    },
+  });
+  return {
+    taxScenario: result.scenario,
+    taxMode: result.taxMode as TaxMode,
+    taxRate: result.taxRate,
+    taxAmount: result.taxAmount,
+    taxExplanation: result.taxExplanation,
+    taxRequiresReview: result.requiresManualReview,
+  };
+}
 
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
@@ -116,6 +144,13 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const payload = adaptPropostaFormToAPI(body);
     try {
     const numeroProposta = await generateNumeroProposta();
+    const taxFields = computePropostaTax({
+      valorEstimado: payload.valorEstimado,
+      propertyType: payload.propertyType,
+      serviceCategory: payload.serviceCategory,
+      contractType: payload.contractType,
+      serviceAddressState: payload.serviceAddressState,
+    });
 
     const newProposta = await prisma.proposta.create({
       data: ({
@@ -129,6 +164,15 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         contatoEmail: payload.contatoEmail,
         contatoTelefone: payload.contatoTelefone,
         localExecucaoEndereco: payload.localExecucaoEndereco,
+        serviceAddressLine1: payload.serviceAddressLine1,
+        serviceAddressLine2: payload.serviceAddressLine2,
+        serviceAddressCity: payload.serviceAddressCity,
+        serviceAddressState: payload.serviceAddressState ?? 'TX',
+        serviceAddressZip: payload.serviceAddressZip,
+        propertyType: (payload.propertyType as PropertyType) ?? 'RESIDENTIAL',
+        serviceCategory: (payload.serviceCategory as ServiceCategory) ?? 'REPAIR',
+        contractType: (payload.contractType as ContractType) ?? 'LUMP_SUM',
+        ...taxFields,
         tempoParaAceite: payload.tempoParaAceite,
         validadeProposta: payload.validadeProposta,
         prazoExecucaoEstimadoDias: payload.prazoExecucaoDias,

@@ -185,6 +185,20 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
                 <p className="text-2xl font-bold text-green-600">
                   {formatCurrency(Number(proposta.valorEstimado))}
                 </p>
+                {proposta.taxAmount && Number(proposta.taxAmount) > 0 && (
+                  <div className="mt-2 text-sm text-muted-foreground space-y-0.5">
+                    <p>Subtotal: {formatCurrency(Number(proposta.valorEstimado) - Number(proposta.taxAmount))}</p>
+                    <p>TX Sales Tax (8.25%): {formatCurrency(Number(proposta.taxAmount))}</p>
+                    <p className="font-semibold text-foreground">Total with Tax: {formatCurrency(Number(proposta.valorEstimado))}</p>
+                    {proposta.taxExplanation && <p className="italic">{proposta.taxExplanation}</p>}
+                  </div>
+                )}
+                {proposta.taxRequiresReview && (
+                  <p className="mt-2 text-sm text-yellow-600 font-medium flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    Tax amount subject to review — final invoice may differ.
+                  </p>
+                )}
               </div>
             )}
 

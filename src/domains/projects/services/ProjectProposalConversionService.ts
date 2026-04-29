@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { ProjectNumberService } from './ProjectNumberService';
 import { validateProposalCompleteness } from '@/domains/proposals/services';
 
@@ -10,11 +10,10 @@ export class ProjectProposalConversionServiceError extends Error {
 }
 
 export class ProjectProposalConversionService {
-  private prisma = prisma;
   private numberService = new ProjectNumberService();
 
   async convertFromProposal(propostaId: number, usuarioId: number) {
-    const proposta = await this.prisma.proposta.findUnique({
+    const proposta = await prisma.proposta.findUnique({
       where: { id: propostaId },
       include: {
         Cliente: true,
@@ -38,7 +37,7 @@ export class ProjectProposalConversionService {
 
     const numeroProjeto = await this.numberService.gerarNumeroProjeto();
 
-    return this.prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx) => {
       const novoProjeto = await tx.projeto.create({
         data: {
           numeroProjeto,
@@ -84,13 +83,13 @@ export class ProjectProposalConversionService {
       });
 
       for (const material of proposta.PropostaMaterial) {
-        if (!material.codigo) {
-          continue;
+        // Prefer estoqueItemId link (Phase 3 feature), fall back to codigo lookup
+        let materialEstoque = null
+        if (material.estoqueItemId) {
+          materialEstoque = await tx.material.findUnique({ where: { id: material.estoqueItemId } })
+        } else if (material.codigo) {
+          materialEstoque = await tx.material.findUnique({ where: { codigo: material.codigo } })
         }
-
-        const materialEstoque = await tx.material.findUnique({
-          where: { codigo: material.codigo },
-        });
 
         if (!materialEstoque) {
           continue;
