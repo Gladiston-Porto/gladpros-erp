@@ -23,6 +23,18 @@ jest.mock('../../../lib/api/logger', () => ({
   logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }))
 
+jest.mock('../../../shared/lib/rbac', () => ({
+  requireUser: jest.fn().mockResolvedValue({ id: 1, role: 'ADMIN', empresaId: 1 }),
+}))
+
+jest.mock('../../../shared/lib/rbac-core', () => ({
+  can: jest.fn().mockReturnValue(true),
+}))
+
+jest.mock('../../../lib/api/error-handler', () => ({
+  withErrorHandler: jest.fn().mockImplementation((fn) => fn),
+}))
+
 const validBody = {
   assinaturaTipo: 'DIGITAL_NOME',
   assinaturaNome: 'João da Silva',

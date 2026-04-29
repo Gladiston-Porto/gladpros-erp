@@ -21,9 +21,8 @@ jest.mock("next/headers", () => ({
   }),
 }));
 
-jest.mock("@/shared/lib/prisma", () => ({
-  __esModule: true,
-  default: {
+jest.mock("@/lib/prisma", () => ({
+  prisma: {
     projectCloseout: {
       findUnique: (...args: unknown[]) => mockFindUnique(...args),
     },

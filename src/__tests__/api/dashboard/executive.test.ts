@@ -24,7 +24,7 @@ jest.mock('next/server', () => ({
 
 jest.mock('../../../lib/prisma', () => ({
   prisma: {
-    revenue: { aggregate: jest.fn() },
+    revenue: { aggregate: jest.fn(), findMany: jest.fn() },
     expense: { aggregate: jest.fn() },
     bankAccount: { aggregate: jest.fn() },
     material: { aggregate: jest.fn() },
@@ -32,8 +32,8 @@ jest.mock('../../../lib/prisma', () => ({
     materialMovimentacao: { count: jest.fn() },
     projeto: { findMany: jest.fn() },
     worker: { count: jest.fn() },
-    cliente: { aggregate: jest.fn() },
-    proposta: { groupBy: jest.fn() },
+    cliente: { aggregate: jest.fn(), findMany: jest.fn() },
+    proposta: { groupBy: jest.fn(), findMany: jest.fn() },
     invoice: { aggregate: jest.fn() },
   },
 }));
@@ -119,11 +119,14 @@ describe('GET /api/dashboard/executive', () => {
     ]);
     prisma.worker.count.mockResolvedValue(8);
     prisma.cliente.aggregate.mockResolvedValue({ _count: 25 });
+    prisma.cliente.findMany.mockResolvedValue([]);
     prisma.proposta.groupBy.mockResolvedValue([
       { status: 'APROVADA', _count: 10 },
       { status: 'ENVIADA', _count: 5 },
     ]);
+    prisma.proposta.findMany.mockResolvedValue([]);
     prisma.invoice.aggregate.mockResolvedValue({ _count: 12, _sum: { valorTotal: 80000 } });
+    prisma.revenue.findMany.mockResolvedValue([]);
   });
 
   test('401 — sem autenticação', async () => {
@@ -186,7 +189,10 @@ describe('GET /api/dashboard/executive', () => {
   });
 
   test('500 — erro interno retorna { success: false }', async () => {
-    prisma.revenue.aggregate.mockRejectedValue(new Error('DB error'));
+    // Use requireUser rejection to trigger 500 without abandoned promise rejections
+    // (prisma.revenue.aggregate is called 3x in Promise.all — mockRejectedValue on it
+    //  would create multiple abandoned rejections crashing Node.js 20)
+    requireUser.mockRejectedValue(new Error('Database connection failed'));
 
     const { GET } = require('../../../app/api/dashboard/executive/route');
     const res = (await GET(buildRequest())) as MockResponse;

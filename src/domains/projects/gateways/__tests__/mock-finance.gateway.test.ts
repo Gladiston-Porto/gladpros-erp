@@ -164,7 +164,7 @@ describe('MockFinanceGateway', () => {
       const resultado = await gateway.registrarPagamento(pagamentoDto);
 
       expect(resultado.sucesso).toBe(true);
-      expect(resultado.mensagem).toContain('R$ 3000.00');
+      expect(resultado.mensagem).toContain('$ 3000.00');
 
       const invoice = await gateway.buscarInvoice(resultadoCriacao.invoiceId!);
       expect(invoice!.valorPago).toBe(3000);
