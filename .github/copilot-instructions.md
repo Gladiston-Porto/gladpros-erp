@@ -157,6 +157,29 @@ CLIENTE (6)    → Limited external access (portal only)
 - GERENTE manages USUARIO, FINANCEIRO, ESTOQUE only
 - Other roles cannot manage users
 
+### RBAC Permission Matrix
+
+| Module | ADMIN | GERENTE | FINANCEIRO | ESTOQUE | USUARIO | CLIENTE |
+|--------|-------|---------|------------|---------|---------|---------|
+| dashboard | ALL | RO | RO | RO | RO | — |
+| usuarios | ALL | — | — | — | — | — |
+| clientes | ALL | RW | RO | RO | RW | — |
+| propostas | ALL | ALL | ALL | — | — | — |
+| projetos | ALL | ALL | ALL | ALL | ALL | RO |
+| service-orders | ALL | ALL | RO | RO | RW | — |
+| estoque | ALL | RO | RO | ALL | RO | — |
+| financeiro | ALL | RO | ALL | — | — | — |
+| invoices | ALL | ALL | ALL | — | RO | RO |
+| rh | ALL | ALL | RO | — | — | — |
+| workforce | ALL | ALL | RO | — | RO | — |
+| reports | ALL | RO | RO | — | — | — |
+| analytics | ALL | RO | — | — | — | — |
+| documents | ALL | ALL | RO | RO | RW | — |
+| aprovacoes | ALL | ALL | RW | — | RO | — |
+| configuracoes | ALL | RO | — | — | — | — |
+
+**ALL** = CRUD | **RW** = Read+Create+Update | **RO** = Read Only | **—** = No access
+
 ### Performance — Required Patterns
 
 ```typescript
@@ -224,7 +247,27 @@ Theme configuration is in `app/globals.css`, not `tailwind.config.js`.
 
 ### Dark Mode
 - Class-based (`.dark` on `<html>`)
-- Use CSS variables, never hardcode colors
+- **Never hardcode colors** — use CSS variables. Common context → correct class:
+
+| Context | Class |
+|---------|-------|
+| Page background | `bg-background` |
+| Cards / surfaces | `bg-card` |
+| Primary text | `text-foreground` |
+| Secondary text | `text-muted-foreground` |
+| Borders | `border-border` |
+| Primary button | `bg-brand-primary` |
+| Destructive button | `bg-destructive` |
+| Badge success | `bg-green-500/10 text-green-600` |
+| Badge warning | `bg-yellow-500/10 text-yellow-600` |
+| Badge error | `bg-destructive/10 text-destructive` |
+
+```tsx
+// ❌ Never — breaks dark mode
+<div className="bg-white text-gray-700 border-gray-200">
+// ✅ Always
+<div className="bg-card text-foreground border-border">
+```
 - Default theme: dark
 
 ## Code Patterns
@@ -232,11 +275,16 @@ Theme configuration is in `app/globals.css`, not `tailwind.config.js`.
 ### API Response Format
 ```typescript
 // Success
-{ data: T, pagination?: { page, pageSize, total, totalPages }, success: true }
+return NextResponse.json({ data: T, success: true }, { status: 200 })
+
+// Success with pagination
+return NextResponse.json({ data, pagination: { page, pageSize, total, totalPages }, success: true }, { status: 200 })
 
 // Error
-{ error: string, message: string, success: false }
+return NextResponse.json({ error: string, message: string, success: false }, { status: 4xx })
 ```
+
+**Status codes**: `400` validation | `401` unauthenticated | `403` forbidden | `404` not found | `409` conflict/duplicate | `500` server error
 
 ### Page Structure
 Every main page should have:
