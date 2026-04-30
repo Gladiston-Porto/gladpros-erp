@@ -1,14 +1,8 @@
-/**
- * TarefaCard - Card de tarefa no Kanban
- * 
- * Suporta drag and drop
- */
-
 'use client';
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, Flag, User } from 'lucide-react';
+import { Calendar, Clock, Flag, User } from 'lucide-react';
 import { Badge } from "@gladpros/ui/badge";
 import { Card, CardContent } from "@gladpros/ui/card";
 import { format, isPast, isToday, differenceInDays } from 'date-fns';
@@ -24,6 +18,8 @@ type Tarefa = {
   prioridade: 'baixa' | 'media' | 'alta' | 'critica';
   etapaServico?: string | null;
   responsavelNome?: string | null;
+  horasEstimadas?: number | null;
+  horasReais?: number | null;
 };
 
 type Props = {
@@ -32,11 +28,17 @@ type Props = {
 };
 
 const PRIORIDADE_CONFIG = {
-  baixa: { label: 'Baixa', color: 'bg-muted text-foreground' },
-  media: { label: 'Média', color: 'bg-brand-primary/10 text-brand-primary' },
-  alta: { label: 'Alta', color: 'bg-orange-100 text-orange-700' },
-  critica: { label: 'Crítica', color: 'bg-destructive/10 text-destructive' },
+  baixa: { label: 'Baixa', color: 'bg-muted text-foreground', border: 'border-l-gray-300' },
+  media: { label: 'Média', color: 'bg-brand-primary/10 text-brand-primary', border: 'border-l-blue-500' },
+  alta: { label: 'Alta', color: 'bg-orange-100 text-orange-700', border: 'border-l-orange-500' },
+  critica: { label: 'Crítica', color: 'bg-destructive/10 text-destructive', border: 'border-l-red-500' },
 };
+
+function formatarHoras(h: number | null | undefined): string | null {
+  if (h == null) return null;
+  if (h < 1) return `${Math.round(h * 60)}min`;
+  return `${h}h`;
+}
 
 export function TarefaCard({ tarefa, isDragging }: Props) {
   const {
@@ -59,7 +61,20 @@ export function TarefaCard({ tarefa, isDragging }: Props) {
   const isPrazoHoje = prazo ? isToday(prazo) : false;
   const diasRestantes = prazo ? differenceInDays(prazo, new Date()) : null;
 
-  const prioridadeConfig = PRIORIDADE_CONFIG[tarefa.prioridade];
+  const prioridadeConfig = PRIORIDADE_CONFIG[tarefa.prioridade] ?? PRIORIDADE_CONFIG.media;
+
+  const horasLabel = (() => {
+    const est = formatarHoras(tarefa.horasEstimadas);
+    const real = formatarHoras(tarefa.horasReais);
+    if (est && real) return `${real} / ${est}`;
+    if (est) return `Est: ${est}`;
+    return null;
+  })();
+
+  const horasOverrun =
+    tarefa.horasReais != null &&
+    tarefa.horasEstimadas != null &&
+    tarefa.horasReais > tarefa.horasEstimadas;
 
   return (
     <Card
@@ -67,15 +82,7 @@ export function TarefaCard({ tarefa, isDragging }: Props) {
       style={style}
       {...attributes}
       {...listeners}
-      className={`cursor-grab border-l-4 active:cursor-grabbing ${
-        tarefa.prioridade === 'urgente'
-          ? 'border-l-red-500'
-          : tarefa.prioridade === 'alta'
-            ? 'border-l-orange-500'
-            : tarefa.prioridade === 'media'
-              ? 'border-l-blue-500'
-              : 'border-l-gray-300'
-      } ${isDragging ? 'rotate-2 shadow-lg' : 'hover:shadow-md'}`}
+      className={`cursor-grab border-l-4 active:cursor-grabbing ${prioridadeConfig.border} ${isDragging ? 'rotate-2 shadow-lg' : 'hover:shadow-md'}`}
     >
       <CardContent className="space-y-3 p-3">
         {/* Título */}
@@ -93,7 +100,7 @@ export function TarefaCard({ tarefa, isDragging }: Props) {
           </Badge>
         )}
 
-        {/* Footer com prioridade, responsável e prazo */}
+        {/* Footer com prioridade, responsável, prazo e horas */}
         <div className="flex flex-wrap items-center gap-2 pt-2 text-xs">
           {/* Prioridade */}
           <Badge className={`gap-1 ${prioridadeConfig.color}`}>
@@ -106,6 +113,16 @@ export function TarefaCard({ tarefa, isDragging }: Props) {
             <Badge variant="default" className="gap-1">
               <User className="h-3 w-3" />
               {tarefa.responsavelNome.split(' ')[0]}
+            </Badge>
+          )}
+
+          {/* Horas */}
+          {horasLabel && (
+            <Badge
+              className={`gap-1 ${horasOverrun ? 'bg-orange-100 text-orange-700' : 'bg-muted text-muted-foreground'}`}
+            >
+              <Clock className="h-3 w-3" />
+              {horasLabel}
             </Badge>
           )}
 

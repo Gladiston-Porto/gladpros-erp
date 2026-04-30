@@ -111,6 +111,7 @@ export interface ProjetoEtapa {
   fimReal: string | null; // CORRETO: 'fimReal' não 'dataConclusaoReal'
   porcentagem: number; // CORRETO: 'porcentagem' não 'percentualConclusao'
   responsavelId: number | null;
+  checklistItens?: Array<{ id: string; texto: string; concluido: boolean }> | null;
   criadoEm: string;
   atualizadoEm: string | null;
   

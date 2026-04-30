@@ -89,6 +89,7 @@ export class ProjectTaskService {
         prioridade: data.prioridade || 'media',
         atribuidaPara: data.atribuidaPara,
         prazo: data.prazo ? new Date(data.prazo as string) : null,
+        horasEstimadas: data.horasEstimadas ?? null,
         status: 'aberta',
         criadoPor: usuarioId,
       },
@@ -143,6 +144,8 @@ export class ProjectTaskService {
         prioridade: true,
         atribuidaPara: true,
         prazo: true,
+        horasEstimadas: true,
+        horasReais: true,
         criadoEm: true,
         atualizadoEm: true,
         Projeto: {
@@ -197,6 +200,8 @@ export class ProjectTaskService {
         prioridade: true,
         atribuidaPara: true,
         prazo: true,
+        horasEstimadas: true,
+        horasReais: true,
         criadoEm: true,
         atualizadoEm: true,
         Projeto: {
@@ -284,6 +289,8 @@ export class ProjectTaskService {
         prioridade: data.prioridade,
         atribuidaPara: data.atribuidaPara,
         prazo: data.prazo ? new Date(data.prazo as string) : undefined,
+        horasEstimadas: data.horasEstimadas !== undefined ? (data.horasEstimadas ?? null) : undefined,
+        horasReais: data.horasReais !== undefined ? (data.horasReais ?? null) : undefined,
       },
       select: {
         id: true,
@@ -295,6 +302,8 @@ export class ProjectTaskService {
         prioridade: true,
         atribuidaPara: true,
         prazo: true,
+        horasEstimadas: true,
+        horasReais: true,
         criadoEm: true,
         atualizadoEm: true,
         Projeto: {
@@ -483,6 +492,8 @@ export class ProjectTaskService {
       atribuidaPara: t.atribuidaPara,
       responsavelNome: t.AtribuidaPara?.nomeCompleto ?? undefined,
       prazo: t.prazo,
+      horasEstimadas: t.horasEstimadas != null ? Number(t.horasEstimadas) : null,
+      horasReais: t.horasReais != null ? Number(t.horasReais) : null,
       criadoEm: t.criadoEm,
       atualizadoEm: t.atualizadoEm ?? t.criadoEm,
     };

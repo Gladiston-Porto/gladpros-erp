@@ -43,15 +43,12 @@ type Tarefa = {
   atribuidaPara?: number | null;
   prazo?: Date | null;
   prioridade: 'baixa' | 'media' | 'alta' | 'critica';
-  criadoPor: number;
   criadoEm: Date;
   atualizadoEm?: Date | null;
   etapaServico?: string | null;
   responsavelNome?: string | null;
-  CriadoPor: {
-    id: number;
-    nome: string;
-  };
+  horasEstimadas?: number | null;
+  horasReais?: number | null;
 };
 
 type KanbanColumn = {

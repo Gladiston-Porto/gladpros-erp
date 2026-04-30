@@ -1,14 +1,3 @@
-/**
- * Card Individual de Etapa
- * 
- * Features:
- * - Sortable para drag & drop
- * - Status visual com cores
- * - Progresso visual
- * - Datas de início/fim
- * - Ações (editar, deletar)
- */
-
 'use client';
 
 import { useState } from 'react';
@@ -24,11 +13,15 @@ import {
   Clock,
   AlertTriangle,
   XCircle,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
 } from 'lucide-react';
 import { useProjetoOperations } from '@/hooks/projetos/useProjetoOperations';
 import { formatDate } from '@/lib/projetos/formatting';
 import { ETAPA_STATUS_LABELS } from '@/lib/projetos/constants';
 import type { ProjetoEtapa } from '@/lib/projetos/types';
+import { EtapaChecklist } from './EtapaChecklist';
 
 interface EtapaCardProps {
   etapa: ProjetoEtapa;
@@ -48,6 +41,7 @@ export default function EtapaCard({
   onRefresh,
 }: EtapaCardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [checklistAberto, setChecklistAberto] = useState(false);
 
   const { deleteEtapa, loading } = useProjetoOperations({
     onSuccess: () => {
@@ -112,9 +106,13 @@ export default function EtapaCard({
     },
   };
 
-  const config = statusConfig[etapa.status];
+  const config = statusConfig[etapa.status as keyof typeof statusConfig] ?? statusConfig.pendente;
   const StatusIcon = config.icon;
   const progresso = etapa.porcentagem ? Number(etapa.porcentagem) : 0;
+
+  const checklistItens = Array.isArray(etapa.checklistItens) ? etapa.checklistItens : [];
+  const checklistConcluidos = checklistItens.filter((i) => i.concluido).length;
+  const isReadOnly = etapa.status === 'concluida' || etapa.status === 'cancelada';
 
   return (
     <div
@@ -209,6 +207,38 @@ export default function EtapaCard({
                 </div>
               )}
             </div>
+
+            {/* Checklist Toggle */}
+            <button
+              type="button"
+              onClick={() => setChecklistAberto((v) => !v)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+              aria-expanded={checklistAberto}
+              aria-label="Expandir checklist de escopo"
+            >
+              {checklistAberto ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <ClipboardList size={14} />
+              <span>
+                Escopo / Checklist
+                {checklistItens.length > 0 && (
+                  <span className="ml-1.5 text-xs font-medium text-brand-primary">
+                    ({checklistConcluidos}/{checklistItens.length})
+                  </span>
+                )}
+              </span>
+            </button>
+
+            {/* Checklist expandido */}
+            {checklistAberto && (
+              <div className="mb-3 rounded-xl border border-border bg-muted/30 p-3">
+                <EtapaChecklist
+                  etapaId={etapa.id}
+                  projetoId={etapa.projetoId}
+                  itensIniciais={checklistItens}
+                  readOnly={isReadOnly}
+                />
+              </div>
+            )}
 
             {/* Ações */}
             <div className="flex items-center gap-2 pt-2 border-t border-border">

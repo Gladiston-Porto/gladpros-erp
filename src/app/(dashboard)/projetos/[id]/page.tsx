@@ -35,6 +35,7 @@ import { FinanceiroDashboard } from '@/components/projetos/financeiro/Financeiro
 import { EquipeManager } from '@/components/projetos/equipe/EquipeManager';
 import { ProjetoJobsList } from '@/components/projetos/jobs/ProjetoJobsList';
 import { ProjetoHistorico } from '@/components/projetos/historico/ProjetoHistorico';
+import { GanttView } from '@/components/projetos/GanttView';
 import { useProjetoOperations } from '@/hooks/projetos/useProjetoOperations';
 import type { Projeto } from '@/lib/projetos/types';
 import {
@@ -299,8 +300,9 @@ export default function ProjetoDetailPage() {
         />
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full rounded-2xl bg-card p-1 shadow-sm md:grid-cols-7">
+          <TabsList className="grid w-full rounded-2xl bg-card p-1 shadow-sm md:grid-cols-9">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger value="cronograma">Cronograma</TabsTrigger>
             <TabsTrigger value="jobs">Jobs (OS)</TabsTrigger>
             <TabsTrigger value="etapas">Etapas</TabsTrigger>
             <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
@@ -500,6 +502,23 @@ export default function ProjetoDetailPage() {
 
           <TabsContent value="historico">
             <ProjetoHistorico projetoId={projeto.id} />
+          </TabsContent>
+
+          <TabsContent value="cronograma">
+            <Card className="border-none shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-title">
+                  <Calendar className="h-5 w-5 text-brand-primary" />
+                  Cronograma do Projeto
+                </CardTitle>
+                <CardDescription>
+                  Visualização Gantt das etapas. As barras mostram o período previsto ou real de cada etapa.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <GanttView projetoId={projeto.id} />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 

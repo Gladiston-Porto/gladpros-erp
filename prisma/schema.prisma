@@ -679,6 +679,7 @@ model ProjetoEtapa {
   responsavelId     Int?                @map("responsavel_id")
   approverId        Int?                @map("approver_id")
   porcentagem       Decimal             @default(0) @db.Decimal(5, 2)
+  checklistItens    Json?               @map("checklist_itens")
   criadoEm          DateTime            @default(now()) @map("criado_em")
   atualizadoEm      DateTime?           @map("atualizado_em")
   Projeto           Projeto             @relation(fields: [projetoId], references: [id])
@@ -804,6 +805,8 @@ model ProjetoTarefa {
   atribuidaPara Int?                 @map("atribuida_para")
   prazo         DateTime?            @db.Date
   prioridade    Projeto_prioridade   @default(media)
+  horasEstimadas Decimal?             @map("horas_estimadas") @db.Decimal(6, 2)
+  horasReais     Decimal?             @map("horas_reais") @db.Decimal(6, 2)
   criadoPor     Int                  @map("criado_por")
   criadoEm      DateTime             @default(now()) @map("criado_em")
   atualizadoEm  DateTime?            @map("atualizado_em")

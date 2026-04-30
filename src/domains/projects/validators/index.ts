@@ -234,6 +234,7 @@ export const createProjetoTarefaSchema = z.object({
   responsavelId: z.number().int().positive().nullish(),
   dataPrevista: z.union([z.date(), z.string().datetime()]).nullish()
     .transform((val) => val ? (typeof val === 'string' ? new Date(val) : val) : null),
+  horasEstimadas: z.number().min(0).max(9999.99).nullish(),
   observacoes: z.string().max(1000).nullish(),
 });
 
@@ -247,6 +248,8 @@ export const updateProjetoTarefaSchema = z.object({
     .transform((val) => val ? (typeof val === 'string' ? new Date(val) : val) : null),
   dataConclusao: z.union([z.date(), z.string().datetime()]).nullish()
     .transform((val) => val ? (typeof val === 'string' ? new Date(val) : val) : null),
+  horasEstimadas: z.number().min(0).max(9999.99).nullish(),
+  horasReais: z.number().min(0).max(9999.99).nullish(),
   observacoes: z.string().max(1000).nullish(),
 });
 

@@ -138,6 +138,7 @@ export interface ProjetoEtapaResponseDTO {
   fimPrevisto: Date | null;
   fimReal: Date | null;
   porcentagem: number;
+  checklistItens?: Array<{ id: string; texto: string; concluido: boolean }> | null;
   criadoEm: Date;
   atualizadoEm: Date;
   // Contadores
@@ -192,6 +193,7 @@ export interface CreateProjetoTarefaDTO {
   prioridade?: Projeto_prioridade;
   atribuidaPara?: number | null;
   prazo?: Date | string | null;
+  horasEstimadas?: number | null;
 }
 
 export interface UpdateProjetoTarefaDTO {
@@ -201,6 +203,8 @@ export interface UpdateProjetoTarefaDTO {
   prioridade?: Projeto_prioridade;
   atribuidaPara?: number | null;
   prazo?: Date | string | null;
+  horasEstimadas?: number | null;
+  horasReais?: number | null;
 }
 
 export interface AlterarStatusTarefaDTO {
@@ -222,6 +226,8 @@ export interface ProjetoTarefaResponseDTO {
   atribuidaPara: number | null;
   responsavelNome?: string;
   prazo: Date | null;
+  horasEstimadas: number | null;
+  horasReais: number | null;
   criadoEm: Date;
   atualizadoEm: Date;
 }

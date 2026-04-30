@@ -158,6 +158,7 @@ export class ProjectStageService {
         fimPrevisto: true,
         status: true,
         porcentagem: true,
+        checklistItens: true,
         criadoEm: true,
         atualizadoEm: true,
         Projeto: {
@@ -419,6 +420,7 @@ export class ProjectStageService {
     fimPrevisto: Date | null;
     fimReal?: Date | null | undefined;
     porcentagem: Prisma.Decimal | number;
+    checklistItens?: unknown;
     criadoEm: Date;
     atualizadoEm: Date | null;
     Projeto?: { numeroProjeto: string; titulo: string } | null;
@@ -437,6 +439,7 @@ export class ProjectStageService {
       fimPrevisto: etapa.fimPrevisto,
       fimReal: etapa.fimReal ?? null,
       porcentagem: Number(etapa.porcentagem),
+      checklistItens: Array.isArray(etapa.checklistItens) ? etapa.checklistItens as Array<{ id: string; texto: string; concluido: boolean }> : null,
       criadoEm: etapa.criadoEm,
       atualizadoEm: etapa.atualizadoEm ?? etapa.criadoEm,
       totalTarefas: etapa._count?.Tarefas,
