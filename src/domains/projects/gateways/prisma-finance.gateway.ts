@@ -116,6 +116,22 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       return { sucesso: false, mensagem: `Projeto ${dados.projetoId} não encontrado` };
     }
 
+    // Guard: evitar duplicação de invoice para o mesmo projeto
+    const invoiceExistente = await prisma.invoice.findFirst({
+      where: {
+        projetoId: dados.projetoId,
+        status: { not: 'CANCELLED' },
+      },
+      select: { id: true, numeroInvoice: true },
+    });
+
+    if (invoiceExistente) {
+      return {
+        sucesso: false,
+        mensagem: `Já existe uma invoice ativa para este projeto (${invoiceExistente.numeroInvoice})`,
+      };
+    }
+
     const numeroInvoice = await generateInvoiceNumber();
 
     // Build invoice items with proper typing

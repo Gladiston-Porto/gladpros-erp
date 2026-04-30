@@ -25,7 +25,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
     if (!rateCheck.allowed) {
       return NextResponse.json(
         { error: 'Too Many Requests', message: rateCheck.message, success: false },
-        { status: 429, headers: { 'Retry-After': String(rateCheck.resetTime) } }
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
       )
     }
 

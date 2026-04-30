@@ -1,4 +1,13 @@
-// src/lib/validations/proposta.ts
+// src/shared/lib/validations/proposta.ts
+//
+// ATENÇÃO: Este arquivo é usado EXCLUSIVAMENTE pela rota de assinatura do portal do cliente:
+//   → src/app/api/client/proposta/[token]/sign/route.ts
+//
+// Para validação de novas rotas de API internas, use:
+//   → src/schemas/proposta.schema.ts  ← ARQUIVO CANÔNICO
+//
+// Nota: FormaPagamentoEnum aqui inclui métodos brasileiros (PIX, BOLETO, CHEQUE).
+// Não expandir este arquivo para novas funcionalidades.
 import { z } from "zod";
 
 export const StatusPropostaEnum = z.enum(['RASCUNHO', 'ENVIADA', 'ASSINADA', 'APROVADA', 'CANCELADA']);

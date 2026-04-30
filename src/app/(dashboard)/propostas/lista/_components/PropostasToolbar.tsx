@@ -226,7 +226,7 @@ export function PropostasToolbar({
         )}
       </div>
 
-      <div className="text-xs opacity-60">{total.toLocaleString("pt-BR")} resultado(s)</div>
+      <div className="text-xs opacity-60">{total.toLocaleString("en-US")} resultado(s)</div>
     </div>
   );
 }

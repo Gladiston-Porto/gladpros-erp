@@ -208,9 +208,12 @@ export default function ProjetosClient() {
                   >
                     <option value="">Todos</option>
                     <option value={PROJETO_STATUS.PLANEJADO}>Planejado</option>
-                    <option value={PROJETO_STATUS.EM_ANDAMENTO}>Em andamento</option>
-                    <option value={PROJETO_STATUS.PAUSADO}>Pausado</option>
+                    <option value={PROJETO_STATUS.EM_EXECUCAO}>Em Execução</option>
+                    <option value={PROJETO_STATUS.EM_INSPECAO}>Em Inspeção</option>
+                    <option value={PROJETO_STATUS.AGUARDANDO_DEVOLUCOES}>Ag. Devoluções</option>
+                    <option value={PROJETO_STATUS.SUSPENSO}>Suspenso</option>
                     <option value={PROJETO_STATUS.CONCLUIDO}>Concluído</option>
+                    <option value={PROJETO_STATUS.ARQUIVADO}>Arquivado</option>
                     <option value={PROJETO_STATUS.CANCELADO}>Cancelado</option>
                   </select>
                 </div>
@@ -228,7 +231,7 @@ export default function ProjetosClient() {
                     <option value={PROJETO_PRIORIDADE.BAIXA}>Baixa</option>
                     <option value={PROJETO_PRIORIDADE.MEDIA}>Média</option>
                     <option value={PROJETO_PRIORIDADE.ALTA}>Alta</option>
-                    <option value={PROJETO_PRIORIDADE.URGENTE}>Urgente</option>
+                    <option value={PROJETO_PRIORIDADE.CRITICA}>Crítica</option>
                   </select>
                 </div>
 

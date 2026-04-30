@@ -1,6 +1,14 @@
 /**
  * Schemas de Validação - Módulo Propostas
  *
+ * CANÔNICO: Este arquivo é a fonte de verdade para validação das rotas de API
+ * (POST /api/propostas, PUT /api/propostas/[id], etc.)
+ *
+ * Existe outro arquivo em src/shared/lib/validations/proposta.ts que é usado
+ * EXCLUSIVAMENTE pela rota de assinatura do portal do cliente:
+ *   → src/app/api/client/proposta/[token]/sign/route.ts
+ * Esse arquivo secundário NÃO deve ser usado em novas rotas de API.
+ *
  * Validações Zod para criação e atualização de propostas.
  * Espelha a estrutura de PropostaFormData (components/propostas/types.ts).
  */

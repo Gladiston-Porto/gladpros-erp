@@ -42,19 +42,12 @@ type Tarefa = {
   status: TarefaStatus;
   atribuidaPara?: number | null;
   prazo?: Date | null;
-  prioridade: 'baixa' | 'media' | 'alta' | 'urgente';
+  prioridade: 'baixa' | 'media' | 'alta' | 'critica';
   criadoPor: number;
   criadoEm: Date;
   atualizadoEm?: Date | null;
-  Etapa?: {
-    id: number;
-    nome: string;
-  } | null;
-  AtribuidaPara?: {
-    id: number;
-    nome: string;
-    email: string;
-  } | null;
+  etapaServico?: string | null;
+  responsavelNome?: string | null;
   CriadoPor: {
     id: number;
     nome: string;
@@ -132,7 +125,7 @@ export function TarefasKanban({ projetoId }: Props) {
       }
 
       const data = await response.json();
-      setTarefas(data.tarefas || []);
+      setTarefas(data.data || []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -193,7 +186,7 @@ export function TarefasKanban({ projetoId }: Props) {
         throw new Error('Erro ao criar tarefa');
       }
 
-      const novaTarefa = await response.json();
+      const { data: novaTarefa } = await response.json();
       setTarefas((prev) => [...prev, novaTarefa]);
       setShowNewTaskForm(null);
     } catch (err: unknown) {
@@ -207,7 +200,7 @@ export function TarefasKanban({ projetoId }: Props) {
     return (
       tarefa.titulo.toLowerCase().includes(search) ||
       tarefa.descricao?.toLowerCase().includes(search) ||
-      tarefa.AtribuidaPara?.nome.toLowerCase().includes(search)
+      tarefa.responsavelNome?.toLowerCase().includes(search)
     );
   });
 

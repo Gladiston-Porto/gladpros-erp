@@ -90,7 +90,7 @@ export function FaturamentoSection({
         <div>
           <Label>Forma de Pagamento Preferida</Label>
           <Input
-            placeholder="Ex: PIX, Transferência bancária, Boleto bancário"
+            placeholder="Ex: Check, Credit Card, ACH Transfer, Cash"
             value={faturamento.forma_preferida || ''}
             onChange={handleFieldChange('forma_preferida')}
             disabled={isLoading}

@@ -27,8 +27,8 @@ export function ConvertProposalButton({ propostaId, projetoId, status }: Convert
     )
   }
 
-  // Só é possível converter propostas aprovadas ou enviadas
-  const canConvert = ['APROVADA', 'ENVIADA', 'ASSINADA'].includes(status)
+  // Só é possível converter propostas aprovadas
+  const canConvert = status === 'APROVADA'
 
   if (!canConvert) {
     return null

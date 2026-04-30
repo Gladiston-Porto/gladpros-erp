@@ -18,7 +18,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
     }
     const service = new ProjectTaskService()
     const tarefas = await service.listarPorProjeto(projetoId)
-    return NextResponse.json({ tarefas })
+    return NextResponse.json({ data: tarefas, success: true })
   })
 
 export const POST = withErrorHandler(async (request: NextRequest,
@@ -27,7 +27,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
     if (!rateCheck.allowed) {
       return NextResponse.json(
         { error: 'Too Many Requests', message: rateCheck.message, success: false },
-        { status: 429, headers: { 'Retry-After': String(rateCheck.resetTime) } }
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
       )
     }
 
@@ -41,6 +41,6 @@ export const POST = withErrorHandler(async (request: NextRequest,
     const data = createProjetoTarefaSchema.parse({ ...body, projetoId })
     const service = new ProjectTaskService()
     const tarefa = await service.criar(data, Number(user.id))
-    return NextResponse.json(tarefa, { status: 201 })
+    return NextResponse.json({ data: tarefa, success: true }, { status: 201 })
   })
 

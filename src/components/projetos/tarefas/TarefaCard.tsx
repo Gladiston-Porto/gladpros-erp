@@ -21,16 +21,9 @@ type Tarefa = {
   status: string;
   atribuidaPara?: number | null;
   prazo?: Date | null;
-  prioridade: 'baixa' | 'media' | 'alta' | 'urgente';
-  Etapa?: {
-    id: number;
-    nome: string;
-  } | null;
-  AtribuidaPara?: {
-    id: number;
-    nome: string;
-    email: string;
-  } | null;
+  prioridade: 'baixa' | 'media' | 'alta' | 'critica';
+  etapaServico?: string | null;
+  responsavelNome?: string | null;
 };
 
 type Props = {
@@ -42,7 +35,7 @@ const PRIORIDADE_CONFIG = {
   baixa: { label: 'Baixa', color: 'bg-muted text-foreground' },
   media: { label: 'Média', color: 'bg-brand-primary/10 text-brand-primary' },
   alta: { label: 'Alta', color: 'bg-orange-100 text-orange-700' },
-  urgente: { label: 'Urgente', color: 'bg-destructive/10 text-destructive' },
+  critica: { label: 'Crítica', color: 'bg-destructive/10 text-destructive' },
 };
 
 export function TarefaCard({ tarefa, isDragging }: Props) {
@@ -94,9 +87,9 @@ export function TarefaCard({ tarefa, isDragging }: Props) {
         )}
 
         {/* Etapa */}
-        {tarefa.Etapa && (
+        {tarefa.etapaServico && (
           <Badge variant="secondary" className="text-xs">
-            {tarefa.Etapa.nome}
+            {tarefa.etapaServico}
           </Badge>
         )}
 
@@ -109,10 +102,10 @@ export function TarefaCard({ tarefa, isDragging }: Props) {
           </Badge>
 
           {/* Responsável */}
-          {tarefa.AtribuidaPara && (
+          {tarefa.responsavelNome && (
             <Badge variant="default" className="gap-1">
               <User className="h-3 w-3" />
-              {tarefa.AtribuidaPara.nome.split(' ')[0]}
+              {tarefa.responsavelNome.split(' ')[0]}
             </Badge>
           )}
 

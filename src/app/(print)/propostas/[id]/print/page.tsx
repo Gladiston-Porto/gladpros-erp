@@ -1,5 +1,7 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { requireServerUser } from '@/shared/lib/requireServerUser';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 /* ── Status mappings ── */
 const STATUS_CSS: Record<string, { bg: string; text: string; border: string; label: string }> = {
@@ -47,12 +49,17 @@ export default async function PropostaPrintPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const user = await requireServerUser();
+  if (!can(user.role as Role, 'propostas', 'read')) {
+    redirect('/403');
+  }
+
   const { id } = await params;
   const propostaId = parseInt(id, 10);
   if (isNaN(propostaId)) notFound();
 
   const proposta = await prisma.proposta.findUnique({
-    where: { id: propostaId },
+    where: { id: propostaId, deletedAt: null },
     include: {
       Cliente: {
         select: {

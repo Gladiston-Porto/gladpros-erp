@@ -61,10 +61,10 @@ export class InventoryMovementService {
       throw new Error('Quantidade deve ser maior que zero');
     }
 
-    const statusAtual = String(material.status ?? '').toUpperCase();
-    const allowedStatuses = ['DISPONIVEL', 'RESERVADO', 'LIBERADO', 'EM_ANDAMENTO'];
+    const statusAtual = String(material.status ?? '').toLowerCase();
+    const allowedStatuses = ['planejado'];
     if (statusAtual && !allowedStatuses.includes(statusAtual)) {
-      throw new Error('Material não está disponível');
+      throw new Error('Material já foi liberado ou não está disponível para liberação');
     }
 
     const quantidadePlanejada = Number(
@@ -107,41 +107,41 @@ export class InventoryMovementService {
         throw new Error(resultado.mensagem);
       }
 
-      // 4. Atualizar quantidade liberada do material
-      await prisma.projetoMaterial.update({
-        where: { id: dados.materialId },
-        data: {
-          quantidadeLiberada: {
-            increment: dados.quantidade,
+      // 4+5+6. Atualizar material, movimentação e histórico de forma atômica
+      const movimentacaoAtualizada = await prisma.$transaction(async (tx) => {
+        await tx.projetoMaterial.update({
+          where: { id: dados.materialId },
+          data: {
+            quantidadeLiberada: { increment: dados.quantidade },
+            status: 'liberado',
           },
-          status: 'liberado',
-        },
-      });
+        });
 
-      // 5. Atualizar movimentação para CONCLUIDA
-      const movimentacaoAtualizada = await prisma.projetoMovimentacaoEstoque.update({
-        where: { id: movimentacao.id },
-        data: {
-          statusIntegracao: 'CONCLUIDA',
-          estoqueExternoId: resultado.estoqueExternoId,
-          metadadosIntegracao: (resultado.detalhes as Prisma.JsonObject) || Prisma.JsonNull,
-          processadoEm: new Date(),
-        },
-      });
-
-      // 6. Registrar no histórico
-      await prisma.projetoHistorico.create({
-        data: {
-          projetoId: dados.projetoId,
-          usuarioId: dados.usuarioId,
-          acao: 'MATERIAL_LIBERADO',
-          detalhes: {
-            materialId: dados.materialId,
-            materialNome: material.nome,
-            quantidade: dados.quantidade,
-            movimentacaoId: movimentacao.id,
+        const mov = await tx.projetoMovimentacaoEstoque.update({
+          where: { id: movimentacao.id },
+          data: {
+            statusIntegracao: 'CONCLUIDA',
+            estoqueExternoId: resultado.estoqueExternoId,
+            metadadosIntegracao: (resultado.detalhes as Prisma.JsonObject) || Prisma.JsonNull,
+            processadoEm: new Date(),
           },
-        },
+        });
+
+        await tx.projetoHistorico.create({
+          data: {
+            projetoId: dados.projetoId,
+            usuarioId: dados.usuarioId,
+            acao: 'MATERIAL_LIBERADO',
+            detalhes: {
+              materialId: dados.materialId,
+              materialNome: material.nome,
+              quantidade: dados.quantidade,
+              movimentacaoId: movimentacao.id,
+            },
+          },
+        });
+
+        return mov;
       });
 
       return this.mapToMovimentacaoEstoque(movimentacaoAtualizada);
@@ -227,41 +227,41 @@ export class InventoryMovementService {
         throw new Error(resultado.mensagem);
       }
 
-      // 4. Atualizar quantidade devolvida do material
-      await prisma.projetoMaterial.update({
-        where: { id: dados.materialId },
-        data: {
-          quantidadeDevolvida: {
-            increment: dados.quantidade,
+      // 4+5+6. Atualizar material, movimentação e histórico de forma atômica
+      const movimentacaoAtualizada = await prisma.$transaction(async (tx) => {
+        await tx.projetoMaterial.update({
+          where: { id: dados.materialId },
+          data: {
+            quantidadeDevolvida: { increment: dados.quantidade },
+            status: 'devolucao_pendente',
           },
-          status: 'devolucao_pendente',
-        },
-      });
+        });
 
-      // 5. Atualizar movimentação para CONCLUIDA
-      const movimentacaoAtualizada = await prisma.projetoMovimentacaoEstoque.update({
-        where: { id: movimentacao.id },
-        data: {
-          statusIntegracao: 'CONCLUIDA',
-          estoqueExternoId: resultado.estoqueExternoId,
-          metadadosIntegracao: (resultado.detalhes as Prisma.JsonObject) || Prisma.JsonNull,
-          processadoEm: new Date(),
-        },
-      });
-
-      // 6. Registrar no histórico
-      await prisma.projetoHistorico.create({
-        data: {
-          projetoId: dados.projetoId,
-          usuarioId: dados.usuarioId,
-          acao: 'MATERIAL_DEVOLVIDO',
-          detalhes: {
-            materialId: dados.materialId,
-            materialNome: material.nome,
-            quantidade: dados.quantidade,
-            movimentacaoId: movimentacao.id,
+        const mov = await tx.projetoMovimentacaoEstoque.update({
+          where: { id: movimentacao.id },
+          data: {
+            statusIntegracao: 'CONCLUIDA',
+            estoqueExternoId: resultado.estoqueExternoId,
+            metadadosIntegracao: (resultado.detalhes as Prisma.JsonObject) || Prisma.JsonNull,
+            processadoEm: new Date(),
           },
-        },
+        });
+
+        await tx.projetoHistorico.create({
+          data: {
+            projetoId: dados.projetoId,
+            usuarioId: dados.usuarioId,
+            acao: 'MATERIAL_DEVOLVIDO',
+            detalhes: {
+              materialId: dados.materialId,
+              materialNome: material.nome,
+              quantidade: dados.quantidade,
+              movimentacaoId: movimentacao.id,
+            },
+          },
+        });
+
+        return mov;
       });
 
       return this.mapToMovimentacaoEstoque(movimentacaoAtualizada);

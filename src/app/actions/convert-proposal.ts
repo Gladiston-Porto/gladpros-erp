@@ -2,14 +2,17 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireServerUser } from '@/shared/lib/requireServerUser';
+import { can, type Role } from '@/shared/lib/rbac-core';
 import { ProjectProposalConversionService } from '@/domains/projects/services';
 
 export async function convertProposalToProject(propostaId: number) {
   try {
-    // Auth: verificar se o usuário está autenticado
     const user = await requireServerUser();
     if (!user?.id) {
       return { success: false, error: 'Não autorizado' };
+    }
+    if (!can(user.role as Role, 'projetos', 'create')) {
+      return { success: false, error: 'Sem permissão para criar projetos' };
     }
     const service = new ProjectProposalConversionService();
     const projeto = await service.convertFromProposal(propostaId, Number(user.id));

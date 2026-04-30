@@ -190,13 +190,19 @@ export default function ProjetoDetailPage() {
   const StatusIcon =
     projeto.status === 'planejado'
       ? Clock
-      : projeto.status === 'em_andamento'
+      : projeto.status === 'em_execucao'
         ? PlayCircle
-        : projeto.status === 'pausado'
-          ? PauseCircle
-          : projeto.status === 'concluido'
-            ? CheckCircle2
-            : XCircle;
+        : projeto.status === 'em_inspecao'
+          ? CheckCircle2
+          : projeto.status === 'aguardando_devolucoes'
+            ? AlertTriangle
+            : projeto.status === 'suspenso'
+              ? PauseCircle
+              : projeto.status === 'concluido'
+                ? CheckCircle2
+                : projeto.status === 'arquivado'
+                  ? FolderOpen
+                  : XCircle;
 
   const timelineItems = [
     {

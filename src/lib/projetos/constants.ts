@@ -2,12 +2,15 @@
  * Constantes e configurações do módulo de Projetos
  */
 
-// Status do Projeto
+// Status do Projeto — alinhado com enum Projeto_status do Prisma
 export const PROJETO_STATUS = {
   PLANEJADO: 'planejado',
-  EM_ANDAMENTO: 'em_andamento',
-  PAUSADO: 'pausado',
+  EM_EXECUCAO: 'em_execucao',
+  EM_INSPECAO: 'em_inspecao',
+  AGUARDANDO_DEVOLUCOES: 'aguardando_devolucoes',
   CONCLUIDO: 'concluido',
+  ARQUIVADO: 'arquivado',
+  SUSPENSO: 'suspenso',
   CANCELADO: 'cancelado',
 } as const;
 
@@ -15,26 +18,32 @@ export type ProjetoStatus = typeof PROJETO_STATUS[keyof typeof PROJETO_STATUS];
 
 export const PROJETO_STATUS_LABELS: Record<ProjetoStatus, string> = {
   planejado: 'Planejado',
-  em_andamento: 'Em Andamento',
-  pausado: 'Pausado',
+  em_execucao: 'Em Execução',
+  em_inspecao: 'Em Inspeção',
+  aguardando_devolucoes: 'Ag. Devoluções',
   concluido: 'Concluído',
+  arquivado: 'Arquivado',
+  suspenso: 'Suspenso',
   cancelado: 'Cancelado',
 };
 
 export const PROJETO_STATUS_COLORS: Record<ProjetoStatus, string> = {
   planejado: 'bg-blue-100 text-blue-800 border-blue-200',
-  em_andamento: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  pausado: 'bg-orange-100 text-orange-800 border-orange-200',
+  em_execucao: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  em_inspecao: 'bg-purple-100 text-purple-800 border-purple-200',
+  aguardando_devolucoes: 'bg-amber-100 text-amber-800 border-amber-200',
   concluido: 'bg-green-100 text-green-800 border-green-200',
+  arquivado: 'bg-gray-100 text-gray-600 border-gray-200',
+  suspenso: 'bg-orange-100 text-orange-800 border-orange-200',
   cancelado: 'bg-red-100 text-red-800 border-red-200',
 };
 
-// Prioridades
+// Prioridades — alinhado com enum Projeto_prioridade do Prisma
 export const PROJETO_PRIORIDADE = {
   BAIXA: 'baixa',
   MEDIA: 'media',
   ALTA: 'alta',
-  URGENTE: 'urgente',
+  CRITICA: 'critica',
 } as const;
 
 export type ProjetoPrioridade = typeof PROJETO_PRIORIDADE[keyof typeof PROJETO_PRIORIDADE];
@@ -43,22 +52,24 @@ export const PROJETO_PRIORIDADE_LABELS: Record<ProjetoPrioridade, string> = {
   baixa: 'Baixa',
   media: 'Média',
   alta: 'Alta',
-  urgente: 'Urgente',
+  critica: 'Crítica',
 };
 
 export const PROJETO_PRIORIDADE_COLORS: Record<ProjetoPrioridade, string> = {
   baixa: 'bg-gray-100 text-gray-700 border-gray-200',
   media: 'bg-blue-100 text-blue-700 border-blue-200',
   alta: 'bg-orange-100 text-orange-700 border-orange-200',
-  urgente: 'bg-red-100 text-red-700 border-red-200',
+  critica: 'bg-red-100 text-red-700 border-red-200',
 };
 
-// Status de Etapa
+// Status de Etapa — alinhado com enum ProjetoEtapa_status do Prisma
 export const ETAPA_STATUS = {
   PENDENTE: 'pendente',
   EM_ANDAMENTO: 'em_andamento',
+  EM_VALIDACAO: 'em_validacao',
   CONCLUIDA: 'concluida',
   BLOQUEADA: 'bloqueada',
+  CANCELADA: 'cancelada',
 } as const;
 
 export type EtapaStatus = typeof ETAPA_STATUS[keyof typeof ETAPA_STATUS];
@@ -66,62 +77,68 @@ export type EtapaStatus = typeof ETAPA_STATUS[keyof typeof ETAPA_STATUS];
 export const ETAPA_STATUS_LABELS: Record<EtapaStatus, string> = {
   pendente: 'Pendente',
   em_andamento: 'Em Andamento',
+  em_validacao: 'Em Validação',
   concluida: 'Concluída',
   bloqueada: 'Bloqueada',
+  cancelada: 'Cancelada',
 };
 
-// Status de Tarefa
+// Status de Tarefa — alinhado com enum ProjetoTarefa_status do Prisma
 export const TAREFA_STATUS = {
-  TODO: 'todo',
-  IN_PROGRESS: 'in_progress',
-  REVIEW: 'review',
-  DONE: 'done',
-  CANCELLED: 'cancelled',
+  ABERTA: 'aberta',
+  EM_ANDAMENTO: 'em_andamento',
+  BLOQUEADA: 'bloqueada',
+  CONCLUIDA: 'concluida',
+  CANCELADA: 'cancelada',
 } as const;
 
 export type TarefaStatus = typeof TAREFA_STATUS[keyof typeof TAREFA_STATUS];
 
 export const TAREFA_STATUS_LABELS: Record<TarefaStatus, string> = {
-  todo: 'A Fazer',
-  in_progress: 'Em Progresso',
-  review: 'Em Revisão',
-  done: 'Concluído',
-  cancelled: 'Cancelado',
+  aberta: 'Aberta',
+  em_andamento: 'Em Andamento',
+  bloqueada: 'Bloqueada',
+  concluida: 'Concluída',
+  cancelada: 'Cancelada',
 };
 
 export const TAREFA_STATUS_COLORS: Record<TarefaStatus, string> = {
-  todo: 'bg-gray-100 text-gray-700',
-  in_progress: 'bg-blue-100 text-blue-700',
-  review: 'bg-yellow-100 text-yellow-700',
-  done: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-700',
+  aberta: 'bg-gray-100 text-gray-700',
+  em_andamento: 'bg-blue-100 text-blue-700',
+  bloqueada: 'bg-red-100 text-red-700',
+  concluida: 'bg-green-100 text-green-700',
+  cancelada: 'bg-gray-100 text-gray-500',
 };
 
-// Prioridade de Tarefa
+// Prioridade de Tarefa — alinhado com enum Projeto_prioridade do Prisma
 export const TAREFA_PRIORIDADE = {
   BAIXA: 'baixa',
   NORMAL: 'normal',
   ALTA: 'alta',
-  URGENTE: 'urgente',
+  CRITICA: 'critica',
 } as const;
 
 export type TarefaPrioridade = typeof TAREFA_PRIORIDADE[keyof typeof TAREFA_PRIORIDADE];
 
-// Status de Material
+// Status de Material — alinhado com enum ProjetoMaterial_status do Prisma
 export const MATERIAL_STATUS = {
-  RESERVADO: 'reservado',
-  ALOCADO: 'alocado',
+  PLANEJADO: 'planejado',
+  LIBERADO: 'liberado',
   EM_USO: 'em_uso',
-  DEVOLVIDO: 'devolvido',
+  DEVOLUCAO_PENDENTE: 'devolucao_pendente',
+  TRIAGEM_PENDENTE: 'triagem_pendente',
+  FINALIZADO: 'finalizado',
 } as const;
 
 export type MaterialStatus = typeof MATERIAL_STATUS[keyof typeof MATERIAL_STATUS];
 
 export const MATERIAL_STATUS_LABELS: Record<MaterialStatus, string> = {
-  reservado: 'Reservado',
-  alocado: 'Alocado',
+  planejado: 'Planejado',
+  liberado: 'Liberado',
   em_uso: 'Em Uso',
-  devolvido: 'Devolvido',
+  devolucao_pendente: 'Devolução Pendente',
+  triagem_pendente: 'Triagem Pendente',
+  finalizado: 'Finalizado',
 };
 
 // Tipo de Movimentação
