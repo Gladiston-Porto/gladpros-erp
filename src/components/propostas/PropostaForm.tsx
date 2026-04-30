@@ -48,6 +48,8 @@ import { propostaFormSchema } from './validation'
 import { colors } from "@gladpros/ui/tokens"; // Import tokens correctly
 import { TemplateSelector, type TemplateData } from './TemplateSelector'
 import { SaveAsTemplateButton } from './SaveAsTemplateButton'
+import { EstimadorWizard } from './estimador/EstimadorWizard'
+import type { EstimadorResult } from './estimador/types'
 
 interface PropostaFormProps {
     initialData?: PropostaFormData;
@@ -152,6 +154,37 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
     // Stock availability check state
     const [estoqueCheck, setEstoqueCheck] = useState<Record<number, { disponivel: number; needsToPurchase: boolean; shortfall: number }>>({})
     const [checkingStock, setCheckingStock] = useState(false)
+
+    // Smart Estimator
+    const [showEstimador, setShowEstimador] = useState(false)
+
+    const handleApplyEstimativa = (result: EstimadorResult) => {
+        setEtapas(result.etapas.map(e => ({
+            id: crypto.randomUUID(),
+            servico: e.servico,
+            descricao: e.descricao ?? '',
+            quantidade: e.quantidade,
+            unidade: e.unidade,
+            duracaoHoras: e.duracaoHoras ?? 0,
+            custoMO: e.custoMO ?? 0,
+            status: 'planejada',
+        })))
+        setMateriais(result.materiais.map(m => ({
+            id: crypto.randomUUID(),
+            codigo: m.codigo ?? '',
+            nome: m.nome,
+            quantidade: m.quantidade,
+            unidade: m.unidade,
+            preco: m.preco ?? 0,
+            status: 'necessario',
+        })))
+        if (result.escopoTexto) setEscopo(result.escopoTexto)
+        setInterno(prev => ({
+            ...prev,
+            custo_material: result.custoMaterial,
+            custo_mo: result.custoMO,
+        }))
+    }
 
     const handleCheckEstoque = async () => {
         const linkedItems = materiais.filter((m) => m.estoqueItemId)
@@ -350,6 +383,14 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                         <div className="hidden sm:flex items-center rounded-xl bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-600">Rascunho</div>
                     )}
                     <TemplateSelector onSelect={handleApplyTemplate} />
+                    <Button
+                        variant="outline"
+                        onClick={() => setShowEstimador(true)}
+                        className="hidden sm:flex items-center gap-1.5 border-brand-primary/40 text-brand-primary hover:bg-brand-primary/5"
+                        title="Gerar estimativa de custo automaticamente"
+                    >
+                        ✨ Gerar Estimativa
+                    </Button>
                     <SaveAsTemplateButton
                         titulo={cliente.titulo}
                         escopo={escopo}
@@ -798,6 +839,12 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                     </Card>
                 </div>
             </main>
+
+            <EstimadorWizard
+                open={showEstimador}
+                onClose={() => setShowEstimador(false)}
+                onImport={handleApplyEstimativa}
+            />
         </div>
     )
 }
