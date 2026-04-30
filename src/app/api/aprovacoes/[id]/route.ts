@@ -200,12 +200,14 @@ export const PUT = withErrorHandler(async (request: NextRequest,
 
   if (acao === 'aprovar') {
     if (role === 'ADMIN' || role === 'GERENTE') {
+      // ADMIN/GERENTE aprovam ambas as etapas de uma vez
       updateData.aprovacaoInternaFinanceira = true;
       updateData.aprovacaoInternaTecnica = true;
-      updateData.aprovadaEm = new Date();
     } else if (role === 'FINANCEIRO') {
       updateData.aprovacaoInternaFinanceira = true;
     }
+    // Nota: aprovadaEm é definido SOMENTE no ProposalApprovalService (POST /api/propostas/[id]/approve)
+    // quando ambas aprovações estão concluídas e o status muda para APROVADA
   }
 
   await prisma.proposta.update({ where: { id: parsed.numericId }, data: updateData });

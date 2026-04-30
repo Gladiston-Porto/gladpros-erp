@@ -1,3 +1,14 @@
+/**
+ * /api/propostas/follow-up — Consulta e disparo manual de follow-ups
+ *
+ * GET  → lista propostas ENVIADA que precisam de follow-up (uso interno da dashboard)
+ * POST → dispara notificações manualmente (ADMIN/GERENTE only)
+ *
+ * ⚠️ Cron job automático: /api/cron/propostas/follow-up (schedule: 0 9 * * *)
+ *    O cron usa GET + CRON_SECRET e tem idempotência via cache (TTL 48h).
+ *    Este endpoint POST é para acionamento manual via dashboard apenas.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, can, type Role } from '@/shared/lib/rbac';
 import { prisma } from '@/lib/prisma';

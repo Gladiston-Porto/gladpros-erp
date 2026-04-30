@@ -9,10 +9,28 @@ export async function approveProposal(
 ): Promise<ProposalOperationResult> {
   const proposta = await prisma.proposta.findFirst({
     where: { id: propostaId, deletedAt: null, status: 'ASSINADA' },
+    select: {
+      id: true,
+      clienteId: true,
+      valorEstimado: true,
+      aprovacaoInternaFinanceira: true,
+      aprovacaoInternaTecnica: true,
+    },
   });
 
   if (!proposta) {
     return { success: false, error: 'Proposta não encontrada ou não está assinada' };
+  }
+
+  // Ambas as aprovações internas devem estar concluídas antes da aprovação final
+  const missing: string[] = [];
+  if (!proposta.aprovacaoInternaFinanceira) missing.push('financeira');
+  if (!proposta.aprovacaoInternaTecnica) missing.push('técnica');
+  if (missing.length > 0) {
+    return {
+      success: false,
+      error: `Aprovações internas pendentes: ${missing.join(', ')}. Acesse o módulo de Aprovações para completar.`,
+    };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,6 +39,7 @@ export async function approveProposal(
       where: { id: propostaId },
       data: {
         status: 'APROVADA',
+        aprovadaEm: new Date(),
         atualizadoEm: new Date(),
         atualizadoPor: Number(audit.actorId),
       },

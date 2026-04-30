@@ -78,11 +78,12 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     }
   }
 
-  // 2. Proposal Internal Approvals
+  // 2. Proposal Internal Approvals (status ASSINADA = client signed, awaiting internal review)
   if (!tipoFilter || tipoFilter === 'proposta') {
     const propostaWhere: Record<string, unknown> = {
       empresaId: 1,
-      status: 'ENVIADA',
+      status: 'ASSINADA',
+      deletedAt: null,
       OR: [
         { aprovacaoInternaFinanceira: false },
         { aprovacaoInternaTecnica: false },
