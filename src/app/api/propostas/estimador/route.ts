@@ -6,7 +6,7 @@ import { calcEstimativa } from '@/config/estimador/pricing'
 
 const schema = z.object({
   tradeId: z.string().min(1),
-  respostas: z.record(z.union([z.string(), z.number(), z.boolean()])),
+  respostas: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
 })
 
 export async function POST(request: NextRequest) {
