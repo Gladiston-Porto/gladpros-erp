@@ -4,13 +4,14 @@ import React, { useState, useCallback } from 'react'
 import { Button } from '@gladpros/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@gladpros/ui/toast'
-import { TRADES, TRADES_BY_ID } from '@/config/estimador/trades'
+import { TRADES } from '@/config/estimador/trades'
 import type { TradeConfig, EstimadorRespostas, EstimadorResult } from './types'
 import { EstimadorStepQuestions } from './EstimadorStepQuestions'
 import { EstimadorPreview } from './EstimadorPreview'
 
 type WizardStep   = 'trade-select' | 'questions' | 'preview' | 'ai-scope'
 type WizardMode   = 'wizard' | 'ai'
+type AiSource     = 'ep' | 'gpt4o'
 
 interface EstimadorWizardProps {
   open: boolean
@@ -32,6 +33,7 @@ export function EstimadorWizard({ open, onClose, onImport }: EstimadorWizardProp
   const [result, setResult]           = useState<EstimadorResult | null>(null)
   const [loading, setLoading]         = useState(false)
   const [aiScope, setAiScope]         = useState('')
+  const [aiSource, setAiSource]       = useState<AiSource>('ep')
   const [margin, setMargin]           = useState(0)
   const [applyMargin, setApplyMargin] = useState(false)
   const { addToast } = useToast()
@@ -43,6 +45,7 @@ export function EstimadorWizard({ open, onClose, onImport }: EstimadorWizardProp
     setRespostas({})
     setResult(null)
     setAiScope('')
+    setAiSource('ep')
     setMargin(0)
     setApplyMargin(false)
     onClose()
@@ -104,12 +107,26 @@ export function EstimadorWizard({ open, onClose, onImport }: EstimadorWizardProp
     setLoading(true)
     try {
       const { authenticatedFetch } = await import('@/lib/api/client')
-      const res = await authenticatedFetch('/api/propostas/estimador/ai-scope', {
+      const endpoint = aiSource === 'ep'
+        ? '/api/propostas/estimador/ep-scope'
+        : '/api/propostas/estimador/ai-scope'
+
+      const res = await authenticatedFetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({ scope: aiScope }),
       })
       if (!res.ok) {
         const err = await res.json()
+        // If EP couldn't detect trade, suggest GPT-4o automatically
+        if (res.status === 422 && aiSource === 'ep') {
+          addToast({
+            title: 'Trade não identificado',
+            message: 'Tente o modo GPT-4o para escopos complexos.',
+            type: 'warning',
+          })
+          setAiSource('gpt4o')
+          return
+        }
         throw new Error(err.message || 'Erro ao gerar estimativa com IA')
       }
       const json = await res.json()
@@ -120,7 +137,7 @@ export function EstimadorWizard({ open, onClose, onImport }: EstimadorWizardProp
     } finally {
       setLoading(false)
     }
-  }, [aiScope, addToast])
+  }, [aiScope, aiSource, addToast])
 
   const handleImport = useCallback(() => {
     if (!result) return
@@ -187,7 +204,7 @@ export function EstimadorWizard({ open, onClose, onImport }: EstimadorWizardProp
               mode === 'ai' ? 'bg-card text-brand-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            🤖 Descrever Escopo (IA)
+            🤖 Descrever Escopo
           </button>
         </div>
 
@@ -243,11 +260,48 @@ export function EstimadorWizard({ open, onClose, onImport }: EstimadorWizardProp
         {/* ── STEP 1 (AI): Describe Scope ──────────────────────────────────── */}
         {step === 'ai-scope' && (
           <div className="flex flex-col gap-4">
+            {/* Source selector */}
+            <div className="flex gap-1 p-1 bg-muted/50 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setAiSource('ep')}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-colors ${
+                  aiSource === 'ep'
+                    ? 'bg-green-500/10 text-green-700 dark:text-green-400 shadow-sm border border-green-500/20'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                🆓 EstimationPro (grátis)
+              </button>
+              <button
+                type="button"
+                onClick={() => setAiSource('gpt4o')}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-colors ${
+                  aiSource === 'gpt4o'
+                    ? 'bg-card text-brand-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                🤖 GPT-4o
+              </button>
+            </div>
+
             <div className="rounded-xl bg-brand-primary/5 border border-brand-primary/20 p-3">
-              <p className="text-sm font-medium text-brand-primary mb-1">🤖 Como funciona</p>
-              <p className="text-xs text-muted-foreground">
-                Descreva o escopo completo do serviço em português ou inglês. A IA irá interpretar, gerar etapas detalhadas, lista de materiais e estimativa de custo para Dallas TX 2025.
-              </p>
+              {aiSource === 'ep' ? (
+                <>
+                  <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-1">🆓 EstimationPro.ai — sem custo</p>
+                  <p className="text-xs text-muted-foreground">
+                    Descreva o escopo. O sistema detecta o trade automaticamente e busca preços regionais atualizados para Dallas TX. Ideal para serviços diretos (water heater, bathroom remodel, panel upgrade, etc.).
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-brand-primary mb-1">🤖 GPT-4o — escopos complexos</p>
+                  <p className="text-xs text-muted-foreground">
+                    Use para escopos mistos ou muito detalhados. A IA interpreta linguagem natural e gera etapas completas com materiais. ~$0.02 por estimativa.
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="flex flex-col gap-2">
@@ -258,31 +312,34 @@ export function EstimadorWizard({ open, onClose, onImport }: EstimadorWizardProp
                 id="ai-scope-text"
                 value={aiScope}
                 onChange={(e) => setAiScope(e.target.value)}
-                placeholder={'Ex: "O cliente tem dois water heaters de 50 galões a gás em bypass. Vamos remover os dois e instalar um tankless Navien 11 GPM a gás natural. Também incluir um filtro de sedimento whole-house na linha principal."'}
-                className="min-h-[140px] w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
+                placeholder={
+                  aiSource === 'ep'
+                    ? 'Ex: "Instalar um tankless water heater Navien 11 GPM a gás natural, remover os dois water heaters tank existentes."'
+                    : 'Ex: "O cliente tem dois water heaters de 50 galões a gás em bypass. Vamos remover os dois e instalar um tankless Navien 11 GPM a gás natural. Também incluir um filtro de sedimento whole-house na linha principal."'
+                }
+                className="min-h-[120px] w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
                 aria-label="Descrição do escopo do serviço"
               />
               <p className="text-xs text-muted-foreground">
-                💡 Quanto mais detalhado, mais precisa será a estimativa. Inclua: tipo de serviço, quantidade, material específico, condições do local.
+                {aiSource === 'ep'
+                  ? '💡 Mencione o tipo de serviço claramente. Se o trade não for detectado, o modo GPT-4o será sugerido.'
+                  : '💡 Quanto mais detalhado, mais precisa será a estimativa. Inclua: tipo de serviço, quantidade, material específico, condições do local.'
+                }
               </p>
             </div>
 
             <Button
               onClick={handleGenerateAI}
               disabled={loading || !aiScope.trim()}
-              className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+              className={`${aiSource === 'ep' ? 'bg-green-600 hover:bg-green-700' : 'bg-brand-primary hover:bg-brand-primary/90'} text-white`}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Processando com IA...
+                  {aiSource === 'ep' ? 'Consultando EstimationPro...' : 'Processando com GPT-4o...'}
                 </span>
-              ) : '🤖 Gerar Estimativa com IA'}
+              ) : aiSource === 'ep' ? '🆓 Gerar com EstimationPro' : '🤖 Gerar com GPT-4o'}
             </Button>
-
-            <p className="text-xs text-center text-muted-foreground">
-              Powered by OpenAI GPT-4o · ~$0.02 por estimativa
-            </p>
           </div>
         )}
 
@@ -332,6 +389,12 @@ export function EstimadorWizard({ open, onClose, onImport }: EstimadorWizardProp
               </div>
             )}
 
+            {result.referenceOnly && (
+              <div className="rounded-lg bg-orange-500/10 border border-orange-500/20 p-2 text-xs text-orange-600 dark:text-orange-400">
+                ⚠️ Estimativa de referência EstimationPro.ai — sem etapas detalhadas nem materiais. Revise antes de importar.
+              </div>
+            )}
+
             <div className="flex gap-2 pt-2">
               <Button
                 variant="outline"
@@ -342,11 +405,15 @@ export function EstimadorWizard({ open, onClose, onImport }: EstimadorWizardProp
               </Button>
               <Button
                 onClick={handleImport}
-                className="flex-1 bg-brand-primary hover:bg-brand-primary/90 text-white"
+                disabled={!!result.referenceOnly}
+                title={result.referenceOnly ? 'Estimativa de referência — use o modo Por Trade para importar com detalhes completos' : undefined}
+                className="flex-1 bg-brand-primary hover:bg-brand-primary/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {applyMargin && margin > 0
-                  ? `✅ Importar com ${margin}% margem`
-                  : '✅ Importar para Proposta'}
+                {result.referenceOnly
+                  ? '⚠️ Somente referência'
+                  : applyMargin && margin > 0
+                    ? `✅ Importar com ${margin}% margem`
+                    : '✅ Importar para Proposta'}
               </Button>
             </div>
           </div>

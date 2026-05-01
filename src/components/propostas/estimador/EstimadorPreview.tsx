@@ -35,6 +35,30 @@ export function EstimadorPreview({ result, onMarginChange }: EstimadorPreviewPro
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Source badge */}
+      <div className="flex justify-end">
+        {result.fonte === 'hybrid' && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20">
+            📊 Internal + EstimationPro.ai
+          </span>
+        )}
+        {result.fonte === 'estimationpro' && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20">
+            🆓 EstimationPro.ai
+          </span>
+        )}
+        {result.fonte === 'ai' && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
+            🤖 GPT-4o
+          </span>
+        )}
+        {result.fonte === 'internal' && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+            🔧 Engine Interno
+          </span>
+        )}
+      </div>
+
       {/* Cost range banner */}
       <div className="rounded-2xl bg-hero-gradient p-4 text-white">
         <p className="text-sm opacity-80 mb-1">Estimativa de custo — Dallas TX 2025</p>

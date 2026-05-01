@@ -63,6 +63,8 @@ export interface EstimadorResult {
   custoMaterial: number
   fonte: 'internal' | 'estimationpro' | 'hybrid' | 'ai'
   notas?: string[]
+  /** When true: reference-only result — direct import is disabled, user must review. */
+  referenceOnly?: boolean
 }
 
 export interface EstimadorRequest {

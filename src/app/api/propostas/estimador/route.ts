@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireUser } from '@/shared/lib/rbac'
 import { can, type Role } from '@/shared/lib/rbac-core'
 import { calcEstimativa } from '@/config/estimador/pricing'
+import { enrichWithEp } from '@/lib/estimationpro'
 
 const schema = z.object({
   tradeId: z.string().min(1),
@@ -30,13 +31,12 @@ export async function POST(request: NextRequest) {
   const { tradeId, respostas } = body.data
 
   try {
-    // Phase 1: internal pricing engine (Dallas TX 2025)
-    const result = calcEstimativa(tradeId, respostas)
+    // Internal pricing engine (Dallas TX 2025)
+    let result = calcEstimativa(tradeId, respostas)
 
-    // Phase 2 (future): enrich with EstimationPro.ai live pricing
-    // Uncomment when ESTIMATION_PRO_API_KEY is set:
-    // const epResult = await tryEstimationPro(tradeId, respostas)
-    // if (epResult) { result = mergeWithEstimationPro(result, epResult); result.fonte = 'hybrid' }
+    // Enrich with EstimationPro.ai live pricing (free, fail-open)
+    // Sets fonte:'hybrid' only when a matching EP item is found; falls back silently on errors.
+    result = await enrichWithEp(result, tradeId, respostas)
 
     return NextResponse.json({ data: result, success: true }, { status: 200 })
   } catch (err) {
