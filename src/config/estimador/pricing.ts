@@ -12,6 +12,7 @@ const LABOR = {
   plumber_master: 95,
   plumber_journeyman: 75,
   remodel_crew: 65,        // $/hr (2-person crew average per person)
+  painter: 55,             // $/hr painting crew
 }
 
 function r(val: number): number {
@@ -526,51 +527,187 @@ export function calcWaterHeaterTank(respostas: EstimadorRespostas): EstimadorRes
 // TANKLESS WATER HEATER
 // ──────────────────────────────────────────────────────────────────────────────
 export function calcTankless(respostas: EstimadorRespostas): EstimadorResult {
-  const fuelType = String(respostas.fuel_type || 'gas')
+  const fuelType    = String(respostas.fuel_type     || 'gas')
   const replacingTank = Boolean(respostas.replacing_tank)
-  const gasLineUpgrade = Boolean(respostas.gas_line_upgrade)
+  const tanksQty    = Math.max(1, Number(respostas.tanks_quantity || 1))  // how many tanks being removed
+  const gasLineUpgrade    = Boolean(respostas.gas_line_upgrade)
   const electricalUpgrade = Boolean(respostas.electrical_upgrade)
-  const venting = String(respostas.venting || 'direct-vent')
+  const venting     = String(respostas.venting || 'direct-vent')
+  const bypassReconfig    = Boolean(respostas.bypass_reconfig)
+  const addSedimentFilter = Boolean(respostas.sediment_filter)
 
-  const baseMap: Record<string, [number, number]> = {
-    gas:      [1800, 3500],
-    electric: [1500, 3200],
-    propane:  [2000, 4000],
+  // Equipment prices — Dallas TX 2025 (contractor cost + 15% markup)
+  // Navien NPE-240A2 (11 GPM gas) wholesale ~$1,400 + markup = $1,590
+  const equipmentPrice: Record<string, number> = {
+    gas:      1590,  // Navien/Rinnai 9–11 GPM gas (most common in Dallas)
+    electric:  950,  // Electric tankless 27–36 kW
+    propane:  1690,  // Propane 11 GPM (same unit, different valve)
   }
-  let [low, high] = baseMap[fuelType] || baseMap.gas
-  if (replacingTank) { low += 150; high += 300 }
-  if (gasLineUpgrade) { low += 600; high += 1400 }
-  if (electricalUpgrade) { low += 500; high += 1100 }
-  if (venting === 'direct-vent') { low += 300; high += 700 }
+  const equipPrice = equipmentPrice[fuelType] ?? 1590
 
-  const mat = r((low + high) / 2 * 0.50)
-  const mo = r((low + high) / 2 * 0.40)
+  // Base labor: 6h master plumber (mount, connect water, gas/electric, test)
+  let laborHours = 6
+  let laborCost  = laborHours * LABOR.plumber_master
+
+  // Misc materials: flex connectors, shutoff valves, misc fittings
+  let miscMat = 185
+
+  // Permit (Dallas): $175–225
+  const permitCost = 200
+
+  // Add-ons
+  let addLow = 0
+  let addHigh = 0
+
+  if (replacingTank) {
+    const extra = tanksQty - 1  // extra tanks beyond the first
+    laborCost += tanksQty * LABOR.plumber_journeyman          // 1h/tank for removal
+    addLow  += tanksQty * 100
+    addHigh += tanksQty * 200
+    if (extra > 0) {
+      addLow  += extra * 200   // bypass reconfiguration becomes more complex
+      addHigh += extra * 400
+    }
+  }
+
+  if (bypassReconfig) {
+    // Re-piping bypass when removing tandem tank setup
+    laborCost += 3 * LABOR.plumber_master
+    miscMat   += 120  // tee fittings, copper/PEX
+    addLow  += 400
+    addHigh += 700
+  }
+
+  if (gasLineUpgrade) {
+    laborCost += 4 * LABOR.plumber_master
+    addLow  += 350
+    addHigh += 800
+  }
+
+  if (electricalUpgrade) {
+    laborCost += 4 * LABOR.electrician_journeyman
+    addLow  += 450
+    addHigh += 900
+  }
+
+  if (fuelType === 'gas' && venting === 'direct-vent') {
+    miscMat += 280  // SS vent pipe + termination cap
+    addLow  += 250
+    addHigh += 500
+  }
+
+  if (addSedimentFilter) {
+    // Whole-house 10" sediment filter + isolation valves + 1.5h labor
+    laborCost += 1.5 * LABOR.plumber_master
+    miscMat   += 130  // filter housing + element + valves
+    addLow  += 350
+    addHigh += 650
+  }
+
+  const baseCost = equipPrice + laborCost + miscMat + permitCost
+  const low  = r(baseCost + addLow  * 0.6)
+  const high = r(baseCost + addHigh)
+  const med  = r((low + high) / 2)
+  const mo   = r(laborCost)
+  const mat  = r(equipPrice + miscMat)
+
+  const scopeParts = [
+    `Instalação de water heater tankless ${fuelType === 'gas' ? 'a gás natural' : fuelType === 'electric' ? 'elétrico' : 'a propane'} (Navien / Rinnai).`,
+    replacingTank ? `Remoção de ${tanksQty} tanque${tanksQty > 1 ? 's' : ''} existente${tanksQty > 1 ? 's' : ''}.` : '',
+    bypassReconfig ? 'Reconfiguração do bypass (re-pipe das linhas de água).' : '',
+    gasLineUpgrade ? 'Upgrade da linha de gás (diâmetro maior para suportar BTU do tankless).' : '',
+    electricalUpgrade ? 'Instalação de circuit elétrico dedicado 240V/50A+.' : '',
+    fuelType === 'gas' ? `Ventilação: ${venting === 'direct-vent' ? 'direct vent pelo exterior' : venting}.` : '',
+    addSedimentFilter ? 'Instalação de filtro de sedimento whole-house na linha de entrada.' : '',
+  ].filter(Boolean).join(' ')
 
   return {
     tradeId: 'tankless-water-heater',
     tradeLabel: 'Tankless Water Heater',
-    escopoTexto: `Instalação de water heater tankless ${fuelType === 'gas' ? 'a gás' : fuelType === 'electric' ? 'elétrico' : 'propane'}.${replacingTank ? ' Remoção do tanque existente.' : ''}${gasLineUpgrade ? ' Inclui upgrade da linha de gás.' : ''}${electricalUpgrade ? ' Inclui novo circuit elétrico dedicado.' : ''}${fuelType === 'gas' ? ` Ventilação: ${venting}.` : ''}`,
+    escopoTexto: scopeParts,
     etapas: [
-      ...(replacingTank ? [{ servico: 'Remoção do tanque existente', descricao: 'Desconexão e remoção do water heater a tanque.', quantidade: 1, unidade: 'serviço', duracaoHoras: 1, custoMO: r(LABOR.plumber_journeyman), status: 'planejada' as const }] : []),
-      ...(gasLineUpgrade ? [{ servico: 'Upgrade da linha de gás', descricao: 'Substituição da linha de gás (diâmetro maior) para suportar o BTU do tankless.', quantidade: 1, unidade: 'serviço', duracaoHoras: 4, custoMO: r(4 * LABOR.plumber_master), status: 'planejada' as const }] : []),
-      ...(electricalUpgrade ? [{ servico: 'Circuit elétrico dedicado', descricao: 'Instalação de circuit 240V/50A+ dedicado para o tankless elétrico.', quantidade: 1, unidade: 'serviço', duracaoHoras: 4, custoMO: r(4 * LABOR.electrician_journeyman), status: 'planejada' as const }] : []),
-      { servico: 'Instalação do tankless', descricao: `Montagem na parede, conexão das linhas de água, ${fuelType === 'gas' ? 'gás' : 'elétrico'} e ventilação.`, quantidade: 1, unidade: 'serviço', duracaoHoras: 5, custoMO: r(5 * LABOR.plumber_master), status: 'planejada' },
-      { servico: 'Teste e comissionamento', descricao: 'Teste de funcionamento, ajuste de temperatura e vazão, orientação ao cliente.', quantidade: 1, unidade: 'serviço', duracaoHoras: 1, custoMO: r(LABOR.plumber_master), status: 'planejada' },
+      ...(replacingTank ? [{
+        servico: `Remoção de ${tanksQty} water heater${tanksQty > 1 ? 's' : ''} a tanque`,
+        descricao: `Desconexão das linhas de água, gás e ventilação. Remoção e descarte ${tanksQty > 1 ? 'dos tanques' : 'do tanque'}.`,
+        quantidade: tanksQty, unidade: 'un', duracaoHoras: tanksQty,
+        custoMO: r(tanksQty * LABOR.plumber_journeyman), status: 'planejada' as const,
+      }] : []),
+      ...(bypassReconfig ? [{
+        servico: 'Reconfiguração do bypass',
+        descricao: 'Re-pipe das linhas de abastecimento para eliminar o sistema bypass de múltiplos tanques.',
+        quantidade: 1, unidade: 'serviço', duracaoHoras: 3,
+        custoMO: r(3 * LABOR.plumber_master), status: 'planejada' as const,
+      }] : []),
+      ...(gasLineUpgrade ? [{
+        servico: 'Upgrade da linha de gás',
+        descricao: 'Substituição da linha de gás por diâmetro maior (3/4" → 1") para suportar o BTU requerido pelo tankless.',
+        quantidade: 1, unidade: 'serviço', duracaoHoras: 4,
+        custoMO: r(4 * LABOR.plumber_master), status: 'planejada' as const,
+      }] : []),
+      ...(electricalUpgrade ? [{
+        servico: 'Circuit elétrico dedicado',
+        descricao: 'Instalação de circuit 240V/50A+ dedicado para o tankless elétrico.',
+        quantidade: 1, unidade: 'serviço', duracaoHoras: 4,
+        custoMO: r(4 * LABOR.electrician_journeyman), status: 'planejada' as const,
+      }] : []),
+      {
+        servico: 'Instalação do tankless water heater',
+        descricao: `Montagem na parede, conexão das linhas de água, ${fuelType === 'gas' ? 'linha de gás' : 'circuit elétrico'} e ${fuelType === 'gas' ? 'sistema de ventilação' : 'proteção térmica'}.`,
+        quantidade: 1, unidade: 'serviço', duracaoHoras: 5,
+        custoMO: r(5 * LABOR.plumber_master), status: 'planejada',
+      },
+      ...(addSedimentFilter ? [{
+        servico: 'Instalação do filtro de sedimento',
+        descricao: 'Instalação de filtro whole-house 10" na linha de entrada principal, antes do tankless. Inclui válvulas de isolamento.',
+        quantidade: 1, unidade: 'serviço', duracaoHoras: 2,
+        custoMO: r(2 * LABOR.plumber_master), status: 'planejada' as const,
+      }] : []),
+      {
+        servico: 'Teste e comissionamento',
+        descricao: 'Teste de funcionamento, verificação de pressão, ajuste de temperatura (120°F), purge do ar e orientação ao cliente.',
+        quantidade: 1, unidade: 'serviço', duracaoHoras: 1,
+        custoMO: r(LABOR.plumber_master), status: 'planejada',
+      },
     ],
     materiais: [
-      { codigo: 'TANKLESS', nome: `Tankless water heater ${fuelType} (Rinnai / Navien)`, quantidade: 1, unidade: 'un', preco: fuelType === 'electric' ? 700 : 900, status: 'necessario' },
-      ...(fuelType === 'gas' && venting === 'direct-vent' ? [{ codigo: 'VENT-KIT', nome: 'Direct vent kit (SS pipe + termination cap)', quantidade: 1, unidade: 'kit', preco: 320, status: 'necessario' as const }] : []),
-      ...(gasLineUpgrade ? [{ codigo: 'GAS-PIPE', nome: 'Black iron pipe 3/4" (gas line upgrade)', quantidade: 25, unidade: 'ft', preco: 4.50, status: 'necessario' as const }] : []),
-      { codigo: 'FLEX-CONN', nome: 'Flex connectors (agua + gas)', quantidade: 2, unidade: 'set', preco: 22, status: 'necessario' },
-      { codigo: 'ISOLATOR-VALVE', nome: 'Shutoff valves (hot + cold + gas)', quantidade: 3, unidade: 'un', preco: 18, status: 'necessario' },
+      {
+        codigo: 'TANKLESS-UNIT',
+        nome: `Tankless water heater ${fuelType === 'gas' ? 'gás natural' : fuelType === 'electric' ? 'elétrico' : 'propane'} (Navien / Rinnai)`,
+        quantidade: 1, unidade: 'un', preco: equipPrice, status: 'necessario',
+        obs: fuelType === 'gas' ? 'Navien NPE-240A2 ou Rinnai RUC98iN — confirmar GPM com cliente' : undefined,
+      },
+      ...(fuelType === 'gas' && venting === 'direct-vent' ? [{
+        codigo: 'VENT-KIT', nome: 'Direct vent kit (SS pipe + elbow + termination cap)',
+        quantidade: 1, unidade: 'kit', preco: 280, status: 'necessario' as const,
+      }] : []),
+      ...(gasLineUpgrade ? [{
+        codigo: 'GAS-PIPE-3-4',
+        nome: 'Black iron pipe 3/4" + fittings (gas line upgrade)',
+        quantidade: 25, unidade: 'ft', preco: 5.50, status: 'necessario' as const,
+      }] : []),
+      ...(addSedimentFilter ? [{
+        codigo: 'SEDIMENT-FILTER',
+        nome: 'Filtro sedimento whole-house 10" housing + cartucho 5 micron',
+        quantidade: 1, unidade: 'kit', preco: 95, status: 'necessario' as const,
+        obs: 'Pentek ou equiv. — inclui suporte de parede e wrench',
+      }] : []),
+      { codigo: 'FLEX-CONN', nome: 'Flex connectors água (hot + cold)', quantidade: 2, unidade: 'set', preco: 28, status: 'necessario' },
+      { codigo: 'SHUTOFF-VALVES', nome: 'Shutoff valves (hot + cold + gás)', quantidade: 3, unidade: 'un', preco: 22, status: 'necessario' },
+      { codigo: 'MISC-FITTINGS', nome: 'Fittings, thread seal, misc consumíveis', quantidade: 1, unidade: 'lote', preco: 45, status: 'necessario' },
     ],
-    estimativaBaixa: r(low),
-    estimativaAlta: r(high),
-    estimativaMedia: r((low + high) / 2),
+    estimativaBaixa: low,
+    estimativaAlta: high,
+    estimativaMedia: med,
     custoMO: mo,
     custoMaterial: mat,
     fonte: 'internal',
-    notas: ['Rinnai e Navien são as marcas mais usadas em Dallas TX.', 'Upgrading gas line é necessário quando o BTU do tankless excede o que a linha atual suporta.'],
+    notas: [
+      'Navien e Rinnai são as marcas mais confiáveis para gás em Dallas TX.',
+      tanksQty > 1 ? `Remoção de ${tanksQty} tanques + reconfiguração do bypass incluídos.` : '',
+      gasLineUpgrade ? 'Upgrade da linha de gás é necessário para tankless de alta BTU (199k+ BTU).' : '',
+      addSedimentFilter ? 'Filtro de sedimento protege o tankless de detritos e prolonga a vida útil.' : '',
+      'Permit elétrico/gás incluído no estimado.',
+    ].filter(Boolean),
   }
 }
 
@@ -774,8 +911,269 @@ export function calcPlumbingResidential(respostas: EstimadorRespostas): Estimado
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// MAIN DISPATCHER
+// WATER TREATMENT
 // ──────────────────────────────────────────────────────────────────────────────
+export function calcWaterTreatment(respostas: EstimadorRespostas): EstimadorResult {
+  const filterType    = String(respostas.filter_type || 'sediment')   // sediment | carbon | softener | ro
+  const wholeHouse    = Boolean(respostas.whole_house)
+  const brandSupplied = Boolean(respostas.brand_supplied)  // customer provides unit
+
+  type FilterSpec = { name: string; equipLow: number; equipHigh: number; laborH: number; matMisc: number }
+  const specs: Record<string, FilterSpec> = {
+    sediment: {
+      name: 'Filtro sedimento whole-house 10"',
+      equipLow: 85, equipHigh: 130, laborH: 1.5, matMisc: 80,
+    },
+    carbon: {
+      name: 'Filtro carvão ativado whole-house',
+      equipLow: 180, equipHigh: 320, laborH: 2, matMisc: 95,
+    },
+    softener: {
+      name: 'Water softener (resina + bypass valve)',
+      equipLow: 620, equipHigh: 1200, laborH: 4, matMisc: 150,
+    },
+    ro: {
+      name: 'Sistema RO under-sink (5 stages)',
+      equipLow: 180, equipHigh: 380, laborH: 2, matMisc: 60,
+    },
+  }
+  const spec = specs[filterType] || specs.sediment
+
+  const equipBase = brandSupplied ? 0 : r((spec.equipLow + spec.equipHigh) / 2)
+  const laborCost  = r(spec.laborH * LABOR.plumber_master)
+  const mat        = r(equipBase + spec.matMisc)
+  const mo         = laborCost
+
+  const extra = wholeHouse && filterType !== 'ro' ? { costLow: 80, costHigh: 200 } : { costLow: 0, costHigh: 0 }
+
+  const low  = r(mat + mo + extra.costLow)
+  const high = r((brandSupplied ? 0 : spec.equipHigh) + spec.matMisc + spec.laborH * LABOR.plumber_master * 1.2 + extra.costHigh)
+  const med  = r((low + high) / 2)
+
+  return {
+    tradeId: 'water-treatment',
+    tradeLabel: 'Tratamento de Água',
+    escopoTexto: `Instalação de ${spec.name}${wholeHouse ? ' na linha principal (whole-house)' : ' ponto de uso'}.${brandSupplied ? ' Equipamento fornecido pelo cliente.' : ''}`,
+    etapas: [
+      {
+        servico: `Instalação de ${spec.name}`,
+        descricao: `Instalação na linha ${filterType === 'ro' ? 'under-sink' : 'principal de entrada'}. Inclui válvulas de isolamento, conexões e teste de pressão.`,
+        quantidade: 1, unidade: 'serviço', duracaoHoras: spec.laborH,
+        custoMO: laborCost, status: 'planejada',
+      },
+    ],
+    materiais: [
+      ...(brandSupplied ? [] : [{
+        codigo: `FILTER-${filterType.toUpperCase()}`,
+        nome: spec.name,
+        quantidade: 1, unidade: 'un', preco: r((spec.equipLow + spec.equipHigh) / 2),
+        status: 'necessario' as const,
+      }]),
+      { codigo: 'SHUTOFF-ISO', nome: 'Shutoff valves de isolamento (x2)', quantidade: 2, unidade: 'un', preco: 28, status: 'necessario' },
+      { codigo: 'FITTINGS-WTR', nome: 'Fittings, thread seal, misc', quantidade: 1, unidade: 'lote', preco: 35, status: 'necessario' },
+    ],
+    estimativaBaixa: low,
+    estimativaAlta: high,
+    estimativaMedia: med,
+    custoMO: mo,
+    custoMaterial: mat,
+    fonte: 'internal',
+    notas: [
+      filterType === 'softener' ? 'Water softener requer manutenção anual (regeneração de resina + sal).' : '',
+      filterType === 'ro' ? 'Sistema RO: cartuchos de pré-filtro devem ser trocados a cada 6–12 meses.' : '',
+      brandSupplied ? 'Equipamento fornecido pelo cliente — verificar compatibilidade antes da instalação.' : '',
+    ].filter(Boolean),
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PAINTING — INTERIOR
+// ──────────────────────────────────────────────────────────────────────────────
+export function calcPaintingInterior(respostas: EstimadorRespostas): EstimadorResult {
+  const sqftFloor   = Number(respostas.sqft || 0)
+  const rooms       = Number(respostas.rooms || 1)
+  const ceiling     = Boolean(respostas.include_ceiling)
+  const quality     = String(respostas.paint_quality || 'mid')   // basic | mid | premium
+  const prepWork    = Boolean(respostas.prep_work)
+
+  // Wall area ≈ 2.8× floor sqft for 9ft ceilings + ceiling if selected
+  const wallArea = r(sqftFloor * 2.8)
+  const ceilArea = ceiling ? sqftFloor : 0
+  const totalArea = wallArea + ceilArea
+
+  // $/sqft wall area (labor + paint combined)
+  const rateMap: Record<string, [number, number]> = {
+    basic:   [1.50, 2.20],
+    mid:     [2.00, 3.00],
+    premium: [2.80, 4.00],
+  }
+  const [rLow, rHigh] = rateMap[quality] || rateMap.mid
+  const paintPrice: Record<string, number> = { basic: 35, mid: 55, premium: 85 }  // $/gallon
+
+  const gallons   = Math.ceil(totalArea / 350)  // ~350 sqft/gallon, 2 coats = ÷ 175
+  const galFinal  = Math.ceil(totalArea / 175)   // 2 coats
+  const paintCost = r(galFinal * paintPrice[quality])
+  const laborCost = r(totalArea * ((rLow + rHigh) / 2 - paintCost / totalArea))
+  const prepCost  = prepWork ? r(rooms * 150 + sqftFloor * 0.30) : 0
+
+  const low  = r(totalArea * rLow + prepCost * 0.7)
+  const high = r(totalArea * rHigh + prepCost * 1.3)
+  const med  = r((low + high) / 2)
+  const mo   = r(med - paintCost)
+  const mat  = r(paintCost + (prepWork ? rooms * 40 : 0))  // paint + prep supplies
+
+  return {
+    tradeId: 'painting-interior',
+    tradeLabel: 'Pintura Interior',
+    escopoTexto: `Pintura interna de ${rooms} cômodo${rooms > 1 ? 's' : ''} (~${sqftFloor} sqft total). Qualidade: ${quality === 'basic' ? 'básica' : quality === 'mid' ? 'intermediária' : 'premium'}.${ceiling ? ' Inclui teto.' : ''}${prepWork ? ' Inclui preparação de superfície (spackle, lixamento, primer).' : ''}`,
+    etapas: [
+      ...(prepWork ? [{
+        servico: 'Preparação de superfície',
+        descricao: 'Limpeza, spackle em imperfeições, lixamento, fita e plástico de proteção.',
+        quantidade: rooms, unidade: 'cômodos', duracaoHoras: r(rooms * 1.5),
+        custoMO: prepCost, status: 'planejada' as const,
+      }] : []),
+      {
+        servico: `Aplicação de tinta (${quality === 'basic' ? 'básica' : quality === 'mid' ? 'intermediária' : 'premium'})`,
+        descricao: `2 demãos nas paredes (${wallArea} sqft)${ceiling ? ` + teto (${sqftFloor} sqft)` : ''}. Total: ${totalArea} sqft.`,
+        quantidade: totalArea, unidade: 'sqft', duracaoHoras: r(totalArea / 150),
+        custoMO: r(totalArea * (rLow + rHigh) / 2 * 0.65), status: 'planejada',
+      },
+    ],
+    materiais: [
+      { codigo: 'PAINT-INT', nome: `Tinta interior ${quality === 'premium' ? 'Sherwin-Williams Emerald' : quality === 'mid' ? 'S-W Duration' : 'S-W Harmony'} (${quality})`, quantidade: galFinal, unidade: 'gal', preco: paintPrice[quality], status: 'necessario' },
+      { codigo: 'PRIMER-INT', nome: 'Primer interior (se necessário)', quantidade: Math.ceil(galFinal * 0.5), unidade: 'gal', preco: 30, status: 'condicional' },
+      { codigo: 'SUPPLIES-INT', nome: 'Rolos, pincéis, fita, plástico, bandejas', quantidade: 1, unidade: 'lote', preco: r(rooms * 25), status: 'necessario' },
+    ],
+    estimativaBaixa: low,
+    estimativaAlta: high,
+    estimativaMedia: med,
+    custoMO: mo,
+    custoMaterial: mat,
+    fonte: 'internal',
+    notas: [
+      `Área de parede estimada: ${wallArea} sqft (calculada a partir dos ${sqftFloor} sqft de piso).`,
+      `Tinta necessária (~2 demãos): ${galFinal} galões de ${quality === 'premium' ? 'Sherwin-Williams Emerald' : quality === 'mid' ? 'S-W Duration' : 'S-W Harmony'}.`,
+      'Cores escuras ou mudança drástica de cor podem exigir 3ª demão (+10–15% no custo).',
+    ],
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PAINTING — EXTERIOR
+// ──────────────────────────────────────────────────────────────────────────────
+export function calcPaintingExterior(respostas: EstimadorRespostas): EstimadorResult {
+  const sqftFacade  = Number(respostas.sqft_facade || 0)
+  const stories     = Number(respostas.stories || 1)
+  const includeTrim = Boolean(respostas.include_trim)
+  const pressureWash = Boolean(respostas.pressure_wash)
+  const quality     = String(respostas.paint_quality || 'mid')
+
+  const rateMap: Record<string, [number, number]> = {
+    basic:   [1.80, 2.80],
+    mid:     [2.40, 3.60],
+    premium: [3.20, 4.80],
+  }
+  const [rLow, rHigh] = rateMap[quality] || rateMap.mid
+  const paintPrice: Record<string, number> = { basic: 45, mid: 65, premium: 95 }
+
+  const gallons   = Math.ceil(sqftFacade / 150)   // exterior uses more (rougher)
+  const galFinal  = Math.ceil(sqftFacade / 150)
+  const paintCost = r(galFinal * paintPrice[quality])
+  const pwCost    = pressureWash ? r(sqftFacade * 0.20 + 150) : 0
+  const trimCost  = includeTrim  ? r(sqftFacade * 0.15 + stories * 200) : 0
+
+  // Scaffolding or ladder kit for multi-story
+  const scaffoldCost = stories > 1 ? r((stories - 1) * 400) : 0
+
+  const low  = r(sqftFacade * rLow + pwCost * 0.8 + trimCost * 0.8 + scaffoldCost)
+  const high = r(sqftFacade * rHigh + pwCost * 1.2 + trimCost * 1.2 + scaffoldCost * 1.3)
+  const med  = r((low + high) / 2)
+  const mo   = r(med - paintCost - pwCost * 0.5)
+  const mat  = r(paintCost + pwCost * 0.5 + (includeTrim ? 80 : 0))
+
+  return {
+    tradeId: 'painting-exterior',
+    tradeLabel: 'Pintura Exterior',
+    escopoTexto: `Pintura exterior de ${sqftFacade} sqft de fachada, ${stories} andar${stories > 1 ? 'es' : ''}. Qualidade: ${quality}.${pressureWash ? ' Inclui lavagem de pressão.' : ''}${includeTrim ? ' Inclui trim/molduras.' : ''}`,
+    etapas: [
+      ...(pressureWash ? [{
+        servico: 'Pressure wash da fachada',
+        descricao: 'Lavagem de alta pressão para remover sujeira, mofo e tinta solta.',
+        quantidade: sqftFacade, unidade: 'sqft', duracaoHoras: r(sqftFacade / 400),
+        custoMO: pwCost, status: 'planejada' as const,
+      }] : []),
+      {
+        servico: 'Preparação e caulking',
+        descricao: 'Caulking em juntas, janelas e molduras. Proteção de janelas e superfícies.',
+        quantidade: 1, unidade: 'serviço', duracaoHoras: r(sqftFacade / 500 + stories),
+        custoMO: r(sqftFacade * 0.25), status: 'planejada',
+      },
+      {
+        servico: 'Aplicação de tinta exterior',
+        descricao: `2 demãos de tinta exterior premium. ${sqftFacade} sqft.${includeTrim ? ' Inclui trim em cor de destaque.' : ''}`,
+        quantidade: sqftFacade, unidade: 'sqft', duracaoHoras: r(sqftFacade / 120),
+        custoMO: r(sqftFacade * (rLow + rHigh) / 2 * 0.65), status: 'planejada',
+      },
+    ],
+    materiais: [
+      { codigo: 'PAINT-EXT', nome: `Tinta exterior ${quality === 'premium' ? 'Sherwin-Williams Emerald Exterior' : quality === 'mid' ? 'S-W Duration Exterior' : 'S-W SuperPaint Exterior'}`, quantidade: galFinal, unidade: 'gal', preco: paintPrice[quality], status: 'necessario' },
+      { codigo: 'PRIMER-EXT', nome: 'Primer exterior (1 demão)', quantidade: Math.ceil(galFinal * 0.5), unidade: 'gal', preco: 38, status: 'necessario' },
+      { codigo: 'CAULK-EXT', nome: 'Caulking exterior (NPC ou similar)', quantidade: Math.ceil(sqftFacade / 300), unidade: 'tubo', preco: 8, status: 'necessario' },
+      { codigo: 'SUPPLIES-EXT', nome: 'Rolos exterior, pincéis, fita, plástico', quantidade: 1, unidade: 'lote', preco: r(sqftFacade * 0.10), status: 'necessario' },
+      ...(stories > 1 ? [{ codigo: 'SCAFFOLD', nome: `Aluguel andaime / extensão de escada (${stories} andares)`, quantidade: stories - 1, unidade: 'semana', preco: scaffoldCost / (stories - 1), status: 'necessario' as const }] : []),
+    ],
+    estimativaBaixa: low,
+    estimativaAlta: high,
+    estimativaMedia: med,
+    custoMO: mo,
+    custoMaterial: mat,
+    fonte: 'internal',
+    notas: [
+      'Dallas TX: tinta exterior deve resistir a calor extremo (verão 105°F+) — indicadas tintas elastoméricas ou acrílicas premium.',
+      stories > 1 ? 'Casas de 2+ andares exigem andaime ou escadas de extensão (+tempo e custo).' : '',
+      pressureWash ? 'Aguardar 24–48h após pressure wash para a superfície secar antes de pintar.' : '',
+    ].filter(Boolean),
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PAINTING — FULL (interior + exterior combinado)
+// ──────────────────────────────────────────────────────────────────────────────
+export function calcPaintingFull(respostas: EstimadorRespostas): EstimadorResult {
+  const interior = calcPaintingInterior(respostas)
+  const exterior = calcPaintingExterior(respostas)
+
+  // ~10% combo discount on the higher quote (typically interior)
+  const discount = r((interior.estimativaMedia + exterior.estimativaMedia) * 0.08)
+
+  const low  = r(interior.estimativaBaixa + exterior.estimativaBaixa - discount)
+  const high = r(interior.estimativaAlta  + exterior.estimativaAlta)
+  const med  = r((low + high) / 2)
+  const mo   = r(interior.custoMO + exterior.custoMO)
+  const mat  = r(interior.custoMaterial + exterior.custoMaterial)
+
+  return {
+    tradeId: 'painting-full',
+    tradeLabel: 'Pintura Completa (Interior + Exterior)',
+    escopoTexto: `Projeto completo de pintura: interior + exterior. ${interior.escopoTexto} ${exterior.escopoTexto}`,
+    etapas: [...interior.etapas, ...exterior.etapas],
+    materiais: [...interior.materiais, ...exterior.materiais],
+    estimativaBaixa: low,
+    estimativaAlta: high,
+    estimativaMedia: med,
+    custoMO: mo,
+    custoMaterial: mat,
+    fonte: 'internal',
+    notas: [
+      'Desconto de ~8% aplicado por contratar interior + exterior no mesmo projeto.',
+      ...interior.notas,
+      ...exterior.notas,
+    ],
+  }
+}
+
+
 export function calcEstimativa(tradeId: string, respostas: EstimadorRespostas): EstimadorResult {
   switch (tradeId) {
     case 'electrical-residential': return calcElectricalResidential(respostas)
@@ -790,6 +1188,10 @@ export function calcEstimativa(tradeId: string, respostas: EstimadorRespostas): 
     case 'tankless-water-heater':  return calcTankless(respostas)
     case 'move-plumbing':          return calcMovePlumbing(respostas)
     case 'kitchen-remodel':        return calcKitchenRemodel(respostas)
+    case 'water-treatment':        return calcWaterTreatment(respostas)
+    case 'painting-interior':      return calcPaintingInterior(respostas)
+    case 'painting-exterior':      return calcPaintingExterior(respostas)
+    case 'painting-full':          return calcPaintingFull(respostas)
     default:
       throw new Error(`Trade não reconhecido: ${tradeId}`)
   }

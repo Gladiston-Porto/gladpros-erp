@@ -11,6 +11,8 @@ export interface WizardQuestion {
   unit?: string
   min?: number
   max?: number
+  defaultValue?: string | number | boolean
+  helpText?: string
   options?: Array<{ value: string; label: string }>
   dependsOn?: { questionId: string; value: string | boolean | number }
 }
@@ -34,7 +36,7 @@ export interface EstimadorMaterial {
   quantidade: number
   unidade: string
   preco: number
-  status: 'necessario' | 'opcional'
+  status: 'necessario' | 'opcional' | 'condicional'
   obs?: string
 }
 
@@ -59,7 +61,7 @@ export interface EstimadorResult {
   estimativaMedia: number
   custoMO: number
   custoMaterial: number
-  fonte: 'internal' | 'estimationpro' | 'hybrid'
+  fonte: 'internal' | 'estimationpro' | 'hybrid' | 'ai'
   notas?: string[]
 }
 
@@ -72,3 +74,4 @@ export interface EstimadorApiResponse {
   data: EstimadorResult
   success: true
 }
+
