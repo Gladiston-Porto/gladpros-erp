@@ -8,8 +8,8 @@ import { IInventoryGateway, RespostaIntegracaoEstoque, StatusIntegracaoEstoque, 
 import { prisma } from '@/lib/prisma';
 
 // Mock do Prisma
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
+jest.mock('@/lib/prisma', () => {
+  const mockPrisma = {
     projeto: {
       findUnique: jest.fn(),
     },
@@ -29,8 +29,12 @@ jest.mock('@/lib/prisma', () => ({
     projetoHistorico: {
       create: jest.fn(),
     },
-  },
-}));
+    $transaction: jest.fn(),
+  };
+  // $transaction executes the callback with itself as the tx context
+  mockPrisma.$transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback(mockPrisma));
+  return { prisma: mockPrisma };
+});
 
 // Mock do Gateway
 const mockGateway: jest.Mocked<IInventoryGateway> = {
@@ -62,7 +66,7 @@ describe('InventoryMovementService', () => {
         id: 10,
         projetoId: 1,
         nome: 'Material Teste',
-        status: 'DISPONIVEL',
+        status: 'planejado',
         quantidadePlanejada: 100,
         quantidadeLiberada: 20,
       }
@@ -138,13 +142,13 @@ describe('InventoryMovementService', () => {
       }
       ;(prisma.projetoMaterial.findFirst as jest.Mock).mockResolvedValue(mockMaterial)
 
-      await expect(service.liberarMaterial(dadosLiberacao)).rejects.toThrow('Material não está disponível')
+      await expect(service.liberarMaterial(dadosLiberacao)).rejects.toThrow('Material já foi liberado ou não está disponível para liberação')
     })
 
     it('deve falhar se quantidade solicitada exceder o planejado', async () => {
       const mockMaterial = {
         id: 10,
-        status: 'DISPONIVEL',
+        status: 'planejado',
         quantidadePlanejada: 10,
         quantidadeLiberada: 10,
       }
@@ -163,7 +167,7 @@ describe('InventoryMovementService', () => {
         unidade: 'UN',
         quantidadePlanejada: 100,
         quantidadeLiberada: 0,
-        status: 'DISPONIVEL',
+        status: 'planejado',
       };
       const mockMovimentacaoPendente = {
         id: 1,

@@ -80,7 +80,7 @@ describe('GET /api/projetos/[id]/tarefas', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.tarefas).toHaveLength(1);
+    expect(json.data).toHaveLength(1);
   });
 
   it('returns 400 for invalid project ID', async () => {
@@ -120,7 +120,7 @@ describe('POST /api/projetos/[id]/tarefas', () => {
     const json = await res.json();
 
     expect(res.status).toBe(201);
-    expect(json.titulo).toBe('Nova Tarefa');
+    expect(json.data.titulo).toBe('Nova Tarefa');
   });
 
   it('returns 400 for invalid project ID', async () => {

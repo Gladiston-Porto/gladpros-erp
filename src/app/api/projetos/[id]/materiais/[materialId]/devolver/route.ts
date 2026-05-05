@@ -48,6 +48,6 @@ export const POST = withErrorHandler(async (request: NextRequest,
       observacao,
     })
     
-    return NextResponse.json(movimentacao, { status: 201 })
+    return NextResponse.json({ data: movimentacao, success: true }, { status: 201 })
     
   });
