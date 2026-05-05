@@ -47,6 +47,24 @@ test.describe('Clientes CRUD', () => {
     await expect(page.getByText('ZIP Code é obrigatório')).toBeVisible();
   });
 
+  test('deve preencher automaticamente cidade e estado ao sair do campo ZIP', async ({ page }) => {
+    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/clientes/novo');
+    await page.goto('/clientes/novo', { waitUntil: 'domcontentloaded', timeout: CLIENTES_NAV_TIMEOUT_MS });
+
+    // Preenche ZIP sem preencher a cidade
+    const zipInput = page.getByTestId('cliente-form-address-zip');
+    const cityInput = page.getByTestId('cliente-form-address-city');
+
+    await expect(cityInput).toHaveValue('');
+
+    await zipInput.fill('75201');
+    await zipInput.press('Tab'); // aciona onBlur
+
+    // Aguarda auto-fill: zippopotam.us → 75201 = Dallas, TX
+    await expect(cityInput).toHaveValue('Dallas', { timeout: 8000 });
+    await expect(page.getByTestId('cliente-form-address-state')).toHaveValue('TX');
+  });
+
   test('deve criar cliente PF via UI e encontrá-lo na lista', async ({ page }) => {
     const suffix = uniqueSuffix('pf');
     const payload = buildPfPayload(suffix);

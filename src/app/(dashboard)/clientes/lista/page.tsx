@@ -7,6 +7,7 @@ import { useConfirm } from "@gladpros/ui/confirm-dialog";
 import { useToast } from "@gladpros/ui/toast";
 import { AdvancedPagination } from "@gladpros/ui/advanced-pagination";
 import { Search, Plus, Download, ChevronDown, Users, FileSpreadsheet, FileText as FilePdf } from "lucide-react";
+import { EmptyState } from "@gladpros/ui/empty-state";
 import { Button } from '@gladpros/ui/button';
 import { ModulePageHeader } from "@gladpros/ui/module-page-header";
 import { Card, CardContent } from "@gladpros/ui/card";
@@ -614,6 +615,14 @@ export default function ClientesListPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="p-6 text-sm opacity-60">Carregando…</div>
+          ) : data.length === 0 ? (
+            <div className="py-16">
+              <EmptyState
+                icon={<Users className="h-10 w-10" />}
+                title="Nenhum cliente encontrado"
+                description="Ajuste os filtros ou cadastre um novo cliente para começar."
+              />
+            </div>
           ) : (
             <ClientesTable
               data={data}

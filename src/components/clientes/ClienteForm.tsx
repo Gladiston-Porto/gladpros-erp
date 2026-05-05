@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Loader2, CheckCircle } from 'lucide-react'
 import type { ClienteCreateInput, ClienteUpdateInput, TipoCliente, TipoDocumentoPF } from '@/shared/types/cliente'
 import { formatTelefone } from "@/shared/lib/helpers/cliente-client";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@gladpros/ui/card";
@@ -46,7 +46,39 @@ export function ClienteForm({ cliente, onSubmit, onCancel, loading = false }: Cl
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [similarAlert, setSimilarAlert] = useState<SimilarResult | null>(null)
+  const [zipLookupStatus, setZipLookupStatus] = useState<'idle' | 'loading' | 'found' | 'notfound'>('idle')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const zipAbortRef = useRef<AbortController | null>(null)
+
+  // ZIP auto-fill: quando o usuário sai do campo ZIP, busca cidade/estado automaticamente
+  const handleZipBlur = async () => {
+    const baseZip = (formData.addressZip || '').replace(/\D/g, '').slice(0, 5)
+    if (baseZip.length !== 5) return
+    // Não sobrescreve cidade já preenchida pelo usuário
+    if (formData.addressCity.trim()) return
+
+    if (zipAbortRef.current) zipAbortRef.current.abort()
+    zipAbortRef.current = new AbortController()
+
+    setZipLookupStatus('loading')
+    try {
+      const res = await fetch(`/api/clientes/zip-lookup?zip=${baseZip}`, { signal: zipAbortRef.current.signal })
+      const json = await res.json()
+      if (json.success && json.data?.city) {
+        setFormData((prev) => ({
+          ...prev,
+          addressCity: json.data.city,
+          addressState: json.data.state ?? prev.addressState,
+        }))
+        setZipLookupStatus('found')
+      } else {
+        setZipLookupStatus('notfound')
+      }
+    } catch {
+      // Erro de rede ou abort — não quebrar o formulário
+      setZipLookupStatus('idle')
+    }
+  }
 
   // Detecção não-bloqueante de cadastros similares (telefone/endereço)
   useEffect(() => {
@@ -84,7 +116,6 @@ export function ClienteForm({ cliente, onSubmit, onCancel, loading = false }: Cl
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.telefone, formData.addressStreet, formData.addressCity, formData.addressState, cliente?.id])
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
@@ -421,16 +452,28 @@ export function ClienteForm({ cliente, onSubmit, onCancel, loading = false }: Cl
 
               <div className="col-span-6 md:col-span-4">
                 <label className="text-sm font-medium mb-1 block">ZIP Code <span className="text-error">*</span></label>
-                <Input
-                  name="addressZip"
-                  aria-label="ZIP Code"
-                  data-testid="cliente-form-address-zip"
-                  value={formData.addressZip || ''}
-                  onChange={(e) => handleInputChange('addressZip', e.target.value)}
-                  placeholder="12345"
-                  className={errors.addressZip ? "border-error" : ""}
-                />
+                <div className="relative">
+                  <Input
+                    name="addressZip"
+                    aria-label="ZIP Code"
+                    data-testid="cliente-form-address-zip"
+                    value={formData.addressZip || ''}
+                    onChange={(e) => handleInputChange('addressZip', e.target.value)}
+                    onBlur={handleZipBlur}
+                    placeholder="12345"
+                    className={errors.addressZip ? "border-error" : ""}
+                  />
+                  {zipLookupStatus === 'loading' && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  {zipLookupStatus === 'found' && (
+                    <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+                  )}
+                </div>
                 {errors.addressZip && <span className="text-xs text-error">{errors.addressZip}</span>}
+                {zipLookupStatus === 'notfound' && !errors.addressZip && (
+                  <span className="text-xs text-muted-foreground">ZIP não reconhecido — verifique o código</span>
+                )}
               </div>
 
               <div className="col-span-12 md:col-span-12">

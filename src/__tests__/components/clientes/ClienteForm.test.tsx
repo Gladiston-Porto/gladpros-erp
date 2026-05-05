@@ -8,38 +8,16 @@
  * - Error clearing on field change
  * - Cancel handler
  * - Loading/disabled state
+ * - ZIP Auto-fill (handleZipBlur)
  */
 
 import React from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { ClienteForm } from '@/components/clientes/ClienteForm'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const makeMinimalPFPayload = (overrides: Record<string, string> = {}) => ({
-  nomeCompleto: 'João da Silva',
-  email: 'joao@example.com',
-  telefone: '4693346918',
-  addressStreet: '123 Main St',
-  addressCity: 'Dallas',
-  addressState: 'TX',
-  addressZip: '75201',
-  ...overrides,
-})
-
-const makeMinimalPJPayload = (overrides: Record<string, string> = {}) => ({
-  nomeFantasia: 'Tech Solutions Inc',
-  email: 'tech@example.com',
-  telefone: '4693346918',
-  addressStreet: '456 Commerce Ave',
-  addressCity: 'Dallas',
-  addressState: 'TX',
-  addressZip: '75201',
-  ...overrides,
-})
 
 /** Fill form fields from a key→value map */
 async function fillField(testId: string, value: string) {
@@ -429,6 +407,125 @@ describe('ClienteForm', () => {
       await waitFor(() => {
         expect(screen.queryByText('E-mail é obrigatório')).not.toBeInTheDocument()
       })
+    })
+  })
+
+  // ── ZIP Auto-fill ──────────────────────────────────────────────────────────
+
+  describe('ZIP Auto-fill (handleZipBlur)', () => {
+    const zipField = () => screen.getByTestId('cliente-form-address-zip')
+    const cityField = () => screen.getByTestId('cliente-form-address-city')
+
+    let originalFetch: typeof global.fetch
+
+    beforeEach(() => {
+      originalFetch = global.fetch
+    })
+
+    afterEach(() => {
+      global.fetch = originalFetch
+    })
+
+    it('auto-preenche cidade e estado quando ZIP é válido e cidade está vazia', async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { city: 'Dallas', state: 'TX' }, success: true }),
+      })
+
+      render(<ClienteForm onSubmit={onSubmit} onCancel={onCancel} />)
+
+      // Flush state update from change before blur (garante formData.addressZip = '75201')
+      await act(async () => {
+        fireEvent.change(zipField(), { target: { value: '75201' } })
+      })
+
+      // Trigger blur e aguarda fetch + setState
+      await act(async () => {
+        fireEvent.blur(zipField())
+        await new Promise((r) => setTimeout(r, 50))
+      })
+
+      expect(cityField()).toHaveValue('Dallas')
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/clientes/zip-lookup?zip=75201',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
+    })
+
+    it('não sobrescreve cidade se já estiver preenchida', async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { city: 'Dallas', state: 'TX' }, success: true }),
+      })
+
+      render(<ClienteForm onSubmit={onSubmit} onCancel={onCancel} />)
+
+      await act(async () => {
+        fireEvent.change(cityField(), { target: { value: 'Plano' } })
+        fireEvent.change(zipField(), { target: { value: '75075' } })
+      })
+
+      await act(async () => {
+        fireEvent.blur(zipField())
+        await new Promise((r) => setTimeout(r, 50))
+      })
+
+      expect(cityField()).toHaveValue('Plano')
+    })
+
+    it('não chama fetch quando ZIP tem menos de 5 dígitos', async () => {
+      global.fetch = jest.fn()
+
+      render(<ClienteForm onSubmit={onSubmit} onCancel={onCancel} />)
+
+      await act(async () => {
+        fireEvent.change(zipField(), { target: { value: '1234' } })
+      })
+
+      await act(async () => {
+        fireEvent.blur(zipField())
+        await new Promise((r) => setTimeout(r, 50))
+      })
+
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    it('exibe mensagem de ZIP não reconhecido quando ZIP retorna sem dados', async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: null, success: true }),
+      })
+
+      render(<ClienteForm onSubmit={onSubmit} onCancel={onCancel} />)
+
+      await act(async () => {
+        fireEvent.change(zipField(), { target: { value: '00000' } })
+      })
+
+      await act(async () => {
+        fireEvent.blur(zipField())
+        await new Promise((r) => setTimeout(r, 50))
+      })
+
+      expect(screen.getByText(/ZIP não reconhecido/i)).toBeInTheDocument()
+    })
+
+    it('ignora erro de rede sem quebrar o formulário', async () => {
+      global.fetch = jest.fn().mockRejectedValueOnce(new Error('Network error'))
+
+      render(<ClienteForm onSubmit={onSubmit} onCancel={onCancel} />)
+
+      await act(async () => {
+        fireEvent.change(zipField(), { target: { value: '75201' } })
+      })
+
+      await act(async () => {
+        fireEvent.blur(zipField())
+        await new Promise((r) => setTimeout(r, 50))
+      })
+
+      expect(cityField()).toBeInTheDocument()
+      expect(cityField()).toHaveValue('')
     })
   })
 

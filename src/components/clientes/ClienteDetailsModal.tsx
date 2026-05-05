@@ -357,6 +357,7 @@ export function ClienteDetailsModal({
               {onEdit && (
                 <Button
                   variant="outline"
+                  aria-label="Editar cliente"
                   onClick={() => onEdit(cliente.id)}
                   className="min-h-12 border-brand-primary/20 text-brand-primary hover:bg-brand-primary/10"
                 >
@@ -366,6 +367,7 @@ export function ClienteDetailsModal({
               {onDelete && cliente.ativo && (
                 <Button
                   variant="outline"
+                  aria-label="Inativar cliente"
                   onClick={() => onDelete(cliente.id)}
                   className="min-h-12 border-destructive/20 text-destructive hover:bg-destructive/10"
                 >
@@ -375,6 +377,7 @@ export function ClienteDetailsModal({
               <div className="flex-1" />
               <Button
                 variant="outline"
+                aria-label="Fechar detalhes do cliente"
                 onClick={onClose}
                 className="min-h-12"
               >
