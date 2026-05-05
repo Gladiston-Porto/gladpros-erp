@@ -109,6 +109,7 @@ export default function DespesaDetalhesPage() {
     if (id) {
       loadExpense();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadExpense = async () => {

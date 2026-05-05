@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { unstable_noStore as noStore } from "next/cache";
+import Image from "next/image";
 import { resolvePortalView } from "@/domains/portal/services/PortalPageResolver";
 import { getClientIp } from "@/domains/portal/security/get-client-ip";
 
@@ -30,7 +31,7 @@ export default async function PortalProjectPage({ params }: Props) {
     <main className="mx-auto min-h-screen max-w-5xl px-4 py-8">
       <header className="mb-6 rounded-lg border bg-card p-4 text-card-foreground">
         <div className="flex items-center justify-between gap-4">
-          <img src="/images/LOGO_200.png" alt="GladPros" className="h-10 w-auto" />
+          <Image src="/images/LOGO_200.png" alt="GladPros" width={160} height={40} className="h-10 w-auto" />
           <span className="text-sm font-medium">Portal do Cliente</span>
         </div>
       </header>

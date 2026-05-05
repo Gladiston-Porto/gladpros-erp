@@ -2,6 +2,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { Button } from "@gladpros/ui/button";
 import { SignaturePad } from "@gladpros/ui/signature-pad";
 import { Camera, Paperclip, Pen, Receipt, RefreshCw, X } from "lucide-react";
@@ -901,7 +902,7 @@ export function ServiceOrderDetailModals({
                                         >
                                             <div className="flex items-center gap-3">
                                                 {tech.avatar ? (
-                                                    <img src={tech.avatar} alt={tech.name} className="h-9 w-9 rounded-full object-cover shrink-0" />
+                                                    <Image src={tech.avatar} alt={tech.name} width={36} height={36} unoptimized className="h-9 w-9 rounded-full object-cover shrink-0" />
                                                 ) : (
                                                     <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                                                         <span className="text-xs font-bold text-primary">{tech.initials}</span>

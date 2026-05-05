@@ -64,6 +64,7 @@ export function CreateCategoriaModal({
         if (open) {
             loadCategoriasPai();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, tipo]);
 
     const loadCategoriasPai = async () => {

@@ -32,6 +32,7 @@ export default function EditarProjetoPage() {
 
   useEffect(() => {
     loadProjeto();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projetoId]);
 
   const loadProjeto = async () => {

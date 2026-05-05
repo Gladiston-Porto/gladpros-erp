@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
-
 /* ── Status mappings ── */
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Draft',

@@ -87,6 +87,7 @@ export function CategoriaList({ tipo }: CategoriaListProps) {
     useEffect(() => {
         loadCategorias();
         setExpanded({}); // Resetar expansão ao mudar de aba
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tipo]);
 
     const toggleExpand = (id: number) => {

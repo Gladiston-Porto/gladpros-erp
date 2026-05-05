@@ -88,6 +88,7 @@ export default function InvoiceDetailPage() {
     void fetchInvoice(controller.signal);
 
     return () => controller.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceId]);
 
   useEffect(() => {

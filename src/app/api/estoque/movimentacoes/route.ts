@@ -167,11 +167,11 @@ async function postHandler(request: NextRequest) {
   }
   
   // 6. VALIDAÇÕES ESPECÍFICAS POR TIPO
-  if (validated.tipo === 'SAIDA' || validated.tipo === 'TRANSFERENCIA') {
+  if (validated.tipo === 'SAIDA' || validated.tipo === 'TRANSFERENCIA' || validated.tipo === 'AJUSTE_NEGATIVO' || validated.tipo === 'PERDA') {
     // Verifica saldo disponível na localização origem
     if (!validated.localizacaoOrigemId) {
       return businessErrorResponse(
-        'Localização de origem é obrigatória para saída/transferência',
+        'Localização de origem é obrigatória para saída/transferência/ajuste negativo/perda',
         ApiErrorCode.VALIDATION_ERROR
       );
     }
@@ -194,6 +194,22 @@ async function postHandler(request: NextRequest) {
         }
       );
     }
+  }
+
+  // DEVOLUCAO: localização destino é obrigatória (onde o material está sendo devolvido)
+  if (validated.tipo === 'DEVOLUCAO' && !validated.localizacaoDestinoId) {
+    return businessErrorResponse(
+      'Localização de destino é obrigatória para devolução',
+      ApiErrorCode.VALIDATION_ERROR
+    );
+  }
+
+  // AJUSTE_POSITIVO: localização destino é obrigatória
+  if (validated.tipo === 'AJUSTE_POSITIVO' && !validated.localizacaoDestinoId) {
+    return businessErrorResponse(
+      'Localização de destino é obrigatória para ajuste positivo',
+      ApiErrorCode.VALIDATION_ERROR
+    );
   }
   
   // 7. CRIA MOVIMENTAÇÃO E ATUALIZA SALDOS
@@ -221,7 +237,7 @@ async function postHandler(request: NextRequest) {
     });
     
     // Atualiza saldos conforme tipo de movimentação
-    if (validated.tipo === 'ENTRADA') {
+    if (validated.tipo === 'ENTRADA' || validated.tipo === 'DEVOLUCAO' || validated.tipo === 'AJUSTE_POSITIVO') {
       // Aumenta saldo no destino
       await tx.materialSaldo.upsert({
         where: {
@@ -244,7 +260,7 @@ async function postHandler(request: NextRequest) {
           }
         }
       });
-    } else if (validated.tipo === 'SAIDA') {
+    } else if (validated.tipo === 'SAIDA' || validated.tipo === 'AJUSTE_NEGATIVO' || validated.tipo === 'PERDA') {
       // Diminui saldo na origem
       await tx.materialSaldo.update({
         where: {

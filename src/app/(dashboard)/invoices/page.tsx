@@ -122,6 +122,7 @@ export default function InvoicesPage() {
     const controller = new AbortController();
     void fetchInvoices(controller.signal);
     return () => controller.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pagination.page,
     pagination.limit,

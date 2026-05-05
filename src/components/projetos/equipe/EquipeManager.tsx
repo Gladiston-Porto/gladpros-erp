@@ -62,6 +62,7 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
   useEffect(() => {
     fetchAssignments();
     fetchWorkers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projetoId]);
 
   const fetchAssignments = async () => {

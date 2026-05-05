@@ -109,6 +109,7 @@ export function TarefasKanban({ projetoId }: Props) {
 
   useEffect(() => {
     loadTarefas();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projetoId]);
 
   const loadTarefas = async () => {

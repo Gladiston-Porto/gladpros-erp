@@ -91,6 +91,7 @@ export function WorkerList({ initialStatus, initialType, baseUrl = '/rh/workers'
 
     useEffect(() => {
         fetchWorkers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, status, type]);
 
     useEffect(() => {
@@ -99,6 +100,7 @@ export function WorkerList({ initialStatus, initialType, baseUrl = '/rh/workers'
             fetchWorkers();
         }, 300);
         return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
 
     const getStatusBadge = (status: string) => {

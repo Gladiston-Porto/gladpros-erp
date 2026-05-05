@@ -81,6 +81,7 @@ export function MateriaisLista({ projetoId }: Props) {
 
   useEffect(() => {
     loadMateriais();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projetoId]);
 
   const loadMateriais = async () => {

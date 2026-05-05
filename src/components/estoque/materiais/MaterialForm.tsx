@@ -96,25 +96,20 @@ export function MaterialForm({
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCategoriaModal, setShowCategoriaModal] = useState(false);
+  // Manter a lista plana original separada para poder re-processar corretamente
+  const [, setFlatCategorias] = useState(() =>
+    categorias.map(c => ({ id: c.id, nome: c.nome, paiId: c.paiId ?? null }))
+  );
   const [listaCategorias, setListaCategorias] = useState(() => organizeCategoriesForSelect(categorias));
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.fotoUrl ?? null);
 
-  // Manipular criação de categoria
+  // Manipular criação de categoria: re-processa a hierarquia a partir da lista plana limpa
   const handleCategoriaCreated = (novaCategoria: { id: number; nome: string; paiId?: number | null }) => {
-    // Nova lógica: readicionar à lista base plana (flat) e reorganizar tudo
-    // Como a listaCategorias já está "processada" com displayNames, o ideal seria manter a lista original limpa separada,
-    // mas para MVP vamos "reprocessar" tudo assumindo que a lista plana é reconstruível ou apenas reinicializar.
-    // Melhor: Adicionar à lista plana original (se tivessemos guardado) e reprocessar.
-    // Como simplificação, vamos assumir que organizeCategoriesForSelect lida bem se receber flatten itens novamente 
-    // ou vamos pegar o state anterior, remover displayNames e reprocessar? 
-    // A função espera {nome, paiId}. Se o objeto já tiver displayName não tem problema.
-    // O problema é a ORDEM. A função reordena tudo.
-
-    // Vamos fazer assim: Adiciona o novo e reprocessa a lista inteira.
-    setListaCategorias(prev => {
-      const flatList = [...prev, novaCategoria];
-      return organizeCategoriesForSelect(flatList);
+    setFlatCategorias(prev => {
+      const updated = [...prev, { id: novaCategoria.id, nome: novaCategoria.nome, paiId: novaCategoria.paiId ?? null }];
+      setListaCategorias(organizeCategoriesForSelect(updated));
+      return updated;
     });
     form.setValue('categoriaId', String(novaCategoria.id));
   };
@@ -740,6 +735,7 @@ export function MaterialForm({
         onOpenChange={setShowCategoriaModal}
         tipo="MATERIAL"
         onSuccess={handleCategoriaCreated}
+        preSelectedPaiId={form.watch('categoriaId') || null}
       />
     </Form>
   );

@@ -71,6 +71,7 @@ export function AssignmentList({
 
     useEffect(() => {
         fetchAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [jobId, projectId]);
 
     const handleRemove = async (assignmentId: number) => {

@@ -42,6 +42,7 @@ export default function EtapasManager({ projetoId }: EtapasManagerProps) {
 
   useEffect(() => {
     loadEtapas();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projetoId]);
 
   const loadEtapas = async () => {
