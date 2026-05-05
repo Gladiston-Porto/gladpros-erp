@@ -89,6 +89,33 @@ Public routes that skip auth: `/api/auth/*`, `/api/portal/*`, `/api/webhooks/*`
 
 Coverage thresholds are enforced per module in `config/jest.config.js`. When auditing a module, add its threshold entry there.
 
+### Test Mock Patterns
+
+```typescript
+// Prisma mock (unit tests)
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
+    cliente: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), count: jest.fn() },
+  }
+}))
+import { prisma } from '@/lib/prisma'
+const mockFindMany = prisma.cliente.findMany as jest.MockedFunction<typeof prisma.cliente.findMany>
+mockFindMany.mockResolvedValue([{ id: 1, nome: 'John Smith', empresaId: 1 }])
+
+// Auth mock (unit tests)
+jest.mock('@/shared/lib/rbac', () => ({
+  requireUser: jest.fn().mockResolvedValue({ id: 1, email: 'admin@gladpros.com', role: 'ADMIN', empresaId: 1 }),
+  can: jest.fn().mockReturnValue(true),
+}))
+
+// Test RBAC denial
+;(requireUser as jest.Mock).mockResolvedValue({ id: 2, role: 'USUARIO', empresaId: 1 })
+;(can as jest.Mock).mockReturnValue(false)
+expect((await GET(mockRequest)).status).toBe(403)
+```
+
+E2E: use `data-testid` on all interactive elements (`data-testid="btn-salvar"`, `data-testid="input-nome"`). Auth states are pre-saved in `tests/.auth/[role].json`.
+
 ## Business Entity & Tax Context
 
 GladPros is a **Texas LLC** that may operate under S-Corp election. The system must support both regimes.
@@ -121,6 +148,20 @@ S_CORP      → Form 1120-S + K-1, reasonable salary required, FICA on salary on
 import { prisma } from "@/lib/prisma"
 ```
 Do NOT use `@/server/db`, `@/server/db-temp`, or `@/shared/lib/prisma`. If you find these imports, migrate them to `@/lib/prisma`.
+
+### Prisma Schema Rules
+Every model MUST have these four fields + index:
+```prisma
+id          Int      @id @default(autoincrement())
+empresaId   Int
+criadoEm    DateTime @default(now())
+atualizadoEm DateTime @updatedAt
+@@index([empresaId])
+```
+- **Money fields**: always `Decimal @db.Decimal(10, 2)` — never `Float`
+- **N-M relations**: use explicit join table with `@@id([aId, bId])`, never implicit `@relation` many-to-many
+- **Soft delete**: `deletadoEm DateTime?` + always filter `where: { deletadoEm: null }` in queries
+- Every FK field must have a matching `@@index`
 
 ### Authentication — ONLY `requireUser`
 ```typescript
@@ -179,6 +220,13 @@ CLIENTE (6)    → Limited external access (portal only)
 | configuracoes | ALL | RO | — | — | — | — |
 
 **ALL** = CRUD | **RW** = Read+Create+Update | **RO** = Read Only | **—** = No access
+
+### RBAC in Components
+Never hide elements via CSS for RBAC — always conditionally render:
+```tsx
+import { can, type Role } from "@/shared/lib/rbac-core"
+{can(user.role as Role, "financeiro", "read") && <FinanceSection />}
+```
 
 ### Performance — Required Patterns
 
@@ -293,6 +341,20 @@ Every main page should have:
 3. Stats cards (when applicable)
 4. Content area with loading/empty/error states
 
+Wrap async Server Component pages in `<Suspense>` with a skeleton fallback:
+```tsx
+export default function Page() {
+  return <Suspense fallback={<PageSkeleton />}><AsyncContent /></Suspense>
+}
+```
+
+Pages inside `(dashboard)` must verify access:
+```typescript
+const user = await requireServerUser()
+const mod = routeToModule("/current-path")
+if (mod && !can(user.role as Role, mod, "read")) redirect("/403")
+```
+
 ### Components
 - Import from `@gladpros/ui` when available (Button, Badge, Card, Input, etc.)
 - Fallback to `@/components/ui/` for local shadcn components
@@ -324,6 +386,8 @@ These affect runtime performance and must be set in production:
 > **⚠️ Sentry is intentionally disabled in `npm run dev`** (`config/next.config.ts`). It adds ~3,000 extra webpack modules per route, causing 60-340s compile times and OOM restarts. Sentry remains active for `npm run build` / production. Never re-enable `withSentryConfig` in dev mode.
 
 ## Specialized Agents & Chat Modes
+
+> The instruction files in `.github/instructions/` auto-apply in Copilot based on file type (API routes, pages, components, Prisma schemas, tests). Full business rules in `AGENTS.md`.
 
 Use these for complex tasks within Copilot Chat:
 

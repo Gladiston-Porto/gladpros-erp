@@ -73,7 +73,7 @@ export function MovimentacaoFilters({ materiais, equipamentos, projetos }: Movim
         <div className="space-y-2">
           <Label>Tipo</Label>
           <Select value={searchParams.get('tipo') || 'all'} onValueChange={(v) => updateFilter('tipo', v === 'all' ? '' : v)}>
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por tipo de movimentação">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -93,7 +93,7 @@ export function MovimentacaoFilters({ materiais, equipamentos, projetos }: Movim
             value={searchParams.get('materialId') || 'all'}
             onValueChange={(v) => updateFilter('materialId', v === 'all' ? '' : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por material">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -113,7 +113,7 @@ export function MovimentacaoFilters({ materiais, equipamentos, projetos }: Movim
             value={searchParams.get('equipamentoId') || 'all'}
             onValueChange={(v) => updateFilter('equipamentoId', v === 'all' ? '' : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por equipamento">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -133,7 +133,7 @@ export function MovimentacaoFilters({ materiais, equipamentos, projetos }: Movim
             value={searchParams.get('projetoId') || 'all'}
             onValueChange={(v) => updateFilter('projetoId', v === 'all' ? '' : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por projeto">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -151,6 +151,7 @@ export function MovimentacaoFilters({ materiais, equipamentos, projetos }: Movim
           <Label>Data Início</Label>
           <Input
             type="date"
+            aria-label="Data início do filtro"
             value={searchParams.get('dataInicio') || ''}
             onChange={(e) => updateFilter('dataInicio', e.target.value)}
           />
@@ -160,6 +161,7 @@ export function MovimentacaoFilters({ materiais, equipamentos, projetos }: Movim
           <Label>Data Fim</Label>
           <Input
             type="date"
+            aria-label="Data fim do filtro"
             value={searchParams.get('dataFim') || ''}
             onChange={(e) => updateFilter('dataFim', e.target.value)}
           />

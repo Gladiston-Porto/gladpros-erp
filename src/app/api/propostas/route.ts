@@ -198,6 +198,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         // Relations
         PropostaMaterial: {
           create: payload.materiais.map(m => ({
+            estoqueItemId: m.estoqueItemId,
             codigo: m.codigo,
             nome: m.nome,
             quantidade: m.quantidade,

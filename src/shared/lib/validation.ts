@@ -233,10 +233,27 @@ export const userUpdateApiSchema = z.object({
       const digits = v.replace(/\D/g, '');
       return digits.length >= 5 && digits.length <= 9 && digits === v.replace(/\D/g, '');
     }, 'CEP deve conter apenas números. Exemplo: 01234567'),
-  anotacoes: z.union([z.string(), z.null()]).optional().or(z.literal('')).transform((s) => (s && s !== null && s.trim && s.trim().length > 0 ? s : undefined))
+  anotacoes: z.union([z.string(), z.null()]).optional().or(z.literal('')).transform((s) => (s && s !== null && s.trim && s.trim().length > 0 ? s : undefined)),
+  expiresAt: z
+    .union([z.string(), z.date(), z.null()])
+    .optional()
+    .transform((v) => {
+      if (v === null || v === undefined || v === '') return null;
+      if (v instanceof Date) return isNaN(v.getTime()) ? null : v.toISOString();
+      const s = String(v).trim();
+      // Accept ISO 8601 or MM/DD/YYYY
+      const mIso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (mIso) return new Date(s).toISOString();
+      const mUs = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (mUs) {
+        const [, mm, dd, yyyy] = mUs as unknown as [string, string, string, string];
+        return new Date(`${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}T00:00:00.000Z`).toISOString();
+      }
+      return null;
+    })
 }).strict();
 
-export const toggleUserStatusSchema = z.object({
+export const toggleUserStatusSchema= z.object({
   ativo: z.boolean()
 }).strict();
 

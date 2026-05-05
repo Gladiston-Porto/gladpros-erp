@@ -19,6 +19,7 @@ export const GET = withErrorHandler(async (
 ) => {
   const user = await requireClientePermission(request, 'canRead')
   const canViewFinancial = can(user.role as Role, 'invoices', 'read') || can(user.role as Role, 'financeiro', 'read')
+  const EMPRESA_ID = 1 // single-tenant: GladPros
 
   const { id } = clienteParamsSchema.parse(await ctx.params)
 
@@ -111,7 +112,7 @@ export const GET = withErrorHandler(async (
 
     canViewFinancial
       ? prisma.revenue.findMany({
-          where: { clienteId: id, empresaId: 1 }, // single-tenant: GladPros empresaId=1
+          where: { clienteId: id, empresaId: EMPRESA_ID },
           select: {
             id: true,
             descricao: true,

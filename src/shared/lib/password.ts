@@ -29,9 +29,7 @@ export class PasswordService {
   }
   
   static async hashPassword(password: string): Promise<string> {
-    // Salt 10: seguro (OWASP aceita 10+) e ~4x mais rápido que 12.
-    // Hashes existentes (custo 12) continuam funcionando — bcrypt lê o custo do próprio hash.
-    return bcrypt.hash(password, 10);
+    return bcrypt.hash(password, 12);
   }
   
   static async verifyPassword(password: string, hash: string): Promise<boolean> {

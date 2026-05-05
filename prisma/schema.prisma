@@ -600,6 +600,8 @@ model Projeto {
   endClientPhone        String?                      @db.VarChar(30)
   endClientEmail        String?                      @db.VarChar(150)
   endClientNotes        String?                      @db.Text
+  // Restrições operacionais copiadas da proposta (para a equipe de execução)
+  restricoesOperacionais String?                     @db.Text  @map("restricoes_operacionais")
   criadoPor             Int                          @map("criado_por")
   atualizadoPor         Int?                         @map("atualizado_por")
   criadoEm              DateTime                     @default(now()) @map("criado_em")
@@ -861,7 +863,7 @@ model Usuario {
   id                           Int                          @id @default(autoincrement())
   email                        String                       @unique
   senha                        String
-  nivel                        String
+  nivel                        Usuario_nivel
   endereco1                    String
   endereco2                    String
   cidade                       String
@@ -884,6 +886,7 @@ model Usuario {
   anotacoes                    String?                      @db.LongText
   ultimoLoginEm                DateTime?
   tokenVersion                 Int                          @default(0)
+  expiresAt                    DateTime?
   AuditLog                     AuditLog[]
   Auditoria                    Auditoria[]
   CodigoMFA                    CodigoMFA[]
@@ -979,6 +982,16 @@ model Usuario {
 
   // Preferências do usuário
   UserPreference UserPreference?
+
+  // Delegações temporárias
+  DelegacoesFeitas     Delegacao[] @relation("DelegacoesFeitas")
+  DelegacoesRecebidas  Delegacao[] @relation("DelegacoesRecebidas")
+  DelegacoesCanceladas Delegacao[] @relation("DelegacoesCanceladas")
+
+  @@index([nivel])
+  @@index([status])
+  @@index([bloqueado])
+  @@index([ultimoLoginEm])
 }
 
 model UserPreference {
@@ -997,6 +1010,28 @@ model UserPreference {
   Usuario             Usuario  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model Delegacao {
+  id              Int       @id @default(autoincrement())
+  deleganteId     Int
+  delegatarioId   Int
+  dataInicio      DateTime
+  dataFim         DateTime
+  motivo          String?   @db.VarChar(500)
+  ativa           Boolean   @default(true)
+  canceladaEm     DateTime?
+  canceladaPorId  Int?
+  criadoEm        DateTime  @default(now())
+  atualizadoEm    DateTime  @updatedAt
+
+  delegante    Usuario  @relation("DelegacoesFeitas", fields: [deleganteId], references: [id])
+  delegatario  Usuario  @relation("DelegacoesRecebidas", fields: [delegatarioId], references: [id])
+  canceladaPor Usuario? @relation("DelegacoesCanceladas", fields: [canceladaPorId], references: [id])
+
+  @@index([deleganteId])
+  @@index([delegatarioId])
+  @@index([ativa, dataFim])
 }
 
 enum Cliente_tipo {
@@ -1205,6 +1240,15 @@ enum PropostaMaterial_status {
 enum Usuario_status {
   ATIVO
   INATIVO
+}
+
+enum Usuario_nivel {
+  ADMIN
+  GERENTE
+  FINANCEIRO
+  ESTOQUE
+  USUARIO
+  CLIENTE
 }
 
 enum Proposta_status {

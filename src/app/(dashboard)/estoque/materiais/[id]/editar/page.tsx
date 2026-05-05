@@ -8,9 +8,11 @@ import { MaterialForm } from '@/components/estoque/materiais/MaterialForm';
 import { Button } from '@gladpros/ui/button'
 import { ModulePageHeader } from '@gladpros/ui/module-page-header';
 import { prisma } from '@/lib/prisma';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Package } from 'lucide-react';
+import { requireServerUser } from '@/shared/lib/requireServerUser';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -22,6 +24,9 @@ export const metadata = {
 };
 
 export default async function EditarMaterialPage({ params }: PageProps) {
+  const user = await requireServerUser();
+  if (!can(user.role as Role, 'estoque', 'update')) redirect('/403');
+
   const { id } = await params;
   const materialId = parseInt(id);
 

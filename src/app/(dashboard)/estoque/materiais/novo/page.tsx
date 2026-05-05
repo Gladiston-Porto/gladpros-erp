@@ -10,6 +10,9 @@ import { ModulePageHeader } from '@gladpros/ui/module-page-header';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { ChevronLeft, Package } from 'lucide-react';
+import { redirect } from 'next/navigation';
+import { requireServerUser } from '@/shared/lib/requireServerUser';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 export const metadata = {
   title: 'Novo Material | Estoque',
@@ -17,6 +20,9 @@ export const metadata = {
 };
 
 export default async function NovoMaterialPage() {
+  const user = await requireServerUser();
+  if (!can(user.role as Role, 'estoque', 'create')) redirect('/403');
+
   // Buscar categorias e unidades para os selects
   const [categorias, unidades] = await Promise.all([
     prisma.categoria.findMany({

@@ -1,8 +1,8 @@
 # Módulo Usuários — Documentação Completa de Produção
 
-**Versão:** 2.0  
+**Versão:** 2.1  
 **Status:** ✅ Produção  
-**Última atualização:** 2026-04-18  
+**Última atualização:** 2026-05-05  
 **Auditoria realizada por:** GitHub Copilot (production-ready-module protocol)  
 
 ---
@@ -73,7 +73,7 @@ docs/modules/usuarios/
 | `id` | `Int` | PK autoincrement |
 | `email` | `String @unique` | Email de acesso (único por empresa) |
 | `senha` | `String` | Hash bcrypt salt≥12 — **nunca exposto via API** |
-| `nivel` | `String` | Role: ADMIN / GERENTE / FINANCEIRO / ESTOQUE / USUARIO / CLIENTE |
+| `nivel` | `Usuario_nivel` (enum) | Role: ADMIN / GERENTE / FINANCEIRO / ESTOQUE / USUARIO / CLIENTE |
 | `nomeCompleto` | `String?` | Nome completo |
 | `telefone` | `String?` | Telefone de contato |
 | `status` | `Usuario_status` | ATIVO / INATIVO / BLOQUEADO |
@@ -90,6 +90,7 @@ docs/modules/usuarios/
 | `addressStreet/City/State/Zip` | `String?` | Campos de endereço US padrão |
 | `pinSeguranca` | `String?` | PIN hash — **nunca exposto** |
 | `anotacoes` | `String? @db.LongText` | Anotações internas |
+| `expiresAt` | `DateTime?` | Expiração da conta — login bloqueado após esta data |
 | `criadoEm / atualizadoEm` | `DateTime` | Timestamps automáticos |
 
 ### Modelos relacionados
@@ -103,6 +104,7 @@ docs/modules/usuarios/
 | `TentativaLogin` | 1:N | Log de tentativas (bloqueio automático) |
 | `AuditLog` | 1:N | Ações do usuário no sistema |
 | `Worker` | 0:1 | Vínculo com técnico/funcionário |
+| `Delegacao` | 1:N | Delegações feitas, recebidas e canceladas |
 
 ---
 
@@ -124,6 +126,9 @@ docs/modules/usuarios/
 | `GET` | `/api/usuarios/:id/auditoria` | ADMIN/GERENTE | Log de auditoria |
 | `GET` | `/api/usuarios/export/csv` | `usuarios:read` | Exportar lista em CSV |
 | `POST` | `/api/usuarios/export/pdf` | `usuarios:read` | Exportar lista em PDF |
+| `POST` | `/api/usuarios/delegacoes` | ADMIN/GERENTE | Criar delegação temporária |
+| `GET` | `/api/usuarios/delegacoes/minhas` | Autenticado | Delegações do usuário atual |
+| `DELETE` | `/api/usuarios/delegacoes/:id` | ADMIN ou delegante | Cancelar delegação |
 
 ### Formato de resposta padrão
 
@@ -168,8 +173,10 @@ ADMIN (1) → GERENTE (2) → FINANCEIRO (3) → ESTOQUE (4) → USUARIO (5) →
 2. **Self-edit restrito** — usuário pode editar próprio perfil mas NÃO pode alterar `role`, `status` ou `email`
 3. **Hierarquia de criação** — GERENTE só pode gerenciar USUARIO, FINANCEIRO, ESTOQUE
 4. **Soft delete** — delete sempre seta `status = INATIVO`, não remove o registro
-5. **tokenVersion** — incrementado em logout global, troca de senha, bloqueio
+5. **tokenVersion** — incrementado em logout global, troca de senha, bloqueio **e ao mudar o `nivel` do usuário** (invalida sessões anteriores imediatamente)
 6. **AuditLog** — toda ação crítica (criação, deleção, mudança de role/status) gera registro em `AuditLog`
+7. **Expiração de conta** — ADMIN pode definir `expiresAt`; login bloqueado após essa data com mensagem clara
+8. **Delegação temporária** — ADMIN/GERENTE pode delegar funções a outro ADMIN/GERENTE por período definido; banner visível no dashboard
 
 ### Campos de self-edit (whitelist)
 
@@ -272,7 +279,7 @@ const SELF_EDIT_FIELDS = ['nomeCompleto', 'telefone', 'dataNascimento',
 |----|-----------|--------|-----------|
 | GAP-01 | Rate limiting ausente em todas as rotas | Requer setup de Redis/memória distribuída; impacto cross-módulo | P1 |
 | GAP-02 | GET response sem `success: true` | Breaking change; requer atualização do frontend | P2 |
-| GAP-03 | Campo `nivel` como `String` (deveria ser enum) | Migration com impacto no schema completo | P2 |
+| ~~GAP-03~~ | ~~Campo `nivel` como `String`~~ | ✅ **Resolvido em maio 2026** — migrado para `enum Usuario_nivel` | — |
 
 ---
 
@@ -340,6 +347,10 @@ Time:        ~1.2s
 - [ ] Testar toggle-status com GERENTE (deve funcionar apenas sobre USUARIO/FINANCEIRO/ESTOQUE)
 - [ ] Verificar que self-edit NÃO permite alterar role/status/email
 - [ ] **Rate limiting**: implementar antes de expor este módulo publicamente (GAP-01)
+- [ ] Testar login com conta expirada (`expiresAt` no passado) → deve retornar 401
+- [ ] Testar mudança de role: sessão anterior do usuário deve ser invalidada
+- [ ] Criar delegação como GERENTE e verificar banner no dashboard do delegatário
+- [ ] Verificar que `GET /api/usuarios?role=ADMIN,GERENTE` retorna ambos os roles
 
 ---
 
@@ -349,7 +360,9 @@ Time:        ~1.2s
 |------|---------|---------|-----------|
 | Rate limiting nas rotas sensíveis | Alto — segurança | Médio | 🔴 P1 |
 | Padronizar GET response com `success: true` | Médio — consistência | Baixo | 🟡 P2 |
-| Migrar `nivel` para enum Prisma | Médio — integridade | Alto | 🟡 P2 |
+| ~~Migrar `nivel` para enum Prisma~~ | ~~Médio — integridade~~ | ~~Alto~~ | ✅ Resolvido |
+| Testes E2E para delegação e expiração | Médio — cobertura | Médio | 🟡 P2 |
+| Página `/usuarios/delegacoes` (view completo) | Médio — UX | Médio | 🟡 P2 |
 | Eliminar `as any` nos 12 pontos | Baixo — qualidade | Médio | 🟢 P3 |
 | Keyboard navigation em dialogs | Baixo — a11y | Médio | 🟢 P3 |
 | `font-title` (Neuropol) em H1 da página | Baixo — brand | Baixo | 🟢 P3 |

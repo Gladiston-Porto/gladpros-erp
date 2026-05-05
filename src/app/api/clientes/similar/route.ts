@@ -81,8 +81,9 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     return NextResponse.json({ data: resultado, success: true })
   }
 
+  const EMPRESA_ID = 1 // single-tenant: GladPros only
   const baseWhere = {
-    empresaId: 1,
+    empresaId: EMPRESA_ID,
     status: 'ATIVO' as const,
     ...(excludeId ? { id: { not: excludeId } } : {}),
   }

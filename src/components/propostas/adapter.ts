@@ -179,6 +179,7 @@ export function adaptPropostaFormToAPI(formData: PropostaFormData): PropostaAPIP
 
     // Materiais adaptados
     materiais: formData.materiais.map(m => ({
+      estoqueItemId: m.estoqueItemId,
       codigo: m.codigo,
       nome: m.nome,
       quantidade: m.quantidade,

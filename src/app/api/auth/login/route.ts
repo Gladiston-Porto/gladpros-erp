@@ -63,8 +63,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     status: string;
     nivel: string | null;
     tokenVersion: number | null;
+    expiresAt: Date | null;
   }> = await prisma.$queryRaw`
-    SELECT id, email, nomeCompleto, senha, senhaProvisoria, primeiroAcesso, criadoEm, status, nivel, tokenVersion
+    SELECT id, email, nomeCompleto, senha, senhaProvisoria, primeiroAcesso, criadoEm, status, nivel, tokenVersion, expiresAt
     FROM Usuario 
     WHERE email = ${email}
     LIMIT 1
@@ -85,6 +86,17 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (user.status !== "ATIVO") {
     return NextResponse.json(
       { error: "Conta inativa. Entre em contato com o administrador.", success: false }, 
+      { status: 403 }
+    );
+  }
+
+  // Verificar expiração de conta — inativa automaticamente e bloqueia acesso
+  if (user.expiresAt && user.expiresAt < new Date()) {
+    await prisma.$executeRaw`
+      UPDATE Usuario SET status = 'INATIVO', atualizadoEm = NOW() WHERE id = ${user.id}
+    `;
+    return NextResponse.json(
+      { error: "Acesso expirado. Esta conta foi desativada automaticamente. Entre em contato com o administrador.", success: false },
       { status: 403 }
     );
   }

@@ -83,10 +83,11 @@ const prazosInfoSchema = z.object({
 
 const materialSchema = z.object({
   id: z.string(),
-  codigo: z.string().min(1, 'Código do material é obrigatório'),
+  estoqueItemId: z.number().int().optional(),
+  codigo: z.string().optional(),
   nome: z.string().min(1, 'Nome do material é obrigatório'),
   quantidade: z.number().min(0, 'Quantidade deve ser >= 0'),
-  unidade: z.string().min(1, 'Unidade é obrigatória'),
+  unidade: z.string().optional(),
   preco: z.number().optional(),
   status: StatusMaterialEnum,
   fornecedor: z.string().optional(),

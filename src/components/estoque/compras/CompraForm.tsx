@@ -293,6 +293,7 @@ export function CompraForm({
                                         size="icon"
                                         onClick={() => setShowFornecedorModal(true)}
                                         title="Criar novo fornecedor"
+                                        aria-label="Criar novo fornecedor"
                                     >
                                         <Plus className="h-4 w-4" />
                                     </Button>
@@ -433,6 +434,7 @@ export function CompraForm({
                                                     setShowMaterialModal(true);
                                                 }}
                                                 title="Criar novo material"
+                                                aria-label="Criar novo material"
                                             >
                                                 <Plus className="h-4 w-4" />
                                             </Button>
@@ -507,6 +509,7 @@ export function CompraForm({
                                         variant="ghost"
                                         size="icon"
                                         className="text-destructive"
+                                        aria-label={`Remover item ${index + 1}`}
                                         onClick={() => fields.length > 1 && remove(index)}
                                         disabled={fields.length <= 1}
                                     >

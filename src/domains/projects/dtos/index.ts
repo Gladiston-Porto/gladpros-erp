@@ -84,6 +84,7 @@ export interface ProjetoResponseDTO {
   valorOrcado: number | null;
   valorRealizado: number | null;
   observacoes: string | null;
+  restricoesOperacionais: string | null;
   criadoEm: Date;
   atualizadoEm: Date;
   criadoPorId: number;

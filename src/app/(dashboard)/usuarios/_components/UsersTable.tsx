@@ -173,6 +173,7 @@ export function UsersTable({
           {rows.map((user) => {
             const checked = selected.has(user.id);
             const isActive = user.ativo ?? (user.status === "ATIVO");
+            const isExpired = !isActive && user.expiresAt && new Date(user.expiresAt) < new Date();
             const lastLogin = user.ultimoLoginEm ? new Date(user.ultimoLoginEm) : null;
             const roleConf = ROLE_CONFIG[user.role] ?? ROLE_CONFIG.USUARIO;
             const access = lastLogin ? relativeTime(lastLogin) : null;
@@ -233,6 +234,11 @@ export function UsersTable({
 
                 {/* Status pill */}
                 <td className="px-3 py-3">
+                  {isExpired ? (
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-yellow-500/10 text-yellow-600 dark:text-yellow-400">
+                      Expirado
+                    </span>
+                  ) : (
                   <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     isActive
                       ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
@@ -240,6 +246,7 @@ export function UsersTable({
                   }`}>
                     {isActive ? "Ativo" : "Inativo"}
                   </span>
+                  )}
                 </td>
 
                 {/* Criado em */}

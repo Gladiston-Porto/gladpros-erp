@@ -47,7 +47,7 @@ export default async function ReceberCompraPage({ params }: PageProps) {
         <div className="space-y-6">
             <ModulePageHeader
                 title={`Receber Compra #${compra.numeroNf ?? compra.id}`}
-                description={`Fornecedor: ${compra.fornecedor?.nome ?? '—'} | Data Pedido: ${new Date(compra.dataCompra).toLocaleDateString()}`}
+                description={`Fornecedor: ${compra.fornecedor?.nome ?? '—'} | Data Pedido: ${new Date(compra.dataCompra).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}`}
                 icon={<PackageCheck />}
                 accentColor="#0098DA"
                 breadcrumbs={[

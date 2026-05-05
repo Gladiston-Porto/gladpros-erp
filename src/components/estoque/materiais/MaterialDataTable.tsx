@@ -6,6 +6,8 @@ import { DataTable } from '@/shared/components/data-table'
 import { ColumnDef } from '@tanstack/react-table'
 import { useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { Boxes } from 'lucide-react'
+import EmptyState from '../shared/EmptyState'
 
 export type MaterialTableRow = {
   id: number
@@ -111,15 +113,23 @@ export function MaterialDataTable({ materials }: MaterialDataTableProps) {
 
   return (
     <div className="rounded-2xl border border-border bg-background p-4 shadow-lg">
-      <DataTable
-        columns={columns}
-        data={materials}
-        searchable
-        searchPlaceholder="Buscar por código, nome ou categoria..."
-        pageSize={10}
-        onRowClick={handleRowClick}
-        className="bg-white"
-      />
+      {materials.length === 0 ? (
+        <EmptyState
+          title="Nenhum material encontrado"
+          description="Cadastre materiais para começar a controlar o estoque."
+          icon={Boxes}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={materials}
+          searchable
+          searchPlaceholder="Buscar por código, nome ou categoria..."
+          pageSize={10}
+          onRowClick={handleRowClick}
+          className="bg-white"
+        />
+      )}
     </div>
   )
 }

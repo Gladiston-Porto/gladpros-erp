@@ -4,16 +4,17 @@
 
 import type { Projeto, ProjetoFinanceiro } from './types';
 import type { ProjetoStatus, ProjetoPrioridade } from './constants';
+import { PROJETO_STATUS_LABELS, PROJETO_PRIORIDADE_LABELS } from './constants';
 
 /**
- * Formata valor monetário em BRL
+ * Formata valor monetário em USD (en-US)
  */
 export function formatCurrency(value: number | null | undefined): string {
-  if (value === null || value === undefined) return 'R$ 0,00';
+  if (value === null || value === undefined) return '$0.00';
   
-  return new Intl.NumberFormat('pt-BR', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'BRL',
+    currency: 'USD',
   }).format(value);
 }
 
@@ -27,7 +28,7 @@ export function formatPercentage(value: number | null | undefined, decimals: num
 }
 
 /**
- * Formata data no padrão brasileiro
+ * Formata data (America/Chicago timezone)
  */
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '-';
@@ -38,11 +39,12 @@ export function formatDate(date: string | Date | null | undefined): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+    timeZone: 'America/Chicago',
   }).format(dateObj);
 }
 
 /**
- * Formata data e hora no padrão brasileiro
+ * Formata data e hora (America/Chicago timezone)
  */
 export function formatDateTime(date: string | Date | null | undefined): string {
   if (!date) return '-';
@@ -55,6 +57,7 @@ export function formatDateTime(date: string | Date | null | undefined): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'America/Chicago',
   }).format(dateObj);
 }
 
@@ -204,32 +207,17 @@ export function formatNumber(value: number | null | undefined): string {
 }
 
 /**
- * Formata status para exibição
+ * Formata status para exibição — usa PROJETO_STATUS_LABELS de constants.ts
  */
 export function formatStatus(status: ProjetoStatus): string {
-  const labels: Record<ProjetoStatus, string> = {
-    planejado: 'Planejado',
-    em_andamento: 'Em Andamento',
-    pausado: 'Pausado',
-    concluido: 'Concluído',
-    cancelado: 'Cancelado',
-  };
-  
-  return labels[status] || status;
+  return PROJETO_STATUS_LABELS[status] ?? status;
 }
 
 /**
- * Formata prioridade para exibição
+ * Formata prioridade para exibição — usa PROJETO_PRIORIDADE_LABELS de constants.ts
  */
 export function formatPriority(prioridade: ProjetoPrioridade): string {
-  const labels: Record<ProjetoPrioridade, string> = {
-    baixa: 'Baixa',
-    media: 'Média',
-    alta: 'Alta',
-    urgente: 'Urgente',
-  };
-  
-  return labels[prioridade] || prioridade;
+  return PROJETO_PRIORIDADE_LABELS[prioridade] ?? prioridade;
 }
 
 /**

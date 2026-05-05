@@ -11,7 +11,7 @@
 
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import {
   Plus, Package, AlertTriangle, ShoppingCart,
   PackageX, Clock, Lock, CheckCircle
@@ -25,7 +25,8 @@ import { MaterialFilters } from '@/components/estoque/materiais/MaterialFilters'
 import { SearchBar } from '@/components/estoque/shared/SearchBar';
 import { LoadingSkeleton } from '@gladpros/ui/loading'
 import { prisma } from '@/lib/prisma';
-import { validateAccessToken } from '@/lib/auth/token-service';
+import { requireServerUser } from '@/shared/lib/requireServerUser';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -42,24 +43,13 @@ function formatUSD(value: number): string {
 }
 
 export default async function MateriaisPage({ searchParams }: PageProps) {
+  const user = await requireServerUser();
+  if (!can(user.role as Role, 'estoque', 'read')) redirect('/403');
+
   // Await searchParams para uso local (simplificado)
   const sp = await searchParams;
 
-  // Verificar usuário para RBAC
-  const cookieStore = await cookies();
-  const token = cookieStore.get('authToken')?.value;
-  let userRole = 'USUARIO'; // default
-  if (token) {
-    try {
-      const decoded = await validateAccessToken(token);
-      if (decoded && typeof decoded === 'object' && 'nivel' in decoded) {
-        userRole = decoded.nivel as string;
-      }
-    } catch (e) {
-      // Token inválido, mantém default
-    }
-  }
-  const canSeeValue = ['ADMIN', 'FINANCEIRO'].includes(userRole);
+  const canSeeValue = ['ADMIN', 'FINANCEIRO'].includes(user.role);
 
   // Buscar dados em paralelo
   const [

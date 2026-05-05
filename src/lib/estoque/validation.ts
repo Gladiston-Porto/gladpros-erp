@@ -22,12 +22,12 @@ const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida (form
 
 export const materialSchema = z.object({
   codigo: requiredString.max(50),
-  nome: requiredString.max(200),
+  nome: requiredString.max(150),
   descricao: optionalString,
   categoriaId: z.number().int().positive().optional(),
   unidadeId: z.number().int().positive(),
   fabricante: z.string().max(100).optional(),
-  modelo: z.string().max(100).optional(),
+  modelo: z.string().max(80).optional(),
   ncm: z.string().regex(/^\d{8}$/, 'NCM deve ter 8 dígitos').optional(),
   pesoUnitario: positiveNumber.optional(),
   dimensoes: z.string().max(100).optional(),

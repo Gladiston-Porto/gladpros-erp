@@ -73,7 +73,7 @@ export function EquipamentoFilters({ categorias }: EquipamentoFiltersProps) {
     <div className="flex flex-wrap items-center gap-3">
       {/* Filtro: Categoria */}
       <Select value={categoriaId || 'all'} onValueChange={(v) => updateFilter('categoriaId', v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-[180px]" aria-label="Filtrar por categoria">
           <SelectValue placeholder="Categoria" />
         </SelectTrigger>
         <SelectContent>
@@ -88,7 +88,7 @@ export function EquipamentoFilters({ categorias }: EquipamentoFiltersProps) {
 
       {/* Filtro: Tipo */}
       <Select value={tipo || 'all'} onValueChange={(v) => updateFilter('tipo', v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-[200px]">
+        <SelectTrigger className="w-[200px]" aria-label="Filtrar por tipo de equipamento">
           <SelectValue placeholder="Tipo" />
         </SelectTrigger>
         <SelectContent>
@@ -103,7 +103,7 @@ export function EquipamentoFilters({ categorias }: EquipamentoFiltersProps) {
 
       {/* Filtro: Status */}
       <Select value={status || 'all'} onValueChange={(v) => updateFilter('status', v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-[180px]" aria-label="Filtrar por status do equipamento">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
@@ -118,7 +118,7 @@ export function EquipamentoFilters({ categorias }: EquipamentoFiltersProps) {
 
       {/* Filtro: Requer Calibração */}
       <Select value={requerCalibracao || 'all'} onValueChange={(v) => updateFilter('requerCalibracao', v === 'all' ? '' : v)}>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-[180px]" aria-label="Filtrar por necessidade de calibração">
           <SelectValue placeholder="Calibração" />
         </SelectTrigger>
         <SelectContent>

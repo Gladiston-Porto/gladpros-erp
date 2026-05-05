@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo, useState, useEffect } from "react";
+import { MaterialSearchCombobox } from './MaterialSearchCombobox'
 import { useRouter } from 'next/navigation'
 import { StatusProposta, StatusPropostaValues, StatusPermite, StatusPermiteValues } from '@/shared/types/prisma-temp';
 import { Badge } from "@gladpros/ui/badge"
@@ -76,6 +77,15 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
         titulo: "",
     })
 
+    // When editing an existing proposal, check if service address differs from client address
+    // to determine the initial toggle state
+    const [sameClientAddress, setSameClientAddress] = useState<boolean>(() => {
+        if (!initialData?.cliente) return true
+        const c = initialData.cliente
+        // If structured service address fields exist, assume user set them manually
+        return !c.serviceAddressLine1
+    })
+
     const [escopo, setEscopo] = useState(initialData?.escopo || "")
 
     const [prazos, setPrazos] = useState<PrazosInfo>(initialData?.prazos || {
@@ -85,6 +95,20 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
         janela: "",
         restricoes: "",
     })
+
+    // Auto-calculate Data Limite from days — only for new proposals (no initialData)
+    const [autoValidade, setAutoValidade] = useState<boolean>(!initialData?.prazos?.validade_proposta)
+
+    useEffect(() => {
+        if (!autoValidade || prazos.tempo_para_aceite <= 0) return
+        // Use local date to avoid UTC off-by-one (e.g. in America/Chicago)
+        const base = new Date()
+        base.setDate(base.getDate() + prazos.tempo_para_aceite)
+        const y = base.getFullYear()
+        const m = String(base.getMonth() + 1).padStart(2, '0')
+        const d = String(base.getDate()).padStart(2, '0')
+        setPrazos(prev => ({ ...prev, validade_proposta: `${y}-${m}-${d}` }))
+    }, [prazos.tempo_para_aceite, autoValidade])
 
     const [permite, setPermite] = useState<StatusPermite>(initialData?.permite || StatusPermiteValues.NAO_NECESSARIO)
     const [quaisPermites, setQuaisPermites] = useState(initialData?.quaisPermites || "")
@@ -316,7 +340,15 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                 contato_email: clienteSelecionado.email,
                 contato_telefone: clienteSelecionado.telefone || '',
                 local_endereco: clientAddress || prev.local_endereco,
+                // Pre-populate structured service address from client
+                serviceAddressLine1: clienteSelecionado.addressStreet || '',
+                serviceAddressLine2: clienteSelecionado.addressUnit || '',
+                serviceAddressCity: clienteSelecionado.addressCity || '',
+                serviceAddressState: clienteSelecionado.addressState || 'TX',
+                serviceAddressZip: clienteSelecionado.addressZip || '',
             }))
+            // Default: same address as client
+            setSameClientAddress(true)
         }
     }
 
@@ -470,52 +502,100 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                     onChange={(e) => setCliente({ ...cliente, contato_email: e.target.value })}
                                 />
                             </div>
+                            {/* Service address toggle — mirrors OS module pattern */}
                             <div className="md:col-span-2">
-                                <Label className="mb-2 block">Endereço do Serviço — Linha 1 <span className="text-destructive" aria-hidden="true">*</span></Label>
-                                <Input
-                                    placeholder="Ex: 1234 Elm St"
-                                    value={cliente.serviceAddressLine1 || ''}
-                                    onChange={(e) => setCliente({ ...cliente, serviceAddressLine1: e.target.value })}
-                                    aria-label="Endereço do serviço linha 1"
-                                />
+                                <div className="flex items-center gap-2 py-2">
+                                    <input
+                                        type="checkbox"
+                                        id="sameClientAddress"
+                                        checked={sameClientAddress}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked
+                                            setSameClientAddress(checked)
+                                            if (checked) {
+                                                // Restore client's address when toggling back
+                                                const selected = clientes.find(c => c.id === cliente.id)
+                                                if (selected) {
+                                                    setCliente(prev => ({
+                                                        ...prev,
+                                                        serviceAddressLine1: selected.addressStreet || '',
+                                                        serviceAddressLine2: selected.addressUnit || '',
+                                                        serviceAddressCity: selected.addressCity || '',
+                                                        serviceAddressState: selected.addressState || 'TX',
+                                                        serviceAddressZip: selected.addressZip || '',
+                                                    }))
+                                                }
+                                            }
+                                        }}
+                                        className="h-4 w-4"
+                                        aria-label="Usar endereço do cliente como local do serviço"
+                                    />
+                                    <label htmlFor="sameClientAddress" className="text-sm text-foreground cursor-pointer">
+                                        Usar o endereço do cliente como local do serviço
+                                    </label>
+                                </div>
+
+                                {/* Read-only address preview when using client address */}
+                                {sameClientAddress && (cliente.serviceAddressLine1 || cliente.serviceAddressCity) && (
+                                    <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground mt-1">
+                                        <p className="font-medium text-foreground mb-1">Local do serviço (endereço do cliente):</p>
+                                        <p>{[cliente.serviceAddressLine1, cliente.serviceAddressLine2].filter(Boolean).join(', ')}</p>
+                                        <p>{[cliente.serviceAddressCity, cliente.serviceAddressState, cliente.serviceAddressZip].filter(Boolean).join(', ')}</p>
+                                    </div>
+                                )}
                             </div>
-                            <div>
-                                <Label className="mb-2 block">Apt / Suite / Unit</Label>
-                                <Input
-                                    placeholder="Ex: Suite 200"
-                                    value={cliente.serviceAddressLine2 || ''}
-                                    onChange={(e) => setCliente({ ...cliente, serviceAddressLine2: e.target.value })}
-                                    aria-label="Endereço do serviço linha 2"
-                                />
-                            </div>
-                            <div>
-                                <Label className="mb-2 block">City</Label>
-                                <Input
-                                    placeholder="Ex: Dallas"
-                                    value={cliente.serviceAddressCity || ''}
-                                    onChange={(e) => setCliente({ ...cliente, serviceAddressCity: e.target.value })}
-                                    aria-label="Cidade do serviço"
-                                />
-                            </div>
-                            <div>
-                                <Label className="mb-2 block">State</Label>
-                                <Input
-                                    placeholder="TX"
-                                    maxLength={2}
-                                    value={cliente.serviceAddressState || 'TX'}
-                                    onChange={(e) => setCliente({ ...cliente, serviceAddressState: e.target.value.toUpperCase() })}
-                                    aria-label="Estado do serviço"
-                                />
-                            </div>
-                            <div>
-                                <Label className="mb-2 block">ZIP Code</Label>
-                                <Input
-                                    placeholder="Ex: 75201"
-                                    value={cliente.serviceAddressZip || ''}
-                                    onChange={(e) => setCliente({ ...cliente, serviceAddressZip: e.target.value })}
-                                    aria-label="ZIP Code do serviço"
-                                />
-                            </div>
+
+                            {/* Editable service address fields — shown only when different from client */}
+                            {!sameClientAddress && (
+                                <>
+                                    <div className="md:col-span-2">
+                                        <Label className="mb-2 block">Endereço do Serviço — Linha 1 <span className="text-destructive" aria-hidden="true">*</span></Label>
+                                        <Input
+                                            placeholder="Ex: 1234 Elm St"
+                                            value={cliente.serviceAddressLine1 || ''}
+                                            onChange={(e) => setCliente({ ...cliente, serviceAddressLine1: e.target.value })}
+                                            aria-label="Endereço do serviço linha 1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-2 block">Apt / Suite / Unit</Label>
+                                        <Input
+                                            placeholder="Ex: Suite 200"
+                                            value={cliente.serviceAddressLine2 || ''}
+                                            onChange={(e) => setCliente({ ...cliente, serviceAddressLine2: e.target.value })}
+                                            aria-label="Endereço do serviço linha 2"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-2 block">City</Label>
+                                        <Input
+                                            placeholder="Ex: Dallas"
+                                            value={cliente.serviceAddressCity || ''}
+                                            onChange={(e) => setCliente({ ...cliente, serviceAddressCity: e.target.value })}
+                                            aria-label="Cidade do serviço"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-2 block">State</Label>
+                                        <Input
+                                            placeholder="TX"
+                                            maxLength={2}
+                                            value={cliente.serviceAddressState || 'TX'}
+                                            onChange={(e) => setCliente({ ...cliente, serviceAddressState: e.target.value.toUpperCase() })}
+                                            aria-label="Estado do serviço"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-2 block">ZIP Code</Label>
+                                        <Input
+                                            placeholder="Ex: 75201"
+                                            value={cliente.serviceAddressZip || ''}
+                                            onChange={(e) => setCliente({ ...cliente, serviceAddressZip: e.target.value })}
+                                            aria-label="ZIP Code do serviço"
+                                        />
+                                    </div>
+                                </>
+                            )}
                             <div className="md:col-span-2">
                                 <Label className="mb-2 block">Escopo (Resumo)</Label>
                                 <Textarea
@@ -608,32 +688,69 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                 <Label className="mb-2 block">Validade (dias)</Label>
                                 <Input
                                     type="number"
+                                    min={1}
                                     value={prazos.tempo_para_aceite}
                                     onChange={(e) => setPrazos({ ...prazos, tempo_para_aceite: Number(e.target.value) })}
+                                    aria-label="Número de dias de validade da proposta"
                                 />
                             </div>
                             <div>
-                                <Label className="mb-2 block">Data Limite</Label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <Label>Data Limite</Label>
+                                    <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={autoValidade}
+                                            onChange={(e) => setAutoValidade(e.target.checked)}
+                                            className="h-3 w-3"
+                                            aria-label="Calcular data automaticamente"
+                                        />
+                                        Auto
+                                    </label>
+                                </div>
                                 <Input
                                     type="date"
                                     value={prazos.validade_proposta}
-                                    onChange={(e) => setPrazos({ ...prazos, validade_proposta: e.target.value })}
+                                    readOnly={autoValidade}
+                                    disabled={autoValidade}
+                                    onChange={(e) => !autoValidade && setPrazos({ ...prazos, validade_proposta: e.target.value })}
+                                    aria-label="Data limite de validade da proposta"
+                                    className={autoValidade ? "opacity-60 cursor-not-allowed" : ""}
                                 />
+                                {autoValidade && (
+                                    <p className="text-xs text-muted-foreground mt-1">Calculada a partir dos dias de validade</p>
+                                )}
                             </div>
                             <div>
-                                <Label className="mb-2 block">Execução (dias)</Label>
+                                <Label className="mb-2 block">Execução (dias úteis)</Label>
                                 <Input
                                     type="number"
+                                    min={1}
                                     value={prazos.prazo_execucao_dias}
                                     onChange={(e) => setPrazos({ ...prazos, prazo_execucao_dias: Number(e.target.value) })}
+                                    aria-label="Prazo estimado de execução em dias úteis"
                                 />
                             </div>
                             <div>
-                                <Label className="mb-2 block">Janela</Label>
+                                <Label className="mb-2 block">Janela de Execução</Label>
                                 <Input
-                                    placeholder="Seg-Sex, 8h-18h"
+                                    placeholder="Ex: Seg–Sex, 8h–17h"
                                     value={prazos.janela}
                                     onChange={(e) => setPrazos({ ...prazos, janela: e.target.value })}
+                                    aria-label="Janela de horário permitida para execução"
+                                />
+                            </div>
+                            <div className="md:col-span-4">
+                                <Label className="mb-2 block">
+                                    Restrições de Acesso
+                                    <span className="ml-2 text-xs font-normal text-muted-foreground">(ex: sem obras após 17h, animais no local, acesso pela lateral)</span>
+                                </Label>
+                                <Textarea
+                                    rows={2}
+                                    placeholder="Descreva restrições de acesso, condições especiais do local ou requisitos da equipe..."
+                                    value={prazos.restricoes}
+                                    onChange={(e) => setPrazos({ ...prazos, restricoes: e.target.value })}
+                                    aria-label="Restrições de acesso ao local de serviço"
                                 />
                             </div>
                         </CardContent>
@@ -651,49 +768,72 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {materiais.map((m, idx) => (
-                                <div key={m.id} className="grid grid-cols-12 gap-2 items-end border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                                    <div className="col-span-2">
-                                        <Label className="text-xs">Código</Label>
-                                        <Input className="h-9" value={m.codigo} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, codigo: e.target.value } : x)))} />
+                            {materiais.map((m) => (
+                                <div key={m.id} className="space-y-2 border-b border-border pb-4 last:border-0 last:pb-0">
+                                    {/* Row 1: search/name, qty, unit, price, total, delete */}
+                                    <div className="grid grid-cols-12 gap-2 items-end">
+                                        <div className="col-span-5">
+                                            <Label className="text-xs">Material</Label>
+                                            <MaterialSearchCombobox
+                                                nome={m.nome}
+                                                estoqueItemId={m.estoqueItemId}
+                                                ariaLabel={`Material ${m.nome || ''}`}
+                                                onNomeChange={(nome) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, nome } : x)))}
+                                                onSelect={({ estoqueItemId, codigo, nome, unidade, precoSugerido }) =>
+                                                    setMateriais((arr) => arr.map((x) =>
+                                                        x.id === m.id
+                                                            ? { ...x, estoqueItemId, codigo, nome, unidade, preco: precoSugerido ?? x.preco }
+                                                            : x
+                                                    ))
+                                                }
+                                                onUnlink={() => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, estoqueItemId: undefined } : x)))}
+                                            />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <Label className="text-xs">Qtd</Label>
+                                            <Input className="h-9" type="number" min="0" step="0.001" value={m.quantidade} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, quantidade: Number(e.target.value) } : x)))} aria-label={`Quantidade de ${m.nome}`} />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <Label className="text-xs">Un</Label>
+                                            <Input className="h-9" value={m.unidade ?? ''} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, unidade: e.target.value } : x)))} aria-label={`Unidade de ${m.nome}`} />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <Label className="text-xs">$ Unit</Label>
+                                            <Input className="h-9" type="number" step="0.01" min="0" value={m.preco ?? ''} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, preco: e.target.value ? Number(e.target.value) : undefined } : x)))} aria-label={`Preço unitário de ${m.nome}`} />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <Label className="text-xs">Total</Label>
+                                            <div className="h-9 flex items-center text-sm font-medium text-foreground">
+                                                {m.preco != null ? currency(m.preco * m.quantidade) : '—'}
+                                            </div>
+                                        </div>
+                                        <div className="col-span-1 flex items-end">
+                                            {m.estoqueItemId && estoqueCheck[m.estoqueItemId] && (
+                                                <span
+                                                    className={`text-xs font-medium px-1 rounded mr-1 ${estoqueCheck[m.estoqueItemId].needsToPurchase ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-600'}`}
+                                                    title={estoqueCheck[m.estoqueItemId].needsToPurchase ? `Faltam ${estoqueCheck[m.estoqueItemId].shortfall} ${m.unidade}` : 'Em estoque'}
+                                                >
+                                                    {estoqueCheck[m.estoqueItemId].needsToPurchase ? '⚠' : '✓'}
+                                                </span>
+                                            )}
+                                            <Button size="icon" variant="destructive" className="h-9 w-9" onClick={() => rmMaterial(m.id)} aria-label={`Remover material ${m.nome}`}>✕</Button>
+                                        </div>
                                     </div>
-                                    <div className="col-span-3">
-                                        <Label className="text-xs">Nome</Label>
-                                        <Input className="h-9" value={m.nome} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, nome: e.target.value } : x)))} />
-                                    </div>
-                                    <div className="col-span-1">
-                                        <Label className="text-xs">Qtd</Label>
-                                        <Input className="h-9" type="number" value={m.quantidade} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, quantidade: Number(e.target.value) } : x)))} />
-                                    </div>
-                                    <div className="col-span-1">
-                                        <Label className="text-xs">Un</Label>
-                                        <Input className="h-9" value={m.unidade} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, unidade: e.target.value } : x)))} />
-                                    </div>
-                                    <div className="col-span-2">
-                                        <Label className="text-xs">$ Unit</Label>
-                                        <Input className="h-9" type="number" step="0.01" value={m.preco ?? ""} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, preco: Number(e.target.value) } : x)))} />
-                                    </div>
-                                    <div className="col-span-2">
-                                        <Label className="text-xs">Est. Item ID</Label>
-                                        <Input
-                                            className="h-9"
-                                            type="number"
-                                            placeholder="ID do estoque"
-                                            value={m.estoqueItemId ?? ''}
-                                            onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, estoqueItemId: e.target.value ? Number(e.target.value) : undefined } : x)))}
-                                            aria-label={`ID do item no estoque para ${m.nome}`}
-                                        />
-                                    </div>
-                                    <div className="col-span-1 flex flex-col items-center gap-1">
-                                        {m.estoqueItemId && estoqueCheck[m.estoqueItemId] && (
-                                            <span
-                                                className={`text-xs font-medium px-1 rounded ${estoqueCheck[m.estoqueItemId].needsToPurchase ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-600'}`}
-                                                title={estoqueCheck[m.estoqueItemId].needsToPurchase ? `Faltam ${estoqueCheck[m.estoqueItemId].shortfall} ${m.unidade}` : 'Em estoque'}
-                                            >
-                                                {estoqueCheck[m.estoqueItemId].needsToPurchase ? '⚠ Comprar' : '✓ OK'}
-                                            </span>
-                                        )}
-                                        <Button size="icon" variant="destructive" className="h-9 w-9" onClick={() => rmMaterial(m.id)} aria-label={`Remover material ${m.nome}`}>X</Button>
+                                    {/* Row 2: obs + fornecedor */}
+                                    <div className="grid grid-cols-12 gap-2 items-end">
+                                        <div className="col-span-6">
+                                            <Label className="text-xs text-muted-foreground">Observação</Label>
+                                            <Input className="h-8 text-xs" placeholder="Observação ou especificação..." value={m.obs ?? ''} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, obs: e.target.value } : x)))} aria-label={`Observação de ${m.nome}`} />
+                                        </div>
+                                        <div className="col-span-5">
+                                            <Label className="text-xs text-muted-foreground">Fornecedor preferencial</Label>
+                                            <Input className="h-8 text-xs" placeholder="Ex: Home Depot, Grainger..." value={m.fornecedor ?? ''} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, fornecedor: e.target.value } : x)))} aria-label={`Fornecedor de ${m.nome}`} />
+                                        </div>
+                                        <div className="col-span-1 flex items-end pb-0.5">
+                                            {m.codigo && (
+                                                <span className="text-xs text-muted-foreground truncate" title={`Código: ${m.codigo}`}>{m.codigo}</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ))}

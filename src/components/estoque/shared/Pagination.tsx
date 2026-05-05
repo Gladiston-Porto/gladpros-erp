@@ -66,7 +66,7 @@ export function Pagination({ pagination }: PaginationProps) {
               value={pageSize.toString()}
               onValueChange={updatePageSize}
             >
-              <SelectTrigger className="w-[70px]">
+              <SelectTrigger className="w-[70px]" aria-label="Itens por página">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -83,6 +83,7 @@ export function Pagination({ pagination }: PaginationProps) {
             <Button
               variant="outline"
               size="sm"
+              aria-label="Página anterior"
               onClick={() => updatePage(page - 1)}
               disabled={page === 1}
             >
@@ -97,6 +98,7 @@ export function Pagination({ pagination }: PaginationProps) {
             <Button
               variant="outline"
               size="sm"
+              aria-label="Próxima página"
               onClick={() => updatePage(page + 1)}
               disabled={page === totalPages}
             >

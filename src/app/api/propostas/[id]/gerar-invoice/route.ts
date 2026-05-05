@@ -149,7 +149,7 @@ export const POST = withErrorHandler(
     dataVencimento.setDate(dataVencimento.getDate() + 30);
 
     const hoje = new Date();
-    const dataStr = hoje.toISOString().split('T')[0].replace(/-/g, '');
+    const dataStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(hoje).replace(/-/g, '');
 
     const invoice = await prisma.$transaction(async (tx) => {
       const count = await tx.invoice.count({

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { formatDate } from '@/lib/estoque/utils/formatters';
 import { useRouter } from 'next/navigation';
+import EmptyState from '../shared/EmptyState';
 
 export type AlertaTableRow = {
   id: bigint;
@@ -186,6 +187,7 @@ export function AlertaDataTable({ alertas, onResolverClick }: AlertaDataTablePro
               <Button
                 size="sm"
                 variant="ghost"
+                aria-label={`Ver detalhes do alerta ${alerta.titulo}`}
                 onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
                   router.push(`/estoque/alertas/${alerta.id}`);
@@ -202,11 +204,19 @@ export function AlertaDataTable({ alertas, onResolverClick }: AlertaDataTablePro
   );
 
   return (
-    <DataTable
-      data={alertas}
-      columns={columns}
-      searchKey="titulo"
-      searchPlaceholder="Buscar por título..."
-    />
+    alertas.length === 0 ? (
+      <EmptyState
+        title="Nenhum alerta ativo"
+        description="O estoque está dentro dos limites configurados."
+        icon={CheckCircle2}
+      />
+    ) : (
+      <DataTable
+        data={alertas}
+        columns={columns}
+        searchKey="titulo"
+        searchPlaceholder="Buscar por título..."
+      />
+    )
   );
 }

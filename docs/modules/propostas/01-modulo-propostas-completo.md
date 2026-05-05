@@ -1,7 +1,10 @@
-# Módulo Propostas — GladPros ERP
+# Módulo Propostas — GladPros ERP (Histórico — Fase 1)
+
+> ⚠️ **Este documento é referência histórica da Fase 1 (2026-04-20).**  
+> O documento completo e atualizado com todas as fases está em: `02-atualizacao-2026-05.md`
 
 **Data**: 2026-04-20  
-**Status**: ✅ Pronto para produção  
+**Status**: Histórico — Fase 1 apenas  
 **Nota enterprise**: 10 / 10  
 **Testes**: 35/35 unit passando + 6 specs E2E (58 testes)
 

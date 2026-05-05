@@ -1200,6 +1200,7 @@ export class ProjectService {
       valorOrcado: projeto.valorEstimado ? Number(projeto.valorEstimado) : null,
       valorRealizado: projeto.custoReal ? Number(projeto.custoReal) : null,
       observacoes: null, // Campo não existe no schema Projeto
+      restricoesOperacionais: projeto.restricoesOperacionais ?? null,
       criadoEm: projeto.criadoEm,
       atualizadoEm: projeto.atualizadoEm,
       criadoPorId: projeto.criadoPor,

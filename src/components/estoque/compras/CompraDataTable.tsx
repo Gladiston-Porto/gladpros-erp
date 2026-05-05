@@ -6,7 +6,8 @@ import { DataTable } from '@/shared/components/data-table'
 import { ColumnDef } from '@tanstack/react-table'
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, Package, Wrench, FileText } from 'lucide-react'
+import { Eye, Package, Wrench, FileText, ShoppingCart } from 'lucide-react'
+import EmptyState from '../shared/EmptyState'
 import { formatDate, formatCurrency } from '@/lib/estoque/utils/formatters'
 
 export type CompraTableRow = {
@@ -149,6 +150,7 @@ export function CompraDataTable({ compras }: CompraDataTableProps) {
               variant="ghost"
               size="sm"
               className="h-8"
+              aria-label={`Ver detalhes da compra ${row.original.numeroCompra}`}
               onClick={() => router.push(`/estoque/compras/${row.original.id}`)}
             >
               <Eye className="h-4 w-4 mr-1" />
@@ -163,14 +165,22 @@ export function CompraDataTable({ compras }: CompraDataTableProps) {
 
   return (
     <div className="rounded-2xl border border-border bg-background p-4 shadow-lg">
-      <DataTable
-        columns={columns}
-        data={compras}
-        searchable
-        searchPlaceholder="Buscar por número, fornecedor ou projeto..."
-        pageSize={15}
-        className="bg-white"
-      />
+      {compras.length === 0 ? (
+        <EmptyState
+          title="Nenhuma compra encontrada"
+          description="Registre uma nova ordem de compra para acompanhar aqui."
+          icon={ShoppingCart}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={compras}
+          searchable
+          searchPlaceholder="Buscar por número, fornecedor ou projeto..."
+          pageSize={15}
+          className="bg-white"
+        />
+      )}
     </div>
   )
 }

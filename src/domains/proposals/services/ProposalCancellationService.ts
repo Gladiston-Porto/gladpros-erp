@@ -12,7 +12,7 @@ export async function cancelProposal(
     where: {
       id: propostaId,
       deletedAt: null,
-      status: { in: [StatusPropostaValues.RASCUNHO, StatusPropostaValues.ENVIADA] },
+      status: { in: [StatusPropostaValues.RASCUNHO, StatusPropostaValues.ENVIADA, StatusPropostaValues.ASSINADA] },
     },
   });
 

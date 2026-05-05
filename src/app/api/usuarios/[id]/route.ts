@@ -139,6 +139,7 @@ const USER_DETAIL_COLUMNS = [
   "criadoEm",
   "atualizadoEm",
   "avatarUrl",
+  "expiresAt",
 ];
 
 /* GET /api/usuarios/:id */
@@ -204,6 +205,7 @@ export const GET = withErrorHandler(async (req: Request, context: unknown) => {
       criadoEm: found.criadoEm ?? null,
       atualizadoEm: found.atualizadoEm ?? null,
       avatarUrl: found.avatarUrl ?? null,
+      expiresAt: found.expiresAt ? (found.expiresAt instanceof Date ? found.expiresAt.toISOString() : String(found.expiresAt)) : null,
     };
 
     // Verificar se há worker vinculado a este usuário
@@ -340,6 +342,7 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
       "senha",
       "avatarUrl",
       "anotacoes",
+      "expiresAt",
     ] as const;
 
     const sets: string[] = [];
@@ -351,7 +354,7 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
         // ignorar strings vazias para não apagar dados sem intenção
         if (typeof raw === "string" && raw.trim() === "") continue;
         if (key === "senha") {
-          const hash = await bcrypt.hash(String(raw), 10);
+          const hash = await bcrypt.hash(String(raw), 12);
           sets.push(`senha = ?`);
           paramsVals.push(hash);
         } else if (key === "cep" && !(body as Record<string, unknown>)["zipcode"]) {
@@ -406,8 +409,30 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
       }
     }
 
+    // Handle expiresAt explicitly (supports null to clear the value — null is excluded by the main loop)
+    if (Object.prototype.hasOwnProperty.call(body, "expiresAt") && cols.has("expiresAt")) {
+      const expVal = (body as Record<string, unknown>)["expiresAt"];
+      if (expVal === null) {
+        sets.push("expiresAt = NULL");
+      } else if (expVal !== undefined) {
+        sets.push("expiresAt = ?");
+        paramsVals.push(String(expVal));
+      }
+    }
+
     if (sets.length === 0) {
       return NextResponse.json({ ok: true, message: "NO_CHANGES" });
+    }
+
+    // Se o role (nivel) mudou, invalidar todas as sessões ativas imediatamente
+    const newRoleValue = body.role
+      ? String(body.role).toUpperCase()
+      : body.nivel
+      ? String(body.nivel).toUpperCase()
+      : null;
+    if (!isSelfEdit && newRoleValue && newRoleValue !== String(targetRole).toUpperCase()) {
+      sets.push("tokenVersion = tokenVersion + 1");
+      // Expressão SQL literal — sem parâmetro adicional em paramsVals
     }
 
     // Capturar dados antes da atualização para auditoria

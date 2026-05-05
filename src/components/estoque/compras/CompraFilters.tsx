@@ -70,7 +70,7 @@ export function CompraFilters({ fornecedores, projetos }: CompraFiltersProps) {
         <div className="space-y-2">
           <Label>Status</Label>
           <Select value={searchParams.get('status') || 'all'} onValueChange={(v) => updateFilter('status', v === 'all' ? '' : v)}>
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por status da compra">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -87,7 +87,7 @@ export function CompraFilters({ fornecedores, projetos }: CompraFiltersProps) {
         <div className="space-y-2">
           <Label>Tipo</Label>
           <Select value={searchParams.get('tipo') || 'all'} onValueChange={(v) => updateFilter('tipo', v === 'all' ? '' : v)}>
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por tipo de compra">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -107,7 +107,7 @@ export function CompraFilters({ fornecedores, projetos }: CompraFiltersProps) {
             value={searchParams.get('fornecedorId') || 'all'}
             onValueChange={(v) => updateFilter('fornecedorId', v === 'all' ? '' : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por fornecedor">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -127,7 +127,7 @@ export function CompraFilters({ fornecedores, projetos }: CompraFiltersProps) {
             value={searchParams.get('projetoId') || 'all'}
             onValueChange={(v) => updateFilter('projetoId', v === 'all' ? '' : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por projeto">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>

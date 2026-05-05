@@ -151,6 +151,7 @@ export function ReceberCompraForm({ compra, localizacoes }: ReceberCompraFormPro
                             <input
                                 type="date"
                                 {...register('dataRecebimento')}
+                                aria-label="Data de recebimento"
                                 className="w-full rounded-md border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                             />
                             {errors.dataRecebimento && (
@@ -214,6 +215,7 @@ export function ReceberCompraForm({ compra, localizacoes }: ReceberCompraFormPro
                                                     step="0.01"
                                                     min="0"
                                                     {...register(`itens.${index}.quantidadeRecebida`)}
+                                                    aria-label={`Quantidade recebida de ${field.nome} (${field.unidade})`}
                                                     className="w-full rounded-md border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                                 />
                                                 {errors.itens?.[index]?.quantidadeRecebida && (
@@ -228,6 +230,7 @@ export function ReceberCompraForm({ compra, localizacoes }: ReceberCompraFormPro
                                                 </label>
                                                 <select
                                                     {...register(`itens.${index}.localizacaoId`)}
+                                                    aria-label={`Localização de entrada para ${field.nome}`}
                                                     className="w-full rounded-md border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring bg-white"
                                                 >
                                                     <option value="0">Selecione...</option>
@@ -251,6 +254,7 @@ export function ReceberCompraForm({ compra, localizacoes }: ReceberCompraFormPro
                                                     type="text"
                                                     {...register(`itens.${index}.lote`)}
                                                     placeholder="Ex: LOTE-123"
+                                                    aria-label={`Lote ou número de série para ${field.nome}`}
                                                     className="w-full rounded-md border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                                 />
                                             </div>

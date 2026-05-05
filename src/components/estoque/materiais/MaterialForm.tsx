@@ -17,9 +17,10 @@ import { Textarea } from "@gladpros/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@gladpros/ui/select";
 import { Switch } from "@gladpros/ui/switch";
 import { useToast } from '@/shared/hooks/use-toast';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, ImagePlus, X } from 'lucide-react';
 import { CreateCategoriaModal } from '@/components/estoque/categorias/CreateCategoriaModal';
 import { organizeCategoriesForSelect } from '@/lib/estoque/category-utils';
+import Image from 'next/image';
 
 // Schema de validação
 const materialFormSchema = z.object({
@@ -31,18 +32,24 @@ const materialFormSchema = z.object({
   nome: z
     .string()
     .min(3, 'Nome deve ter no mínimo 3 caracteres')
-    .max(200, 'Nome deve ter no máximo 200 caracteres'),
+    .max(150, 'Nome deve ter no máximo 150 caracteres'),
   descricao: z.string().max(1000, 'Descrição muito longa').optional(),
   categoriaId: z.string().min(1, 'Categoria é obrigatória'),
   unidadeId: z.string().min(1, 'Unidade é obrigatória'),
   fabricante: z.string().max(100).optional(),
-  modelo: z.string().max(100).optional(),
+  modelo: z.string().max(80).optional(),
   ncm: z
     .string()
     .regex(/^\d{8}$/, 'NCM deve ter 8 dígitos')
     .optional()
     .or(z.literal('')),
-  pesoUnitario: z.string().optional(),
+  pesoUnitario: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || (!isNaN(Number(val)) && Number(val) > 0),
+      { message: 'Peso deve ser um número positivo' }
+    ),
   dimensoes: z.string().max(100).optional(),
   estoqueMinimo: z
     .string()
@@ -61,6 +68,7 @@ const materialFormSchema = z.object({
   ativo: z.boolean(),
   // Novos campos: UPC/Barcode
   barcodeInternal: z.string().max(60, 'Barcode interno deve ter no máximo 60 caracteres').optional(),
+  fotoUrl: z.string().url().optional().or(z.literal('')),
 }).refine(
   (data) => Number(data.pontoReposicao) >= Number(data.estoqueMinimo),
   {
@@ -74,7 +82,7 @@ type MaterialFormValues = z.infer<typeof materialFormSchema>;
 type MaterialFormProps = {
   categorias: Array<{ id: number; nome: string; paiId?: number | null }>;
   unidades: Array<{ id: number; nome: string; codigo: string }>;
-  initialData?: Partial<MaterialFormValues> & { id?: number };
+  initialData?: Partial<MaterialFormValues> & { id?: number; fotoUrl?: string | null };
   mode?: 'create' | 'edit';
 };
 
@@ -89,6 +97,8 @@ export function MaterialForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCategoriaModal, setShowCategoriaModal] = useState(false);
   const [listaCategorias, setListaCategorias] = useState(() => organizeCategoriesForSelect(categorias));
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.fotoUrl ?? null);
 
   // Manipular criação de categoria
   const handleCategoriaCreated = (novaCategoria: { id: number; nome: string; paiId?: number | null }) => {
@@ -124,12 +134,58 @@ export function MaterialForm({
       dimensoes: initialData?.dimensoes || '',
       estoqueMinimo: initialData?.estoqueMinimo || '0',
       pontoReposicao: initialData?.pontoReposicao || '0',
-      rastreioLote: initialData?.rastreioLote ?? false,
+      rastreioLote: initialData?.rastreioLote ?? true,
       possuiValidade: initialData?.possuiValidade ?? false,
       ativo: initialData?.ativo ?? true,
       barcodeInternal: initialData?.barcodeInternal || '',
+      fotoUrl: initialData?.fotoUrl || '',
     },
   });
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Preview local imediato
+    const localUrl = URL.createObjectURL(file);
+    setPhotoPreview(localUrl);
+    setIsUploadingPhoto(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/estoque/materiais/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || 'Erro no upload');
+
+      form.setValue('fotoUrl', result.data.url, { shouldValidate: true });
+      setPhotoPreview(result.data.url);
+
+      toast({ title: 'Foto enviada', description: 'Imagem salva com sucesso.' });
+    } catch (err) {
+      setPhotoPreview(initialData?.fotoUrl ?? null);
+      form.setValue('fotoUrl', initialData?.fotoUrl || '');
+      toast({
+        title: 'Erro no upload',
+        description: err instanceof Error ? err.message : 'Não foi possível enviar a imagem.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+      URL.revokeObjectURL(localUrl);
+    }
+  }
+
+  function handleRemovePhoto() {
+    setPhotoPreview(null);
+    form.setValue('fotoUrl', '', { shouldValidate: true });
+  }
 
   async function onSubmit(data: MaterialFormValues) {
     setIsSubmitting(true);
@@ -152,6 +208,7 @@ export function MaterialForm({
         possuiValidade: data.possuiValidade,
         ativo: data.ativo,
         barcodeInternal: data.barcodeInternal || undefined,
+        fotoUrl: data.fotoUrl || undefined,
       };
 
       const url =
@@ -185,7 +242,6 @@ export function MaterialForm({
       router.push('/estoque/materiais');
       router.refresh();
     } catch (error) {
-      console.error('Erro ao salvar material:', error);
       toast({
         title: 'Erro',
         description:
@@ -305,6 +361,7 @@ export function MaterialForm({
                       size="icon"
                       onClick={() => setShowCategoriaModal(true)}
                       title="Nova Categoria"
+                      aria-label="Nova Categoria"
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -328,7 +385,7 @@ export function MaterialForm({
                   <FormLabel>Unidade *</FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -370,6 +427,78 @@ export function MaterialForm({
               />
             </div>
           </div>
+        </div>
+
+        {/* Foto do Material */}
+        <div className="rounded-lg border bg-card p-6">
+          <h3 className="mb-4 text-lg font-semibold">Foto do Material</h3>
+          <FormField
+            control={form.control}
+            name="fotoUrl"
+            render={() => (
+              <FormItem>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                  {/* Preview */}
+                  <div className="relative flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border bg-muted">
+                    {photoPreview ? (
+                      <>
+                        <Image
+                          src={photoPreview}
+                          alt="Foto do material"
+                          fill
+                          className="object-cover"
+                          sizes="160px"
+                          unoptimized
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRemovePhoto}
+                          aria-label="Remover foto"
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow hover:bg-destructive/80"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                        <ImagePlus className="h-8 w-8" />
+                        <span className="text-xs">Sem foto</span>
+                      </div>
+                    )}
+                    {isUploadingPhoto && (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/70">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Controls */}
+                  <div className="flex flex-col gap-2">
+                    <FormLabel>Imagem do material</FormLabel>
+                    <FormDescription>
+                      JPEG, PNG ou WebP — máx. 10 MB
+                    </FormDescription>
+                    <label
+                      htmlFor="foto-upload"
+                      className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed"
+                    >
+                      <ImagePlus className="h-4 w-4" />
+                      {photoPreview ? 'Trocar foto' : 'Escolher foto'}
+                      <input
+                        id="foto-upload"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="sr-only"
+                        disabled={isUploadingPhoto}
+                        onChange={handlePhotoUpload}
+                      />
+                    </label>
+                    <FormMessage />
+                  </div>
+                </div>
+              </FormItem>
+            )}
+          />
         </div>
 
         {/* Detalhes Técnicos */}

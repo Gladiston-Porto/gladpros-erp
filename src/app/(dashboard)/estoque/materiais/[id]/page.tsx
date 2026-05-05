@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@gladpros/ui/card";
 import { formatCurrency, formatDate, formatQuantity } from '@/lib/estoque/utils/formatters';
 import { MaterialEmbalagemTab } from '@/components/estoque/materiais/MaterialEmbalagemTab';
 import { DynamicBar } from '@/components/ui/dynamic-bar';
+import Image from 'next/image';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -91,6 +92,28 @@ export default async function MaterialDetalhesPage({ params }: PageProps) {
 
       {/* Cards de Informações */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Foto do Material */}
+        {material.fotoUrl && (
+          <div className="md:col-span-2 lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle>Foto</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="relative aspect-square w-full overflow-hidden rounded-xl">
+                  <Image
+                    src={material.fotoUrl}
+                    alt={`Foto de ${material.nome}`}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 320px"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Informações Básicas */}
         <Card>
           <CardHeader>

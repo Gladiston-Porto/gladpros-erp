@@ -417,6 +417,7 @@ export function MaterialEmbalagemTab({
                                                 size="icon"
                                                 onClick={() => handleEdit(emb)}
                                                 title="Editar"
+                                                aria-label={`Editar embalagem ${emb.packageType} (${emb.upcEan})`}
                                             >
                                                 <Edit2 className="h-4 w-4" />
                                             </Button>
@@ -425,6 +426,7 @@ export function MaterialEmbalagemTab({
                                                 size="icon"
                                                 onClick={() => handleDelete(emb)}
                                                 title="Remover"
+                                                aria-label={`Remover embalagem ${emb.packageType} (${emb.upcEan})`}
                                                 className="text-destructive hover:text-destructive"
                                             >
                                                 <Trash2 className="h-4 w-4" />

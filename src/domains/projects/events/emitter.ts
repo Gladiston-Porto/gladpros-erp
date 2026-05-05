@@ -135,10 +135,7 @@ export class ProjectEventEmitter {
     }
 
     const totalDuration = Date.now() - startTime;
-    // eslint-disable-next-line no-console
-    console.log(
-      `[ProjectEventEmitter] Evento ${event.eventType} processado em ${totalDuration}ms (${result.handlers.length} handlers)`
-    );
+    void totalDuration; // timing available for future instrumentation
 
     return result;
   }
@@ -233,14 +230,8 @@ export class ProjectEventEmitter {
   /**
    * Log estruturado de evento
    */
-  private logEvent(event: ProjectEvent): void {
-    const priority = event.priority || EventPriority.NORMAL;
-    const emoji = this.getEmojiForEvent(event.eventType);
-    
-    // eslint-disable-next-line no-console
-    console.log(
-      `${emoji} [${priority.toUpperCase()}] ${event.eventType} | Projeto: ${event.projetoId} | ${event.eventId}`
-    );
+  private logEvent(_event: ProjectEvent): void {
+    // no-op — silence until a real logger is integrated
   }
 
   /**

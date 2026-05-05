@@ -19,6 +19,7 @@ import {
   Eye,
 } from 'lucide-react'
 import { formatDate } from '@/lib/estoque/utils/formatters'
+import EmptyState from '../shared/EmptyState'
 
 export type MovimentacaoTableRow = {
   id: number
@@ -126,6 +127,7 @@ export function MovimentacaoDataTable({ movimentacoes }: MovimentacaoDataTablePr
             variant="ghost"
             size="sm"
             className="h-10"
+            aria-label={`Ver detalhes da movimentação ${row.original.id}`}
             onClick={() => router.push(`/estoque/movimentacoes/${row.original.id}`)}
           >
             <Eye className="h-4 w-4 mr-1" />
@@ -139,14 +141,22 @@ export function MovimentacaoDataTable({ movimentacoes }: MovimentacaoDataTablePr
 
   return (
     <div className="rounded-2xl border border-border bg-background p-4 shadow-lg">
-      <DataTable
-        columns={columns}
-        data={movimentacoes}
-        searchable
-        searchPlaceholder="Buscar por material, equipamento, projeto..."
-        pageSize={15}
-        className="bg-white"
-      />
+      {movimentacoes.length === 0 ? (
+        <EmptyState
+          title="Nenhuma movimentação encontrada"
+          description="As movimentações de estoque aparecerão aqui."
+          icon={ArrowLeftRight}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={movimentacoes}
+          searchable
+          searchPlaceholder="Buscar por material, equipamento, projeto..."
+          pageSize={15}
+          className="bg-white"
+        />
+      )}
     </div>
   )
 }

@@ -76,6 +76,11 @@ export class ProjectProposalConversionService {
           endClientPhone: proposta.endClientPhone ?? undefined,
           endClientEmail: proposta.endClientEmail ?? undefined,
           endClientNotes: proposta.endClientNotes ?? undefined,
+          // Restrições operacionais e janela de execução copiadas da proposta (para a equipe)
+          restricoesOperacionais: [
+            proposta.restricoesDeAcesso ? `Restrições de acesso: ${proposta.restricoesDeAcesso}` : null,
+            proposta.janelaExecucaoPreferencial ? `Janela de execução: ${proposta.janelaExecucaoPreferencial}` : null,
+          ].filter(Boolean).join('\n') || undefined,
           // Datas previstas
           dataInicioPrevista,
           dataConclusaoPrevista: dataConclusaoPrevista ?? undefined,
@@ -98,6 +103,7 @@ export class ProjectProposalConversionService {
               quantidadePlanejada: material.quantidade,
               quantidadeLiberada: 0,
               quantidadeUtilizada: 0,
+              plannedUnitCost: material.precoUnitario ?? undefined,
             })),
           },
         },

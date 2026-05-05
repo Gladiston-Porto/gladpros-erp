@@ -300,6 +300,16 @@ export default function ProjetoDetailPage() {
         />
 
         <Tabs defaultValue="overview" className="space-y-6">
+          {/* Banner de restrições operacionais — visível para a equipe de execução */}
+          {projeto.restricoesOperacionais && (
+            <div className="flex items-start gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-yellow-700 dark:text-yellow-400">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <div>
+                <p className="font-semibold text-sm">Restrições Operacionais</p>
+                <p className="text-sm whitespace-pre-line mt-0.5">{projeto.restricoesOperacionais}</p>
+              </div>
+            </div>
+          )}
           <TabsList className="grid w-full rounded-2xl bg-card p-1 shadow-sm md:grid-cols-9">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="cronograma">Cronograma</TabsTrigger>

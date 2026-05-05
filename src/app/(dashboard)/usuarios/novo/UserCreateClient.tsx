@@ -147,6 +147,7 @@ export default function UserCreateClient() {
     estado: "TX",
     cep: "",
     anotacoes: "",
+    expiresAt: "",
   });
 
   const set = (field: string) => (value: string) => {
@@ -191,6 +192,10 @@ export default function UserCreateClient() {
       if (form.estado) payload.estado = form.estado;
       if (form.cep) payload.cep = form.cep;
       if (form.anotacoes) payload.anotacoes = form.anotacoes;
+      if (form.expiresAt) {
+        const isoExpires = displayDateToISO(form.expiresAt);
+        if (isoExpires) payload.expiresAt = isoExpires;
+      }
       payload.sendInviteEmail = sendInviteEmail;
       payload.exigirTrocaSenha = exigirTrocaSenha;
       payload.vincularWorker = vincularWorker;
@@ -221,7 +226,7 @@ export default function UserCreateClient() {
       }
       toast.success(toastParts.join(" "));
       router.push("/usuarios");
-    } catch (err) {
+    } catch {
       toast.error("Erro ao criar usuário");
     } finally {
       setSaving(false);
@@ -375,6 +380,13 @@ export default function UserCreateClient() {
                     ]}
                   />
                 </div>
+
+                <FieldInput
+                  label="Expiração da conta (opcional)"
+                  value={form.expiresAt}
+                  onChange={(v) => set("expiresAt")(applyDateMask(v))}
+                  placeholder="MM/DD/YYYY"
+                />
 
                 <div className="rounded-2xl border border-border bg-muted/40 p-4">
                   <div className="flex items-start gap-3">

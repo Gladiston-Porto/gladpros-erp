@@ -147,6 +147,7 @@ export function CategoriaList({ tipo }: CategoriaListProps) {
                                         variant="ghost"
                                         size="icon"
                                         className="h-6 w-6 p-0 shrink-0"
+                                        aria-label={isExpanded ? `Recolher categoria ${node.nome}` : `Expandir categoria ${node.nome}`}
                                         onClick={() => toggleExpand(node.id)}
                                     >
                                         {isExpanded ? (
@@ -197,6 +198,7 @@ export function CategoriaList({ tipo }: CategoriaListProps) {
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                aria-label={`Excluir categoria ${node.nome}`}
                                 onClick={() => {
                                     const totalLinked = totalItemsDirect + (node._count?.filhos || 0);
                                     handleDelete(node.id, totalLinked);

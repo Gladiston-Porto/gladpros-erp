@@ -23,6 +23,7 @@ export type Usuario = {
   ultimoLoginEm?: string | Date;
   criadoEm?: string | Date;
   atualizadoEm?: string | Date;
+  expiresAt?: string | Date | null;
 };
 
 export type SortKey = "nome" | "email" | "role" | "ativo" | "criadoEm";

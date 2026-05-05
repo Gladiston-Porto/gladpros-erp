@@ -150,6 +150,7 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
         await tx.propostaMaterial.createMany({
           data: payload.materiais.map(m => ({
             propostaId: propostaId,
+            estoqueItemId: m.estoqueItemId,
             codigo: m.codigo,
             nome: m.nome,
             quantidade: m.quantidade,

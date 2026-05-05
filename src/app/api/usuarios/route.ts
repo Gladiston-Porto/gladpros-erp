@@ -159,15 +159,21 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       params.push(like, like);
     }
     if (effectiveRole) {
-      if (userRole !== UserRole.ADMIN && !canManageRole(userRole, effectiveRole as UserRole)) {
+      const roleValues = effectiveRole.split(",").map((r) => r.trim()).filter(Boolean);
+      if (userRole !== UserRole.ADMIN && roleValues.some((r) => !canManageRole(userRole, r as UserRole))) {
         return NextResponse.json(
           { error: 'Acesso negado. Você não pode filtrar por este nível.' },
           { status: 403 }
         );
       }
-      // Usar apenas 'nivel' pois é o campo correto no banco
-      where.push("nivel = ?");
-      params.push(effectiveRole);
+      // Suporte a múltiplos roles separados por vírgula (ex: role=ADMIN,GERENTE)
+      if (roleValues.length === 1) {
+        where.push("nivel = ?");
+        params.push(roleValues[0]);
+      } else {
+        where.push(`nivel IN (${roleValues.map(() => "?").join(",")})`);
+        params.push(...roleValues);
+      }
     }
     if (effectiveStatus) {
       where.push("status = ?");
@@ -218,7 +224,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
             ultimoLoginEm,
             criadoEm,
             atualizadoEm,
-            avatarUrl
+            avatarUrl,
+            expiresAt
           FROM Usuario
           ${whereSql}
           ORDER BY ${orderKey} ${orderDir}
@@ -245,6 +252,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
             criadoEm: it.criadoEm ?? null,
             atualizadoEm: it.atualizadoEm ?? null,
             avatarUrl: it.avatarUrl ?? null,
+            expiresAt: it.expiresAt ? (it.expiresAt instanceof Date ? it.expiresAt.toISOString() : String(it.expiresAt)) : null,
           };
         });
 
@@ -344,6 +352,23 @@ const UserCreateSchema = z.object({
     }),
   anotacoes: z.string().optional().or(z.literal(""))
     .transform((s) => (s && s.trim().length > 0 ? s : undefined)),
+  expiresAt: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .transform((v) => {
+      if (!v) return undefined;
+      if (v instanceof Date) return isNaN(v.getTime()) ? undefined : v.toISOString();
+      const s = String(v).trim();
+      const mIso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (mIso) return s;
+      const mUs = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (mUs) {
+        const [, mm, dd, yyyy] = mUs as unknown as [string, string, string, string];
+        return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+      }
+      return undefined;
+    }),
   sendInviteEmail: z.boolean().optional(),
   exigirTrocaSenha: z.boolean().optional(),
   vincularWorker: z.boolean().optional(),
@@ -410,7 +435,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       );
     }
 
-    const { email: emailAddr, nomeCompleto, role, status, telefone, dataNascimento, endereco1, endereco2, cidade, estado, cep, anotacoes, sendInviteEmail, exigirTrocaSenha, vincularWorker, workerClassification } = parsed.data;
+    const { email: emailAddr, nomeCompleto, role, status, telefone, dataNascimento, endereco1, endereco2, cidade, estado, cep, anotacoes, expiresAt: expiresAtCreate, sendInviteEmail, exigirTrocaSenha, vincularWorker, workerClassification } = parsed.data;
 
     try {
       // Checagem por e-mail via SQL bruto (evita schema/stale do Prisma Client)
@@ -424,7 +449,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
       // 1) gerar senha provisória
       const tempPassword = generateTempPassword(12);
-      const senhaHash = await bcrypt.hash(tempPassword, 10);
+      const senhaHash = await bcrypt.hash(tempPassword, 12);
 
       // 2) Inserção resiliente ao schema: detectar colunas disponíveis
       const colsRows = (await withRetry(() => prisma.$queryRaw`
@@ -456,6 +481,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       if (cols.has("zipcode")) { insertCols.push("zipcode"); values.push(cep ?? null); }
       else if (cols.has("cep")) { insertCols.push("cep"); values.push(cep ?? null); }
       if (cols.has("anotacoes")) { insertCols.push("anotacoes"); values.push(anotacoes ?? null); }
+      if (cols.has("expiresAt") && expiresAtCreate) { insertCols.push("expiresAt"); values.push(expiresAtCreate); }
       
       // Campos para controle de primeiro acesso e senha provisória
       const mustReset = exigirTrocaSenha !== false; // default true

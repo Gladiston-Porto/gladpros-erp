@@ -27,7 +27,8 @@ type CreateCategoriaModalProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     tipo: 'MATERIAL' | 'EQUIPAMENTO';
-    onSuccess: (categoria: { id: number; nome: string }) => void;
+    onSuccess: (categoria: { id: number; nome: string; paiId?: number | null }) => void;
+    preSelectedPaiId?: string | null;
 };
 
 export function CreateCategoriaModal({
@@ -35,6 +36,7 @@ export function CreateCategoriaModal({
     onOpenChange,
     tipo,
     onSuccess,
+    preSelectedPaiId,
 }: CreateCategoriaModalProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
@@ -46,9 +48,16 @@ export function CreateCategoriaModal({
         defaultValues: {
             nome: '',
             descricao: '',
-            paiId: undefined, // "none" ou undefined
+            paiId: preSelectedPaiId ?? undefined,
         },
     });
+
+    // Atualizar paiId pré-selecionado se a prop mudar (ex: modal reaberto com outro pai)
+    useEffect(() => {
+        if (open) {
+            form.setValue('paiId', preSelectedPaiId ?? undefined);
+        }
+    }, [open, preSelectedPaiId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Carregar categorias possíveis para serem pais (do mesmo tipo)
     useEffect(() => {
@@ -112,7 +121,7 @@ export function CreateCategoriaModal({
                 description: `${result.data.nome} foi adicionada com sucesso ao tipo ${tipo}.`,
             });
 
-            onSuccess(result.data);
+            onSuccess({ id: result.data.id, nome: result.data.nome, paiId: result.data.paiId ?? null });
             form.reset();
             onOpenChange(false);
         } catch (err: any) {

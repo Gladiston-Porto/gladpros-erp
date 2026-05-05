@@ -546,7 +546,7 @@ export function calcTankless(respostas: EstimadorRespostas): EstimadorResult {
   const equipPrice = equipmentPrice[fuelType] ?? 1590
 
   // Base labor: 6h master plumber (mount, connect water, gas/electric, test)
-  let laborHours = 6
+  const laborHours = 6
   let laborCost  = laborHours * LABOR.plumber_master
 
   // Misc materials: flex connectors, shutoff valves, misc fittings

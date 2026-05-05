@@ -36,6 +36,7 @@ export interface Projeto {
   prioridade: ProjetoPrioridade;
   localidade: string | null;
   endereco: string | null;
+  restricoesOperacionais: string | null;
   criadoPor: number;
   atualizadoPor: number | null;
   criadoEm: string;

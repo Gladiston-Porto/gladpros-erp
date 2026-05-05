@@ -48,6 +48,7 @@ export function SearchBar({
         <Input
           type="text"
           placeholder={placeholder}
+          aria-label={placeholder}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"

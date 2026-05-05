@@ -1,7 +1,7 @@
 # Módulo Usuários — Documentação Técnica
 
 **Status:** ✅ Produção  
-**Última atualização:** 2026-04-18  
+**Última atualização:** 2026-05-05  
 
 ---
 
@@ -54,7 +54,7 @@ src/app/api/usuarios/
 | `id` | `Int` | PK autoincrement |
 | `email` | `String @unique` | Email de acesso |
 | `senha` | `String` | Hash bcrypt (salt ≥ 12) — nunca exposto |
-| `nivel` | `String` | Role: ADMIN / GERENTE / FINANCEIRO / ESTOQUE / USUARIO / CLIENTE |
+| `nivel` | `Usuario_nivel` (enum) | Role: ADMIN / GERENTE / FINANCEIRO / ESTOQUE / USUARIO / CLIENTE |
 | `nomeCompleto` | `String?` | Nome completo |
 | `telefone` | `String?` | Telefone de contato |
 | `status` | `Usuario_status` | ATIVO / INATIVO / BLOQUEADO |
@@ -71,6 +71,7 @@ src/app/api/usuarios/
 | `pinSeguranca` | `String?` | PIN hash para operações sensíveis |
 | `perguntaSecreta / respostaSecreta` | `String?` | Recuperação de conta |
 | `anotacoes` | `String? @db.LongText` | Anotações internas |
+| `expiresAt` | `DateTime?` | Expiração da conta; login bloqueado após esta data |
 | `criadoEm / atualizadoEm` | `DateTime` | Timestamps |
 
 ### Modelos relacionados
@@ -82,6 +83,7 @@ src/app/api/usuarios/
 - **TentativaLogin** — log de tentativas (rate limiting / bloqueio)
 - **AuditLog** — ações realizadas pelo usuário no sistema
 - **Worker** — relação 1:1 com worker (se for técnico/funcionário)
+- **Delegacao** — relações 1:N para delegações feitas, recebidas e canceladas
 
 ---
 
@@ -100,6 +102,9 @@ src/app/api/usuarios/
 | `GET` | `/api/usuarios/:id/sessions` | `usuarios:read` | Sessões ativas do usuário |
 | `GET` | `/api/usuarios/:id/auditoria` | `usuarios:read` | Log de auditoria |
 | `DELETE` | `/api/usuarios/sessions/:sessionId` | `usuarios:update` | Revogar sessão específica |
+| `POST` | `/api/usuarios/delegacoes` | ADMIN/GERENTE | Criar delegação temporária |
+| `GET` | `/api/usuarios/delegacoes/minhas` | Autenticado | Delegações do usuário atual |
+| `DELETE` | `/api/usuarios/delegacoes/:id` | ADMIN ou delegante | Cancelar delegação |
 | `GET` | `/api/usuarios/export/csv` | `usuarios:read` | Exportar lista em CSV |
 | `GET` | `/api/usuarios/export/pdf` | `usuarios:read` | Exportar lista em PDF |
 
@@ -111,7 +116,9 @@ src/app/api/usuarios/
 - **Auto-edição**: usuário pode editar próprio perfil (nome, avatar, senha), mas não pode alterar próprio `nivel`
 - **Bloqueio automático**: após N tentativas de login falhas → `bloqueado = true`
 - **Senha provisória**: criação via admin gera `senhaProvisoria = true` → usuário obrigado a trocar no próximo login
-- **tokenVersion**: incrementado ao forçar logout global (ex: senha alterada por admin, bloqueio)
+- **tokenVersion**: incrementado ao forçar logout global (ex: senha alterada por admin, bloqueio) **e ao mudar o `nivel` do usuário**
+- **Expiração de conta**: campo `expiresAt` permite ao ADMIN definir uma data após a qual o login é bloqueado
+- **Delegação temporária**: ADMIN ou GERENTE pode delegar suas funções a outro ADMIN/GERENTE por um período definido
 - **Histórico de senha**: últimas N senhas salvas em `HistoricoSenha` — sistema bloqueia reutilização
 - **MFA**: TOTP via app autenticador; obrigatório para ADMIN e FINANCEIRO (configurável)
 - **Worker link**: ao criar usuário técnico (USUARIO), pode-se vincular a um `Worker` existente
@@ -170,13 +177,17 @@ Dados sensíveis **nunca** retornados pela API:
 
 ## 9. Problemas Conhecidos
 
-- Campo `nivel` armazenado como `String` no banco — considerar migrar para enum Prisma no futuro
+- Campo `nivel` armazenado como **enum `Usuario_nivel`** (migrado de `String` em maio 2026)
 - Exportação PDF pode ser lenta para listas grandes (sem paginação no export)
 
 ---
 
 ## 10. Roadmap Futuro
 
+- [x] Campo `nivel` migrado para enum Prisma (`Usuario_nivel`) — maio 2026
+- [x] Expiração de conta (`expiresAt`) com bloqueio no login — maio 2026
+- [x] Invalidação automática de token ao mudar role (`tokenVersion +1`) — maio 2026
+- [x] Delegação temporária (ADMIN/GERENTE) com banner no dashboard — maio 2026
 - [ ] Onboarding guiado no primeiro acesso (`primeiroAcesso = true`)
 - [ ] Foto de perfil com upload e crop
 - [ ] Notificação de login em novo dispositivo

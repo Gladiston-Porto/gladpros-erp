@@ -22,6 +22,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import EmptyState from '../shared/EmptyState';
 
 export type EquipamentoTableRow = {
   id: number;
@@ -226,6 +227,7 @@ export function EquipamentoDataTable({ equipamentos }: EquipamentoDataTableProps
             <Button
               size="sm"
               variant="ghost"
+              aria-label={`Ver detalhes do equipamento ${equipamento.nome}`}
               onClick={(e: React.MouseEvent) => {
                 e.stopPropagation();
                 router.push(`/estoque/equipamentos/${equipamento.id}`);
@@ -241,12 +243,20 @@ export function EquipamentoDataTable({ equipamentos }: EquipamentoDataTableProps
   );
 
   return (
-    <DataTable
-      data={equipamentos}
-      columns={columns}
-      searchKey="nome"
-      searchPlaceholder="Buscar por nome, código ou série..."
-      onRowClick={(row: EquipamentoTableRow) => router.push(`/estoque/equipamentos/${row.id}`)}
-    />
+    equipamentos.length === 0 ? (
+      <EmptyState
+        title="Nenhum equipamento encontrado"
+        description="Cadastre equipamentos para começar o controle."
+        icon={Wrench}
+      />
+    ) : (
+      <DataTable
+        data={equipamentos}
+        columns={columns}
+        searchKey="nome"
+        searchPlaceholder="Buscar por nome, código ou série..."
+        onRowClick={(row: EquipamentoTableRow) => router.push(`/estoque/equipamentos/${row.id}`)}
+      />
+    )
   );
 }

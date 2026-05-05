@@ -83,7 +83,7 @@ export function AlertaFilters({ materiais, equipamentos }: AlertaFiltersProps) {
         <div className="space-y-2">
           <Label>Tipo</Label>
           <Select value={searchParams.get('tipo') || 'all'} onValueChange={(v) => updateFilter('tipo', v === 'all' ? '' : v)}>
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por tipo de alerta">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -103,7 +103,7 @@ export function AlertaFilters({ materiais, equipamentos }: AlertaFiltersProps) {
             value={searchParams.get('prioridade') || 'all'}
             onValueChange={(v) => updateFilter('prioridade', v === 'all' ? '' : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por prioridade">
               <SelectValue placeholder="Todas" />
             </SelectTrigger>
             <SelectContent>
@@ -123,7 +123,7 @@ export function AlertaFilters({ materiais, equipamentos }: AlertaFiltersProps) {
             value={searchParams.get('status') || 'all'}
             onValueChange={(v) => updateFilter('status', v === 'all' ? '' : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por status">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -143,7 +143,7 @@ export function AlertaFilters({ materiais, equipamentos }: AlertaFiltersProps) {
             value={searchParams.get('materialId') || 'all'}
             onValueChange={(v) => updateFilter('materialId', v === 'all' ? '' : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por material">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
@@ -163,7 +163,7 @@ export function AlertaFilters({ materiais, equipamentos }: AlertaFiltersProps) {
             value={searchParams.get('equipamentoId') || 'all'}
             onValueChange={(v) => updateFilter('equipamentoId', v === 'all' ? '' : v)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filtrar por equipamento">
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>

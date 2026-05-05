@@ -32,14 +32,16 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
   const [clientName, setClientName] = useState(
     proposta.cliente?.nomeCompleto || proposta.cliente?.razaoSocial || ''
   )
+  const [signMessage, setSignMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
   const router = useRouter()
 
   const handleSign = async () => {
     if (!signature.trim() || !termsAccepted || !clientName.trim()) {
-      alert('Por favor, preencha todos os campos obrigatórios e assine.')
+      setSignMessage({ type: 'error', text: 'Por favor, preencha todos os campos obrigatórios e assine.' })
       return
     }
 
+    setSignMessage(null)
     try {
       setLoading(true)
 
@@ -62,11 +64,11 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
         throw new Error(_error.message || 'Erro ao assinar proposta')
       }
 
-      alert('Proposta assinada com sucesso!')
+      setSignMessage({ type: 'success', text: 'Proposta assinada com sucesso!' })
       router.refresh()
 
     } catch (error) {
-      alert('Erro ao assinar proposta: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
+      setSignMessage({ type: 'error', text: 'Erro ao assinar proposta: ' + (error instanceof Error ? error.message : 'Erro desconhecido') })
     } finally {
       setLoading(false)
     }
@@ -336,7 +338,21 @@ export default function ClientPropostaView({ proposta, token }: ClientPropostaVi
                 </label>
               </div>
 
-              <div className="pt-4">
+              <div className="pt-4 space-y-3">
+                {signMessage && (
+                  <div className={cn(
+                    'flex items-start gap-2 rounded-lg px-4 py-3 text-sm',
+                    signMessage.type === 'error'
+                      ? 'bg-destructive/10 text-destructive'
+                      : 'bg-green-500/10 text-green-600'
+                  )}>
+                    {signMessage.type === 'error'
+                      ? <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                      : <CheckCircle className="h-4 w-4 mt-0.5 shrink-0 text-green-600" />
+                    }
+                    <span>{signMessage.text}</span>
+                  </div>
+                )}
                 <Button
                   onClick={handleSign}
                   disabled={loading || !signature || !termsAccepted || !clientName.trim()}

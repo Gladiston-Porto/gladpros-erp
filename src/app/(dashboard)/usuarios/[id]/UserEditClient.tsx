@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authenticatedFetch } from "@/lib/api/client";
@@ -21,6 +21,10 @@ import {
   PowerOff,
   Users,
   ExternalLink,
+  CalendarClock,
+  UserCheck,
+  XCircle,
+  Plus,
 } from "lucide-react";
 
 /* ---------- masks / date helpers ---------- */
@@ -96,6 +100,7 @@ interface UserData {
   criadoEm: string | null;
   atualizadoEm: string | null;
   workerId: number | null;
+  expiresAt: string | null;
 }
 
 const ROLES: { value: UserRole; label: string }[] = [
@@ -125,7 +130,15 @@ const ESTADOS = [
   "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
 ];
 
-export default function UserEditClient({ id }: { id: string }) {
+export default function UserEditClient({
+  id,
+  currentUserId,
+  currentUserRole,
+}: {
+  id: string;
+  currentUserId?: number;
+  currentUserRole?: string;
+}) {
   const router = useRouter();
   const toast = useToast();
   const { confirm, Dialog } = useConfirm();
@@ -150,6 +163,7 @@ export default function UserEditClient({ id }: { id: string }) {
     estado: "",
     cep: "",
     anotacoes: "",
+    expiresAt: "",
   });
 
   useEffect(() => {
@@ -176,6 +190,7 @@ export default function UserEditClient({ id }: { id: string }) {
           estado: data.estado || "",
           cep: data.cep || "",
           anotacoes: data.anotacoes || "",
+          expiresAt: isoToDisplayDate(data.expiresAt),
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Erro ao carregar usuário";
@@ -219,6 +234,13 @@ export default function UserEditClient({ id }: { id: string }) {
       if (form.estado !== (user?.estado || "")) payload.estado = form.estado;
       if (form.cep !== (user?.cep || "")) payload.cep = form.cep;
       if (form.anotacoes !== (user?.anotacoes || "")) payload.anotacoes = form.anotacoes;
+
+      // expiresAt: send ISO string (set) or empty string (clear)
+      const prevExpires = isoToDisplayDate(user?.expiresAt);
+      if (form.expiresAt !== prevExpires) {
+        const isoExpires = displayDateToISO(form.expiresAt);
+        payload.expiresAt = isoExpires ?? "";
+      }
 
       if (Object.keys(payload).length === 0) {
         toast.info("Sem alterações", "Nenhum campo foi modificado.");
@@ -505,6 +527,36 @@ export default function UserEditClient({ id }: { id: string }) {
                   {ROLE_BADGE[form.role]?.label ?? form.role}
                 </span>
               </div>
+
+              {/* expiresAt — ADMIN only */}
+              {(currentUserRole === "ADMIN") && (
+                <div>
+                  <label className="mb-1 flex items-center gap-1.5 text-sm font-medium">
+                    <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
+                    Expiração da conta
+                  </label>
+                  <input
+                    type="text"
+                    value={form.expiresAt}
+                    onChange={(e) => handleChange("expiresAt", applyDateMask(e.target.value))}
+                    placeholder="MM/DD/YYYY (opcional)"
+                    aria-label="Data de expiração da conta"
+                    className="min-h-12 w-full rounded-2xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                  />
+                  {form.expiresAt && (
+                    <button
+                      type="button"
+                      onClick={() => handleChange("expiresAt", "")}
+                      className="mt-1 text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      Remover expiração
+                    </button>
+                  )}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Conta será inativada automaticamente nesta data.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -584,6 +636,17 @@ export default function UserEditClient({ id }: { id: string }) {
                     })}
                   </p>
                 )}
+                {user.expiresAt && (
+                  <p className="text-yellow-600 dark:text-yellow-400">
+                    Expira em:{" "}
+                    {new Date(user.expiresAt).toLocaleDateString("en-US", {
+                      timeZone: "America/Chicago",
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </p>
+                )}
                 {user.criadoEm && (
                   <p>
                     Criado:{" "}
@@ -609,6 +672,11 @@ export default function UserEditClient({ id }: { id: string }) {
               </div>
             </CardContent>
           </Card>
+
+          {/* Delegação de funções — GERENTE/ADMIN editando próprio perfil */}
+          {currentUserId === Number(id) && (currentUserRole === "GERENTE" || currentUserRole === "ADMIN") && (
+            <DelegacaoSection userId={id} toast={toast} />
+          )}
           </div>
 
           {/* ── Col 3: Histórico contínuo ─── */}
@@ -647,6 +715,260 @@ export default function UserEditClient({ id }: { id: string }) {
         </div>
       </form>
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────
+   DelegacaoSection — card para GERENTE/ADMIN delegar funções
+──────────────────────────────────────────────────────── */
+
+interface DelegacaoRow {
+  id: number;
+  dataInicio: string;
+  dataFim: string;
+  motivo?: string | null;
+  status: string;
+  delegatario?: { id: number; nomeCompleto: string; email: string } | null;
+}
+
+interface DelegacaoCandidate {
+  id: number;
+  nomeCompleto: string;
+  email: string;
+  role: string;
+}
+
+function formatDisplayDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    timeZone: "America/Chicago",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function DelegacaoSection({ userId, toast }: { userId: string; toast: ReturnType<typeof useToast> }) {
+  const [delegacoes, setDelegacoes] = useState<DelegacaoRow[]>([]);
+  const [candidates, setCandidates] = useState<DelegacaoCandidate[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [cancelling, setCancelling] = useState<number | null>(null);
+  const [form, setForm] = useState({ delegatarioId: "", dataInicio: "", dataFim: "", motivo: "" });
+
+  const loadDelegacoes = useCallback(async () => {
+    setLoadingList(true);
+    try {
+      const res = await authenticatedFetch("/api/usuarios/delegacoes");
+      if (res.ok) {
+        const json = await res.json();
+        // Only show delegations made by this user
+        const all: DelegacaoRow[] = json.data ?? [];
+        setDelegacoes(all.filter((d) => d.status === "ATIVA"));
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingList(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDelegacoes();
+    // Load ADMIN/GERENTE candidates
+    authenticatedFetch("/api/usuarios?role=ADMIN,GERENTE&status=ATIVO&pageSize=50")
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        const all: DelegacaoCandidate[] = (json?.items ?? json?.data ?? []);
+        setCandidates(all.filter((u) => String(u.id) !== userId));
+      })
+      .catch(() => null);
+  }, [loadDelegacoes, userId]);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.delegatarioId || !form.dataInicio || !form.dataFim) {
+      toast.error("Campos obrigatórios", "Selecione o responsável e o período.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await authenticatedFetch("/api/usuarios/delegacoes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          delegatarioId: Number(form.delegatarioId),
+          dataInicio: new Date(form.dataInicio).toISOString(),
+          dataFim: new Date(form.dataFim).toISOString(),
+          motivo: form.motivo || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Erro ao criar delegação");
+      toast.success("Delegação criada", "Suas funções foram delegadas com sucesso.");
+      setShowForm(false);
+      setForm({ delegatarioId: "", dataInicio: "", dataFim: "", motivo: "" });
+      await loadDelegacoes();
+    } catch (err: unknown) {
+      toast.error("Erro", err instanceof Error ? err.message : "Erro ao criar delegação");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleCancel(id: number) {
+    setCancelling(id);
+    try {
+      const res = await authenticatedFetch(`/api/usuarios/delegacoes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.message || "Erro ao cancelar");
+      }
+      toast.success("Cancelada", "Delegação cancelada com sucesso.");
+      await loadDelegacoes();
+    } catch (err: unknown) {
+      toast.error("Erro", err instanceof Error ? err.message : "Erro ao cancelar delegação");
+    } finally {
+      setCancelling(null);
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-6">
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-base font-semibold">
+            <UserCheck className="h-4 w-4 text-brand-primary" />
+            Delegação de Funções
+          </h3>
+          {!showForm && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowForm(true)}
+              className="gap-1.5"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Delegar
+            </Button>
+          )}
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Delegue suas responsabilidades a um Administrador ou outro Gerente durante sua ausência.
+        </p>
+
+        {/* Active delegations list */}
+        {loadingList ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando…
+          </div>
+        ) : delegacoes.length > 0 ? (
+          <div className="space-y-2">
+            {delegacoes.map((d) => (
+              <div key={d.id} className="flex items-start justify-between gap-3 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-3 text-xs">
+                <div className="space-y-0.5">
+                  <p className="font-medium text-foreground">{d.delegatario?.nomeCompleto ?? "—"}</p>
+                  <p className="text-muted-foreground">
+                    {formatDisplayDate(d.dataInicio)} → {formatDisplayDate(d.dataFim)}
+                  </p>
+                  {d.motivo && <p className="text-muted-foreground italic">{d.motivo}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCancel(d.id)}
+                  disabled={cancelling === d.id}
+                  aria-label="Cancelar delegação"
+                  className="mt-0.5 shrink-0 rounded-lg p-1 text-destructive/70 transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                >
+                  {cancelling === d.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          !showForm && (
+            <p className="text-xs text-muted-foreground">Nenhuma delegação ativa.</p>
+          )
+        )}
+
+        {/* Create form */}
+        {showForm && (
+          <form onSubmit={handleCreate} className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium">Responsável *</label>
+              <select
+                value={form.delegatarioId}
+                onChange={(e) => setForm((p) => ({ ...p, delegatarioId: e.target.value }))}
+                aria-label="Selecionar responsável pela delegação"
+                className="min-h-10 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Selecione…</option>
+                {candidates.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.nomeCompleto} ({c.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium">Início *</label>
+                <input
+                  type="date"
+                  value={form.dataInicio}
+                  onChange={(e) => setForm((p) => ({ ...p, dataInicio: e.target.value }))}
+                  aria-label="Data de início da delegação"
+                  className="min-h-10 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium">Término *</label>
+                <input
+                  type="date"
+                  value={form.dataFim}
+                  onChange={(e) => setForm((p) => ({ ...p, dataFim: e.target.value }))}
+                  aria-label="Data de término da delegação"
+                  className="min-h-10 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium">Motivo (opcional)</label>
+              <input
+                type="text"
+                value={form.motivo}
+                onChange={(e) => setForm((p) => ({ ...p, motivo: e.target.value }))}
+                placeholder="Ex: Férias, viagem, afastamento…"
+                aria-label="Motivo da delegação"
+                className="min-h-10 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" size="sm" disabled={submitting}>
+                {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                {submitting ? "Salvando…" : "Confirmar"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

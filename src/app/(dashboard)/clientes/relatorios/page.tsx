@@ -47,6 +47,7 @@ export default async function RelatoriosClientesPage() {
       where: { criadoEm: { gte: sixMonthsAgo } },
       select: { criadoEm: true },
       orderBy: { criadoEm: "asc" },
+      take: 1000,
     }),
   ]);
 

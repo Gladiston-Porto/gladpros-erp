@@ -1,90 +1,49 @@
 /**
- * Mock Event Handlers
- * Fase 8: Handlers mockados para eventos
- * 
- * Implementações de exemplo para logging, queue e notificações
+ * Project Event Handlers
+ *
+ * No-op stubs for project domain events.
+ * Each handler documents the intended integration (queue, notifications, email, etc.)
+ * and will be wired to real services when those are implemented.
  */
 
 import {
   ProjectEvent,
   ProjectEventType,
-  EventPriority,
-  StatusAlteradoEvent,
-  ProjetoConcluidoEvent,
-  TarefaAtribuidaEvent,
   InvoiceVencidoEvent,
   EtapaAtrasadaEvent,
 } from './types';
 
 /**
- * Handler de Log - registra todos os eventos
+ * Log handler — tracks all events.
+ * TODO: integrate with a proper logger (e.g. Pino, Winston, Datadog)
  */
-export async function logEventHandler(event: ProjectEvent): Promise<void> {
-  const timestamp = event.timestamp.toISOString();
-  const priority = event.priority || EventPriority.NORMAL;
-  
-  // eslint-disable-next-line no-console
-  console.log(`
-[EVENT LOG] ${timestamp}
-  Type: ${event.eventType}
-  Priority: ${priority}
-  Project ID: ${event.projetoId}
-  Event ID: ${event.eventId}
-  ${event.usuarioId ? `User ID: ${event.usuarioId}` : ''}
-  Data: ${JSON.stringify((event as any).data || {}, null, 2)}
-  `);
+export async function logEventHandler(_event: ProjectEvent): Promise<void> {
+  // no-op until real logger is integrated
 }
 
 /**
- * Handler de Queue - simula envio para fila (RabbitMQ, SQS, etc)
+ * Queue handler — enqueues events for async processing.
+ * TODO: connect to RabbitMQ / SQS when message queue is set up
+ * Example:
+ *   await rabbitMQ.publish('projects.events', event)
+ *   await sqs.sendMessage({ QueueUrl: QUEUE_URL, MessageBody: JSON.stringify(event) })
  */
-export async function queueEventHandler(event: ProjectEvent): Promise<void> {
-  // Simula envio para fila
-  // eslint-disable-next-line no-console
-  console.log(`[QUEUE] Enfileirando evento ${event.eventType} para projeto ${event.projetoId}`);
-  
-  // Em produção, aqui iria:
-  // await rabbitMQ.publish('projects.events', event);
-  // ou
-  // await sqs.sendMessage({ QueueUrl: QUEUE_URL, MessageBody: JSON.stringify(event) });
-  
-  // Mock: apenas simula latência
-  await new Promise(resolve => setTimeout(resolve, 50));
-  
-  // eslint-disable-next-line no-console
-  console.log(`[QUEUE] Evento ${event.eventId} enfileirado com sucesso`);
+export async function queueEventHandler(_event: ProjectEvent): Promise<void> {
+  // no-op until message queue is integrated
 }
 
 /**
- * Handler de Notificações - envia notificações baseadas em eventos
+ * Notification handler — sends in-app or push notifications.
+ * TODO: connect to the notifications system (src/services/notifications)
  */
-export async function notificationEventHandler(event: ProjectEvent): Promise<void> {
-  const notificationMap: Partial<Record<ProjectEventType, string>> = {
-    [ProjectEventType.PROJETO_CRIADO]: 'Novo projeto criado!',
-    [ProjectEventType.STATUS_ALTERADO]: 'Status do projeto alterado',
-    [ProjectEventType.PROJETO_CONCLUIDO]: '🎉 Projeto concluído com sucesso!',
-    [ProjectEventType.TAREFA_ATRIBUIDA]: 'Nova tarefa atribuída a você',
-    [ProjectEventType.ETAPA_ATRASADA]: '⚠️ Etapa com atraso detectado',
-    [ProjectEventType.INVOICE_VENCIDO]: '🔴 Invoice vencido - ação necessária',
-    [ProjectEventType.PAGAMENTO_RECEBIDO]: '💰 Pagamento recebido',
-  };
-
-  const message = notificationMap[event.eventType];
-  
-  if (message) {
-    // eslint-disable-next-line no-console
-    console.log(`[NOTIFICATION] ${message}`);
-    // eslint-disable-next-line no-console
-    console.log(`[NOTIFICATION] Detalhes: Projeto #${event.projetoId}`);
-    
-    // Em produção:
-    // await sendPushNotification(event.usuarioId, message);
-    // await sendInAppNotification(event.usuarioId, message, event.data);
-  }
+export async function notificationEventHandler(_event: ProjectEvent): Promise<void> {
+  // no-op until notifications system is integrated
 }
 
 /**
- * Handler de Email - envia emails baseados em eventos críticos
+ * Email handler — sends transactional emails for critical events.
+ * Only fires for: PROJETO_CONCLUIDO, INVOICE_VENCIDO, ETAPA_ATRASADA, PAGAMENTO_RECEBIDO
+ * TODO: connect to email service (SendGrid / Resend / SES)
  */
 export async function emailEventHandler(event: ProjectEvent): Promise<void> {
   const criticalEvents = [
@@ -94,37 +53,14 @@ export async function emailEventHandler(event: ProjectEvent): Promise<void> {
     ProjectEventType.PAGAMENTO_RECEBIDO,
   ];
 
-  if (!criticalEvents.includes(event.eventType)) {
-    return; // Não envia email para eventos não-críticos
-  }
-
-  // eslint-disable-next-line no-console
-  console.log(`[EMAIL] Preparando email para evento ${event.eventType}`);
-  
-  // Seleciona template baseado no evento
-  const template = getEmailTemplate(event);
-  
-  // eslint-disable-next-line no-console
-  console.log(`[EMAIL] Template: ${template.subject}`);
-  // eslint-disable-next-line no-console
-  console.log(`[EMAIL] Destinatário: ${template.to}`);
-  // eslint-disable-next-line no-console
-  console.log(`[EMAIL] Preview: ${template.preview}`);
-  
-  // Em produção:
-  // await emailService.send({
-  //   to: template.to,
-  //   subject: template.subject,
-  //   html: template.html,
-  //   data: template.data,
-  // });
-  
-  // eslint-disable-next-line no-console
-  console.log(`[EMAIL] Email enviado com sucesso`);
+  if (!criticalEvents.includes(event.eventType)) return;
+  // no-op until email service is integrated
 }
 
 /**
- * Handler de Webhook - notifica sistemas externos
+ * Webhook handler — notifies external systems.
+ * Only fires for: PROJETO_CRIADO, STATUS_ALTERADO, PROJETO_CONCLUIDO, INVOICE_GERADO, PAGAMENTO_RECEBIDO
+ * TODO: implement webhook registry and delivery
  */
 export async function webhookEventHandler(event: ProjectEvent): Promise<void> {
   const webhookEvents = [
@@ -135,55 +71,23 @@ export async function webhookEventHandler(event: ProjectEvent): Promise<void> {
     ProjectEventType.PAGAMENTO_RECEBIDO,
   ];
 
-  if (!webhookEvents.includes(event.eventType)) {
-    return;
-  }
-
-  // eslint-disable-next-line no-console
-  console.log(`[WEBHOOK] Notificando sistemas externos sobre ${event.eventType}`);
-  
-  // Em produção:
-  // const webhooks = await getWebhooksForEvent(event.eventType);
-  // for (const webhook of webhooks) {
-  //   await fetch(webhook.url, {
-  //     method: 'POST',
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //       'X-Webhook-Signature': generateSignature(webhook.secret, event),
-  //     },
-  //     body: JSON.stringify(event),
-  //   });
-  // }
-  
-  // eslint-disable-next-line no-console
-  console.log(`[WEBHOOK] Notificação enviada`);
+  if (!webhookEvents.includes(event.eventType)) return;
+  // no-op until webhook delivery is implemented
 }
 
 /**
- * Handler de Analytics - registra eventos para análise
+ * Analytics handler — records events for business intelligence.
+ * TODO: connect to analytics platform (Posthog, Mixpanel, Amplitude)
  */
-export async function analyticsEventHandler(event: ProjectEvent): Promise<void> {
-  // eslint-disable-next-line no-console
-  console.log(`[ANALYTICS] Registrando evento ${event.eventType}`);
-  
-  // Em produção:
-  // await analytics.track({
-  //   userId: event.usuarioId,
-  //   event: event.eventType,
-  //   properties: {
-  //     projetoId: event.projetoId,
-  //     priority: event.priority,
-  //     ...event.data,
-  //   },
-  //   timestamp: event.timestamp,
-  // });
-  
-  // eslint-disable-next-line no-console
-  console.log(`[ANALYTICS] Evento registrado no analytics`);
+export async function analyticsEventHandler(_event: ProjectEvent): Promise<void> {
+  // no-op until analytics is integrated
 }
 
 /**
- * Handler de Auditoria - registra para compliance
+ * Audit handler — writes compliance trail for critical actions.
+ * Only fires for: PROJETO_CRIADO, PROJETO_EXCLUIDO, STATUS_ALTERADO,
+ *                 PROPOSTA_APROVADA, INVOICE_GERADO, PAGAMENTO_RECEBIDO
+ * TODO: persist to AuditLog table via prisma
  */
 export async function auditEventHandler(event: ProjectEvent): Promise<void> {
   const auditableEvents = [
@@ -195,107 +99,35 @@ export async function auditEventHandler(event: ProjectEvent): Promise<void> {
     ProjectEventType.PAGAMENTO_RECEBIDO,
   ];
 
-  if (!auditableEvents.includes(event.eventType)) {
-    return;
+  if (!auditableEvents.includes(event.eventType)) return;
+
+  // Critical events emit an error log so they're visible in server logs even without a proper logger
+  if (
+    event.eventType === ProjectEventType.PROJETO_EXCLUIDO ||
+    event.eventType === ProjectEventType.INVOICE_VENCIDO ||
+    event.eventType === ProjectEventType.ETAPA_ATRASADA
+  ) {
+    const extra =
+      event.eventType === ProjectEventType.INVOICE_VENCIDO
+        ? ` invoice=${(event as InvoiceVencidoEvent).data?.numeroInvoice}`
+        : event.eventType === ProjectEventType.ETAPA_ATRASADA
+          ? ` etapa=${(event as EtapaAtrasadaEvent).data?.nomeEtapa}`
+          : '';
+    console.error(
+      `[AUDIT] ${event.eventType} | projetoId=${event.projetoId}${extra} | eventId=${event.eventId}`
+    );
   }
 
-  // eslint-disable-next-line no-console
-  console.log(`[AUDIT] Registrando para auditoria: ${event.eventType}`);
-  // eslint-disable-next-line no-console
-  console.log(`[AUDIT] Usuário: ${event.usuarioId || 'Sistema'}`);
-  // eslint-disable-next-line no-console
-  console.log(`[AUDIT] Timestamp: ${event.timestamp.toISOString()}`);
-  // eslint-disable-next-line no-console
-  console.log(`[AUDIT] Dados: ${JSON.stringify((event as any).data, null, 2)}`);
-  
-  // Em produção:
-  // await auditLog.create({
-  //   eventType: event.eventType,
-  //   userId: event.usuarioId,
-  //   projectId: event.projetoId,
-  //   timestamp: event.timestamp,
-  //   data: event.data,
-  //   metadata: event.metadata,
-  // });
+  // TODO: await prisma.auditLog.create({ data: { ... } })
 }
 
 /**
- * Helper para selecionar template de email
- */
-function getEmailTemplate(event: ProjectEvent): {
-  to: string;
-  subject: string;
-  html: string;
-  preview: string;
-  data: any;
-} {
-  switch (event.eventType) {
-    case ProjectEventType.PROJETO_CONCLUIDO: {
-      const data = (event as ProjetoConcluidoEvent).data;
-      return {
-        to: 'cliente@example.com',
-        subject: `✅ Projeto ${data.nome} concluído!`,
-        html: `<h1>Projeto Concluído</h1><p>O projeto ${data.nome} foi concluído com sucesso.</p>`,
-        preview: `Projeto concluído em ${data.tempoDecorrido} dias`,
-        data,
-      };
-    }
-
-    case ProjectEventType.INVOICE_VENCIDO: {
-      const data = (event as InvoiceVencidoEvent).data;
-      return {
-        to: 'financeiro@example.com',
-        subject: `🔴 URGENTE: Invoice ${data.numeroInvoice} vencido`,
-        html: `<h1>Invoice Vencido</h1><p>Invoice ${data.numeroInvoice} está vencido há ${data.diasVencido} dias.</p>`,
-        preview: `Valor pendente: $ ${data.valorPendente.toFixed(2)}`,
-        data,
-      };
-    }
-
-    case ProjectEventType.ETAPA_ATRASADA: {
-      const data = (event as EtapaAtrasadaEvent).data;
-      return {
-        to: 'gerente@example.com',
-        subject: `⚠️ Etapa "${data.nomeEtapa}" com atraso`,
-        html: `<h1>Etapa Atrasada</h1><p>A etapa ${data.nomeEtapa} está ${data.diasAtraso} dias atrasada.</p>`,
-        preview: `Atraso de ${data.diasAtraso} dias`,
-        data,
-      };
-    }
-
-    case ProjectEventType.PAGAMENTO_RECEBIDO: {
-      const data = (event as any).data;
-      return {
-        to: 'financeiro@example.com',
-        subject: `💰 Pagamento recebido - ${data.numeroInvoice}`,
-        html: `<h1>Pagamento Recebido</h1><p>Pagamento de $ ${data.valorPago} recebido.</p>`,
-        preview: `Valor: $ ${data.valorPago.toFixed(2)}`,
-        data,
-      };
-    }
-
-    default:
-      return {
-        to: 'admin@example.com',
-        subject: `Notificação: ${event.eventType}`,
-        html: `<h1>Evento do Sistema</h1><p>${event.eventType}</p>`,
-        preview: 'Evento do sistema',
-        data: (event as any).data,
-      };
-  }
-}
-
-/**
- * Registra todos os handlers mockados
+ * Registers all event handlers on the emitter.
  */
 export function registerMockHandlers(emitter: any): void {
-  // Log handler - todos os eventos
   emitter.onAny(logEventHandler);
-
-  // Queue handler - todos os eventos
   emitter.onAny(queueEventHandler);
 
-  // Notification handler - eventos específicos
   emitter.on(
     [
       ProjectEventType.PROJETO_CRIADO,
@@ -309,7 +141,6 @@ export function registerMockHandlers(emitter: any): void {
     notificationEventHandler
   );
 
-  // Email handler - eventos críticos
   emitter.on(
     [
       ProjectEventType.PROJETO_CONCLUIDO,
@@ -320,7 +151,6 @@ export function registerMockHandlers(emitter: any): void {
     emailEventHandler
   );
 
-  // Webhook handler - eventos importantes
   emitter.on(
     [
       ProjectEventType.PROJETO_CRIADO,
@@ -332,10 +162,8 @@ export function registerMockHandlers(emitter: any): void {
     webhookEventHandler
   );
 
-  // Analytics handler - todos os eventos
   emitter.onAny(analyticsEventHandler);
 
-  // Audit handler - eventos críticos
   emitter.on(
     [
       ProjectEventType.PROJETO_CRIADO,
@@ -347,7 +175,4 @@ export function registerMockHandlers(emitter: any): void {
     ],
     auditEventHandler
   );
-
-  // eslint-disable-next-line no-console
-  console.log('[EVENT SYSTEM] Mock handlers registrados com sucesso');
 }

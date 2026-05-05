@@ -122,8 +122,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
                 <td>${escapeHtml(p.Cliente?.nomeCompleto ?? '')}</td>
                 <td><span class="status status-${escapeHtml(p.status ?? '')}">${escapeHtml(p.status ?? '')}</span></td>
                 <td class="number">${p.precoPropostaCliente ? `USD ${Number(p.precoPropostaCliente).toFixed(2)}` : 'N/A'}</td>
-                <td>${p.criadoEm ? new Date(p.criadoEm).toLocaleDateString('en-US') : ''}</td>
-                <td>${p.validadeProposta ? new Date(p.validadeProposta).toLocaleDateString('en-US') : 'N/A'}</td>
+                <td>${p.criadoEm ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', dateStyle: 'short' }).format(new Date(p.criadoEm)) : ''}</td>
+                <td>${p.validadeProposta ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', dateStyle: 'short' }).format(new Date(p.validadeProposta)) : 'N/A'}</td>
               </tr>
             `).join('')}
           </tbody>
