@@ -3395,6 +3395,14 @@ model ServiceOrder {
   techNotes   String? @db.Text
   clientNotes String? @db.Text
 
+  // NPS (customer satisfaction score — one-time on CLOSED orders)
+  npsScore       Int?      @map("nps_score")
+  npsComment     String?   @db.Text @map("nps_comment")
+  npsRespondedAt DateTime? @map("nps_responded_at")
+
+  // SLA deadline (auto-set or manually updated)
+  slaDeadline DateTime? @map("sla_deadline")
+
   // Client Signature
   clientSignatureUrl String? @map("client_signature_url") @db.VarChar(500)
 

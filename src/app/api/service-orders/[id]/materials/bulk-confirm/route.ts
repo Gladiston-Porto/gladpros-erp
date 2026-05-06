@@ -43,7 +43,7 @@ export const POST = withErrorHandler(async (
         );
     }
 
-    const empresaId = Number((user as any).empresaId) || 1;
+    const EMPRESA_ID = 1;
     const { id } = await params;
     const serviceOrderId = parseInt(id);
 
@@ -81,12 +81,12 @@ export const POST = withErrorHandler(async (
     const ensureCategory = async () => {
         if (categoriaId !== null) return categoriaId;
         let cat = await prisma.expenseCategory.findFirst({
-            where: { empresaId, nome: { contains: 'Compra' } },
+            where: { empresaId: EMPRESA_ID, nome: { contains: 'Compra' } },
             select: { id: true },
         });
         if (!cat) {
             cat = await prisma.expenseCategory.create({
-                data: { empresaId, nome: 'Compras de Estoque', cor: '#F59E0B' },
+                data: { empresaId: EMPRESA_ID, nome: 'Compras de Estoque', cor: '#F59E0B' },
                 select: { id: true },
             });
         }
@@ -144,7 +144,7 @@ export const POST = withErrorHandler(async (
                 const expense = await prisma.$transaction(async (tx) => {
                     const newExpense = await tx.expense.create({
                         data: {
-                            empresaId,
+                            empresaId: EMPRESA_ID,
                             categoriaId: catId,
                             descricao: `Material de campo: ${mat.name} (OS #${mat.ServiceOrder.ticketNumber})`,
                             valor: totalCost,
@@ -178,7 +178,7 @@ export const POST = withErrorHandler(async (
                 if (!expenseId) {
                     const newExpense = await tx.expense.create({
                         data: {
-                            empresaId,
+                            empresaId: EMPRESA_ID,
                             categoriaId: catId,
                             descricao: `Material de campo: ${mat.name} (OS #${mat.ServiceOrder.ticketNumber})`,
                             valor: totalCost,
