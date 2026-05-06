@@ -23,16 +23,21 @@ export default async function NovoMaterialPage() {
   const user = await requireServerUser();
   if (!can(user.role as Role, 'estoque', 'create')) redirect('/403');
 
-  // Buscar categorias e unidades para os selects
-  const [categorias, unidades] = await Promise.all([
+  // Buscar categorias, unidades e localizações para os selects
+  const [categorias, unidades, localizacoes] = await Promise.all([
     prisma.categoria.findMany({
       where: { tipo: 'MATERIAL' },
       orderBy: { nome: 'asc' },
-      select: { id: true, nome: true, paiId: true },
+      select: { id: true, nome: true, paiId: true, prefixo: true },
     }),
     prisma.unidade.findMany({
       orderBy: { codigo: 'asc' },
       select: { id: true, nome: true, codigo: true },
+    }),
+    prisma.localizacao.findMany({
+      where: { ativo: true },
+      orderBy: { nome: 'asc' },
+      select: { id: true, nome: true, tipo: true, codigo: true },
     }),
   ]);
 
@@ -63,6 +68,7 @@ export default async function NovoMaterialPage() {
       <MaterialForm
         categorias={categorias}
         unidades={unidades}
+        localizacoes={localizacoes}
         mode="create"
       />
     </div>

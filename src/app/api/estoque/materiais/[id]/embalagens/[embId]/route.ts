@@ -99,7 +99,7 @@ async function putHandler(request: NextRequest, { params }: RouteParams) {
     // 5. VALIDAÇÃO ZOD
     const validation = materialEmbalagemSchema.safeParse(body);
     if (!validation.success) {
-        const errors = validation.error.issues.map((err: any) => ({
+        const errors = validation.error.issues.map((err) => ({
             field: err.path.join('.'),
             message: err.message
         }));
@@ -118,8 +118,8 @@ async function putHandler(request: NextRequest, { params }: RouteParams) {
         return notFoundResponse('Embalagem não encontrada');
     }
 
-    // 7. VERIFICA SE NOVO UPC JÁ EXISTE (se mudou)
-    if (dados.upcEan !== existing.upcEan) {
+    // 7. VERIFICA SE NOVO UPC JÁ EXISTE (somente se informado e diferente do atual)
+    if (dados.upcEan && dados.upcEan !== existing.upcEan) {
         const duplicateUpc = await prisma.materialEmbalagem.findUnique({
             where: { upcEan: dados.upcEan }
         });
@@ -136,12 +136,13 @@ async function putHandler(request: NextRequest, { params }: RouteParams) {
     const embalagem = await prisma.materialEmbalagem.update({
         where: { id: embalagemId },
         data: {
-            upcEan: dados.upcEan,
+            upcEan: dados.upcEan ?? null,
             brand: dados.brand,
             model: dados.model,
             packageType: dados.packageType,
             baseQtyPerUnit: dados.baseQtyPerUnit,
-            purchaseUnit: dados.purchaseUnit
+            purchaseUnit: dados.purchaseUnit,
+            precoCompra: dados.precoCompra ?? null,
         }
     });
 

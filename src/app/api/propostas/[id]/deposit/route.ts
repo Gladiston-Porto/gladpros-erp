@@ -94,7 +94,7 @@ export const PATCH = withErrorHandler(
         data: {
           id: randomUUID(),
           propostaId,
-          actorId: user.id,
+          actorId: parseInt(user.id) || null,
           action: depositoPago ? 'DEPOSIT_PAID' : 'DEPOSIT_UNPAID',
           newJson: JSON.stringify({
             depositoPago,

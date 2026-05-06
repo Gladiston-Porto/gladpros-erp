@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,7 +18,7 @@ import { Input } from "@gladpros/ui/input";
 import { Textarea } from "@gladpros/ui/textarea";
 import { Switch } from "@gladpros/ui/switch";
 import { useToast } from '@/shared/hooks/use-toast';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Upload, FileText, ExternalLink } from 'lucide-react';
 import { CreateFornecedorModal } from './CreateFornecedorModal';
 import { CreateMaterialModal } from './CreateMaterialModal';
 
@@ -44,6 +44,7 @@ const compraSchema = z.object({
     frete: z.number().min(0).optional(),
     formaPagamento: z.string().max(60).optional(),
     observacoes: z.string().optional(),
+    notaFiscalUrl: z.string().url().optional(),
     receberAgora: z.boolean().default(false),
     localizacaoDestinoId: z.number().int().positive().optional(),
     itens: z.array(itemSchema).min(1, 'Adicione pelo menos 1 item'),
@@ -103,6 +104,11 @@ export function CompraForm({
     const [showMaterialModal, setShowMaterialModal] = useState(false);
     const [materialModalItemIndex, setMaterialModalItemIndex] = useState<number | null>(null);
 
+    // Estado para upload de NF
+    const [uploadingNf, setUploadingNf] = useState(false);
+    const [nfFileName, setNfFileName] = useState<string | null>(null);
+    const nfFileRef = useRef<HTMLInputElement>(null);
+
     const form = useForm<FormData>({
         resolver: zodResolver(compraSchema) as any,
         defaultValues: {
@@ -159,6 +165,32 @@ export function CompraForm({
 
     // Verifica se deve mostrar seletor de tipo na linha
     const shouldShowTipoItemSelector = tipoCompra === 'AMBOS';
+
+    // Handler de upload de nota fiscal
+    const handleNfFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploadingNf(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/estoque/compras/upload-nf', {
+                method: 'POST',
+                body: formData,
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.message || 'Erro no upload');
+            form.setValue('notaFiscalUrl', result.data.url);
+            setNfFileName(file.name);
+            toast({ title: 'NF anexada', description: 'Nota fiscal enviada com sucesso.' });
+        } catch (err: any) {
+            toast({ title: 'Erro no upload', description: err.message, variant: 'destructive' });
+        } finally {
+            setUploadingNf(false);
+            if (nfFileRef.current) nfFileRef.current.value = '';
+        }
+    };
 
     const onSubmit = async (data: FormData) => {
         setLoading(true);
@@ -217,6 +249,57 @@ export function CompraForm({
                                             <FormControl>
                                                 <Input {...field} value={field.value || ''} placeholder="Ex: 12345" />
                                             </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {/* Upload NF */}
+                                <FormField
+                                    control={form.control}
+                                    name="notaFiscalUrl"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Nota Fiscal (PDF ou foto)</FormLabel>
+                                            <div className="flex gap-2 items-center">
+                                                <input
+                                                    ref={nfFileRef}
+                                                    type="file"
+                                                    accept=".pdf,image/jpeg,image/png,image/webp"
+                                                    className="hidden"
+                                                    onChange={handleNfFileChange}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    disabled={uploadingNf}
+                                                    onClick={() => nfFileRef.current?.click()}
+                                                    aria-label="Anexar nota fiscal"
+                                                >
+                                                    {uploadingNf
+                                                        ? <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                                        : <Upload className="h-4 w-4 mr-1" />}
+                                                    {nfFileName ? 'Trocar' : 'Anexar NF'}
+                                                </Button>
+                                                {nfFileName && (
+                                                    <span className="flex items-center gap-1 text-sm text-muted-foreground max-w-[140px] truncate">
+                                                        <FileText className="h-3 w-3 shrink-0" />
+                                                        {nfFileName}
+                                                    </span>
+                                                )}
+                                                {field.value && (
+                                                    <a
+                                                        href={field.value}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-brand-primary hover:underline"
+                                                        aria-label="Ver nota fiscal"
+                                                    >
+                                                        <ExternalLink className="h-4 w-4" />
+                                                    </a>
+                                                )}
+                                            </div>
                                             <FormMessage />
                                         </FormItem>
                                     )}

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
+import { Usuario_nivel } from '@prisma/client';
 import { requireServerUser } from '@/shared/lib/requireServerUser';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { redirect } from 'next/navigation';
@@ -73,7 +74,7 @@ export default async function UserReportPrintPage({
   const where: Prisma.UsuarioWhereInput = specificIds
     ? { id: { in: specificIds } }
     : {
-        ...(filters.role ? { nivel: filters.role } : {}),
+        ...(filters.role ? { nivel: filters.role as Usuario_nivel } : {}),
         ...(filters.status ? { status: filters.status as 'ATIVO' | 'INATIVO' } : {}),
         ...(filters.search
           ? {

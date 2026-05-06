@@ -16,6 +16,7 @@ export const dynamic = 'force-dynamic';
 const categoriaSchema = z.object({
     nome: z.string().min(1, 'Nome é obrigatório').max(100),
     tipo: z.enum(['MATERIAL', 'EQUIPAMENTO']),
+    prefixo: z.string().length(2).toUpperCase().optional().nullable(),
     paiId: z.number().int().optional().nullable(),
     descricao: z.string().optional(),
 });
@@ -75,7 +76,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             );
         }
 
-        const { nome, tipo, paiId, descricao } = parsed.data;
+        const { nome, tipo, paiId, descricao, prefixo } = parsed.data;
 
         // Se houver paiId, verificar se existe e se é do mesmo tipo
         if (paiId) {
@@ -102,6 +103,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             data: {
                 nome,
                 tipo: tipo as any,
+                prefixo: prefixo?.toUpperCase() || null,
                 paiId: paiId || null,
                 descricao,
             },

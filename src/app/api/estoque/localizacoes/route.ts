@@ -8,11 +8,9 @@ import { z } from 'zod';
 const createLocalizacaoSchema = z.object({
   nome: z.string().min(1).max(100),
   codigo: z.string().min(1).max(50),
-  tipo: z.enum(['DEPOSITO', 'PRATELEIRA', 'BIN', 'ARMARIO']),
+  tipo: z.enum(['DEPOSITO', 'PRATELEIRA', 'BIN', 'ARMARIO', 'VAN']),
   descricao: z.string().max(255).optional(),
 });
-
-// GET /api/estoque/localizacoes - List locations
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
   if (!can(user.role as Role, 'estoque', 'read')) {
@@ -58,7 +56,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   // Check codigo uniqueness
   const existing = await prisma.localizacao.findUnique({ where: { codigo: validated.codigo } });
   if (existing) {
-    return NextResponse.json({ error: 'Código já está em uso' }, { status: 409 });
+    return NextResponse.json({ error: 'Código já está em uso', message: 'Esse código de localização já existe', success: false }, { status: 409 });
   }
 
   const localizacao = await prisma.localizacao.create({
@@ -70,5 +68,5 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     }
   });
 
-  return NextResponse.json(localizacao, { status: 201 });
+  return NextResponse.json({ data: localizacao, success: true }, { status: 201 });
 });

@@ -17,12 +17,13 @@ import { Plus, Trash2, Edit2, Loader2, Package } from 'lucide-react';
 // Tipos
 interface MaterialEmbalagem {
     id: number;
-    upcEan: string;
+    upcEan: string | null;
     brand: string | null;
     model: string | null;
     packageType: string;
     baseQtyPerUnit: number;
     purchaseUnit: string;
+    precoCompra: number | null;
     ativo: boolean;
 }
 
@@ -39,6 +40,7 @@ interface FormData {
     packageType: string;
     baseQtyPerUnit: string;
     purchaseUnit: string;
+    precoCompra: string;
 }
 
 const defaultFormData: FormData = {
@@ -48,6 +50,7 @@ const defaultFormData: FormData = {
     packageType: '',
     baseQtyPerUnit: '',
     purchaseUnit: 'EA',
+    precoCompra: '',
 };
 
 export function MaterialEmbalagemTab({
@@ -107,12 +110,13 @@ export function MaterialEmbalagemTab({
     const handleEdit = (emb: MaterialEmbalagem) => {
         setEditingId(emb.id);
         setFormData({
-            upcEan: emb.upcEan,
+            upcEan: emb.upcEan || '',
             brand: emb.brand || '',
             model: emb.model || '',
             packageType: emb.packageType,
             baseQtyPerUnit: String(emb.baseQtyPerUnit),
             purchaseUnit: emb.purchaseUnit,
+            precoCompra: emb.precoCompra != null ? String(emb.precoCompra) : '',
         });
         setDialogOpen(true);
     };
@@ -120,10 +124,6 @@ export function MaterialEmbalagemTab({
     // Salva embalagem (create ou update)
     const handleSave = async () => {
         // Validação básica
-        if (!formData.upcEan.trim()) {
-            toast({ variant: 'destructive', title: 'Erro', description: 'UPC/EAN é obrigatório' });
-            return;
-        }
         if (!formData.packageType.trim()) {
             toast({ variant: 'destructive', title: 'Erro', description: 'Tipo de embalagem é obrigatório' });
             return;
@@ -137,12 +137,13 @@ export function MaterialEmbalagemTab({
             setSaving(true);
 
             const payload = {
-                upcEan: formData.upcEan.trim(),
+                upcEan: formData.upcEan.trim() || undefined,
                 brand: formData.brand.trim() || undefined,
                 model: formData.model.trim() || undefined,
                 packageType: formData.packageType.trim(),
                 baseQtyPerUnit: Number(formData.baseQtyPerUnit),
                 purchaseUnit: formData.purchaseUnit.trim() || 'EA',
+                precoCompra: formData.precoCompra ? Number(formData.precoCompra) : undefined,
             };
 
             const url = editingId
@@ -165,7 +166,7 @@ export function MaterialEmbalagemTab({
 
             toast({
                 title: editingId ? 'Embalagem atualizada!' : 'Embalagem criada!',
-                description: `${formData.packageType} (${formData.upcEan})`,
+                description: `${formData.packageType}${formData.upcEan ? ` (${formData.upcEan})` : ''}`,
             });
 
             setDialogOpen(false);
@@ -203,7 +204,7 @@ export function MaterialEmbalagemTab({
 
             toast({
                 title: 'Embalagem removida',
-                description: `${emb.packageType} (${emb.upcEan})`,
+                description: `${emb.packageType}${emb.upcEan ? ` (${emb.upcEan})` : ''}`,
             });
 
             loadEmbalagens();
@@ -268,20 +269,6 @@ export function MaterialEmbalagemTab({
                         </DialogHeader>
 
                         <div className="grid gap-4 py-4">
-                            {/* UPC/EAN */}
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="upcEan" className="text-right">
-                                    UPC/EAN *
-                                </Label>
-                                <Input
-                                    id="upcEan"
-                                    value={formData.upcEan}
-                                    onChange={(e) => setFormData({ ...formData, upcEan: e.target.value })}
-                                    placeholder="012345678901"
-                                    className="col-span-3"
-                                />
-                            </div>
-
                             {/* Tipo de Embalagem */}
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="packageType" className="text-right">
@@ -291,7 +278,7 @@ export function MaterialEmbalagemTab({
                                     id="packageType"
                                     value={formData.packageType}
                                     onChange={(e) => setFormData({ ...formData, packageType: e.target.value })}
-                                    placeholder="Rolo 50ft, Caixa 100un, etc."
+                                    placeholder="ROLL, BOX, BAG, PACK..."
                                     className="col-span-3"
                                 />
                             </div>
@@ -309,11 +296,28 @@ export function MaterialEmbalagemTab({
                                         step="0.001"
                                         value={formData.baseQtyPerUnit}
                                         onChange={(e) => setFormData({ ...formData, baseQtyPerUnit: e.target.value })}
-                                        placeholder="50"
+                                        placeholder="250"
                                         className="flex-1"
                                     />
                                     <span className="text-sm text-muted-foreground w-12">{unidadeBase}</span>
                                 </div>
+                            </div>
+
+                            {/* Preço por embalagem */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="precoCompra" className="text-right">
+                                    Preço ($)
+                                </Label>
+                                <Input
+                                    id="precoCompra"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    value={formData.precoCompra}
+                                    onChange={(e) => setFormData({ ...formData, precoCompra: e.target.value })}
+                                    placeholder="45.00"
+                                    className="col-span-3"
+                                />
                             </div>
 
                             {/* Marca (opcional) */}
@@ -330,6 +334,21 @@ export function MaterialEmbalagemTab({
                                 />
                             </div>
 
+                            {/* UPC/EAN (opcional) */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="upcEan" className="text-right">
+                                    UPC/EAN
+                                </Label>
+                                <Input
+                                    id="upcEan"
+                                    value={formData.upcEan}
+                                    onChange={(e) => setFormData({ ...formData, upcEan: e.target.value })}
+                                    placeholder="Código de barras (opcional)"
+                                    maxLength={20}
+                                    className="col-span-3"
+                                />
+                            </div>
+
                             {/* Modelo (opcional) */}
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="model" className="text-right">
@@ -340,20 +359,6 @@ export function MaterialEmbalagemTab({
                                     value={formData.model}
                                     onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                                     placeholder="Modelo específico"
-                                    className="col-span-3"
-                                />
-                            </div>
-
-                            {/* Unidade de Compra */}
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="purchaseUnit" className="text-right">
-                                    Un. Compra
-                                </Label>
-                                <Input
-                                    id="purchaseUnit"
-                                    value={formData.purchaseUnit}
-                                    onChange={(e) => setFormData({ ...formData, purchaseUnit: e.target.value })}
-                                    placeholder="EA, RL, CX"
                                     className="col-span-3"
                                 />
                             </div>
@@ -390,26 +395,38 @@ export function MaterialEmbalagemTab({
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>UPC/EAN</TableHead>
                                 <TableHead>Tipo</TableHead>
-                                <TableHead>Marca</TableHead>
                                 <TableHead className="text-right">Qtd. Base</TableHead>
-                                <TableHead className="text-right">Un. Compra</TableHead>
+                                <TableHead className="text-right">Preço / Emb.</TableHead>
+                                <TableHead className="text-right">Custo / {unidadeBase}</TableHead>
+                                <TableHead>Marca</TableHead>
+                                <TableHead>UPC/EAN</TableHead>
                                 <TableHead className="w-[100px]">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {embalagens.map((emb) => (
+                            {embalagens.map((emb) => {
+                                const costPerUnit = emb.precoCompra && emb.baseQtyPerUnit
+                                    ? (Number(emb.precoCompra) / Number(emb.baseQtyPerUnit)).toFixed(4)
+                                    : null;
+                                return (
                                 <TableRow key={emb.id}>
-                                    <TableCell className="font-mono text-sm">{emb.upcEan}</TableCell>
-                                    <TableCell>{emb.packageType}</TableCell>
-                                    <TableCell className="text-muted-foreground">
-                                        {emb.brand || '-'}
-                                    </TableCell>
+                                    <TableCell className="font-medium">{emb.packageType}</TableCell>
                                     <TableCell className="text-right">
                                         {emb.baseQtyPerUnit} {unidadeBase}
                                     </TableCell>
-                                    <TableCell className="text-right">{emb.purchaseUnit}</TableCell>
+                                    <TableCell className="text-right">
+                                        {emb.precoCompra != null ? `$${Number(emb.precoCompra).toFixed(2)}` : '-'}
+                                    </TableCell>
+                                    <TableCell className="text-right text-brand-primary font-mono text-xs">
+                                        {costPerUnit ? `$${costPerUnit}` : '-'}
+                                    </TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                        {emb.brand || '-'}
+                                    </TableCell>
+                                    <TableCell className="font-mono text-sm text-muted-foreground">
+                                        {emb.upcEan || '-'}
+                                    </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1">
                                             <Button
@@ -417,7 +434,7 @@ export function MaterialEmbalagemTab({
                                                 size="icon"
                                                 onClick={() => handleEdit(emb)}
                                                 title="Editar"
-                                                aria-label={`Editar embalagem ${emb.packageType} (${emb.upcEan})`}
+                                                aria-label={`Editar embalagem ${emb.packageType}`}
                                             >
                                                 <Edit2 className="h-4 w-4" />
                                             </Button>
@@ -426,7 +443,7 @@ export function MaterialEmbalagemTab({
                                                 size="icon"
                                                 onClick={() => handleDelete(emb)}
                                                 title="Remover"
-                                                aria-label={`Remover embalagem ${emb.packageType} (${emb.upcEan})`}
+                                                aria-label={`Remover embalagem ${emb.packageType}`}
                                                 className="text-destructive hover:text-destructive"
                                             >
                                                 <Trash2 className="h-4 w-4" />
@@ -434,7 +451,8 @@ export function MaterialEmbalagemTab({
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 </div>

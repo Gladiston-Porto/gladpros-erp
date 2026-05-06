@@ -74,7 +74,7 @@ export async function PATCH(
       data: {
         id: randomUUID(),
         propostaId,
-        actorId: user.id,
+        actorId: parseInt(user.id) || null,
         action: 'APPROVAL_INTERNA',
         newJson: JSON.stringify({ tipo, aprovado, aprovadoPor: user.email }),
         ip: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,

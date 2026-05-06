@@ -158,65 +158,220 @@ export const GET = withErrorHandler(handler);
 
 /**
  * POST /api/estoque/materiais
- * 
- * Cria um novo material
+ *
+ * Cria um novo material + entrada inicial de estoque em transação.
+ * Payload esperado:
+ *   { ...materialFields, entradaEstoque?: {...}, compra?: {...} }
  */
 async function postHandler(request: NextRequest) {
-  // 1. AUTENTICAÇÃO
   try {
     const user = await requireUser(request);
-    
-    // 2. AUTORIZAÇÃO
+
     if (!can(user.role as Role, 'estoque', 'create')) {
       return forbiddenResponse('Você não tem permissão para criar materiais');
     }
-  
-  // 3. LOG
-  logger.info('Criando material', createLogContext(request, user as any));
-  
-  // 4. VALIDAÇÃO DO BODY
-  const body = await request.json();
-  
-  // Importa validação do Zod
-  const { materialSchema } = await import('@/lib/estoque/validation');
-  const validated = materialSchema.parse(body);
-  
-  // 5. VERIFICA DUPLICAÇÃO DE CÓDIGO
-  if (validated.codigo) {
-    const exists = await prisma.material.findFirst({
-      where: { codigo: validated.codigo }
-    });
-    
-    if (exists) {
-      const { conflictResponse } = await import('@/lib/api');
-      return conflictResponse('Já existe um material com este código');
-    }
-  }
-  
-  // 6. CRIA MATERIAL
-  const material = await prisma.material.create({
-    data: {
-      ...validated,
-      criadoPor: Number(user.id)
-    },
-    include: {
-      unidade: true,
-      categoria: true,
-      criador: {
-        select: { id: true, nomeCompleto: true, email: true }
+
+    logger.info('Criando material', createLogContext(request, user as any));
+
+    const body = await request.json();
+
+    // Validate material fields
+    const { materialSchema } = await import('@/lib/estoque/validation');
+    const validated = materialSchema.parse(body);
+
+    // Extract entry + purchase optional blocks (stripped by materialSchema)
+    const entradaEstoque = body.entradaEstoque as {
+      localizacaoId: number;
+      tipoEntrada: 'por_unidade' | 'em_embalagem';
+      quantidadeEntrada?: number;
+      valorUnitario?: number;
+      packageType?: string;
+      baseQtyPerUnit?: number;
+      qtdEmbalagens?: number;
+      precoCompra?: number;
+      purchaseUnit?: string;
+      brand?: string;
+      upcEan?: string;
+    } | undefined;
+
+    const compraInput = body.compra as {
+      fornecedorNome?: string;
+      numeroNf?: string;
+      dataCompra?: string;
+    } | undefined;
+
+    // Derive barcode from codigo
+    const barcodeInternal = validated.codigo
+      ? validated.codigo.replace('-', '')
+      : undefined;
+
+    // Check for duplicate code
+    if (validated.codigo) {
+      const exists = await prisma.material.findFirst({ where: { codigo: validated.codigo } });
+      if (exists) {
+        const { conflictResponse } = await import('@/lib/api');
+        return conflictResponse('Já existe um material com este código');
       }
     }
-  });
-  
-  // 7. LOG SUCESSO
-  logger.info(
-    `Material criado: ${material.nome} (ID: ${material.id})`,
-    createLogContext(request, user as any),
-    { materialId: material.id }
-  );
-  
-  // 8. RESPOSTA
-  return successResponse(material, 'Material criado com sucesso', 201);
+
+    // Run full transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create the Material record
+      const material = await tx.material.create({
+        data: {
+          ...validated,
+          ativo: body.ativo !== false,
+          barcodeInternal: barcodeInternal ?? null,
+          criadoPor: Number(user.id),
+        },
+        include: {
+          unidade: { select: { id: true, nome: true, codigo: true } },
+          categoria: { select: { id: true, nome: true } },
+        },
+      });
+
+      if (!entradaEstoque) return { material };
+
+      const localizacaoId = entradaEstoque.localizacaoId;
+
+      // 2. Handle entry: calculate quantities and costs
+      let totalQty: number;
+      let custoUnitario: number;
+      let compraItemQty: number;
+      let compraItemCusto: number;
+      let embalagemId: number | null = null;
+
+      if (entradaEstoque.tipoEntrada === 'em_embalagem') {
+        const pkgQty = entradaEstoque.baseQtyPerUnit ?? 1;
+        const pkgCount = entradaEstoque.qtdEmbalagens ?? 1;
+        const pkgPreco = entradaEstoque.precoCompra ?? 0;
+
+        totalQty = pkgQty * pkgCount;
+        custoUnitario = pkgPreco > 0 ? pkgPreco / pkgQty : 0;
+        compraItemQty = pkgCount;
+        compraItemCusto = pkgPreco;
+
+        // Create MaterialEmbalagem record
+        const emb = await tx.materialEmbalagem.create({
+          data: {
+            materialId: material.id,
+            packageType: entradaEstoque.packageType ?? 'BOX',
+            baseQtyPerUnit: pkgQty,
+            purchaseUnit: entradaEstoque.purchaseUnit ?? 'EA',
+            precoCompra: pkgPreco > 0 ? pkgPreco : null,
+            brand: entradaEstoque.brand ?? null,
+            upcEan: entradaEstoque.upcEan ?? null,
+          },
+        });
+        embalagemId = emb.id;
+      } else {
+        totalQty = entradaEstoque.quantidadeEntrada ?? 0;
+        custoUnitario = entradaEstoque.valorUnitario ?? 0;
+        compraItemQty = totalQty;
+        compraItemCusto = custoUnitario;
+      }
+
+      // 3. Find or create Fornecedor
+      let fornecedorId: number | null = null;
+      if (compraInput?.fornecedorNome?.trim()) {
+        const nome = compraInput.fornecedorNome.trim();
+        const existing = await tx.fornecedor.findFirst({ where: { nome } });
+        if (existing) {
+          fornecedorId = existing.id;
+        } else {
+          const novo = await tx.fornecedor.create({
+            data: { nome },
+          });
+          fornecedorId = novo.id;
+        }
+      }
+
+      // 4. Create Compra
+      const totalCompra = compraItemQty * compraItemCusto;
+      const dataCompra = compraInput?.dataCompra
+        ? new Date(compraInput.dataCompra + 'T12:00:00')
+        : new Date();
+
+      const compra = await tx.compra.create({
+        data: {
+          tipo: 'MATERIAL',
+          status: 'RECEBIDA',
+          dataCompra,
+          fornecedorId,
+          numeroNf: compraInput?.numeroNf?.trim() ?? null,
+          valorTotal: totalCompra,
+          criadoPor: Number(user.id),
+        },
+      });
+
+      // 5. Create CompraItem
+      await tx.compraItem.create({
+        data: {
+          compraId: compra.id,
+          tipoItem: 'MATERIAL',
+          materialId: material.id,
+          materialEmbalagemId: embalagemId,
+          quantidade: compraItemQty,
+          custoUnitario: compraItemCusto,
+          dataRecebimento: new Date(),
+          recebidoPor: Number(user.id),
+        },
+      });
+
+      // 6. Create MaterialMovimentacao (ENTRADA)
+      await tx.materialMovimentacao.create({
+        data: {
+          tipo: 'ENTRADA',
+          materialId: material.id,
+          localizacaoDestinoId: localizacaoId,
+          quantidade: totalQty,
+          custoUnitario: custoUnitario > 0 ? custoUnitario : null,
+          compraId: compra.id,
+          criadoPor: Number(user.id),
+        },
+      });
+
+      // 7. Upsert MaterialSaldo (increment quantity for this location)
+      const existing = await tx.materialSaldo.findFirst({
+        where: { materialId: material.id, loteId: null, localizacaoId },
+      });
+
+      if (existing) {
+        await tx.materialSaldo.update({
+          where: { id: existing.id },
+          data: { quantidade: { increment: totalQty } },
+        });
+      } else {
+        await tx.materialSaldo.create({
+          data: {
+            materialId: material.id,
+            loteId: null,
+            localizacaoId,
+            quantidade: totalQty,
+            reservado: 0,
+          },
+        });
+      }
+
+      // 8. Update Material cost fields
+      await tx.material.update({
+        where: { id: material.id },
+        data: {
+          ultimoCusto: custoUnitario > 0 ? custoUnitario : undefined,
+          ultimaCompraEm: new Date(),
+        },
+      });
+
+      return { material, compra };
+    });
+
+    logger.info(
+      `Material criado: ${result.material.nome} (ID: ${result.material.id})`,
+      createLogContext(request, user as any),
+      { materialId: result.material.id }
+    );
+
+    return successResponse(result.material, 'Material criado com sucesso', 201);
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHENTICATED') {
       return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });

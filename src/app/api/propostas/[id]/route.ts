@@ -82,7 +82,7 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     }
 
-    const body: PropostaFormData = updatePropostaSchema.parse(await request.json())
+    const body = updatePropostaSchema.parse(await request.json()) as unknown as PropostaFormData
     // Convert form data to API/DB payload
     const payload = adaptPropostaFormToAPI(body)
 

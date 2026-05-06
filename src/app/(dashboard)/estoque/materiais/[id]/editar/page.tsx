@@ -34,18 +34,23 @@ export default async function EditarMaterialPage({ params }: PageProps) {
     notFound();
   }
 
-  const [material, categorias, unidades] = await Promise.all([
+  const [material, categorias, unidades, localizacoes] = await Promise.all([
     prisma.material.findUnique({
       where: { id: materialId },
     }),
     prisma.categoria.findMany({
       where: { tipo: 'MATERIAL' },
       orderBy: { nome: 'asc' },
-      select: { id: true, nome: true, paiId: true },
+      select: { id: true, nome: true, paiId: true, prefixo: true },
     }),
     prisma.unidade.findMany({
       orderBy: { codigo: 'asc' },
       select: { id: true, nome: true, codigo: true },
+    }),
+    prisma.localizacao.findMany({
+      where: { ativo: true },
+      orderBy: { nome: 'asc' },
+      select: { id: true, nome: true, tipo: true, codigo: true },
     }),
   ]);
 
@@ -101,6 +106,7 @@ export default async function EditarMaterialPage({ params }: PageProps) {
       <MaterialForm
         categorias={categorias}
         unidades={unidades}
+        localizacoes={localizacoes}
         initialData={initialData}
         mode="edit"
       />

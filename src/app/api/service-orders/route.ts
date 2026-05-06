@@ -5,6 +5,21 @@ import { z } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { can, requireUser, type Role } from '@/shared/lib/rbac';
 
+// SLA hours by priority (business rule: sets deadline from creation time)
+const SLA_HOURS: Record<string, number> = {
+  EMERGENCY: 4,
+  HIGH: 24,
+  MEDIUM: 72,
+  LOW: 120,
+}
+
+function computeSlaDeadline(priority?: string | null): Date | null {
+  if (!priority) return null
+  const hours = SLA_HOURS[priority]
+  if (!hours) return null
+  return new Date(Date.now() + hours * 60 * 60 * 1000)
+}
+
 // Validation schemas
 const createServiceOrderSchema = z.object({
     clienteId: z.number(),
@@ -306,6 +321,7 @@ export const POST = withErrorHandler(async (request: Request) => {
 
                     status: 'DRAFT',
                     createdById: Number(user.id),
+                    slaDeadline: computeSlaDeadline(validated.priority),
                 },
                 include: {
                     Cliente: { select: { id: true, nomeFantasia: true, nomeCompleto: true } },

@@ -72,6 +72,7 @@ export interface PropostaAPIPayload {
 
   // Materiais e etapas (simplified for DB)
   materiais: Array<{
+    estoqueItemId?: number
     codigo: string
     nome: string
     quantidade: number

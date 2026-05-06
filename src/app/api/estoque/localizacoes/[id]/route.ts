@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 const updateLocalizacaoSchema = z.object({
   nome: z.string().min(1).max(100).optional(),
-  tipo: z.enum(['DEPOSITO', 'PRATELEIRA', 'BIN', 'ARMARIO']).optional(),
+  tipo: z.enum(['DEPOSITO', 'PRATELEIRA', 'BIN', 'ARMARIO', 'VAN']).optional(),
   descricao: z.string().max(255).nullable().optional(),
   ativo: z.boolean().optional(),
 });

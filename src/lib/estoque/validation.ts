@@ -49,12 +49,13 @@ export const materialSchema = z.object({
 // ============================================================================
 
 export const materialEmbalagemSchema = z.object({
-  upcEan: z.string().min(1, 'UPC/EAN é obrigatório').max(20),
+  upcEan: z.string().max(20).optional(),
   brand: z.string().max(100).optional(),
   model: z.string().max(80).optional(),
   packageType: z.string().min(1, 'Tipo de embalagem é obrigatório').max(30),
   baseQtyPerUnit: z.number().positive('Quantidade base deve ser maior que 0'),
   purchaseUnit: z.string().max(10).default('EA'),
+  precoCompra: z.number().positive('Preço deve ser maior que 0').optional(),
 });
 
 export type MaterialEmbalagemInput = z.infer<typeof materialEmbalagemSchema>;

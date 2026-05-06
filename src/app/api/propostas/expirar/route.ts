@@ -38,18 +38,22 @@ export async function POST(request: NextRequest) {
       where: { id: { in: expiredIds } },
       data: {
         status: 'CANCELADA',
-        updatedAt: now,
+        atualizadoEm: now,
       },
     }),
     ...expired.map((p) =>
       prisma.propostaLog.create({
         data: {
+          id: require('crypto').randomUUID(),
           propostaId: p.id,
-          usuarioId: user.id,
-          acao: 'STATUS_ALTERADO',
-          descricao: `Proposta expirada automaticamente. Validade: ${p.validadeProposta?.toISOString().split('T')[0]}. Status alterado de ENVIADA para CANCELADA.`,
-          statusAnterior: 'ENVIADA',
-          statusNovo: 'CANCELADA',
+          actorId: parseInt(user.id) || null,
+          action: 'CANCELLED',
+          newJson: JSON.stringify({
+            motivo: 'Expirada automaticamente',
+            validadeProposta: p.validadeProposta?.toISOString().split('T')[0],
+            statusAnterior: 'ENVIADA',
+            statusNovo: 'CANCELADA',
+          }),
         },
       })
     ),

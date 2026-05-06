@@ -176,7 +176,8 @@ async function postHandler(request: NextRequest) {
     frete: z.number().optional(),
     formaPagamento: z.string().max(60).optional(),
     observacoes: z.string().optional(),
-    // Novos campos - Prompt 1: receberAgora
+    notaFiscalUrl: z.string().url().optional(),
+    // Prompt 1: receberAgora
     receberAgora: z.boolean().default(false),
     localizacaoDestinoId: z.number().int().positive().optional(),
     itens: z.array(z.object({
@@ -282,6 +283,7 @@ async function postHandler(request: NextRequest) {
       data: {
         fornecedorId: dados.fornecedorId,
         numeroNf: dados.numeroNf,
+        notaFiscalUrl: dados.notaFiscalUrl,
         dataCompra: dados.dataCompra,
         dataEntrega: dados.dataEntrega,
         tipo: dados.tipo,
@@ -348,26 +350,40 @@ async function postHandler(request: NextRequest) {
           });
 
           // 2. Atualiza saldo na localização destino
-          await tx.materialSaldo.upsert({
+          // NOTE: loteId is nullable so we can't use Prisma upsert
+          // (MySQL NULL != NULL in unique index). Use findFirst + update/create instead.
+          const saldoExistente = await tx.materialSaldo.findFirst({
             where: {
-              materialId_loteId_localizacaoId: {
-                materialId: item.materialId,
-                loteId: item.loteId ?? 0,
-                localizacaoId: dados.localizacaoDestinoId!
-              }
-            },
-            create: {
-              materialId: item.materialId,
+              materialId: item.materialId!,
+              loteId: item.loteId ?? null,
               localizacaoId: dados.localizacaoDestinoId!,
-              loteId: item.loteId ?? 0,
-              quantidade: item.quantidade,
-              reservado: 0
             },
-            update: {
-              quantidade: {
-                increment: item.quantidade
-              }
-            }
+          });
+
+          if (saldoExistente) {
+            await tx.materialSaldo.update({
+              where: { id: saldoExistente.id },
+              data: { quantidade: { increment: item.quantidade } },
+            });
+          } else {
+            await tx.materialSaldo.create({
+              data: {
+                materialId: item.materialId!,
+                localizacaoId: dados.localizacaoDestinoId!,
+                loteId: item.loteId ?? null,
+                quantidade: item.quantidade,
+                reservado: 0,
+              },
+            });
+          }
+
+          // 3. Atualiza ultimoCusto e ultimaCompraEm no Material
+          await tx.material.update({
+            where: { id: item.materialId! },
+            data: {
+              ultimoCusto: item.custoUnitario,
+              ultimaCompraEm: new Date(),
+            },
           });
         }
       }

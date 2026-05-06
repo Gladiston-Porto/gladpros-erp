@@ -419,6 +419,13 @@ model Proposta {
   assinaturaIp               String?                           @db.VarChar(45)
   assinaturaTipo             Proposta_assinaturaTipo?          @default(CANVAS)
   assinaturaUserAgent        String?                           @db.Text
+  // Documenso e-signature integration
+  documensoDocumentId        String?                           @db.VarChar(50) @map("documenso_document_id")
+  documensoStatus            String?                           @db.VarChar(20) @map("documenso_status")
+  // View tracking
+  visualizacoes              Int                               @default(0)
+  primeiraVisualizacaoEm     DateTime?                         @map("primeira_visualizacao_em")
+  ultimaVisualizacaoEm       DateTime?                         @map("ultima_visualizacao_em")
   atualizadoPor              Int?
   condicoesGerais            String?                           @db.Text
   contatoEmail               String                            @default("nao-informado@temp.com") @db.VarChar(255)
@@ -451,6 +458,11 @@ model Proposta {
   observacoesParaCliente     String?                           @db.Text
   opcoesAlternativas         String?                           @db.LongText
   percentualSinal            Decimal?                          @db.Decimal(5, 2)
+  depositoPago               Boolean                           @default(false) @map("deposito_pago")
+  depositoMetodo             String?                           @db.VarChar(50) @map("deposito_metodo")
+  depositoValor              Decimal?                          @db.Decimal(12, 2) @map("deposito_valor")
+  depositoPagoEm             DateTime?                         @map("deposito_pago_em")
+  depositoNotas              String?                           @db.Text @map("deposito_notas")
   prazoExecucaoEstimadoDias  Int?
   precoPropostaCliente       Decimal?                          @db.Decimal(12, 2)
   responsavelConversao       Int?
@@ -485,11 +497,13 @@ model Proposta {
   PropostaLog                PropostaLog[]
   PropostaMaterial           PropostaMaterial[]
   Invoices                   Invoice[]
+  Views                      PropostaView[]
 
   @@index([clienteId])
   @@index([dataCriacao, id])
   @@index([status, dataCriacao, id])
   @@index([status])
+  @@index([documensoDocumentId])
 }
 
 model PropostaEtapa {
@@ -564,6 +578,20 @@ model PropostaTemplate {
 
   @@index([empresaId])
   @@index([deletedAt])
+}
+
+model PropostaView {
+  id         Int      @id @default(autoincrement())
+  propostaId Int
+  ip         String?  @db.VarChar(50)
+  userAgent  String?  @db.Text
+  viewedAt   DateTime @default(now())
+
+  Proposta Proposta @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+
+  @@index([propostaId])
+  @@index([propostaId, viewedAt])
+  @@map("proposta_views")
 }
 
 model Projeto {
@@ -1218,6 +1246,8 @@ enum PropostaLog_action {
   ATTACH_REMOVED
   EMAIL_FAILED
   APPROVAL_INTERNA
+  DEPOSIT_PAID
+  DEPOSIT_UNPAID
 }
 
 enum PropostaEtapa_status {
@@ -1273,6 +1303,7 @@ enum Proposta_assinaturaTipo {
   CANVAS
   CHECKBOX
   NOME_CHECKBOX
+  DOCUMENSO
 }
 
 enum Proposta_formaPagamentoPreferida {
@@ -1461,6 +1492,7 @@ model Categoria {
   id           Int            @id @default(autoincrement())
   nome         String         @db.VarChar(100)
   tipo         Categoria_tipo
+  prefixo      String?        @db.VarChar(2)
   paiId        Int?           @map("pai_id")
   descricao    String?        @db.Text
   criadoEm     DateTime       @default(now()) @map("criado_em")
@@ -1595,12 +1627,13 @@ model Material {
 model MaterialEmbalagem {
   id             Int      @id @default(autoincrement())
   materialId     Int      @map("material_id")
-  upcEan         String   @unique @db.VarChar(20)
+  upcEan         String?  @unique @db.VarChar(20)
   brand          String?  @db.VarChar(100)
   model          String?  @db.VarChar(80)
   packageType    String   @db.VarChar(30)
   baseQtyPerUnit Decimal  @db.Decimal(14, 3)
   purchaseUnit   String   @default("EA") @db.VarChar(10)
+  precoCompra    Decimal? @map("preco_compra") @db.Decimal(14, 2)
   ativo          Boolean  @default(true)
   criadoEm       DateTime @default(now()) @map("criado_em")
 
@@ -1935,6 +1968,7 @@ model Compra {
   formaPagamento  String?       @map("forma_pagamento") @db.VarChar(60)
   status          Compra_status @default(PENDENTE)
   observacoes     String?       @db.Text
+  notaFiscalUrl   String?       @map("nota_fiscal_url") @db.VarChar(500)
   criadoEm        DateTime      @default(now()) @map("criado_em")
   atualizadoEm    DateTime?     @updatedAt @map("atualizado_em")
   criadoPor       Int?          @map("criado_por")
@@ -1996,6 +2030,7 @@ enum Localizacao_tipo {
   PRATELEIRA
   BIN
   ARMARIO
+  VAN
 }
 
 enum Fornecedor_tipoDocumento {

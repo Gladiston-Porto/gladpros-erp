@@ -108,7 +108,7 @@ async function postHandler(
     // 5. VALIDAÇÃO ZOD
     const validation = materialEmbalagemSchema.safeParse(body);
     if (!validation.success) {
-        const errors = validation.error.issues.map((err: any) => ({
+        const errors = validation.error.issues.map((err) => ({
             field: err.path.join('.'),
             message: err.message
         }));
@@ -134,35 +134,38 @@ async function postHandler(
         return notFoundResponse('Material não encontrado');
     }
 
-    // 8. VERIFICA SE UPC JÁ EXISTE
-    const existingUpc = await prisma.materialEmbalagem.findUnique({
-        where: { upcEan: dados.upcEan }
-    });
+    // 8. VERIFICA SE UPC JÁ EXISTE (somente se informado)
+    if (dados.upcEan) {
+        const existingUpc = await prisma.materialEmbalagem.findUnique({
+            where: { upcEan: dados.upcEan }
+        });
 
-    if (existingUpc) {
-        return validationErrorResponse([{
-            field: 'upcEan',
-            message: 'Este UPC/EAN já está cadastrado'
-        }]);
+        if (existingUpc) {
+            return validationErrorResponse([{
+                field: 'upcEan',
+                message: 'Este UPC/EAN já está cadastrado'
+            }]);
+        }
     }
 
     // 9. CRIAR EMBALAGEM
     const embalagem = await prisma.materialEmbalagem.create({
         data: {
             materialId,
-            upcEan: dados.upcEan,
+            upcEan: dados.upcEan ?? null,
             brand: dados.brand,
             model: dados.model,
             packageType: dados.packageType,
             baseQtyPerUnit: dados.baseQtyPerUnit,
             purchaseUnit: dados.purchaseUnit || 'EA',
+            precoCompra: dados.precoCompra ?? null,
             ativo: true
         }
     });
 
     // 10. LOG SUCESSO
     logger.info(
-        `Embalagem criada: ${embalagem.upcEan} para material ${materialId}`,
+        `Embalagem criada para material ${materialId}: ${dados.packageType} x${dados.baseQtyPerUnit}`,
         createLogContext(request, user),
         { embalagemId: embalagem.id }
     );
@@ -173,7 +176,7 @@ async function postHandler(
             embalagem,
             conversionPreview: `1 ${dados.packageType} = ${dados.baseQtyPerUnit} ${material.unidade.codigo}`
         },
-        `Embalagem ${dados.upcEan} criada com sucesso`
+        `Embalagem ${dados.packageType} criada com sucesso`
     );
 }
 
