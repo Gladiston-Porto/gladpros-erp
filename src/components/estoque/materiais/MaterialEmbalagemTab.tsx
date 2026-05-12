@@ -283,7 +283,7 @@ export function MaterialEmbalagemTab({
                                 />
                             </div>
 
-                            {/* Quantidade Base */}
+                            {/* Quantidade Base + Unidade de Compra */}
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="baseQtyPerUnit" className="text-right">
                                     Qtd. Base *
@@ -301,6 +301,21 @@ export function MaterialEmbalagemTab({
                                     />
                                     <span className="text-sm text-muted-foreground w-12">{unidadeBase}</span>
                                 </div>
+                            </div>
+
+                            {/* Unidade de Compra */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="purchaseUnit" className="text-right">
+                                    Un. Compra
+                                </Label>
+                                <Input
+                                    id="purchaseUnit"
+                                    value={formData.purchaseUnit}
+                                    onChange={(e) => setFormData({ ...formData, purchaseUnit: e.target.value.toUpperCase() })}
+                                    placeholder="EA, ROLL, BAG..."
+                                    maxLength={20}
+                                    className="col-span-3"
+                                />
                             </div>
 
                             {/* Preço por embalagem */}

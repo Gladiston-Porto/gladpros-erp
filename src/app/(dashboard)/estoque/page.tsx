@@ -21,6 +21,7 @@ import {
   Clock,
   AlertCircle,
   PackageX,
+  ClipboardList,
 } from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -78,6 +79,15 @@ const NAV_MODULES = [
     barClass: 'bg-violet-600',
     iconClass: 'bg-violet-600',
     linkClass: 'text-violet-600 dark:text-violet-400',
+  },
+  {
+    href: '/estoque/solicitacoes-compra',
+    label: 'Solicitações',
+    description: 'Fluxo de aprovação de compras (SC)',
+    icon: ClipboardList,
+    barClass: 'bg-[#FF8C00]',
+    iconClass: 'bg-[#FF8C00]',
+    linkClass: 'text-brand-secondary',
   },
 ] as const;
 
@@ -244,10 +254,11 @@ export default async function DashboardEstoquePage() {
         </p>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { href: '/estoque/materiais/novo',     label: 'Novo Material',      icon: Plus,       color: '#0098DA' },
-            { href: '/estoque/equipamentos/novo',  label: 'Novo Equipamento',   icon: Plus,       color: '#FF8C00' },
-            { href: '/estoque/movimentacoes/nova', label: 'Nova Movimentação',  icon: ArrowUpDown, color: '#10B981' },
-            { href: '/estoque/compras/nova',       label: 'Nova Compra',        icon: ShoppingCart, color: '#7C3AED' },
+            { href: '/estoque/materiais/novo',           label: 'Novo Material',       icon: Plus,          color: '#0098DA' },
+            { href: '/estoque/equipamentos/novo',         label: 'Novo Equipamento',    icon: Plus,          color: '#FF8C00' },
+            { href: '/estoque/movimentacoes/nova',        label: 'Nova Movimentação',   icon: ArrowUpDown,   color: '#10B981' },
+            { href: '/estoque/compras/nova',              label: 'Nova Compra',         icon: ShoppingCart,  color: '#7C3AED' },
+            { href: '/estoque/solicitacoes-compra/nova',  label: 'Nova Solicitação SC', icon: ClipboardList, color: '#FF8C00' },
           ].map((action) => {
             const Icon = action.icon;
             return (

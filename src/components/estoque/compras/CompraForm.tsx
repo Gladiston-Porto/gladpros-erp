@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,10 +17,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@gladpros/ui/input";
 import { Textarea } from "@gladpros/ui/textarea";
 import { Switch } from "@gladpros/ui/switch";
+import { Badge } from "@gladpros/ui/badge";
 import { useToast } from '@/shared/hooks/use-toast';
-import { Loader2, Plus, Trash2, Upload, FileText, ExternalLink } from 'lucide-react';
+import { Loader2, Plus, Trash2, Upload, FileText, ExternalLink, Package } from 'lucide-react';
 import { CreateFornecedorModal } from './CreateFornecedorModal';
 import { CreateMaterialModal } from './CreateMaterialModal';
+
+// Tipo de embalagem disponível por material
+type EmbalagemOpcao = {
+    id: number;
+    packageType: string;
+    baseQtyPerUnit: number;
+    purchaseUnit: string;
+    brand: string | null;
+    precoCompra: number | null;
+};
 
 // Schema de validação
 const itemSchema = z.object({
@@ -39,6 +50,7 @@ const compraSchema = z.object({
     dataCompra: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida'),
     tipo: z.enum(['MATERIAL', 'EQUIPAMENTO', 'AMBOS']),
     projetoId: z.number().int().positive().optional(),
+    solicitacaoCompraId: z.number().int().positive().optional(),
     valorTotal: z.number().positive('Valor total é obrigatório'),
     desconto: z.number().min(0).optional(),
     frete: z.number().min(0).optional(),
@@ -80,6 +92,7 @@ type CompraFormProps = {
     localizacoes: Array<{ id: number; codigo: string; nome: string }>;
     unidades: Array<{ id: number; codigo: string; nome: string }>;
     categorias: Array<{ id: number; nome: string }>;
+    solicitacoesCompra: Array<{ id: number; observacoes: string | null; valorAprovado: string | number | null; valorTotalGasto: string | number }>;
 };
 
 export function CompraForm({
@@ -90,6 +103,7 @@ export function CompraForm({
     localizacoes,
     unidades,
     categorias,
+    solicitacoesCompra,
 }: CompraFormProps) {
     const router = useRouter();
     const { toast } = useToast();
@@ -103,6 +117,21 @@ export function CompraForm({
     const [showFornecedorModal, setShowFornecedorModal] = useState(false);
     const [showMaterialModal, setShowMaterialModal] = useState(false);
     const [materialModalItemIndex, setMaterialModalItemIndex] = useState<number | null>(null);
+
+    // Estado para embalagens disponíveis por índice de item
+    const [embalagensMap, setEmbalagensMap] = useState<Record<number, EmbalagemOpcao[]>>({});
+
+    // Carrega embalagens de um material para o índice do item
+    const loadEmbalagens = useCallback(async (materialId: number, itemIndex: number) => {
+        try {
+            const res = await fetch(`/api/estoque/materiais/${materialId}/embalagens`);
+            if (!res.ok) return;
+            const { data } = await res.json();
+            setEmbalagensMap(prev => ({ ...prev, [itemIndex]: data ?? [] }));
+        } catch {
+            // silently ignore — embalagens são opcionais
+        }
+    }, []);
 
     // Estado para upload de NF
     const [uploadingNf, setUploadingNf] = useState(false);
@@ -410,6 +439,52 @@ export function CompraForm({
                                     )}
                                 />
 
+                                {/* SC Vinculada */}
+                                {solicitacoesCompra.length > 0 && (
+                                    <FormField
+                                        control={form.control}
+                                        name="solicitacaoCompraId"
+                                        render={({ field }) => {
+                                            const selectedSc = solicitacoesCompra.find(sc => sc.id === field.value);
+                                            const disponivel = selectedSc
+                                                ? Number(selectedSc.valorAprovado) - Number(selectedSc.valorTotalGasto)
+                                                : null;
+                                            return (
+                                                <FormItem>
+                                                    <FormLabel>Solicitação de Compra (SC)</FormLabel>
+                                                    <Select
+                                                        onValueChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                                                        value={field.value?.toString()}
+                                                    >
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Vincular a uma SC aprovada" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {solicitacoesCompra.map((sc) => {
+                                                                const disp = Number(sc.valorAprovado) - Number(sc.valorTotalGasto);
+                                                                return (
+                                                                    <SelectItem key={sc.id} value={sc.id.toString()}>
+                                                                        SC #{sc.id} — {sc.observacoes ?? `SC #${sc.id}`} (disponível: ${disp.toFixed(2)})
+                                                                    </SelectItem>
+                                                                );
+                                                            })}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {selectedSc && disponivel !== null && (
+                                                        <FormDescription className="text-xs">
+                                                            Budget disponível: <strong className="text-green-600">${disponivel.toFixed(2)}</strong>
+                                                            {' '}de ${Number(selectedSc.valorAprovado).toFixed(2)} aprovados
+                                                        </FormDescription>
+                                                    )}
+                                                    <FormMessage />
+                                                </FormItem>
+                                            );
+                                        }}
+                                    />
+                                )}
+
                                 <FormField
                                     control={form.control}
                                     name="formaPagamento"
@@ -481,46 +556,101 @@ export function CompraForm({
                                     )}
 
                                     {itens[index]?.tipoItem === 'MATERIAL' || (tipoCompra === 'MATERIAL') ? (
-                                        <div className="flex-1 flex gap-2 items-end">
-                                            <FormField
-                                                control={form.control}
-                                                name={`itens.${index}.materialId`}
-                                                render={({ field }) => (
-                                                    <FormItem className="flex-1">
-                                                        <FormLabel>Material</FormLabel>
-                                                        <Select
-                                                            onValueChange={(v) => field.onChange(Number(v))}
-                                                            value={field.value?.toString()}
-                                                        >
-                                                            <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Selecione" />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent>
-                                                                {materiaisLista.map((m) => (
-                                                                    <SelectItem key={m.id} value={m.id.toString()}>
-                                                                        {m.codigo} - {m.nome} ({m.unidade?.codigo || 'UN'})
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="icon"
-                                                onClick={() => {
-                                                    setMaterialModalItemIndex(index);
-                                                    setShowMaterialModal(true);
-                                                }}
-                                                title="Criar novo material"
-                                                aria-label="Criar novo material"
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                            </Button>
+                                        <div className="flex-1 flex flex-col gap-2">
+                                            {/* Linha 1: Material + botão criar */}
+                                            <div className="flex gap-2 items-end">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`itens.${index}.materialId`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex-1">
+                                                            <FormLabel>Material</FormLabel>
+                                                            <Select
+                                                                onValueChange={(v) => {
+                                                                    const mid = Number(v);
+                                                                    field.onChange(mid);
+                                                                    // Reset embalagem quando material muda
+                                                                    form.setValue(`itens.${index}.materialEmbalagemId`, undefined);
+                                                                    loadEmbalagens(mid, index);
+                                                                }}
+                                                                value={field.value?.toString()}
+                                                            >
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Selecione" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    {materiaisLista.map((m) => (
+                                                                        <SelectItem key={m.id} value={m.id.toString()}>
+                                                                            {m.codigo} - {m.nome} ({m.unidade?.codigo || 'UN'})
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="icon"
+                                                    onClick={() => {
+                                                        setMaterialModalItemIndex(index);
+                                                        setShowMaterialModal(true);
+                                                    }}
+                                                    title="Criar novo material"
+                                                    aria-label="Criar novo material"
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+
+                                            {/* Linha 2: Seletor de embalagem (se disponível) */}
+                                            {(embalagensMap[index] ?? []).length > 0 && (
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`itens.${index}.materialEmbalagemId`}
+                                                    render={({ field }) => {
+                                                        const selectedEmb = (embalagensMap[index] ?? []).find(e => e.id === field.value);
+                                                        return (
+                                                            <FormItem>
+                                                                <FormLabel className="flex items-center gap-1">
+                                                                    <Package className="h-3 w-3" />
+                                                                    Comprar por embalagem (opcional)
+                                                                </FormLabel>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Select
+                                                                        onValueChange={(v) => {
+                                                                            field.onChange(v === 'none' ? undefined : Number(v));
+                                                                        }}
+                                                                        value={field.value?.toString() ?? 'none'}
+                                                                    >
+                                                                        <FormControl>
+                                                                            <SelectTrigger className="flex-1">
+                                                                                <SelectValue placeholder="Por unidade base" />
+                                                                            </SelectTrigger>
+                                                                        </FormControl>
+                                                                        <SelectContent>
+                                                                            <SelectItem value="none">Por unidade base</SelectItem>
+                                                                            {(embalagensMap[index] ?? []).map((emb) => (
+                                                                                <SelectItem key={emb.id} value={emb.id.toString()}>
+                                                                                    {emb.packageType}{emb.brand ? ` — ${emb.brand}` : ''} ({emb.baseQtyPerUnit} {materiaisLista.find(m => m.id === itens[index]?.materialId)?.unidade?.codigo ?? 'UN'}/emb)
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                    {selectedEmb && (
+                                                                        <Badge variant="outline" className="text-xs whitespace-nowrap">
+                                                                            1 {selectedEmb.packageType} = {selectedEmb.baseQtyPerUnit} {materiaisLista.find(m => m.id === itens[index]?.materialId)?.unidade?.codigo ?? 'UN'}
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                            </FormItem>
+                                                        );
+                                                    }}
+                                                />
+                                            )}
                                         </div>
                                     ) : (
                                         <FormField
@@ -554,37 +684,45 @@ export function CompraForm({
                                     <FormField
                                         control={form.control}
                                         name={`itens.${index}.quantidade`}
-                                        render={({ field }) => (
-                                            <FormItem className="w-28">
-                                                <FormLabel>Qtd (Base)</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.001"
-                                                        {...field}
-                                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                                    />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
+                                        render={({ field }) => {
+                                            const hasEmb = !!itens[index]?.materialEmbalagemId;
+                                            const emb = hasEmb ? (embalagensMap[index] ?? []).find(e => e.id === itens[index]?.materialEmbalagemId) : null;
+                                            return (
+                                                <FormItem className="w-28">
+                                                    <FormLabel>{hasEmb ? `Qtd (${emb?.packageType ?? 'Emb.'})` : 'Qtd'}</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.001"
+                                                            {...field}
+                                                            onChange={(e) => field.onChange(Number(e.target.value))}
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            );
+                                        }}
                                     />
 
                                     <FormField
                                         control={form.control}
                                         name={`itens.${index}.custoUnitario`}
-                                        render={({ field }) => (
-                                            <FormItem className="w-28">
-                                                <FormLabel>Custo Un.</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        {...field}
-                                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                                    />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
+                                        render={({ field }) => {
+                                            const hasEmb = !!itens[index]?.materialEmbalagemId;
+                                            const emb = hasEmb ? (embalagensMap[index] ?? []).find(e => e.id === itens[index]?.materialEmbalagemId) : null;
+                                            return (
+                                                <FormItem className="w-36">
+                                                    <FormLabel>{hasEmb ? `$ / ${emb?.packageType ?? 'Emb.'}` : 'Custo Un. ($)'}</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            {...field}
+                                                            onChange={(e) => field.onChange(Number(e.target.value))}
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            );
+                                        }}
                                     />
 
                                     <Button

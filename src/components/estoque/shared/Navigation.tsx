@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   LayoutDashboard,
   FileText,
+  ClipboardList,
 } from 'lucide-react';
 
 const navItems = [
@@ -48,6 +49,11 @@ const navItems = [
     href: '/estoque/compras',
     label: 'Compras',
     icon: ShoppingCart,
+  },
+  {
+    href: '/estoque/solicitacoes-compra',
+    label: 'Sol. Compra',
+    icon: ClipboardList,
   },
   {
     href: '/estoque/relatorios',

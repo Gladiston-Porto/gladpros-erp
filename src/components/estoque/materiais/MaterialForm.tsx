@@ -8,7 +8,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { Button } from "@gladpros/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@gladpros/ui/form";
@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@gladpros/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@gladpros/ui/dialog";
 import { useToast } from '@/shared/hooks/use-toast';
-import { Loader2, Plus, ImagePlus, X, Package, MapPin, RotateCcw, Barcode, Trash2 } from 'lucide-react';
+import { Loader2, Plus, ImagePlus, X, Package, MapPin, RotateCcw, Barcode, Trash2, Upload, FileText, ExternalLink } from 'lucide-react';
 import { CreateCategoriaModal } from '@/components/estoque/categorias/CreateCategoriaModal';
 import { organizeCategoriesForSelect } from '@/lib/estoque/category-utils';
 import Image from 'next/image';
@@ -67,6 +67,7 @@ const materialFormSchema = z.object({
   fornecedorNome: z.string().max(150).optional(),
   numeroNf: z.string().max(60).optional(),
   dataCompra: z.string().optional(),
+  notaFiscalUrl: z.string().url().optional().or(z.literal('')),
 }).refine(
   (data) => Number(data.pontoReposicao) >= Number(data.estoqueMinimo),
   { message: 'Ponto de reposição deve ser maior ou igual ao estoque mínimo', path: ['pontoReposicao'] }
@@ -124,6 +125,11 @@ export function MaterialForm({
   const [locDialogTipo, setLocDialogTipo] = useState('DEPOSITO');
   const [locDialogCodigo, setLocDialogCodigo] = useState('');
   const [isSavingLoc, setIsSavingLoc] = useState(false);
+
+  // NF upload state
+  const [isUploadingNf, setIsUploadingNf] = useState(false);
+  const [nfFileName, setNfFileName] = useState<string | null>(null);
+  const nfFileRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<MaterialFormValues>({
     resolver: zodResolver(materialFormSchema),
@@ -292,6 +298,27 @@ export function MaterialForm({
     }
   }
 
+  async function handleNfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingNf(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/estoque/compras/upload-nf', { method: 'POST', credentials: 'include', body: formData });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || 'Erro no upload');
+      form.setValue('notaFiscalUrl', result.data.url, { shouldValidate: true });
+      setNfFileName(file.name);
+      toast({ title: 'NF anexada', description: 'Nota fiscal enviada com sucesso.' });
+    } catch (err) {
+      toast({ title: 'Erro no upload', description: err instanceof Error ? err.message : 'Não foi possível enviar a NF.', variant: 'destructive' });
+    } finally {
+      setIsUploadingNf(false);
+      if (nfFileRef.current) nfFileRef.current.value = '';
+    }
+  }
+
   function handleRemovePhoto() {
     setPhotoPreview(null);
     form.setValue('fotoUrl', '', { shouldValidate: true });
@@ -400,11 +427,12 @@ export function MaterialForm({
               }),
         };
 
-        if (data.fornecedorNome || data.numeroNf || data.dataCompra) {
+        if (data.fornecedorNome || data.numeroNf || data.dataCompra || data.notaFiscalUrl) {
           payload.compra = {
             fornecedorNome: data.fornecedorNome || undefined,
             numeroNf: data.numeroNf || undefined,
             dataCompra: data.dataCompra || undefined,
+            notaFiscalUrl: data.notaFiscalUrl || undefined,
           };
         }
       }
@@ -979,6 +1007,58 @@ export function MaterialForm({
                   )}
                 />
               </div>
+
+              {/* Upload da NF */}
+              <FormField
+                control={form.control}
+                name="notaFiscalUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nota Fiscal / Receipt (PDF ou foto)</FormLabel>
+                    <div className="flex items-center gap-3">
+                      <input
+                        ref={nfFileRef}
+                        type="file"
+                        accept=".pdf,image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleNfUpload}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isUploadingNf}
+                        onClick={() => nfFileRef.current?.click()}
+                        aria-label="Anexar nota fiscal"
+                      >
+                        {isUploadingNf
+                          ? <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                          : <Upload className="h-4 w-4 mr-1" />}
+                        {nfFileName ? 'Trocar arquivo' : 'Anexar NF'}
+                      </Button>
+                      {nfFileName && (
+                        <span className="flex items-center gap-1 text-sm text-muted-foreground max-w-[200px] truncate">
+                          <FileText className="h-3 w-3 shrink-0" />
+                          {nfFileName}
+                        </span>
+                      )}
+                      {field.value && (
+                        <a
+                          href={field.value}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-sm text-brand-primary hover:underline"
+                          aria-label="Visualizar nota fiscal"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Ver NF
+                        </a>
+                      )}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
           )}
 

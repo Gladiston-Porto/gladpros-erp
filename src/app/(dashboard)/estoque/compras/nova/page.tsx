@@ -12,7 +12,7 @@ import { CompraForm } from '@/components/estoque/compras/CompraForm';
 
 export default async function NovaCompraPage() {
     // Buscar todos os dados de referência em paralelo — 1 round-trip ao banco em vez de 7 sequenciais
-    const [fornecedores, projetos, materiais, equipamentos, localizacoes, unidades, categorias] = await Promise.all([
+    const [fornecedores, projetos, materiais, equipamentos, localizacoes, unidades, categorias, solicitacoesCompra] = await Promise.all([
         prisma.fornecedor.findMany({
             where: { ativo: true },
             orderBy: { nome: 'asc' },
@@ -52,8 +52,26 @@ export default async function NovaCompraPage() {
             where: { tipo: 'MATERIAL' },
             orderBy: { nome: 'asc' },
             select: { id: true, nome: true }
-        })
+        }),
+        prisma.solicitacaoCompra.findMany({
+            where: { status: 'APROVADA' },
+            orderBy: { criadoEm: 'desc' },
+            select: {
+                id: true,
+                observacoes: true,
+                valorAprovado: true,
+                valorTotalGasto: true,
+            },
+            take: 50,
+        }),
     ]);
+
+    // Serializar Decimal para string (Next.js não serializa Decimal automaticamente)
+    const scsSerialized = solicitacoesCompra.map(sc => ({
+        ...sc,
+        valorAprovado: sc.valorAprovado?.toString() ?? null,
+        valorTotalGasto: sc.valorTotalGasto.toString(),
+    }));
 
     return (
         <div className="space-y-6">
@@ -87,6 +105,7 @@ export default async function NovaCompraPage() {
                 localizacoes={localizacoes}
                 unidades={unidades}
                 categorias={categorias}
+                solicitacoesCompra={scsSerialized}
             />
         </div>
     );

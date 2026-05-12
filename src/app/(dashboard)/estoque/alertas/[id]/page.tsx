@@ -10,7 +10,8 @@ import { Badge } from "@gladpros/ui/badge"
 import { Button } from "@gladpros/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@gladpros/ui/card"
 import { ModulePageHeader } from "@gladpros/ui/module-page-header";
-import { ArrowLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertaActions } from '@/components/estoque/alertas/AlertaActions';
 
 type PageProps = {
   params: Promise<{
@@ -238,16 +239,15 @@ export default async function AlertaDetalhesPage({ params }: PageProps) {
       </div>
 
       {/* Ações */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <Link href="/estoque/alertas">
           <Button variant="outline">Voltar</Button>
         </Link>
-        {!isResolvido && (
-          <Button>
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            Marcar como Resolvido
-          </Button>
-        )}
+        <AlertaActions
+          alertaId={id}
+          materialId={alerta.materialId ?? null}
+          isResolvido={isResolvido}
+        />
       </div>
     </div>
   );
