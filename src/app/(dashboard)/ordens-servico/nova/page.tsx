@@ -146,8 +146,24 @@ export default function NovaOrdemServicoPage() {
         return;
       }
       const data = await response.json();
+      const raw: Record<string, unknown>[] = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
       setStockMaterials(
-        Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []
+        raw.map((m) => ({
+          id: m.id as number,
+          nome: m.nome as string,
+          unidade: (m.unidade as Record<string, unknown> | null)?.codigo as string ?? '',
+          quantidadeEstoque: Number(m.saldoTotal ?? 0),
+          precoUnitario: Number(m.ultimoCusto ?? m.custoMedio ?? 0),
+          embalagens: Array.isArray(m.embalagens)
+            ? (m.embalagens as Record<string, unknown>[]).map((e) => ({
+                id: e.id as number,
+                packageType: e.packageType as string,
+                baseQtyPerUnit: Number(e.baseQtyPerUnit),
+                purchaseUnit: (e.purchaseUnit as string) ?? 'EA',
+                precoCompra: Number(e.precoCompra),
+              }))
+            : [],
+        }))
       );
       setStockMaterialsLoaded(true);
     } catch {
@@ -220,6 +236,13 @@ export default function NovaOrdemServicoPage() {
               unit: material.unit,
               quantityPlanned: material.quantityPlanned,
               unitCostEstimated: material.unitCostEstimated,
+              ...(material.embalagemId && {
+                embalagemId: material.embalagemId,
+                qtdEmbalagens: material.qtdEmbalagens,
+                embalagemBaseQtyAtTime: material.embalagemBaseQtyAtTime,
+                embalagemPrecoAtTime: material.embalagemPrecoAtTime,
+                embalagemUnitAtTime: material.embalagemUnitAtTime,
+              }),
             }),
           })
         )

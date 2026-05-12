@@ -45,6 +45,15 @@ export function ServiceOrderMaterialsSection({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ name: "", unit: "un", qty: "1", cost: "" });
 
+  // Embalagem selection for pending (stock) material
+  const [pendingEmbTipo, setPendingEmbTipo] = useState<"unidade" | "embalagem">("unidade");
+  const [pendingEmbId, setPendingEmbId] = useState<number | null>(null);
+  const [pendingEmbQty, setPendingEmbQty] = useState(1);
+  // Manual embalagem fields (when no pre-registered options)
+  const [pendingEmbBaseQty, setPendingEmbBaseQty] = useState<number | null>(null);
+  const [pendingEmbPkgPrice, setPendingEmbPkgPrice] = useState<number | null>(null);
+  const [pendingEmbPkgType, setPendingEmbPkgType] = useState("");
+
   const startEdit = (index: number) => {
     const m = plannedMaterials[index];
     setEditingIndex(index);
@@ -85,6 +94,26 @@ export function ServiceOrderMaterialsSection({
 
   const addPendingMaterial = () => {
     if (!pendingMaterial || parseFloat(pendingQty) <= 0) return;
+
+    const embalagemFields: Partial<PlannedMaterial> = {};
+    if (pendingEmbTipo === "embalagem") {
+      if (pendingEmbId) {
+        const emb = pendingMaterial.embalagens?.find((e) => e.id === pendingEmbId);
+        if (emb) {
+          embalagemFields.embalagemId = emb.id;
+          embalagemFields.qtdEmbalagens = pendingEmbQty;
+          embalagemFields.embalagemBaseQtyAtTime = emb.baseQtyPerUnit;
+          embalagemFields.embalagemPrecoAtTime = emb.precoCompra;
+          embalagemFields.embalagemUnitAtTime = emb.packageType;
+        }
+      } else if (pendingEmbBaseQty) {
+        embalagemFields.qtdEmbalagens = pendingEmbQty;
+        embalagemFields.embalagemBaseQtyAtTime = pendingEmbBaseQty;
+        embalagemFields.embalagemPrecoAtTime = pendingEmbPkgPrice;
+        embalagemFields.embalagemUnitAtTime = pendingEmbPkgType || null;
+      }
+    }
+
     setPlannedMaterials((current) => [
       ...current,
       {
@@ -94,10 +123,17 @@ export function ServiceOrderMaterialsSection({
         quantityPlanned: parseFloat(pendingQty),
         unitCostEstimated: pendingMaterial.precoUnitario,
         stockQty: pendingMaterial.quantidadeEstoque,
+        ...embalagemFields,
       },
     ]);
     setPendingMaterial(null);
     setPendingQty("1");
+    setPendingEmbTipo("unidade");
+    setPendingEmbId(null);
+    setPendingEmbQty(1);
+    setPendingEmbBaseQty(null);
+    setPendingEmbPkgPrice(null);
+    setPendingEmbPkgType("");
     setMaterialSearch("");
   };
 
@@ -392,29 +428,172 @@ export function ServiceOrderMaterialsSection({
             />
 
             {pendingMaterial && (
-              <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3">
-                <span className="flex-1 text-sm font-medium text-foreground">
-                  {pendingMaterial.nome}
-                </span>
-                <input
-                  type="number"
-                  value={pendingQty}
-                  onChange={(event) => setPendingQty(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") { event.preventDefault(); addPendingMaterial(); }
-                  }}
-                  min="0.01"
-                  step="0.01"
-                  aria-label="Quantidade"
-                  placeholder="1"
-                  className="w-20 rounded border border-border bg-background px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  autoFocus
-                />
-                <span className="text-xs text-muted-foreground">{pendingMaterial.unidade}</span>
-                <Button type="button" size="sm" onClick={addPendingMaterial}>Adicionar</Button>
-                <button type="button" aria-label="Cancelar" onClick={() => { setPendingMaterial(null); setPendingQty("1"); }} className="text-muted-foreground hover:text-foreground">
-                  <X className="h-4 w-4" />
-                </button>
+              <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/10 p-3">
+                {/* Material name + cancel */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground">{pendingMaterial.nome}</span>
+                  <button type="button" aria-label="Cancelar" onClick={() => { setPendingMaterial(null); setPendingQty("1"); setPendingEmbTipo("unidade"); setPendingEmbId(null); setPendingEmbQty(1); setPendingEmbBaseQty(null); setPendingEmbPkgPrice(null); setPendingEmbPkgType(""); }} className="text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Embalagem toggle — shown for all selected materials */}
+                <div className="flex rounded-lg border border-border overflow-hidden text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingEmbTipo("unidade");
+                      setPendingEmbId(null);
+                      setPendingEmbQty(1);
+                      setPendingEmbBaseQty(null);
+                      setPendingEmbPkgPrice(null);
+                      setPendingEmbPkgType("");
+                      setPendingQty("1");
+                    }}
+                    className={`flex-1 px-2 py-1.5 transition-colors ${pendingEmbTipo === "unidade" ? "bg-brand-primary text-white font-medium" : "bg-background text-muted-foreground hover:bg-muted/30"}`}
+                  >
+                    Por Unidade
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingEmbTipo("embalagem")}
+                    className={`flex-1 px-2 py-1.5 flex items-center justify-center gap-1 transition-colors ${pendingEmbTipo === "embalagem" ? "bg-brand-primary text-white font-medium" : "bg-background text-muted-foreground hover:bg-muted/30"}`}
+                  >
+                    <Package className="h-3 w-3" />
+                    Embalagem
+                  </button>
+                </div>
+
+                {/* Embalagem selector — pre-registered */}
+                {pendingEmbTipo === "embalagem" && (pendingMaterial.embalagens?.length ?? 0) > 0 && (
+                  <div className="space-y-2">
+                    <select
+                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground"
+                      value={pendingEmbId ?? ""}
+                      onChange={(e) => {
+                        const id = Number(e.target.value) || null;
+                        const emb = pendingMaterial.embalagens?.find((o) => o.id === id);
+                        setPendingEmbId(id);
+                        if (emb) setPendingQty(String(pendingEmbQty * emb.baseQtyPerUnit));
+                      }}
+                    >
+                      <option value="">Selecione a embalagem…</option>
+                      {pendingMaterial.embalagens?.map((emb) => (
+                        <option key={emb.id} value={emb.id}>
+                          {emb.packageType.charAt(0).toUpperCase() + emb.packageType.slice(1).toLowerCase()} — {emb.baseQtyPerUnit} {emb.purchaseUnit} — ${(emb.precoCompra ?? 0).toFixed(2)}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground whitespace-nowrap">Qtd embalagens:</label>
+                      <input
+                        type="number"
+                        value={pendingEmbQty}
+                        min={1}
+                        step={1}
+                        onChange={(e) => {
+                          const qty = Math.max(1, parseInt(e.target.value) || 1);
+                          const emb = pendingMaterial.embalagens?.find((o) => o.id === pendingEmbId);
+                          setPendingEmbQty(qty);
+                          if (emb) setPendingQty(String(qty * emb.baseQtyPerUnit));
+                        }}
+                        className="w-20 rounded border border-border bg-background px-2 py-1 text-center text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                      {pendingEmbId && (() => {
+                        const emb = pendingMaterial.embalagens?.find((o) => o.id === pendingEmbId);
+                        if (!emb) return null;
+                        return <span className="text-xs text-muted-foreground">= {pendingEmbQty * emb.baseQtyPerUnit} {emb.purchaseUnit}</span>;
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Manual embalagem — when no pre-registered options */}
+                {pendingEmbTipo === "embalagem" && (pendingMaterial.embalagens?.length ?? 0) === 0 && (
+                  <div className="space-y-2 rounded-xl border border-brand-primary/30 bg-brand-primary/5 p-2">
+                    <p className="text-xs text-muted-foreground">Sem embalagens cadastradas — preencha manualmente:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground">Tipo</label>
+                        <select
+                          className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground"
+                          value={pendingEmbPkgType}
+                          onChange={(e) => setPendingEmbPkgType(e.target.value)}
+                        >
+                          <option value="">Tipo...</option>
+                          {['ROLL','PACK','BOX','BAG','STICK','BUNDLE','PALLET','UNIT'].map(t => (
+                            <option key={t} value={t}>{t.charAt(0) + t.slice(1).toLowerCase()}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Qtd/pkg</label>
+                        <input
+                          type="number" min={0.001} step="any"
+                          placeholder="Ex: 100"
+                          value={pendingEmbBaseQty ?? ''}
+                          onChange={(e) => {
+                            const baseQty = Math.max(0.001, Number(e.target.value) || 0);
+                            setPendingEmbBaseQty(baseQty);
+                            setPendingQty(String(pendingEmbQty * baseQty));
+                          }}
+                          className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">$pkg</label>
+                        <input
+                          type="number" min={0} step="0.01"
+                          placeholder="Ex: 45.00"
+                          value={pendingEmbPkgPrice ?? ''}
+                          onChange={(e) => setPendingEmbPkgPrice(Number(e.target.value) || null)}
+                          className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Qtd pkgs</label>
+                        <input
+                          type="number" min={1} step={1}
+                          value={pendingEmbQty}
+                          onChange={(e) => {
+                            const qty = Math.max(1, parseInt(e.target.value) || 1);
+                            setPendingEmbQty(qty);
+                            if (pendingEmbBaseQty) setPendingQty(String(qty * pendingEmbBaseQty));
+                          }}
+                          className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </div>
+                    </div>
+                    {pendingEmbBaseQty && (
+                      <p className="text-xs text-muted-foreground">
+                        = <strong>{pendingEmbQty * pendingEmbBaseQty}</strong> {pendingMaterial.unidade} total
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Quantity + unit (unidade mode) */}
+                {pendingEmbTipo === "unidade" && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={pendingQty}
+                      onChange={(event) => setPendingQty(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") { event.preventDefault(); addPendingMaterial(); }
+                      }}
+                      min="0.01"
+                      step="0.01"
+                      aria-label="Quantidade"
+                      placeholder="1"
+                      className="w-20 rounded border border-border bg-background px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      autoFocus
+                    />
+                    <span className="text-xs text-muted-foreground">{pendingMaterial.unidade}</span>
+                  </div>
+                )}
+
+                <Button type="button" size="sm" className="w-full" onClick={addPendingMaterial}>Adicionar</Button>
               </div>
             )}
 

@@ -64,7 +64,8 @@ export const POST = withErrorHandler(async (request: Request,
 
         // Check order exists
         const order = await prisma.serviceOrder.findUnique({
-            where: { id: serviceOrderId }
+            where: { id: serviceOrderId },
+            select: { id: true, ticketNumber: true, title: true, createdById: true }
         });
 
         if (!order) {
@@ -110,6 +111,7 @@ export const POST = withErrorHandler(async (request: Request,
 
             const reserved: number[] = [];
             const needsPurchase: number[] = [];
+            const needsPurchaseDetails: Array<{ id: number; materialId: number; name: string; qty: number; custoEstimado: number | null }> = [];
             const errors: Array<{ id: number; name: string; reason: string }> = [];
 
             for (const mat of materials) {
@@ -137,6 +139,13 @@ export const POST = withErrorHandler(async (request: Request,
                         data: { status: 'NEEDS_PURCHASE' }
                     });
                     needsPurchase.push(mat.id);
+                    needsPurchaseDetails.push({
+                        id: mat.id,
+                        materialId: mat.materialId!,
+                        name: mat.name,
+                        qty: needed,
+                        custoEstimado: mat.unitCostEstimated ? Number(mat.unitCostEstimated) : null,
+                    });
                     errors.push({
                         id: mat.id,
                         name: mat.name,
@@ -185,7 +194,7 @@ export const POST = withErrorHandler(async (request: Request,
                 reserved.push(mat.id);
             }
 
-            return { reserved, needsPurchase, errors };
+            return { reserved, needsPurchase, needsPurchaseDetails, errors };
         }, {
             isolationLevel: 'ReadCommitted'
         });
@@ -204,12 +213,52 @@ export const POST = withErrorHandler(async (request: Request,
             });
         }
 
+        // Auto-generate SC for materials that could not be reserved (NEEDS_PURCHASE)
+        let autoSCId: number | null = null;
+        if (result.needsPurchaseDetails.length > 0) {
+            const valorEstimado = result.needsPurchaseDetails.reduce(
+                (acc, m) => acc + (m.custoEstimado ?? 0) * m.qty, 0
+            );
+            const osTitulo = order.title ?? `OS #${serviceOrderId}`;
+            const sc = await prisma.solicitacaoCompra.create({
+                data: {
+                    empresaId: 1, // single-tenant
+                    origemTipo: 'OS',
+                    origemId: serviceOrderId,
+                    status: 'RASCUNHO',
+                    solicitanteId: Number(user.id),
+                    valorEstimado,
+                    observacoes: `SC automática — OS #${serviceOrderId}: ${osTitulo}.\n${result.needsPurchaseDetails.length} materiais sem saldo disponível no estoque.`,
+                    itens: {
+                        create: result.needsPurchaseDetails.map(m => ({
+                            materialId: m.materialId,
+                            descricao: m.name,
+                            quantidadeSolicitada: m.qty,
+                            custoEstimado: m.custoEstimado,
+                            status: 'PENDENTE' as const,
+                        }))
+                    }
+                }
+            });
+            autoSCId = sc.id;
+
+            await prisma.serviceOrderHistory.create({
+                data: {
+                    serviceOrderId,
+                    eventType: 'SC_CRIADA',
+                    reason: `SC #${sc.id} criada automaticamente para ${result.needsPurchaseDetails.length} material(is) sem estoque.`,
+                    createdById: Number(user.id),
+                },
+            });
+        }
+
         return NextResponse.json({
             data: {
                 summary: {
                     reservedCount: result.reserved.length,
                     needsPurchaseCount: result.needsPurchase.length,
-                    errorCount: result.errors.length
+                    errorCount: result.errors.length,
+                    autoSCId,
                 },
                 details: result
             },

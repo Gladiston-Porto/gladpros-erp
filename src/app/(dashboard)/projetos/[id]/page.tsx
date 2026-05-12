@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@gladpros/ui/tabs';
 import EtapasManager from '@/components/projetos/etapas/EtapasManager';
 import { TarefasKanban } from '@/components/projetos/tarefas/TarefasKanban';
 import { MateriaisLista } from '@/components/projetos/materiais/MateriaisLista';
+import { MateriaisEstoqueTab } from '@/components/projetos/materiais/MateriaisEstoqueTab';
 import { FinanceiroDashboard } from '@/components/projetos/financeiro/FinanceiroDashboard';
 import { EquipeManager } from '@/components/projetos/equipe/EquipeManager';
 import { ProjetoJobsList } from '@/components/projetos/jobs/ProjetoJobsList';
@@ -310,13 +311,14 @@ export default function ProjetoDetailPage() {
               </div>
             </div>
           )}
-          <TabsList className="grid w-full rounded-2xl bg-card p-1 shadow-sm md:grid-cols-9">
+          <TabsList className="grid w-full rounded-2xl bg-card p-1 shadow-sm md:grid-cols-10">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="cronograma">Cronograma</TabsTrigger>
             <TabsTrigger value="jobs">Jobs (OS)</TabsTrigger>
             <TabsTrigger value="etapas">Etapas</TabsTrigger>
             <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
             <TabsTrigger value="materiais">Materiais</TabsTrigger>
+            <TabsTrigger value="estoque">Estoque</TabsTrigger>
             <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
             <TabsTrigger value="equipe">Equipe</TabsTrigger>
             <TabsTrigger value="historico">Histórico</TabsTrigger>
@@ -500,6 +502,10 @@ export default function ProjetoDetailPage() {
 
           <TabsContent value="materiais">
             <MateriaisLista projetoId={projeto.id} />
+          </TabsContent>
+
+          <TabsContent value="estoque">
+            <MateriaisEstoqueTab projetoId={projeto.id} />
           </TabsContent>
 
           <TabsContent value="financeiro">

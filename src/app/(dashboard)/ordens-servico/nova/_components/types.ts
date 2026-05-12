@@ -3,6 +3,14 @@ export type ServiceOrderClient = {
   name: string;
 };
 
+export type EmbalagemOption = {
+  id: number;
+  packageType: string;
+  baseQtyPerUnit: number;
+  purchaseUnit: string;
+  precoCompra: number;
+};
+
 export type PlannedMaterial = {
   materialId?: number; // undefined = external field purchase (no stock entry)
   name: string;
@@ -10,6 +18,12 @@ export type PlannedMaterial = {
   quantityPlanned: number;
   unitCostEstimated: number;
   stockQty: number; // 0 for external materials
+  // Embalagem snapshot fields (optional)
+  embalagemId?: number;
+  qtdEmbalagens?: number;
+  embalagemBaseQtyAtTime?: number;
+  embalagemPrecoAtTime?: number;
+  embalagemUnitAtTime?: string;
 };
 
 export type StockMaterial = {
@@ -18,6 +32,7 @@ export type StockMaterial = {
   unidade: string;
   quantidadeEstoque: number;
   precoUnitario: number;
+  embalagens?: EmbalagemOption[];
 };
 
 export type ServiceOrderFormState = {

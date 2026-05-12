@@ -99,6 +99,9 @@ model Empresa {
   // Relations - Invoices
   invoices     Invoice[]
 
+  // Relations - Estoque: Solicitações de Compra
+  solicitacoesCompra SolicitacaoCompra[]
+
   @@index([ativo])
   @@map("empresas")
 }
@@ -555,10 +558,21 @@ model PropostaMaterial {
   moeda                  String                  @default("USD") @db.VarChar(3)
   totalItem              Decimal?                @db.Decimal(12, 2)
   fornecedorPreferencial String?                 @db.VarChar(255)
-  Proposta               Proposta                @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+  // Tax flag: true = to be purchased (apply TX Sales Tax 8.25%), false = from stock
+  aComprar               Boolean                 @default(true)
+  // Multi-UOM: embalagem fields (nullable for backwards compat)
+  embalagemId            Int?                    // FK → MaterialEmbalagem (audit trail only)
+  qtdEmbalagens          Decimal?                @db.Decimal(12, 3) // number of packages
+  embalagemBaseQtyAtTime Decimal?                @db.Decimal(14, 3) // SNAPSHOT: baseQtyPerUnit at save time
+  embalagemPrecoAtTime   Decimal?                @db.Decimal(14, 2) // SNAPSHOT: precoCompra at save time
+  embalagemUnitAtTime    String?                 @db.VarChar(30)    // SNAPSHOT: packageType at save time
+
+  Proposta    Proposta          @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+  Embalagem   MaterialEmbalagem? @relation("PropostaMaterialEmbalagem", fields: [embalagemId], references: [id], onDelete: SetNull)
 
   @@index([propostaId])
   @@index([estoqueItemId])
+  @@index([embalagemId])
 }
 
 model PropostaTemplate {
@@ -753,14 +767,23 @@ model ProjetoMaterial {
   repassarCustoCliente Boolean                      @default(true) @map("repassar_custo_cliente")
   criadoEm             DateTime                     @default(now()) @map("criado_em")
   atualizadoEm         DateTime?                    @map("atualizado_em")
+  // Multi-UOM: embalagem fields (nullable for backwards compat)
+  embalagemId            Int?     @map("embalagem_id")
+  qtdEmbalagens          Decimal? @map("qtd_embalagens") @db.Decimal(12, 3)
+  embalagemBaseQtyAtTime Decimal? @map("embalagem_base_qty_at_time") @db.Decimal(14, 3)
+  embalagemPrecoAtTime   Decimal? @map("embalagem_preco_at_time") @db.Decimal(14, 2)
+  embalagemUnitAtTime    String?  @map("embalagem_unit_at_time") @db.VarChar(30)
+
   Projeto              Projeto                      @relation(fields: [projetoId], references: [id], onDelete: Cascade)
   ChangeOrder          ChangeOrder?                 @relation("ChangeOrderProjetoMateriais", fields: [changeOrderId], references: [id], onDelete: SetNull)
   Movimentacoes        ProjetoMovimentacaoEstoque[]
+  Embalagem            MaterialEmbalagem?            @relation("ProjetoMaterialEmbalagem", fields: [embalagemId], references: [id], onDelete: SetNull)
 
   @@index([projetoId], name: "idx_pmat_projeto")
   @@index([changeOrderId], name: "idx_pmat_change_order")
   @@index([status], name: "idx_pmat_status")
   @@index([projetoId, flowStatus], name: "idx_pmat_projeto_flow")
+  @@index([embalagemId], name: "idx_pmat_embalagem")
   @@map("projetos_materiais")
 }
 
@@ -958,6 +981,9 @@ model Usuario {
   // Estoque - Compras
   ComprasCriadas                 Compra[]                 @relation("CompraCriador")
   ComprasItensRecebidos          CompraItem[]             @relation("CompraItemRecebedor")
+  // Estoque - Solicitações de Compra
+  SolicitacoesCompraCriadas      SolicitacaoCompra[]      @relation("SolicitacaoCompraSolicitante")
+  SolicitacoesCompraAprovadas    SolicitacaoCompra[]      @relation("SolicitacaoCompraAprovador")
 
   // Financeiro - Purchase Orders (F2.5)
   PurchaseOrdersCriadas    PurchaseOrder[] @relation("PurchaseOrderCriador")
@@ -1116,6 +1142,13 @@ enum ProjetoMaterial_status {
   finalizado         @map("finalizado")
 }
 
+enum ProjetoMaterialEstoque_status {
+  PENDENTE_SC @map("PENDENTE_SC")    // Aguardando SC ser aprovada para compra
+  RESERVADA   @map("RESERVADA")      // Reservada no estoque (saldo disponível)
+  UTILIZADA   @map("UTILIZADA")      // Baixada para uso no projeto
+  DEVOLVIDA   @map("DEVOLVIDA")      // Devolvida ao estoque
+}
+
 enum MaterialFlowStatus {
   PLANNED
   RESERVED
@@ -1259,6 +1292,9 @@ enum PropostaEtapa_status {
 enum Proposta_permite {
   SIM
   NAO
+  NAO_NECESSARIO
+  NECESSARIO
+  OBTIDO
 }
 
 enum PropostaMaterial_status {
@@ -1313,6 +1349,10 @@ enum Proposta_formaPagamentoPreferida {
   TRANSFERENCIA
   DINHEIRO
   CHEQUE
+  INVOICE
+  CHECK
+  ACH
+  CREDIT_CARD
 }
 
 enum Proposta_gatilhoFaturamento {
@@ -1615,6 +1655,7 @@ model Material {
   alertas                 AlertaEstoque[]
   invoiceItems            InvoiceItem[]
   embalagens              MaterialEmbalagem[]
+  solicitacaoCompraItens  SolicitacaoCompraItem[]
 
   @@index([codigo])
   @@index([categoriaId])
@@ -1639,6 +1680,10 @@ model MaterialEmbalagem {
 
   material     Material     @relation(fields: [materialId], references: [id], onDelete: Cascade)
   comprasItens CompraItem[]
+  propostaMateriais       PropostaMaterial[]         @relation("PropostaMaterialEmbalagem")
+  projetoMateriais        ProjetoMaterial[]          @relation("ProjetoMaterialEmbalagem")
+  projetoMateriaisEstoque ProjetoMaterialEstoque[]   @relation("ProjetoMaterialEstoqueEmbalagem")
+  serviceOrderMateriais   ServiceOrderMaterial[]     @relation("ServiceOrderMaterialEmbalagem")
 
   @@index([materialId])
   @@index([upcEan])
@@ -1745,30 +1790,40 @@ model Movimentacao {
 }
 
 model ProjetoMaterialEstoque {
-  id                  Int       @id @default(autoincrement())
-  projetoId           Int       @map("projeto_id")
-  materialId          Int       @map("material_id")
-  loteId              Int?      @map("lote_id")
-  quantidadeReservada Decimal   @default(0) @map("quantidade_reservada") @db.Decimal(14, 3)
-  quantidadeUsada     Decimal   @default(0) @map("quantidade_usada") @db.Decimal(14, 3)
-  custoUnitario       Decimal?  @map("custo_unitario") @db.Decimal(14, 2)
-  custoTotal          Decimal?  @map("custo_total") @db.Decimal(14, 2) // Computed column
-  cobrarCliente       Boolean   @default(false) @map("cobrar_cliente")
-  dataReserva         DateTime? @map("data_reserva")
-  dataUso             DateTime? @map("data_uso")
-  observacoes         String?   @db.Text
-  criadoEm            DateTime  @default(now()) @map("criado_em")
-  atualizadoEm        DateTime? @updatedAt @map("atualizado_em")
-  criadoPor           Int?      @map("criado_por")
+  id                  Int                           @id @default(autoincrement())
+  projetoId           Int                           @map("projeto_id")
+  materialId          Int                           @map("material_id")
+  loteId              Int?                          @map("lote_id")
+  quantidadeReservada Decimal                       @default(0) @map("quantidade_reservada") @db.Decimal(14, 3)
+  quantidadeUsada     Decimal                       @default(0) @map("quantidade_usada") @db.Decimal(14, 3)
+  custoUnitario       Decimal?                      @map("custo_unitario") @db.Decimal(14, 2)
+  custoTotal          Decimal?                      @map("custo_total") @db.Decimal(14, 2) // Computed column
+  cobrarCliente       Boolean                       @default(false) @map("cobrar_cliente")
+  status              ProjetoMaterialEstoque_status @default(PENDENTE_SC) @map("status")
+  dataReserva         DateTime?                     @map("data_reserva")
+  dataUso             DateTime?                     @map("data_uso")
+  observacoes         String?                       @db.Text
+  criadoEm            DateTime                      @default(now()) @map("criado_em")
+  atualizadoEm        DateTime?                     @updatedAt @map("atualizado_em")
+  criadoPor           Int?                          @map("criado_por")
+  // Multi-UOM: embalagem fields (nullable for backwards compat)
+  embalagemId            Int?     @map("embalagem_id")
+  qtdEmbalagens          Decimal? @map("qtd_embalagens") @db.Decimal(12, 3)
+  embalagemBaseQtyAtTime Decimal? @map("embalagem_base_qty_at_time") @db.Decimal(14, 3)
+  embalagemPrecoAtTime   Decimal? @map("embalagem_preco_at_time") @db.Decimal(14, 2)
+  embalagemUnitAtTime    String?  @map("embalagem_unit_at_time") @db.VarChar(30)
 
-  projeto  Projeto       @relation("ProjetoMateriaisEstoque", fields: [projetoId], references: [id], onDelete: Cascade)
-  material Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
-  lote     MaterialLote? @relation(fields: [loteId], references: [id], onDelete: Restrict)
-  criador  Usuario?      @relation("ProjetoMaterialEstoqueCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
+  projeto    Projeto           @relation("ProjetoMateriaisEstoque", fields: [projetoId], references: [id], onDelete: Cascade)
+  material   Material          @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  lote       MaterialLote?     @relation(fields: [loteId], references: [id], onDelete: Restrict)
+  criador    Usuario?          @relation("ProjetoMaterialEstoqueCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
+  embalagem  MaterialEmbalagem? @relation("ProjetoMaterialEstoqueEmbalagem", fields: [embalagemId], references: [id], onDelete: SetNull)
 
   @@index([projetoId])
   @@index([materialId])
   @@index([cobrarCliente])
+  @@index([status])
+  @@index([embalagemId])
   @@map("projeto_materiais")
 }
 
@@ -1954,6 +2009,66 @@ model AlertaEstoque {
   @@map("alertas_estoque")
 }
 
+// ============================================================================
+// SOLICITAÇÃO DE COMPRA — Fluxo de aprovação interna (Fase 6)
+// ============================================================================
+
+model SolicitacaoCompra {
+  id              Int                          @id @default(autoincrement())
+  empresaId       Int                          @map("empresa_id")
+  origemTipo      SolicitacaoCompra_origem     @map("origem_tipo")
+  origemId        Int?                         @map("origem_id")
+  status          SolicitacaoCompra_status     @default(RASCUNHO)
+  solicitanteId   Int                          @map("solicitante_id")
+  aprovadorId     Int?                         @map("aprovador_id")
+  valorEstimado   Decimal                      @default(0) @map("valor_estimado") @db.Decimal(14, 2)
+  valorAprovado   Decimal?                     @map("valor_aprovado") @db.Decimal(14, 2)
+  valorTotalGasto Decimal                      @default(0) @map("valor_total_gasto") @db.Decimal(14, 2)
+  motivoRejeicao  String?                      @map("motivo_rejeicao") @db.Text
+  observacoes     String?                      @db.Text
+  enviadaEm       DateTime?                    @map("enviada_em")
+  aprovadaEm      DateTime?                    @map("aprovada_em")
+  concluidaEm     DateTime?                    @map("concluida_em")
+  criadoEm        DateTime                     @default(now()) @map("criado_em")
+  atualizadoEm    DateTime                     @updatedAt @map("atualizado_em")
+
+  empresa     Empresa  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  solicitante Usuario  @relation("SolicitacaoCompraSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
+  aprovador   Usuario? @relation("SolicitacaoCompraAprovador", fields: [aprovadorId], references: [id], onDelete: SetNull)
+
+  itens   SolicitacaoCompraItem[]
+  compras Compra[]
+
+  @@index([empresaId])
+  @@index([status])
+  @@index([solicitanteId])
+  @@index([origemTipo, origemId])
+  @@index([criadoEm])
+  @@map("solicitacoes_compra")
+}
+
+model SolicitacaoCompraItem {
+  id                   Int                          @id @default(autoincrement())
+  scId                 Int                          @map("sc_id")
+  materialId           Int?                         @map("material_id")
+  descricao            String                       @db.VarChar(200)
+  unidade              String?                      @db.VarChar(20)
+  quantidadeSolicitada Decimal                      @map("quantidade_solicitada") @db.Decimal(14, 3)
+  quantidadeRecebida   Decimal                      @default(0) @map("quantidade_recebida") @db.Decimal(14, 3)
+  custoEstimado        Decimal?                     @map("custo_estimado") @db.Decimal(14, 2)
+  custoReal            Decimal?                     @map("custo_real") @db.Decimal(14, 2)
+  status               SolicitacaoCompraItem_status @default(PENDENTE)
+  observacoes          String?                      @db.VarChar(300)
+
+  sc       SolicitacaoCompra @relation(fields: [scId], references: [id], onDelete: Cascade)
+  material Material?         @relation(fields: [materialId], references: [id], onDelete: SetNull)
+
+  @@index([scId])
+  @@index([materialId])
+  @@index([status])
+  @@map("solicitacoes_compra_itens")
+}
+
 model Compra {
   id              Int           @id @default(autoincrement())
   fornecedorId    Int?          @map("fornecedor_id")
@@ -1972,12 +2087,14 @@ model Compra {
   criadoEm        DateTime      @default(now()) @map("criado_em")
   atualizadoEm    DateTime?     @updatedAt @map("atualizado_em")
   criadoPor       Int?          @map("criado_por")
-  purchaseOrderId Int?          @map("purchase_order_id")
+  purchaseOrderId       Int?          @map("purchase_order_id")
+  solicitacaoCompraId   Int?          @map("solicitacao_compra_id")
 
-  fornecedor    Fornecedor?    @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
-  projeto       Projeto?       @relation(fields: [projetoId], references: [id], onDelete: SetNull)
-  criador       Usuario?       @relation("CompraCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
-  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  fornecedor       Fornecedor?        @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
+  projeto          Projeto?           @relation(fields: [projetoId], references: [id], onDelete: SetNull)
+  criador          Usuario?           @relation("CompraCriador", fields: [criadoPor], references: [id], onDelete: SetNull)
+  purchaseOrder    PurchaseOrder?     @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  solicitacaoCompra SolicitacaoCompra? @relation(fields: [solicitacaoCompraId], references: [id], onDelete: SetNull)
 
   itens   CompraItem[]
   expense Expense? // Despesa gerada ao receber a compra
@@ -1987,6 +2104,7 @@ model Compra {
   @@index([status])
   @@index([dataCompra])
   @@index([purchaseOrderId])
+  @@index([solicitacaoCompraId])
   @@map("compras")
 }
 
@@ -2143,6 +2261,30 @@ enum Compra_status {
 enum CompraItem_tipo {
   MATERIAL
   EQUIPAMENTO
+}
+
+enum SolicitacaoCompra_status {
+  RASCUNHO
+  ENVIADA
+  APROVADA
+  PARCIALMENTE_RECEBIDA
+  CONCLUIDA
+  REJEITADA
+  CANCELADA
+}
+
+enum SolicitacaoCompra_origem {
+  MANUAL
+  PROJETO
+  OS
+  ALERTA_ESTOQUE
+}
+
+enum SolicitacaoCompraItem_status {
+  PENDENTE
+  PARCIAL
+  RECEBIDO
+  CANCELADO
 }
 
 // ============================================================================
@@ -3550,6 +3692,13 @@ model ServiceOrderMaterial {
   // Return tracking
   returnDestination ReturnDestination? @map("return_destination")
   refundAmount      Decimal?           @map("refund_amount") @db.Decimal(12, 2)
+  // Multi-UOM: embalagem fields (nullable for backwards compat)
+  embalagemId            Int?     @map("embalagem_id")
+  qtdEmbalagens          Decimal? @map("qtd_embalagens") @db.Decimal(12, 3)
+  embalagemBaseQtyAtTime Decimal? @map("embalagem_base_qty_at_time") @db.Decimal(14, 3)
+  embalagemPrecoAtTime   Decimal? @map("embalagem_preco_at_time") @db.Decimal(14, 2)
+  embalagemUnitAtTime    String?  @map("embalagem_unit_at_time") @db.VarChar(30)
+  embalagem      MaterialEmbalagem? @relation("ServiceOrderMaterialEmbalagem", fields: [embalagemId], references: [id], onDelete: SetNull)
 
   @@index([serviceOrderId])
   @@index([changeOrderId])
@@ -3558,6 +3707,7 @@ model ServiceOrderMaterial {
   @@index([status])
   @@index([serviceOrderId, flowStatus], name: "idx_somat_service_order_flow")
   @@index([name, unit])
+  @@index([embalagemId])
   @@map("service_order_materials")
 }
 
@@ -3665,6 +3815,7 @@ enum HistoryEventType {
   MATERIAL_RETURNED
   TECHNICIAN_ADDED
   TECHNICIAN_REMOVED
+  SC_CRIADA
 }
 
 // ============================================================================

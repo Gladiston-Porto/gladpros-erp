@@ -15,6 +15,12 @@ const addMaterialSchema = z.object({
     unitPrice: z.coerce.number().optional(),
     hasTax: z.boolean().optional().nullable(),
     taxRate: z.coerce.number().min(0).max(100).optional().nullable(), // percentage, e.g. 8.25
+    // Embalagem snapshot fields
+    embalagemId: z.coerce.number().int().positive().optional(),
+    qtdEmbalagens: z.coerce.number().int().positive().optional(),
+    embalagemBaseQtyAtTime: z.coerce.number().positive().optional(),
+    embalagemPrecoAtTime: z.coerce.number().positive().optional(),
+    embalagemUnitAtTime: z.string().optional(),
 });
 
 // GET /api/service-orders/[id]/materials - List materials
@@ -169,6 +175,13 @@ export const POST = withErrorHandler(async (request: Request,
                 status: initialStatus,
                 hasTax: validated.hasTax ?? null,
                 taxRate: validated.taxRate ?? null,
+                ...(validated.embalagemBaseQtyAtTime && {
+                    embalagemId: validated.embalagemId ?? null,
+                    qtdEmbalagens: validated.qtdEmbalagens,
+                    embalagemBaseQtyAtTime: validated.embalagemBaseQtyAtTime,
+                    embalagemPrecoAtTime: validated.embalagemPrecoAtTime,
+                    embalagemUnitAtTime: validated.embalagemUnitAtTime,
+                }),
             },
             include: {
                 Material: {
