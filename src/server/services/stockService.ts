@@ -94,6 +94,21 @@ export async function consumeMaterials(
         where: { serviceOrderId: orderId, status: 'RESERVED', materialId: { not: null } }
     });
 
+    // Pre-fetch unit costs to avoid N+1 and to populate SAIDA movements with cost data
+    const materialIds = materials.map(m => m.materialId!).filter((id, i, arr) => arr.indexOf(id) === i);
+    const materialCosts = await tx.material.findMany({
+        where: { id: { in: materialIds } },
+        select: { id: true, custoMedio: true, ultimoCusto: true },
+    });
+    const costMap = new Map(
+        materialCosts.map(m => [
+            m.id,
+            m.custoMedio !== null ? Number(m.custoMedio)
+              : m.ultimoCusto !== null ? Number(m.ultimoCusto)
+              : null,
+        ])
+    );
+
     for (const mat of materials) {
         const materialId = mat.materialId!;
         // Account for any partial consumption that already happened
@@ -115,6 +130,7 @@ export async function consumeMaterials(
                 materialId,
                 loteId: null,
                 quantidade: quantity,
+                custoUnitario: costMap.get(materialId) ?? null,
                 localizacaoOrigemId: localizacaoId,
                 localizacaoDestinoId: null,
                 projetoId: null,

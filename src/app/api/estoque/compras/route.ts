@@ -13,6 +13,7 @@ import { prisma } from '@/lib/prisma';
 import {
   successResponse,
   validationErrorResponse,
+  conflictResponse,
   withErrorHandler,
   getPaginationParams,
   getSortParams,
@@ -26,6 +27,7 @@ import {
 } from '@/lib/api';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
+import { recalcCustoMedio } from '@/server/services/materialCostService';
 
 export const dynamic = 'force-dynamic';
 
@@ -188,7 +190,8 @@ async function postHandler(request: NextRequest) {
       loteId: z.number().int().positive().optional(),
       quantidade: z.number().positive(),
       custoUnitario: z.number().positive()
-    })).min(1, 'A compra deve ter pelo menos 1 item')
+    })).min(1, 'A compra deve ter pelo menos 1 item'),
+    solicitacaoCompraId: z.number().int().positive().optional(),
   }).refine(
     (data) => {
       // Se receberAgora=true e tem itens MATERIAL, localizacaoDestinoId é obrigatório
@@ -276,7 +279,104 @@ async function postHandler(request: NextRequest) {
     }
   }
 
-  // 8. CRIAÇÃO (com transaction)
+  // 9. VALIDAÇÃO: NF única por fornecedor (anti-fraude)
+  if (dados.fornecedorId && dados.numeroNf) {
+    const nfDuplicada = await prisma.compra.findFirst({
+      where: {
+        fornecedorId: dados.fornecedorId,
+        numeroNf: dados.numeroNf,
+      },
+      select: { id: true }
+    });
+    if (nfDuplicada) {
+      return conflictResponse(
+        `NF ${dados.numeroNf} deste fornecedor já foi registrada (Compra #${nfDuplicada.id}). Verifique se não é uma duplicata.`
+      );
+    }
+  }
+
+  // 10. VALIDAÇÃO: SC vinculada (quando informada)
+  let scValidada: {
+    id: number;
+    status: string;
+    valorAprovado: unknown;
+    valorTotalGasto: unknown;
+    itens: Array<{ id: number; materialId: number | null; quantidadeSolicitada: unknown; quantidadeRecebida: unknown }>;
+    compras: Array<{ valorTotal: unknown }>;
+  } | null = null;
+
+  if (dados.solicitacaoCompraId) {
+    const sc = await prisma.solicitacaoCompra.findUnique({
+      where: { id: dados.solicitacaoCompraId },
+      include: {
+        itens: {
+          select: {
+            id: true,
+            materialId: true,
+            quantidadeSolicitada: true,
+            quantidadeRecebida: true,
+          }
+        },
+        compras: {
+          select: { valorTotal: true }
+        }
+      }
+    });
+
+    if (!sc) {
+      return validationErrorResponse([{
+        field: 'solicitacaoCompraId',
+        message: 'Solicitação de compra não encontrada'
+      }]);
+    }
+
+    if (sc.status !== 'APROVADA') {
+      return validationErrorResponse([{
+        field: 'solicitacaoCompraId',
+        message: `A SC precisa estar APROVADA para vincular uma compra. Status atual: ${sc.status}`
+      }]);
+    }
+
+    // Verificar budget disponível
+    const gastoAnterior = sc.compras.reduce((sum, c) => sum + Number(c.valorTotal), 0);
+    const disponivel = Number(sc.valorAprovado) - gastoAnterior;
+    if (dados.valorTotal > disponivel + 0.01) { // 1 cent de tolerância para arredondamento
+      return conflictResponse(
+        `Budget insuficiente na SC #${sc.id}. ` +
+        `Aprovado: $${Number(sc.valorAprovado).toFixed(2)}, ` +
+        `Já gasto: $${gastoAnterior.toFixed(2)}, ` +
+        `Disponível: $${disponivel.toFixed(2)}, ` +
+        `Esta compra: $${dados.valorTotal.toFixed(2)}`
+      );
+    }
+
+    // Verificar itens: cada material da compra deve estar autorizado na SC
+    const scMaterialIds = sc.itens.map(i => i.materialId).filter((id): id is number => id !== null);
+    for (const item of dados.itens) {
+      if (item.tipoItem === 'MATERIAL' && item.materialId) {
+        if (!scMaterialIds.includes(item.materialId)) {
+          return validationErrorResponse([{
+            field: 'itens',
+            message: `Material ID ${item.materialId} não está autorizado na SC #${sc.id}. Adicione o material à SC antes de comprar.`
+          }]);
+        }
+
+        // Verificar quantidade restante
+        const scItem = sc.itens.find(i => i.materialId === item.materialId);
+        if (scItem) {
+          const qtdRestante = Number(scItem.quantidadeSolicitada) - Number(scItem.quantidadeRecebida);
+          if (item.quantidade > qtdRestante + 0.001) {
+            return validationErrorResponse([{
+              field: 'itens',
+              message: `Quantidade do material ID ${item.materialId} excede o restante na SC (restante: ${qtdRestante.toFixed(3)})`
+            }]);
+          }
+        }
+      }
+    }
+
+    scValidada = sc;
+  }
   const compra = await prisma.$transaction(async (tx) => {
     // Cria compra
     const novaCompra = await tx.compra.create({
@@ -288,6 +388,7 @@ async function postHandler(request: NextRequest) {
         dataEntrega: dados.dataEntrega,
         tipo: dados.tipo,
         projetoId: dados.projetoId,
+        solicitacaoCompraId: dados.solicitacaoCompraId,
         valorTotal: dados.valorTotal,
         desconto: dados.desconto,
         frete: dados.frete,
@@ -333,14 +434,38 @@ async function postHandler(request: NextRequest) {
 
       // Processa cada item MATERIAL
       for (const item of dados.itens) {
-        if (item.tipoItem === 'MATERIAL' && item.materialId) {
-          // 1. Cria movimentação de ENTRADA
+        if (item.tipoItem === 'MATERIAL' && (item.materialId || item.materialEmbalagemId)) {
+          // Resolve custo por unidade base e quantidade em unidade base:
+          // - Se comprado via embalagem: custoUnitario é o preço por embalagem → divide por baseQtyPerUnit
+          //   e quantidade é em embalagens → multiplica por baseQtyPerUnit
+          // - Se comprado por unidade: já está em unidade base
+          let resolvedMaterialId = item.materialId;
+          let custoUnitarioBase = item.custoUnitario;
+          let qtyBase = item.quantidade;
+          if (item.materialEmbalagemId) {
+            const emb = await tx.materialEmbalagem.findUnique({
+              where: { id: item.materialEmbalagemId },
+              select: { baseQtyPerUnit: true, materialId: true }
+            });
+            if (emb) {
+              // Se materialId não veio no payload, resolve pelo embalagem
+              if (!resolvedMaterialId) resolvedMaterialId = emb.materialId;
+              if (Number(emb.baseQtyPerUnit) > 0) {
+                custoUnitarioBase = item.custoUnitario / Number(emb.baseQtyPerUnit);
+                qtyBase = item.quantidade * Number(emb.baseQtyPerUnit);
+              }
+            }
+          }
+          if (!resolvedMaterialId) continue; // skip se não conseguiu resolver
+
+          // 1. Cria movimentação de ENTRADA (quantidade em unidade base)
           await tx.materialMovimentacao.create({
             data: {
               tipo: 'ENTRADA',
-              materialId: item.materialId,
+              materialId: resolvedMaterialId,
               loteId: item.loteId || null,
-              quantidade: item.quantidade,
+              quantidade: qtyBase,
+              custoUnitario: custoUnitarioBase,
               localizacaoDestinoId: dados.localizacaoDestinoId!,
               localizacaoOrigemId: null,
               projetoId: dados.projetoId || null,
@@ -349,12 +474,12 @@ async function postHandler(request: NextRequest) {
             }
           });
 
-          // 2. Atualiza saldo na localização destino
+          // 2. Atualiza saldo na localização destino (quantidade em unidade base)
           // NOTE: loteId is nullable so we can't use Prisma upsert
           // (MySQL NULL != NULL in unique index). Use findFirst + update/create instead.
           const saldoExistente = await tx.materialSaldo.findFirst({
             where: {
-              materialId: item.materialId!,
+              materialId: resolvedMaterialId,
               loteId: item.loteId ?? null,
               localizacaoId: dados.localizacaoDestinoId!,
             },
@@ -363,28 +488,23 @@ async function postHandler(request: NextRequest) {
           if (saldoExistente) {
             await tx.materialSaldo.update({
               where: { id: saldoExistente.id },
-              data: { quantidade: { increment: item.quantidade } },
+              data: { quantidade: { increment: qtyBase } },
             });
           } else {
             await tx.materialSaldo.create({
               data: {
-                materialId: item.materialId!,
+                materialId: resolvedMaterialId,
                 localizacaoId: dados.localizacaoDestinoId!,
                 loteId: item.loteId ?? null,
-                quantidade: item.quantidade,
+                quantidade: qtyBase,
                 reservado: 0,
               },
             });
           }
 
-          // 3. Atualiza ultimoCusto e ultimaCompraEm no Material
-          await tx.material.update({
-            where: { id: item.materialId! },
-            data: {
-              ultimoCusto: item.custoUnitario,
-              ultimaCompraEm: new Date(),
-            },
-          });
+          // 3. Recalcula custo médio ponderado e atualiza ultimoCusto no Material
+          // MUST be called after the saldo update above so total stock reflects this receipt
+          await recalcCustoMedio(tx, resolvedMaterialId, qtyBase, custoUnitarioBase);
         }
       }
 
@@ -434,6 +554,55 @@ async function postHandler(request: NextRequest) {
             compraId: novaCompra.id,
             criadoPor: Number(user.id)
           }
+        });
+      }
+    }
+
+    // ========================================
+    // SC VINCULADA: atualizar itens + status
+    // ========================================
+    if (dados.solicitacaoCompraId && dados.receberAgora && scValidada) {
+      // Atualizar quantidadeRecebida de cada SCItem correspondente
+      for (const item of dados.itens) {
+        if (item.tipoItem === 'MATERIAL' && item.materialId) {
+          const scItem = scValidada.itens.find(i => i.materialId === item.materialId);
+          if (scItem) {
+            await tx.solicitacaoCompraItem.update({
+              where: { id: scItem.id },
+              data: {
+                quantidadeRecebida: { increment: item.quantidade },
+                status: 'RECEBIDO',
+              }
+            });
+          }
+        }
+      }
+
+      // Recalcular valorTotalGasto da SC
+      await tx.solicitacaoCompra.update({
+        where: { id: dados.solicitacaoCompraId },
+        data: { valorTotalGasto: { increment: dados.valorTotal } }
+      });
+
+      // Verificar se todos os itens foram completamente recebidos → CONCLUIDA
+      const itensAtualizados = await tx.solicitacaoCompraItem.findMany({
+        where: { scId: dados.solicitacaoCompraId },
+        select: { quantidadeSolicitada: true, quantidadeRecebida: true }
+      });
+      const todosConcluidos = itensAtualizados.every(
+        i => Number(i.quantidadeRecebida) >= Number(i.quantidadeSolicitada) - 0.001
+      );
+      const algumRecebido = itensAtualizados.some(i => Number(i.quantidadeRecebida) > 0);
+
+      if (todosConcluidos) {
+        await tx.solicitacaoCompra.update({
+          where: { id: dados.solicitacaoCompraId },
+          data: { status: 'CONCLUIDA', concluidaEm: new Date() }
+        });
+      } else if (algumRecebido) {
+        await tx.solicitacaoCompra.update({
+          where: { id: dados.solicitacaoCompraId },
+          data: { status: 'PARCIALMENTE_RECEBIDA' }
         });
       }
     }

@@ -85,8 +85,8 @@ async function handler(request: NextRequest) {
     'nome',
     'codigo',
     'descricao',
-    'marca',
-    'referencia'
+    'fabricante',
+    'modelo',
   ]);
   
   // 7. WHERE FINAL
@@ -102,6 +102,16 @@ async function handler(request: NextRequest) {
       include: {
         unidade: true,
         categoria: true,
+        embalagens: {
+          where: { ativo: true },
+          select: {
+            id: true,
+            packageType: true,
+            baseQtyPerUnit: true,
+            precoCompra: true,
+            purchaseUnit: true,
+          },
+        },
         _count: {
           select: {
             lotes: true,
@@ -134,7 +144,14 @@ async function handler(request: NextRequest) {
     return {
       ...material,
       saldoTotal,
-      abaixoMinimo: saldoTotal < (material.estoqueMinimo ?? 0)
+      abaixoMinimo: saldoTotal < (material.estoqueMinimo ?? 0),
+      embalagens: (material.embalagens ?? []).map((e: any) => ({
+        id: e.id,
+        packageType: e.packageType,
+        baseQtyPerUnit: Number(e.baseQtyPerUnit),
+        precoCompra: e.precoCompra != null ? Number(e.precoCompra) : null,
+        purchaseUnit: e.purchaseUnit ?? 'EA',
+      })),
     };
   });
   
@@ -198,6 +215,7 @@ async function postHandler(request: NextRequest) {
       fornecedorNome?: string;
       numeroNf?: string;
       dataCompra?: string;
+      notaFiscalUrl?: string;
     } | undefined;
 
     // Derive barcode from codigo
@@ -299,6 +317,7 @@ async function postHandler(request: NextRequest) {
           dataCompra,
           fornecedorId,
           numeroNf: compraInput?.numeroNf?.trim() ?? null,
+          notaFiscalUrl: compraInput?.notaFiscalUrl ?? null,
           valorTotal: totalCompra,
           criadoPor: Number(user.id),
         },
@@ -357,10 +376,43 @@ async function postHandler(request: NextRequest) {
       await tx.material.update({
         where: { id: material.id },
         data: {
+          // On first purchase: custoMedio = ultimoCusto (no prior stock to average with)
+          custoMedio: custoUnitario > 0 ? custoUnitario : undefined,
           ultimoCusto: custoUnitario > 0 ? custoUnitario : undefined,
           ultimaCompraEm: new Date(),
         },
       });
+
+      // 9. Create Expense in financeiro so the purchase appears in financial module
+      if (totalCompra > 0) {
+        const empresa = await tx.empresa.findFirst({ where: { ativo: true } });
+        if (empresa) {
+          let categoria = await tx.expenseCategory.findFirst({
+            where: { empresaId: empresa.id, nome: { contains: 'Compra' } },
+          });
+          if (!categoria) {
+            categoria = await tx.expenseCategory.create({
+              data: { empresaId: empresa.id, nome: 'Compras de Estoque', cor: '#F59E0B' },
+            });
+          }
+          await tx.expense.create({
+            data: {
+              empresaId: empresa.id,
+              categoriaId: categoria.id,
+              fornecedorId: fornecedorId ?? null,
+              descricao: `Entrada: ${validated.nome}${compraInput?.numeroNf ? ` (NF ${compraInput.numeroNf})` : ''}`,
+              valor: totalCompra,
+              tipo: 'FORNECEDORES',
+              formaPagamento: 'BOLETO',
+              status: 'PENDENTE',
+              dataEmissao: dataCompra,
+              dataVencimento: dataCompra,
+              compraId: compra.id,
+              criadoPor: Number(user.id),
+            },
+          });
+        }
+      }
 
       return { material, compra };
     });

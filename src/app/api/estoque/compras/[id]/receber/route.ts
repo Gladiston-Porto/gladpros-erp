@@ -22,6 +22,7 @@ import {
 import { ApiErrorCode } from '@/lib/api/types';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
+import { recalcCustoMedio } from '@/server/services/materialCostService';
 
 /**
  * POST /api/estoque/compras/[id]/receber
@@ -153,9 +154,16 @@ async function handler(
 
         // Calcula quantidade base (conversão se veio por embalagem)
         let qtyBase = itemReceber.quantidadeRecebida;
+        let custoUnitarioBase: number | null = null;
         if (item.materialEmbalagem && item.materialEmbalagem.baseQtyPerUnit) {
           // Converte: quantidade recebida × baseQtyPerUnit
           qtyBase = itemReceber.quantidadeRecebida * Number(item.materialEmbalagem.baseQtyPerUnit);
+          // Converte custo por embalagem → custo por unidade base
+          if (item.custoUnitario) {
+            custoUnitarioBase = Number(item.custoUnitario) / Number(item.materialEmbalagem.baseQtyPerUnit);
+          }
+        } else if (item.custoUnitario) {
+          custoUnitarioBase = Number(item.custoUnitario);
         }
 
         // Cria lote se informado
@@ -177,6 +185,7 @@ async function handler(
             materialId: materialIdFinal,
             tipo: 'ENTRADA',
             quantidade: qtyBase, // Quantidade em unidade base
+            custoUnitario: custoUnitarioBase, // Custo por unidade base
             localizacaoDestinoId: itemReceber.localizacaoId,
             loteId,
             compraId: id,
@@ -216,6 +225,12 @@ async function handler(
               reservado: 0
             }
           });
+        }
+
+        // Recalcula custo médio ponderado e atualiza ultimoCusto no Material
+        // MUST be called after saldo update so aggregate reflects this receipt
+        if (custoUnitarioBase !== null && custoUnitarioBase > 0) {
+          await recalcCustoMedio(tx, materialIdFinal, qtyBase, custoUnitarioBase);
         }
       }
 
