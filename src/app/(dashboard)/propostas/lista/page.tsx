@@ -62,6 +62,8 @@ export default function PropostasPage() {
           ? payload
           : payload.data || payload.clients || [];
         setClientes(
+           
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           list.map((cliente: any) => ({
             id: String(cliente.id),
             nome:
@@ -114,7 +116,9 @@ export default function PropostasPage() {
           throw new Error(`Erro ${response.status}`);
         }
 
+         
         const payload = await response.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const items: PropostaDTO[] = (payload.data || []).map((proposta: any) => ({
           id: String(proposta.id),
           numeroProposta: proposta.numeroProposta || "",

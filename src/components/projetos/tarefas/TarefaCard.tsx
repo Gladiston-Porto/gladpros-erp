@@ -5,8 +5,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { Calendar, Clock, Flag, User } from 'lucide-react';
 import { Badge } from "@gladpros/ui/badge";
 import { Card, CardContent } from "@gladpros/ui/card";
-import { format, isPast, isToday, differenceInDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { isPast, isToday, differenceInDays } from 'date-fns';
+import {  } from 'date-fns/locale';
 
 type Tarefa = {
   id: number;

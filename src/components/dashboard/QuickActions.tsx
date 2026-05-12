@@ -35,9 +35,17 @@ const ACTIONS = [
 
 export const QuickActions = memo(function QuickActions(props: QuickActionsProps) {
   const cbs = {
+     
+     
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     onNewProposal: useCallback(() => props.onNewProposal?.(), [props.onNewProposal]),
+     
+     
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     onNewClient:   useCallback(() => props.onNewClient?.(),   [props.onNewClient]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     onViewReports: useCallback(() => props.onViewReports?.(), [props.onViewReports]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     onSettings:    useCallback(() => props.onSettings?.(),    [props.onSettings]),
   };
 

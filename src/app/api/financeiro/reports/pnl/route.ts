@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid period. Use: annual, quarterly, monthly", success: false }, { status: 400 })
     }
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = await generatePnLReport({ empresaId: (user as any).empresaId ?? 1, taxYear: year, period })
 
     if (format === "excel") {

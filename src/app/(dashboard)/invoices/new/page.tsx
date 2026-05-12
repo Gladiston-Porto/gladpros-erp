@@ -134,6 +134,8 @@ export default function NewInvoicePage() {
     setItens((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateItem = (index: number, field: keyof InvoiceFormItem, value: any) => {
     setItens((current) =>
       current.map((item, itemIndex) =>
@@ -174,7 +176,9 @@ export default function NewInvoicePage() {
 
       const invoice = await invoicesApi.createInvoice(payload);
       showSuccess('Invoice criada com sucesso!');
+       
       router.push(`/invoices/${invoice.id}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Erro ao criar invoice:', error);
       showError('Erro ao criar invoice', error.message || 'Tente novamente');

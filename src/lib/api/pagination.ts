@@ -29,6 +29,8 @@ export interface SortParams {
  */
 export interface SearchParams {
   search?: string;
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   filters?: Record<string, any>;
 }
 
@@ -85,7 +87,9 @@ export function getSearchParams(request: NextRequest): SearchParams {
   
   const search = searchParams.get('search') || undefined;
   
+   
   // Extrai filtros customizados
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filters: Record<string, any> = {};
   searchParams.forEach((value, key) => {
     // Ignora parâmetros reservados
@@ -115,8 +119,10 @@ export function createPrismaOrderBy(sortParams: SortParams): Record<string, 'asc
  * Cria objeto Prisma where para busca por texto
  */
 export function createTextSearchWhere(
+   
   search: string | undefined,
   fields: string[]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
   if (!search || !fields.length) return {};
   
@@ -131,9 +137,13 @@ export function createTextSearchWhere(
   };
 }
 
+ 
+ 
 /**
  * Mescla múltiplos where conditions com AND
  */
+ 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mergeWhereConditions(...conditions: any[]): any {
   const validConditions = conditions.filter(c => c && Object.keys(c).length > 0);
   

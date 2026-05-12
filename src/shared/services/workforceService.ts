@@ -53,6 +53,8 @@ export interface MarkPayableAsPaidParams {
 /**
  * Busca empresaId do contexto do usuário
  */
+ 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function getEmpresaIdFromContext(userId: number): Promise<number> {
     // Usuario doesn't have empresaId — fallback to first Empresa
     const empresa = await prisma.empresa.findFirst();
@@ -427,12 +429,18 @@ export async function markPayableAsPaid(params: MarkPayableAsPaidParams) {
                 empresaId,
                 categoriaId,
                 descricao: `Pagamento Worker: ${payable.worker.name}`,
+                 
                 valor: payable.totalAmount,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 tipo: 'SERVI\u00c7OS' as any,
                 dataEmissao: new Date(),
+                 
                 dataVencimento: new Date(),
+                 
                 dataPagamento: new Date(),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 status: 'PAGA' as any,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formaPagamento: paymentMethod as any,
                 observacoes: `Payable #${payable.id} | Worker #${payable.workerId} | Ref: ${paymentRef || 'N/A'}`
             }

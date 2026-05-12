@@ -15,9 +15,6 @@ import {
   Building2,
   User,
   Hash,
-  DollarSign,
-  Briefcase,
-  ClipboardList,
 } from "lucide-react";
 
 const AVATAR_BG_CLASSES = [

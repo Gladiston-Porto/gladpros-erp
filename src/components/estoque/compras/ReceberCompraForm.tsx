@@ -8,8 +8,8 @@ import { z } from 'zod';
 import { Button } from '@gladpros/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@gladpros/ui/card'
 import { useToast } from '@gladpros/ui/toast';
-import { Package, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
-import { formatCurrency } from '@/lib/estoque/utils/formatters';
+import { Package, Save, AlertTriangle } from 'lucide-react';
+import {  } from '@/lib/estoque/utils/formatters';
 
 // Schema para validação
 const receberCompraSchema = z.object({
@@ -78,9 +78,15 @@ export function ReceberCompraForm({ compra, localizacoes }: ReceberCompraFormPro
         control,
         handleSubmit,
         formState: { errors },
+         
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         setValue
+     
     } = useForm<ReceberCompraFormData>({
+         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(receberCompraSchema) as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         defaultValues: defaultValues as any // Casting to avoid complex type mismatch inference issues between Zod and RHF types
     });
 

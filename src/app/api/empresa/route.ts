@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireUser, requireRoles } from '@/shared/lib/rbac';
+import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { z } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';

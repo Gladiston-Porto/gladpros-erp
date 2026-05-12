@@ -178,6 +178,7 @@ export default async function EquipamentoDetalhesPage({ params }: PageProps) {
             <div>
               <span className="text-sm text-muted-foreground">Status:</span>
               <div className="mt-1">
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 <Badge variant={STATUS_COLORS[equipamento.status] as any}>
                   {equipamento.status.replace(/_/g, ' ')}
                 </Badge>

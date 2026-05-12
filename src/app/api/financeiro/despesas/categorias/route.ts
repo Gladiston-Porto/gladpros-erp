@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createExpenseCategorySchema } from '@/schemas/expense.schema';
-import { ZodError } from 'zod';
+import {  } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
@@ -33,6 +33,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       }, { status: 400 });
     }
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       empresaId: parseInt(empresaId)
     };

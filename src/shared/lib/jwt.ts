@@ -5,6 +5,8 @@ function getSecret() {
   if (!secretRaw) throw new Error("Missing JWT_SECRET")
   if (secretRaw.length < 32) throw new Error("JWT_SECRET must be at least 32 characters")
   if (process.env.DEBUG_AUTH === '1') {
+     
+    // eslint-disable-next-line no-console
     console.log(`[JWT] Initialized with secret length: ${secretRaw.length}`)
   }
   return new TextEncoder().encode(secretRaw)
@@ -19,7 +21,9 @@ export async function signAuthJWT(payload: { sub: string; role: Role; email?: st
   const body: Record<string, unknown> = { role: payload.role, status: payload.status, tokenVersion: payload.tokenVersion };
   if (payload.email) body.email = payload.email;
   
+   
   if (process.env.DEBUG_AUTH === '1' && process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
     console.log(`[JWT] Signing token for sub=${payload.sub}`)
   }
 

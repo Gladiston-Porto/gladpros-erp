@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 import { POST } from '../../../app/api/auth/forgot-password/route'
 import { NextRequest } from 'next/server'
 

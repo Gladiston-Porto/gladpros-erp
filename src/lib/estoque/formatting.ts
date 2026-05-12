@@ -12,7 +12,8 @@ import { UNIDADES_COMUNS } from './constants';
 export function formatQuantidade(quantidade: number, unidadeSigla: string): string {
   // Encontrar nome da unidade
   const unidade = UNIDADES_COMUNS.find(u => u.sigla === unidadeSigla);
-  const unidadeNome = unidade?.nome || unidadeSigla;
+   
+  const _unidadeNome = unidade?.nome || unidadeSigla;
   
   // Formatação baseada na unidade
   let qtdFormatada: string;

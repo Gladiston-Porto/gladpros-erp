@@ -9,7 +9,11 @@ import {
 
 // Mock console.log to capture output
 let logOutput = [];
+ 
+ 
+// eslint-disable-next-line no-console
 const originalLog = console.log;
+// eslint-disable-next-line no-console
 console.log = (...args) => {
   logOutput.push(args.join(' '));
 };
@@ -19,7 +23,10 @@ describe('GitHub Status Checker', () => {
     logOutput = [];
   });
 
+ 
+
   afterAll(() => {
+    // eslint-disable-next-line no-console
     console.log = originalLog;
   });
 

@@ -42,6 +42,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         }
 
         const categorias = await prisma.categoria.findMany({
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             where: tipo ? { tipo: tipo as any } : undefined,
             orderBy: { nome: 'asc' },
             include: {
@@ -101,7 +103,9 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
         const categoria = await prisma.categoria.create({
             data: {
+                 
                 nome,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 tipo: tipo as any,
                 prefixo: prefixo?.toUpperCase() || null,
                 paiId: paiId || null,

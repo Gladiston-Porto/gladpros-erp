@@ -53,6 +53,8 @@ export interface AppUser {
   avatarUrl?: string;
 }
 
+ 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface ApiResponse<T = any> {
   ok: boolean;
   data?: T;

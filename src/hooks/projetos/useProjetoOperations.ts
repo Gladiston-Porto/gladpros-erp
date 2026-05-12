@@ -207,6 +207,8 @@ export function useProjetoOperations({
 
   // Listar etapas do projeto
   const listEtapas = useCallback(
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async (projetoId: number): Promise<any[]> => {
       setFetching(true);
       try {
@@ -230,7 +232,11 @@ export function useProjetoOperations({
   );
 
   // Criar etapa
+   
+   
   const createEtapa = useCallback(
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async (projetoId: number, data: any): Promise<any> => {
       setLoading(true);
       try {
@@ -261,8 +267,14 @@ export function useProjetoOperations({
     [onSuccess, onError]
   );
 
+ 
+
+ 
+
   // Atualizar etapa
   const updateEtapa = useCallback(
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async (projetoId: number, etapaId: number, data: any): Promise<any> => {
       setLoading(true);
       try {

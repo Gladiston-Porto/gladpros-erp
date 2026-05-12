@@ -59,6 +59,8 @@ export function SCReconciliacaoPanel({
   status,
   valorAprovado,
   valorTotalGasto,
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   valorEstimado,
   canReconciliar,
 }: Props) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { InventoryMovementService } from '@/domains/projects/services/inventory-movement.service'
 import { requireProjectPermission } from '@/shared/lib/rbac-projects'
-import { ZodError, z } from 'zod'
+import { z } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
 
 export const runtime = "nodejs"

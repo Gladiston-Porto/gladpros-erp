@@ -9,7 +9,6 @@ import {
   ETAPA_STATUS,
   TAREFA_STATUS,
   TAREFA_PRIORIDADE,
-  MATERIAL_STATUS,
 } from './constants';
 
 // Schema de Projeto

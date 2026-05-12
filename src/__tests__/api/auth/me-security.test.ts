@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 import { PATCH } from '../../../app/api/auth/me/security/route'
 import { NextRequest } from 'next/server'
 

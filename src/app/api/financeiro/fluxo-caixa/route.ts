@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import {  } from "@prisma/client";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
@@ -28,6 +28,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     }
     const { searchParams } = new URL(request.url);
     
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const empresaId = (user as any).empresaId ?? 1;
     const incluirProjecao = searchParams.get("incluirProjecao") !== "false";
     const diasProjecao = searchParams.get("diasProjecao") ? Number(searchParams.get("diasProjecao")) : 30;

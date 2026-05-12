@@ -117,6 +117,8 @@ export function CategoriaList({ tipo }: CategoriaListProps) {
             } else {
                 throw new Error('Erro ao excluir');
             }
+         
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (error) {
             toast({ title: 'Erro', description: 'Erro ao excluir categoria.', variant: 'destructive' });
         }

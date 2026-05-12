@@ -19,6 +19,8 @@ type ServiceOrderClientSectionProps = {
 };
 
 export function ServiceOrderClientSection({
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   clients,
   filteredClients,
   form,

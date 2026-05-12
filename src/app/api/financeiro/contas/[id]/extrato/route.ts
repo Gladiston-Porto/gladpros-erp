@@ -91,6 +91,8 @@ export const GET = withErrorHandler(async (request: NextRequest,
     }
     
     // Build where clause
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = { accountId };
     
     if (validatedFilters.tipo) {
@@ -187,7 +189,9 @@ export const GET = withErrorHandler(async (request: NextRequest,
       })
     ]);
     
+     
     // Agrupa resumo por tipo
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resumoPorTipo = resumo.reduce((acc: any, item) => {
       acc[item.tipo] = {
         total: item._sum.valor || 0,

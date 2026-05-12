@@ -23,7 +23,6 @@ import {
   Clock,
   DollarSign,
   Calendar,
-  FileText,
   User,
   Building2,
   Package,
@@ -191,6 +190,8 @@ export default function DespesaDetalhesPage() {
   };
 
   const getStatusBadge = (status: string) => {
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const badges: Record<string, { color: string; icon: any; label: string }> = {
       PENDENTE: { color: 'bg-muted text-foreground', icon: Clock, label: 'Pendente' },
       AGUARDANDO_APROVACAO: { color: 'bg-yellow-100 text-yellow-700', icon: AlertTriangle, label: 'Aguardando Aprovação' },

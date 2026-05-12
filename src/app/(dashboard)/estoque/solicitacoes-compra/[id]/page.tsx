@@ -55,7 +55,7 @@ export default async function SolicitacaoCompraDetailPage({ params }: Props) {
   const canViewAll = can(user.role as Role, 'financeiro', 'read');
   if (!canViewAll && sc.solicitanteId !== Number(user.id)) redirect('/403');
 
-  const canApprove = can(user.role as Role, 'financeiro', 'write');
+  const canApprove = can(user.role as Role, 'financeiro', 'update');
   const canReconciliar = can(user.role as Role, 'financeiro', 'read');
   const showReconciliar = ['CONCLUIDA', 'PARCIALMENTE_RECEBIDA'].includes(sc.status);
 

@@ -84,12 +84,16 @@ export async function rotateKey(
   force: boolean = false
 ): Promise<RotationResult> {
   if (shouldDebugKms()) {
+     
+    // eslint-disable-next-line no-console
     console.log(`[KMS Rotation] Starting rotation for ${keyType}...`);
   }
   
   // 1. Obter chave atual
   const currentKey = await getActiveKey(keyType);
+   
   if (shouldDebugKms()) {
+    // eslint-disable-next-line no-console
     console.log(`[KMS Rotation] Current key: v${currentKey.version}`);
   }
   
@@ -109,8 +113,10 @@ export async function rotateKey(
     }
   }
   
+   
   // 3. Criar nova chave
   if (shouldDebugKms()) {
+    // eslint-disable-next-line no-console
     console.log(`[KMS Rotation] Creating new key version...`);
   }
   const newKey = await createKey(
@@ -118,18 +124,22 @@ export async function rotateKey(
     currentKey.algorithm,
     currentKey.keyLength,
     userId,
+     
     reason
   );
   if (shouldDebugKms()) {
+    // eslint-disable-next-line no-console
     console.log(`[KMS Rotation] New key created: v${newKey.version}`);
   }
   
   // 4. Demotar chave atual para READ_ONLY
   const config = ROTATION_CONFIG[keyType];
+   
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + config.graceDays);
   
   if (shouldDebugKms()) {
+    // eslint-disable-next-line no-console
     console.log(`[KMS Rotation] Demoting old key to READ_ONLY (expires: ${expiresAt.toISOString()})...`);
   }
   await prisma.encryptionKey.update({
@@ -138,11 +148,13 @@ export async function rotateKey(
       status: 'READ_ONLY',
       expiraEm: expiresAt,
       retiradoEm: null
+     
     }
   });
   
   // 5. Promover nova chave para ACTIVE
   if (shouldDebugKms()) {
+    // eslint-disable-next-line no-console
     console.log(`[KMS Rotation] Promoting new key to ACTIVE...`);
   }
   await prisma.encryptionKey.update({
@@ -167,12 +179,14 @@ export async function rotateKey(
     context: {
       operation: 'ROTATE',
       entityType: 'EncryptionKey',
+       
       entityId: currentKey.id,
       userId
     }
   });
   
   if (shouldDebugKms()) {
+    // eslint-disable-next-line no-console
     console.log(`[KMS Rotation] ✅ Rotation complete: v${currentKey.version} → v${newKey.version}`);
   }
   
@@ -209,6 +223,7 @@ async function checkIfRotationNeeded(
   if (!key || !key.ativadoEm) return false;
   
   const config = ROTATION_CONFIG[keyType];
+   
   const daysSinceActivation = Math.floor(
     (Date.now() - key.ativadoEm.getTime()) / (1000 * 60 * 60 * 24)
   );
@@ -216,10 +231,13 @@ async function checkIfRotationNeeded(
   // Verificar idade
   if (daysSinceActivation >= config.rotationDays) {
     if (shouldDebugKms()) {
+      // eslint-disable-next-line no-console
       console.log(`[KMS Rotation] Key is ${daysSinceActivation} days old (threshold: ${config.rotationDays})`);
     }
     return true;
   }
+  
+ 
   
   // Verificar uso excessivo
   const usageCount = await prisma.keyUsageAudit.count({
@@ -228,12 +246,14 @@ async function checkIfRotationNeeded(
   
   if (usageCount >= 1_000_000) {
     if (shouldDebugKms()) {
+      // eslint-disable-next-line no-console
       console.log(`[KMS Rotation] Key has ${usageCount} operations (threshold: 1M)`);
     }
     return true;
   }
   
   return false;
+ 
 }
 
 /**
@@ -243,6 +263,7 @@ async function checkIfRotationNeeded(
  */
 async function checkReEncryptionNeeded(
   keyType: KeyType,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   oldVersion: number
 ): Promise<boolean> {
   // Para DOC_ENCRYPTION, verificar se há clientes com dados encriptados
@@ -276,6 +297,7 @@ async function checkReEncryptionNeeded(
  * - Documentos existentes continuam decriptáveis (chave antiga permanece em status RETIRED)
  * - Novos documentos são encriptados com a nova chave via ENCRYPTION_KEY env var
  *
+ // eslint-disable-next-line @typescript-eslint/no-unused-vars
  * @param keyType - Tipo de chave
  * @param oldVersion - Versão antiga
  * @param newVersion - Versão nova
@@ -286,6 +308,7 @@ export async function reEncryptData(
   keyType: KeyType,
   oldVersion: number,
   newVersion: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   batchSize: number = 100
 ): Promise<number> {
   if (keyType !== 'DOC_ENCRYPTION') {
@@ -300,6 +323,7 @@ export async function reEncryptData(
     `Consulte docs/security/VUL-004-CONCLUSAO-FINAL.md para o plano de implementação.`
   );
 
+   
   return 0;
 }
 
@@ -311,9 +335,11 @@ export async function reEncryptData(
  * @returns Número de chaves retiradas
  */
 export async function retireExpiredKeys(): Promise<number> {
+  // eslint-disable-next-line no-console
   console.log('[KMS Cleanup] Retiring expired keys...');
   
   const result = await prisma.encryptionKey.updateMany({
+     
     where: {
       status: 'READ_ONLY',
       expiraEm: {
@@ -326,6 +352,8 @@ export async function retireExpiredKeys(): Promise<number> {
     }
   });
   
+   
+  // eslint-disable-next-line no-console
   console.log(`[KMS Cleanup] ✅ Retired ${result.count} keys`);
   return result.count;
 }
@@ -338,6 +366,7 @@ export async function retireExpiredKeys(): Promise<number> {
  * @returns Número de chaves arquivadas
  */
 export async function archiveOldKeys(): Promise<number> {
+  // eslint-disable-next-line no-console
   console.log('[KMS Cleanup] Archiving old retired keys...');
   
   let totalArchived = 0;
@@ -348,10 +377,12 @@ export async function archiveOldKeys(): Promise<number> {
     
     const result = await prisma.encryptionKey.updateMany({
       where: {
+         
         keyType: keyType as KeyType,
         status: 'RETIRED',
         retiradoEm: {
           lt: thresholdDate
+         
         }
       },
       data: {
@@ -362,14 +393,17 @@ export async function archiveOldKeys(): Promise<number> {
     totalArchived += result.count;
     
     if (result.count > 0) {
+      // eslint-disable-next-line no-console
       console.log(`[KMS Cleanup] Archived ${result.count} ${keyType} keys`);
     }
   }
   
+  // eslint-disable-next-line no-console
   console.log(`[KMS Cleanup] ✅ Total archived: ${totalArchived} keys`);
   return totalArchived;
 }
 
+ 
 /**
  * Agenda rotação automática de todas as chaves
  * 
@@ -386,11 +420,15 @@ export async function scheduleAutomaticRotations(
   skipped: string[];
   errors: Array<{ keyType: string; error: string }>;
 }> {
+  // eslint-disable-next-line no-console
   console.log('[KMS Auto-Rotation] Starting automatic rotation check...');
   
+   
   const rotated: string[] = [];
   const skipped: string[] = [];
   const errors: Array<{ keyType: string; error: string }> = [];
+  
+ 
   
   const keyTypes: KeyType[] = ['JWT_SIGNING', 'DOC_ENCRYPTION', 'SESSION', 'BACKUP'];
   
@@ -400,14 +438,21 @@ export async function scheduleAutomaticRotations(
         keyType,
         'Automatic scheduled rotation',
         userId,
+         
         false // Não forçar - só rotacionar se necessário
+       
       );
       
+ 
+      
+       
       if (result.success) {
         rotated.push(keyType);
+        // eslint-disable-next-line no-console
         console.log(`[KMS Auto-Rotation] ✅ ${keyType}: v${result.oldVersion} → v${result.newVersion}`);
       } else {
         skipped.push(keyType);
+        // eslint-disable-next-line no-console
         console.log(`[KMS Auto-Rotation] ⏭️ ${keyType}: ${result.message}`);
       }
     } catch (error) {
@@ -417,9 +462,14 @@ export async function scheduleAutomaticRotations(
     }
   }
   
+  // eslint-disable-next-line no-console
   console.log('[KMS Auto-Rotation] ✅ Complete');
+  // eslint-disable-next-line no-console
   console.log(`  Rotated: ${rotated.length}`);
+   
+  // eslint-disable-next-line no-console
   console.log(`  Skipped: ${skipped.length}`);
+  // eslint-disable-next-line no-console
   console.log(`  Errors: ${errors.length}`);
   
   return { rotated, skipped, errors };
@@ -441,8 +491,14 @@ export async function performMaintenance(userId?: number): Promise<{
   rotationResult: Awaited<ReturnType<typeof scheduleAutomaticRotations>>;
   auditCleaned: number;
 }> {
+   
+   
+  // eslint-disable-next-line no-console
   console.log('[KMS Maintenance] Starting daily maintenance...');
   
+ 
+  
+   
   // 1. Retire expired keys
   const retired = await retireExpiredKeys();
   
@@ -464,9 +520,13 @@ export async function performMaintenance(userId?: number): Promise<{
     }
   });
   
+  // eslint-disable-next-line no-console
   console.log(`[KMS Maintenance] ✅ Complete`);
+  // eslint-disable-next-line no-console
   console.log(`  Retired: ${retired}`);
+  // eslint-disable-next-line no-console
   console.log(`  Archived: ${archived}`);
+  // eslint-disable-next-line no-console
   console.log(`  Audit cleaned: ${auditResult.count}`);
   
   return {

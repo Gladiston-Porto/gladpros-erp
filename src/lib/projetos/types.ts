@@ -256,6 +256,8 @@ export interface ProjetoHistorico {
   projetoId: number;
   usuarioId: number;
   acao: string;
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   detalhes: Record<string, any>;
   criadoEm: string;
   

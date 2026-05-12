@@ -44,11 +44,15 @@ export async function EquipamentoList({ searchParams }: EquipamentoListProps) {
 
   // Filtro por tipo
   if (params.tipo) {
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     where.tipo = params.tipo as any;
   }
 
   // Filtro por status
+   
   if (params.status) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     where.status = params.status as any;
   }
 

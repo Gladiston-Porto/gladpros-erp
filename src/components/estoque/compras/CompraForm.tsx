@@ -139,6 +139,8 @@ export function CompraForm({
     const nfFileRef = useRef<HTMLInputElement>(null);
 
     const form = useForm<FormData>({
+         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(compraSchema) as any,
         defaultValues: {
             dataCompra: new Date().toISOString().split('T')[0],
@@ -212,7 +214,9 @@ export function CompraForm({
             if (!res.ok) throw new Error(result.message || 'Erro no upload');
             form.setValue('notaFiscalUrl', result.data.url);
             setNfFileName(file.name);
+             
             toast({ title: 'NF anexada', description: 'Nota fiscal enviada com sucesso.' });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             toast({ title: 'Erro no upload', description: err.message, variant: 'destructive' });
         } finally {
@@ -243,8 +247,10 @@ export function CompraForm({
                     : 'Compra criada com status pendente.',
             });
 
+             
             router.push('/estoque/compras');
             router.refresh();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             toast({
                 title: 'Erro',

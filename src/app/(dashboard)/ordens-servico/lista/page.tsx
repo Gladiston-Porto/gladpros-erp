@@ -59,7 +59,8 @@ function StatusBadge({ status }: { status: ServiceOrderStatus }) {
 }
 
 // ─── Sortable th ──────────────────────────────────────────────────────────
-function Th({ label, sortKey: key, currentKey, currentDir, onSort }: {
+ 
+function Th({ label, sortKey: key, currentKey, currentDir: _currentDir, onSort }: {
   label: string;
   sortKey: SortKey;
   currentKey: SortKey;

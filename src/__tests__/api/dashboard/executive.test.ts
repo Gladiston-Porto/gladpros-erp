@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 /**
  * Testes unitários — GET /api/dashboard/executive
  * Cobertura: auth, RBAC, happy path, cache, erro interno.
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Projeto_status } from '@prisma/client';
 
 jest.mock('next/server', () => ({

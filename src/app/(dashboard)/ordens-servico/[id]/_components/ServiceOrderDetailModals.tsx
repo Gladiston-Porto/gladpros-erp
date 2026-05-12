@@ -361,6 +361,8 @@ export function ServiceOrderDetailModals({
     consumeQty,
     editForm,
     externalMaterial,
+     
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     externalOrderMaterials,
     filteredStockMaterials,
     formatCurrency,

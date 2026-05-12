@@ -16,6 +16,8 @@ export async function forgotPasswordStub(_payload?: { email: string }) {
   await delay(200);
   // no-op use to avoid unused var warning in lint
   if (_payload?.email && process.env.NODE_ENV === 'test') {
+     
+    // eslint-disable-next-line no-console
     console.log('[stub] forgot password for', _payload.email);
   }
   return { ok: true, status: 200 };

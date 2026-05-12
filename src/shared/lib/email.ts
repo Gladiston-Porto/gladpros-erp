@@ -86,6 +86,8 @@ export class EmailService {
       });
 
       if (shouldDebugEmail()) {
+         
+        // eslint-disable-next-line no-console
         console.log('[Email] Transporter configurado (sem pool, resiliente a falhas temporárias)');
       }
       this.isInitialized = true;
@@ -248,13 +250,27 @@ export class EmailService {
     try {
       if (process.env.NODE_ENV === 'development' && !process.env.SMTP_USER) {
         // Modo desenvolvimento - log no console
+         
         if (shouldDebugEmail()) {
+           
+           
+          // eslint-disable-next-line no-console
           console.log('\n📧 [EMAIL DEV MODE]');
+           
+           
+          // eslint-disable-next-line no-console
           console.log('Para:', to);
+           
+           
+          // eslint-disable-next-line no-console
           if (bcc) console.log('BCC:', bcc);
+          // eslint-disable-next-line no-console
           console.log('Assunto:', subject);
+          // eslint-disable-next-line no-console
           if (attachments?.length) console.log('Anexos:', attachments.map(a => a.filename).join(', '));
+          // eslint-disable-next-line no-console
           console.log('Conteúdo:', text || html.replace(/<[^>]*>/g, ''));
+          // eslint-disable-next-line no-console
           console.log('📧 [/EMAIL DEV MODE]\n');
         }
         return { success: true, messageId: 'dev-mode' };

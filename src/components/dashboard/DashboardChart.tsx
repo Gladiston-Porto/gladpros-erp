@@ -23,8 +23,14 @@ interface DashboardChartProps {
 }
 
 type ChartComponents = {
+   
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Line: React.ComponentType<any>;
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Bar: React.ComponentType<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Doughnut: React.ComponentType<any>;
 } | null;
 

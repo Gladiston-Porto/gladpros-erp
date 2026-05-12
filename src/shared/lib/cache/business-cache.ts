@@ -133,6 +133,8 @@ export class BusinessCache {
 
   // Método para warm-up do cache (pré-carregar dados importantes)
   static async warmupCache() {
+     
+    // eslint-disable-next-line no-console
     console.log('[CACHE] Iniciando warm-up do cache...');
 
     try {
@@ -142,14 +144,19 @@ export class BusinessCache {
       // Cache de dados frequentemente acessados
       // await this.warmupFrequentlyAccessedData();
 
+ 
+
+      // eslint-disable-next-line no-console
       console.log('[CACHE] Warm-up do cache concluído');
     } catch (error) {
       console.error('[CACHE] Erro durante warm-up do cache:', error);
     }
   }
 
+   
   // Método para limpeza seletiva baseada em padrões de uso
   static async cleanupStaleData() {
+    // eslint-disable-next-line no-console
     console.log('[CACHE] Iniciando limpeza de dados stale...');
 
     const stalePatterns = [
@@ -160,9 +167,11 @@ export class BusinessCache {
 
     let totalCleaned = 0;
     for (const pattern of stalePatterns) {
+       
       totalCleaned += await cacheService.deletePattern(pattern);
     }
 
+    // eslint-disable-next-line no-console
     console.log(`[CACHE] ${totalCleaned} entradas stale removidas`);
     return totalCleaned;
   }

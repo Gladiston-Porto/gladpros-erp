@@ -6,6 +6,7 @@
 import { describe, it, expect } from '@jest/globals';
 
 // Email Service Types
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface EmailTemplate {
   subject: string;
   body: string;

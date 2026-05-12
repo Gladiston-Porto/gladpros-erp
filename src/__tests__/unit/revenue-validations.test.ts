@@ -30,7 +30,8 @@ describe('Revenue Validations', () => {
     });
 
     it('deve validar com cliente opcional', () => {
-      const { clienteId, ...dataWithoutClient } = validData;
+       
+      const { clienteId: _clienteId, ...dataWithoutClient } = validData;
       const result = createRevenueSchema.parse(dataWithoutClient);
       expect(result.clienteId).toBeUndefined();
     });
@@ -170,13 +171,15 @@ describe('Revenue Validations', () => {
     });
 
     it('deve aplicar status padrão PENDENTE', () => {
-      const { status, ...dataWithoutStatus } = validData;
+       
+      const { status: _status, ...dataWithoutStatus } = validData;
       const result = createRevenueSchema.parse(dataWithoutStatus);
       expect(result.status).toBe('PENDENTE');
     });
 
     it('deve aplicar recorrente padrão false', () => {
-      const { recorrente, ...dataWithoutRecorrente } = validData;
+       
+      const { recorrente: _recorrente, ...dataWithoutRecorrente } = validData;
       const result = createRevenueSchema.parse(dataWithoutRecorrente);
       expect(result.recorrente).toBe(false);
     });

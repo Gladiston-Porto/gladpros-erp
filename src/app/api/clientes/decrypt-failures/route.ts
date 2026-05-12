@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decryptDoc } from '@/shared/lib/crypto'
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { hasRole, requireUser } from '@/shared/lib/rbac';
+import { requireUser } from '@/shared/lib/rbac';
 import { z } from 'zod';
 
 export const runtime = 'nodejs'
@@ -53,7 +53,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       rows.map(async (r): Promise<{ id: number; docLast4: string | null; ok: boolean }> => {
         if (!r.documentoEnc) return { id: r.id, docLast4: r.docLast4, ok: true }
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+           
           const _plain = await decryptDoc(r.documentoEnc)
           return { id: r.id, docLast4: r.docLast4, ok: true }
         } catch {

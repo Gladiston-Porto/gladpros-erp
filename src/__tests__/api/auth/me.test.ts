@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 import { GET, PATCH } from '../../../app/api/auth/me/route'
 import { NextRequest } from 'next/server'
 

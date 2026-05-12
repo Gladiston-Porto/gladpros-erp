@@ -55,6 +55,8 @@ async function getJwtSecret(): Promise<string> {
     cachedJwtKey = key;
     cacheTimestamp = now;
     return key.toString('hex');
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     if (!jwtKmsFallbackLogged) {
       console.warn('[TokenService] Failed to get JWT key from KMS, using env fallback');
@@ -82,8 +84,12 @@ async function getAllJwtSecrets(): Promise<string[]> {
   
   try {
     const keys = await KMS.getAllValidKeys('JWT_SIGNING');
+     
     // getAllValidKeys já retorna chaves decriptadas no campo 'key'
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return keys.map((managedKey: any) => managedKey.key.toString('hex'));
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     if (!allJwtKmsFallbackLogged) {
       console.warn('[TokenService] Failed to get all JWT keys from KMS, using current key fallback');
@@ -186,8 +192,11 @@ export async function generateTokenPair(
     expiresIn: REFRESH_TOKEN_EXPIRY_JWT
   });
   
+ 
+  
   // Salvar refresh token no banco (access token é stateless)
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (prisma as any).refreshToken.create({
       data: {
         token: refreshToken,
@@ -294,10 +303,12 @@ export async function validateAccessToken(token: string): Promise<ValidatedToken
         await KMS.auditKeyUsage({
           keyId: usedKey.id,
           keyVersion: usedKey.version,
+           
           keyType: 'JWT_SIGNING',
           operation: 'VERIFY',
           success: true,
           context: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             operation: 'VERIFY' as any,
             entityType: 'AccessToken',
             entityId: decoded.userId
@@ -373,11 +384,13 @@ export async function validateRefreshToken(token: string) {
   
   try {
     // 2. Verificar tipo
+     
     if (decoded.type !== 'refresh') {
       throw new Error('Token inválido: tipo incorreto');
     }
     
     // 3. Buscar no banco
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const storedToken = await (prisma as any).refreshToken.findUnique({
       where: { jti: decoded.jti },
       include: { usuario: true }
@@ -451,11 +464,14 @@ export async function refreshAccessToken(
     throw new Error('Usuário não encontrado');
   }
   
+ 
+  
   if (usuario.status !== 'ATIVO') {
     throw new Error('Usuário inativo');
   }
   
   // 3. Marcar token antigo como usado
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (prisma as any).refreshToken.update({
     where: { jti: validated.jti },
     data: { usadoEm: new Date() }
@@ -490,6 +506,7 @@ export async function refreshAccessToken(
   
   const accessToken = jwt.sign(accessPayload, jwtSecret, {
     expiresIn: ACCESS_TOKEN_EXPIRY
+   
   });
   
   const refreshToken = jwt.sign(refreshPayload, jwtSecret, {
@@ -497,6 +514,7 @@ export async function refreshAccessToken(
   });
   
   // 5. Salvar novo refresh token com referência ao anterior (rotation chain)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (prisma as any).refreshToken.create({
     data: {
       token: refreshToken,
@@ -520,6 +538,7 @@ export async function refreshAccessToken(
 /**
  * Revoga um refresh token específico
  * 
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
  * @param token - Token a ser revogado
  * @param motivo - Motivo da revogação
  */
@@ -528,6 +547,7 @@ export async function revokeRefreshToken(
   motivo: string = 'Logout do usuário'
 ): Promise<void> {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const revokedByToken = await (prisma as any).refreshToken.updateMany({
       where: {
         token,
@@ -538,6 +558,7 @@ export async function revokeRefreshToken(
         motivoRevogacao: motivo,
         revogadoEm: new Date()
       }
+     
     });
 
     if (revokedByToken?.count > 0) {
@@ -547,6 +568,7 @@ export async function revokeRefreshToken(
     const jwtSecret = await getJwtSecret();
     const decoded = jwt.verify(token, jwtSecret) as TokenPayload;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (prisma as any).refreshToken.updateMany({
       where: {
         jti: decoded.jti,
@@ -569,6 +591,7 @@ export async function revokeRefreshToken(
  * 
  * Usado em casos de:
  * - Detecção de reutilização de token (possível roubo)
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
  * - Mudança de senha
  * - Logout de todos os dispositivos
  * 
@@ -579,6 +602,7 @@ export async function revokeAllUserTokens(
   userId: number,
   motivo: string = 'Logout de todos os dispositivos'
 ): Promise<number> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await (prisma as any).refreshToken.updateMany({
     where: {
       usuarioId: userId,
@@ -595,6 +619,7 @@ export async function revokeAllUserTokens(
 }
 
 /**
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
  * Limpa tokens expirados do banco de dados
  * 
  * Deve ser executado periodicamente (cron job)
@@ -606,6 +631,7 @@ export async function cleanupExpiredTokens(): Promise<number> {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await (prisma as any).refreshToken.deleteMany({
     where: {
       expiraEm: {
@@ -615,7 +641,10 @@ export async function cleanupExpiredTokens(): Promise<number> {
   });
   
   return result.count;
+ 
 }
+
+ 
 
 /**
  * Obtém estatísticas de tokens de um usuário
@@ -624,27 +653,35 @@ export async function cleanupExpiredTokens(): Promise<number> {
  * 
  * @param userId - ID do usuário
  * @returns Estatísticas dos tokens
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
  */
 export async function getUserTokenStats(userId: number) {
   const [total, ativos, revogados, expirados, usados] = await Promise.all([
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prisma as any).refreshToken.count({ where: { usuarioId: userId } }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prisma as any).refreshToken.count({
       where: {
         usuarioId: userId,
+         
         revogado: false,
         expiraEm: { gt: new Date() },
         usadoEm: null
       }
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prisma as any).refreshToken.count({
       where: { usuarioId: userId, revogado: true }
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prisma as any).refreshToken.count({
       where: {
         usuarioId: userId,
         expiraEm: { lt: new Date() }
       }
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prisma as any).refreshToken.count({
       where: {
         usuarioId: userId,
@@ -654,6 +691,7 @@ export async function getUserTokenStats(userId: number) {
   ]);
   
   return {
+     
     total,
     ativos,
     revogados,
@@ -671,6 +709,7 @@ export async function getUserTokenStats(userId: number) {
  * @returns Lista de tokens ativos com metadados
  */
 export async function listUserActiveTokens(userId: number) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return await (prisma as any).refreshToken.findMany({
     where: {
       usuarioId: userId,

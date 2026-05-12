@@ -73,6 +73,8 @@ async function getHandler(
         if (worker.financialProfile.encryptedTaxId) {
             taxId = decrypt(worker.financialProfile.encryptedTaxId);
         }
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
         console.error('Erro ao descriptografar dados:', error);
         return errorResponse('Erro ao descriptografar dados sensíveis');
@@ -141,7 +143,9 @@ async function postHandler(
         return errorResponse('Worker não encontrado');
     }
 
+     
     // Preparar dados criptografados
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: any = {};
 
     if (body.routing !== undefined) {

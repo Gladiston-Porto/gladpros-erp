@@ -44,6 +44,8 @@ export async function PUT(
     }
 
     const existing = await prisma.expenseCategory.findFirst({
+       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       where: { id: categoryId, empresaId: (user as any).empresaId ?? 1 },
     })
 

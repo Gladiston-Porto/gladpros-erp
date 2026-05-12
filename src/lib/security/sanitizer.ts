@@ -47,15 +47,21 @@ export function sanitizeText(input: string): string {
 /**
  * Sanitiza objeto recursivamente
  */
+ 
+ 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sanitized: any = {};
 
   for (const key in obj) {
     const value = obj[key];
 
     if (typeof value === 'string') {
+       
       sanitized[key] = sanitizeText(value);
     } else if (Array.isArray(value)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sanitized[key] = value.map((item: any) =>
         typeof item === 'object' ? sanitizeObject(item) : sanitizeText(String(item))
       );
@@ -85,18 +91,25 @@ export function escapeHtml(text: string): string {
   return text.replace(/[&<>"'\/]/g, (char) => map[char]);
 }
 
+ 
+ 
 /**
  * Redacta dados sensíveis de objetos (para logs)
  */
+ 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function redactSensitiveData(obj: any): any {
   if (typeof obj !== 'object' || obj === null) {
     return obj;
   }
 
+ 
+
   if (Array.isArray(obj)) {
     return obj.map(item => redactSensitiveData(item));
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const redacted: any = {};
 
   for (const key in obj) {
@@ -189,12 +202,14 @@ export function sanitizePhone(phone: string): string {
  */
 export function sanitizeDocumento(documento: string): string {
   // Remove tudo exceto números
+   
   return documento.replace(/\D/g, '');
 }
 
 /**
  * Middleware de sanitização para APIs
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function sanitizeRequestBody<T extends Record<string, any>>(body: T): T {
   return sanitizeObject(body);
 }

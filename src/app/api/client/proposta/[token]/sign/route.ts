@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
+import {  } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { StatusPropostaValues } from '@/shared/types/propostas'
 import { validateTokenPublico } from '@/shared/lib/services/proposta-token'

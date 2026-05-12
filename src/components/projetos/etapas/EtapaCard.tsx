@@ -35,6 +35,8 @@ interface EtapaCardProps {
 export default function EtapaCard({
   etapa,
   index,
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   totalEtapas,
   isDragging,
   onEdit,

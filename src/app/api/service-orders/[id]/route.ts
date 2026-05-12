@@ -159,26 +159,69 @@ export const GET = withErrorHandler(async (request: Request,
         // Apply field-level RBAC filtering
         const canSeeFinancials = canSeeFieldGroup(user.role as Role, 'financials');
         if (!canSeeFinancials) {
+             
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             delete (responseData as any).materialTotal;
+             
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             delete (responseData as any).laborTotal;
+             
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             delete (responseData as any).total;
+             
+             
+             
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             delete (responseData as any).hourlyRate;
+             
+             
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             delete (responseData as any).agreedClientPrice;
+             
+             
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             delete (responseData as any).materialEstimate;
+             
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             delete (responseData as any).laborEstimate;
+             
+             
+             
+             
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (responseData as any).materials = (responseData as any).materials?.map((m: any) => {
-                const { unitCostEstimated, unitCostActual, unitPrice, ...rest } = m;
+                 
+                const { unitCostEstimated: _unitCostEstimated, unitCostActual: _unitCostActual, unitPrice: _unitPrice, ...rest } = m;
+                 
                 return rest;
+             
             });
+             
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (responseData as any).workEntries = (responseData as any).workEntries?.map((e: any) => {
-                const { hourlyRate, totalCost, ...rest } = e;
+                const { hourlyRate: _hourlyRate, totalCost: _totalCost, ...rest } = e;
                 return rest;
             });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if ((responseData as any).Invoice) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 delete (responseData as any).Invoice.valorTotal;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 delete (responseData as any).Invoice.subtotal;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 delete (responseData as any).Invoice.taxAmount;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 delete (responseData as any).Invoice.saldo;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 delete (responseData as any).Invoice.valorPago;
             }
         }

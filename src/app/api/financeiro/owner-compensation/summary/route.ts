@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const year = Number(searchParams.get("year")) || new Date().getFullYear()
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const summary = await getCompensationSummary((user as any).empresaId ?? 1, year)
 
     return NextResponse.json({ data: summary, success: true })

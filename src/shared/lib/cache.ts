@@ -75,8 +75,12 @@ class CacheService {
       // Testar conexão
       await this.redis.ping();
       if (shouldDebugCache()) {
+         
+        // eslint-disable-next-line no-console
         console.log('[CACHE] Redis conectado com sucesso');
+       
       }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       console.warn('[CACHE] Redis não disponível, usando cache em memória');
       this.disableRedis();
@@ -313,8 +317,10 @@ class CacheService {
       if (this.redis) {
         await this.redis.flushdb();
       }
+       
       this.memoryCache.clear();
       if (shouldDebugCache()) {
+        // eslint-disable-next-line no-console
         console.log('[CACHE] Cache limpo completamente');
       }
       return true;

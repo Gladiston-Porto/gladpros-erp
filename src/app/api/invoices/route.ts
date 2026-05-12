@@ -115,7 +115,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     if (tr) taxRate = Number(tr.rate);
   }
 
-  const { itensComSubtotal, subtotal, descontoTotal, subtotalComDesconto, taxAmount, valorTotal } =
+   
+  const { itensComSubtotal, subtotal, descontoTotal, subtotalComDesconto: _subtotalComDesconto, taxAmount, valorTotal } =
     calcularTotais(body.itens, body.descontoValor, body.descontoPercentual, taxRate);
 
   // Gerar número único da invoice em transação serializada

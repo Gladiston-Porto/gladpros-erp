@@ -16,7 +16,7 @@ import {
   Tag,
   Building,
 } from 'lucide-react';
-import { Badge } from '@gladpros/ui/badge'
+import {  } from '@gladpros/ui/badge'
 import { Button } from '@gladpros/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@gladpros/ui/card';
 
@@ -207,7 +207,8 @@ export default function AprovacaoDetalhePage() {
             <CardContent>
               <div className="space-y-4">
                 {aprovacao.aprovadores.map((apr, idx) => {
-                  const aprCfg = STATUS_CONFIG[apr.status] ?? STATUS_CONFIG.pendente;
+                   
+                  const _aprCfg = STATUS_CONFIG[apr.status] ?? STATUS_CONFIG.pendente;
                   return (
                     <div key={apr.id ?? idx} className="flex items-start gap-4">
                       <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${apr.status === 'aprovado' ? 'bg-emerald-100' : apr.status === 'rejeitado' ? 'bg-red-100' : 'bg-muted'}`}>

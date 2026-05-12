@@ -107,6 +107,8 @@ async function handler(
       data: {
         status: 'DEVOLVIDO',
         dataDevolucaoReal,
+         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         condicaoRetorno: validated.condicaoRetorno as any,
         condicaoRetornoObs: validated.observacoes
       },

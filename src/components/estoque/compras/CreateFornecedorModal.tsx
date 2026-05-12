@@ -57,6 +57,8 @@ export function CreateFornecedorModal({
     const [loading, setLoading] = useState(false);
 
     const form = useForm<FornecedorFormData>({
+         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(fornecedorSchema) as any,
         defaultValues: {
             nome: '',
@@ -97,7 +99,9 @@ export function CreateFornecedorModal({
 
             onSuccess(result);
             form.reset();
+             
             onOpenChange(false);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             toast({
                 title: 'Erro',

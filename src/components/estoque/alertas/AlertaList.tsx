@@ -28,10 +28,14 @@ export async function AlertaList({ searchParams }: AlertaListProps) {
   const where: Prisma.AlertaEstoqueWhereInput = {};
 
   if (params.tipo) {
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     where.tipo = params.tipo as any;
   }
 
+   
   if (params.prioridade) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     where.prioridade = params.prioridade as any;
   }
 

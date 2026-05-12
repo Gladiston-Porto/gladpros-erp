@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { requireUser, requireRoles } from '@/shared/lib/rbac';
+import { requireUser } from '@/shared/lib/rbac';
 
 /**
  * GET /api/backup - Informações de saúde do banco de dados

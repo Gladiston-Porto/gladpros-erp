@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, User, DollarSign, Clock, Loader2 } from 'lucide-react';
+import { Trash2, User, DollarSign, Clock, Loader2 } from 'lucide-react';
 import { Badge } from '@gladpros/ui/badge'
 import { Button } from '@gladpros/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@gladpros/ui/card";
@@ -160,6 +160,8 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
         setFieldErrors(serverErrors);
         toast.error(firstMessage);
       }
+     
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast.error('Erro de conexão');
     } finally {
@@ -182,7 +184,9 @@ export function EquipeManager({ projetoId }: EquipeManagerProps) {
         fetchAssignments();
       } else {
         toast.error('Erro ao remover worker');
+       
       }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast.error('Erro ao remover worker');
     }

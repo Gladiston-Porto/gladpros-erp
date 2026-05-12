@@ -78,6 +78,8 @@ export default function EmailPage() {
       } else {
         throw new Error('Falha no envio');
       }
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message || 'Falha ao enviar.', variant: 'destructive' });
     } finally {

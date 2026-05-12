@@ -22,7 +22,6 @@ import type {
   AlertaFilter,
   Compra,
   CompraComRelacoes,
-  CompraItem,
   SaldoResponse,
 } from './types';
 
@@ -70,6 +69,8 @@ async function request<T>(
 // HELPER: Query String
 // ============================================================================
 
+ 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildQueryString(params: Record<string, any>): string {
   const searchParams = new URLSearchParams();
 
@@ -221,6 +222,8 @@ export const equipamentosApi = {
       dataDevolucaoPrevista?: string;
       observacoes?: string;
     }
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<ApiResponse<any>> => {
     return request(`/equipamentos/${id}/alocar`, {
       method: 'POST',
@@ -237,7 +240,9 @@ export const equipamentosApi = {
       dataDevolucaoReal?: string;
       condicaoRetorno: string;
       observacoes?: string;
+     
     }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<ApiResponse<any>> => {
     return request(`/equipamentos/${id}/devolver`, {
       method: 'POST',
@@ -485,9 +490,13 @@ export const dashboardApi = {
       movimentacoes: number;
       compras: number;
       valorCompras: number;
+     
     };
+     
     topItens: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       materiaisMaisMovimentados: Array<any>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       equipamentosMaisAlocados: Array<any>;
     };
     estatisticas: {
@@ -517,10 +526,12 @@ export const relatoriosApi = {
    */
   consumo: async (filters?: {
     projetoId?: number;
+     
     materialId?: number;
     categoriaId?: number;
     dataInicio?: string;
     dataFim?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }): Promise<ApiResponse<any>> => {
     const query = buildQueryString(filters || {});
     return request(`/relatorios/consumo${query}`);
@@ -529,11 +540,13 @@ export const relatoriosApi = {
   /**
    * Relatório de inventário
    */
+   
   inventario: async (filters?: {
     categoriaId?: number;
     localizacaoId?: number;
     apenasAtivos?: boolean;
     incluirValores?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }): Promise<ApiResponse<any>> => {
     const query = buildQueryString(filters || {});
     return request(`/relatorios/inventario${query}`);

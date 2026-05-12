@@ -74,7 +74,8 @@ export default async function ConciliacaoList({
     }
 
     // Pegar data da última transação
-    const ultimaTransacao = transactions[0]?.dataTransacao || new Date();
+     
+    const _ultimaTransacao = transactions[0]?.dataTransacao || new Date();
 
     return {
       id: account.id,

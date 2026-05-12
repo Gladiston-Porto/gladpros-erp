@@ -88,6 +88,8 @@ export function AssignmentList({
             } else {
                 toast.error('Erro ao remover worker');
             }
+         
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (error) {
             toast.error('Erro ao remover worker');
         }

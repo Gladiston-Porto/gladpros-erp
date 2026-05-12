@@ -67,6 +67,8 @@ class EmailService {
         html
       })
 
+       
+      // eslint-disable-next-line no-console
       console.log('Email enviado:', info.messageId)
       return { success: true, messageId: info.messageId }
     } catch (error) {

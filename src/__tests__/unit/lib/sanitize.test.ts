@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 // Mock TextEncoder for tests
 global.TextEncoder = require('util').TextEncoder
 global.TextDecoder = require('util').TextDecoder

@@ -63,6 +63,8 @@ export async function sendMail(to: string, subject: string, html: string) {
       // guardar último envio para debug em dev
       globalForMail.__lastMail = { ...payload, info };
       if (process.env.NODE_ENV === "development") {
+         
+        // eslint-disable-next-line no-console
         console.log("[SMTP MAILER SENT]", { to, subject, messageId: info?.messageId });
       }
       return info;
@@ -73,7 +75,9 @@ export async function sendMail(to: string, subject: string, html: string) {
   }
 
   // Fallback: modo dev sem SMTP → apenas registra
+   
   globalForMail.__lastMail = payload;
+  // eslint-disable-next-line no-console
   console.log("[DEV MAILER] (no SMTP configured)", payload);
   return payload;
 }

@@ -117,6 +117,8 @@ type ItemsStepProps = {
   itens: InvoiceFormItem[];
   onAddItem: () => void;
   onRemoveItem: (index: number) => void;
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onUpdateItem: (index: number, field: keyof InvoiceFormItem, value: any) => void;
   onCalculateSubtotal: (item: InvoiceFormItem) => number;
 };

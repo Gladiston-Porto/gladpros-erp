@@ -28,7 +28,8 @@ export default async function BalancoPage({
   const now = new Date()
   const defaultStart = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]
   const defaultEnd = now.toISOString().split('T')[0]
-  const startDate = sp.startDate ?? defaultStart
+   
+  const _startDate = sp.startDate ?? defaultStart
   const endDate = sp.endDate ?? defaultEnd
 
   const periodEnd = new Date(endDate + 'T23:59:59')

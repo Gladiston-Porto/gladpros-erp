@@ -1,0 +1,181 @@
+src/app/api/backup/route.ts:4:23 [@typescript-eslint/no-unused-vars] 'requireRoles' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/client/proposta/[token]/sign/route.ts:2:10 [@typescript-eslint/no-unused-vars] 'z' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/client/proposta/[token]/view/route.ts:68:12 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/app/api/clientes/decrypt-failures/route.ts:5:10 [@typescript-eslint/no-unused-vars] 'hasRole' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/cron/check-invoices/route.ts:145:22 [@typescript-eslint/no-unused-vars] 'err' is defined but never used. Allowed unused caught errors must match /^_/u
+src/app/api/dashboard/executive/route.ts:89:11 [@typescript-eslint/no-unused-vars] 'previousDespesas' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/documents/[id]/share/route.ts:14:22 [@typescript-eslint/no-unused-vars] 'permissions' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/empresa/route.ts:3:23 [@typescript-eslint/no-unused-vars] 'requireRoles' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/estoque/alertas/route.ts:51:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/alertas/route.ts:135:78 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/alertas/route.ts:138:35 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/alertas/route.ts:139:78 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/alertas/route.ts:143:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/alertas/route.ts:144:78 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/alertas/route.ts:173:56 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/categorias/route.ts:45:43 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/categorias/route.ts:105:31 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/compras/[id]/receber/route.ts:334:9 [@typescript-eslint/no-unused-vars] 'expenseId' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/estoque/compras/[id]/route.ts:212:20 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/compras/route.ts:68:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/compras/route.ts:124:52 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:41:81 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:79:22 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:87:22 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:91:22 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:103:22 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:130:22 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:151:59 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:167:58 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:240:67 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:247:65 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:263:51 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:265:78 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/dashboard/route.ts:288:72 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/equipamentos/[id]/devolver/route.ts:110:55 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/equipamentos/route.ts:54:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/equipamentos/route.ts:131:61 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/materiais/[id]/route.ts:78:62 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/materiais/[id]/saldo/route.ts:87:28 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/materiais/route.ts:42:71 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/materiais/route.ts:54:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/materiais/route.ts:129:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/materiais/route.ts:142:54 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/materiais/route.ts:148:55 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/materiais/route.ts:161:39 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/materiais/route.ts:191:71 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/materiais/route.ts:422:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/movimentacoes/route.ts:25:10 [@typescript-eslint/no-unused-vars] 'z' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/estoque/movimentacoes/route.ts:56:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/consumo/route.ts:64:16 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/consumo/route.ts:76:52 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/consumo/route.ts:100:53 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/consumo/route.ts:127:54 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/consumo/route.ts:149:52 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/consumo/route.ts:168:46 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/consumo/route.ts:206:50 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/consumo/route.ts:217:52 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/consumo/route.ts:230:54 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/consumo/route.ts:239:50 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:56:54 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:113:62 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:132:64 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:171:47 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:221:54 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:239:60 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:254:54 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:266:53 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:271:80 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:275:15 [@typescript-eslint/no-unused-vars] 'id' is defined but never used. Allowed unused args must match /^_/u
+src/app/api/estoque/relatorios/inventario/route.ts:275:26 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:278:65 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:291:57 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/estoque/relatorios/inventario/route.ts:292:78 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/contas/[id]/extrato/route.ts:94:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/contas/[id]/extrato/route.ts:191:47 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/contas/[id]/route.ts:195:26 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/contas/[id]/transacao/route.ts:43:31 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/contas/[id]/transacao/route.ts:159:14 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/contas/route.ts:42:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/contas/route.ts:189:12 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/dashboard/route.ts:23:32 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/dashboard/route.ts:43:7 [@typescript-eslint/no-unused-vars] 'transacoesPeriodo' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/dashboard/route.ts:169:58 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/dashboard/route.ts:194:65 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/despesas/[id]/aprovar/route.ts:10:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/despesas/[id]/pagar/route.ts:10:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/despesas/[id]/rejeitar/route.ts:10:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/despesas/[id]/route.ts:13:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/despesas/categorias/route.ts:12:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/despesas/categorias/route.ts:36:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/despesas/route.ts:14:8 [@typescript-eslint/no-unused-vars] 'CreateExpenseInput' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/despesas/route.ts:15:8 [@typescript-eslint/no-unused-vars] 'ExpenseFiltersInput' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/despesas/route.ts:17:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/despesas/route.ts:61:45 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/despesas/route.ts:62:51 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/despesas/route.ts:80:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/despesas/route.ts:89:21 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/despesas/route.ts:89:65 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/despesas/route.ts:145:20 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/estimated-tax/route.ts:35:60 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/estimated-tax/route.ts:64:27 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/expense-categories/[id]/route.ts:47:52 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/expense-categories/route.ts:23:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/fluxo-caixa/route.ts:9:10 [@typescript-eslint/no-unused-vars] 'Prisma' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/fluxo-caixa/route.ts:31:32 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/owner-compensation/route.ts:41:27 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/owner-compensation/route.ts:80:27 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/owner-compensation/summary/route.ts:23:59 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/receitas/route.ts:158:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/reports/1099-summary/route.ts:26:61 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/reports/1099-summary/route.ts:30:31 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/reports/owner-compensation/route.ts:27:32 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/reports/pnl/route.ts:30:64 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/reports/quarterly-comparison/route.ts:26:72 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/reports/quarterly-comparison/route.ts:30:31 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/reports/schedule-c/route.ts:25:72 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/tax/dashboard/route.ts:21:32 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/tax/schedule-c/route.ts:23:72 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/transferencias/route.ts:46:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/transferencias/route.ts:251:43 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/financeiro/transferencias/route.ts:270:13 [@typescript-eslint/no-unused-vars] 'transacaoSaida' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/financeiro/transferencias/route.ts:289:13 [@typescript-eslint/no-unused-vars] 'transacaoEntrada' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/invoices/[id]/payments/route.ts:195:78 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/invoices/[id]/route.ts:8:31 [@typescript-eslint/no-unused-vars] 'validateTaxBeforeSend' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/invoices/route.ts:118:54 [@typescript-eslint/no-unused-vars] 'subtotalComDesconto' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/anexos/route.ts:5:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/etapas/[etapaId]/route.ts:5:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/etapas/route.ts:5:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/materiais/[materialId]/devolver/route.ts:4:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/materiais/[materialId]/liberar/route.ts:4:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/materiais/[materialId]/route.ts:5:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/materiais/route.ts:5:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/materials/recompute/route.ts:2:13 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/route.ts:9:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/status/route.ts:5:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/tarefas/[tarefaId]/route.ts:5:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/[id]/tarefas/route.ts:5:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/projetos/route.ts:5:10 [@typescript-eslint/no-unused-vars] 'ZodError' is defined but never used. Allowed unused vars must match /^_/u
+src/app/api/propostas/follow-up/route.ts:57:9 [@typescript-eslint/no-unused-vars] 'cutoff14' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/service-orders/[id]/materials/return/route.ts:104:32 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/materials/return/route.ts:188:76 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:162:37 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:163:37 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:164:37 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:165:37 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:166:37 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:167:37 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:168:37 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:169:30 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:169:64 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:169:88 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:170:25 [@typescript-eslint/no-unused-vars] 'unitCostEstimated' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/service-orders/[id]/route.ts:170:44 [@typescript-eslint/no-unused-vars] 'unitCostActual' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/service-orders/[id]/route.ts:170:60 [@typescript-eslint/no-unused-vars] 'unitPrice' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/service-orders/[id]/route.ts:173:30 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:173:66 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:173:92 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:174:25 [@typescript-eslint/no-unused-vars] 'hourlyRate' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/service-orders/[id]/route.ts:174:37 [@typescript-eslint/no-unused-vars] 'totalCost' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/api/service-orders/[id]/route.ts:177:34 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:178:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:179:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:180:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:181:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/service-orders/[id]/route.ts:182:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/whatsapp/webhook/route.ts:42:132 [@typescript-eslint/no-unused-vars] 'message' is defined but never used. Allowed unused args must match /^_/u
+src/app/api/workforce/assignments/[id]/route.ts:96:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/assignments/route.ts:32:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/dashboard/route.ts:106:27 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/payables/route.ts:26:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/reports/cost-by-project/route.ts:26:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/reports/cost-by-project/route.ts:90:66 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/timesheets/route.ts:28:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/timesheets/route.ts:76:50 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/workers/[id]/sensitive/route.ts:76:21 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/workers/[id]/sensitive/route.ts:145:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/workers/route.ts:32:18 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/workers/route.ts:192:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/workers/route.ts:221:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/workers/route.ts:238:21 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/api/workforce/workers/route.ts:244:24 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type

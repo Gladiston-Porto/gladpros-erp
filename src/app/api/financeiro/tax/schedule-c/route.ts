@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const year = Number(searchParams.get("year")) || new Date().getFullYear()
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const report = await generateScheduleCReport({ empresaId: (user as any).empresaId ?? 1, taxYear: year })
 
     return NextResponse.json({ data: report, success: true })

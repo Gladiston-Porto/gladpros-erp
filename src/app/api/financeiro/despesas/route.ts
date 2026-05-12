@@ -11,10 +11,7 @@ import { prisma } from '@/lib/prisma';
 import {
   createExpenseSchema,
   expenseFiltersSchema,
-  type CreateExpenseInput,
-  type ExpenseFiltersInput
 } from '@/schemas/expense.schema';
-import { ZodError } from 'zod';
 import { validationErrorResponse } from '@/lib/api/responses';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
@@ -58,7 +55,9 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       search: searchParams.get('search') || undefined,
       page: searchParams.get('page') ? Number(searchParams.get('page')) : 1,
       limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : 20,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sortBy: searchParams.get('sortBy') as any || 'dataVencimento',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sortOrder: searchParams.get('sortOrder') as any || 'desc'
     };
 
@@ -77,6 +76,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const filters = validation.data;
 
     // Construir WHERE clause
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       empresaId: filters.empresaId
     };
@@ -86,6 +86,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     if (filters.formaPagamento) where.formaPagamento = filters.formaPagamento;
     if (filters.categoriaId) where.categoriaId = filters.categoriaId;
     if (filters.fornecedorId) where.fornecedorId = filters.fornecedorId;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((filters as any).compraId) where.compraId = (filters as any).compraId;
     if (filters.criadoPor) where.criadoPor = filters.criadoPor;
 
@@ -142,6 +143,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const take = filters.limit;
 
     // Ordenação
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const orderBy: any = {};
     orderBy[filters.sortBy] = filters.sortOrder;
 

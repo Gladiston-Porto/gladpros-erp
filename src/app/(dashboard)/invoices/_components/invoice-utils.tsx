@@ -91,6 +91,8 @@ export function getInvoiceFinancialTotals(invoice: InvoiceDetail) {
   };
 }
 
+ 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeInvoiceListItem(raw: any): InvoiceListItem {
   return {
     id: Number(raw.id),
@@ -116,6 +118,9 @@ export function normalizeInvoiceListItem(raw: any): InvoiceListItem {
   };
 }
 
+ 
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeInvoiceDetail(raw: any): InvoiceDetail {
   return {
     ...raw,
@@ -134,8 +139,10 @@ export function normalizeInvoiceDetail(raw: any): InvoiceDetail {
       ...raw.criador,
       nome: raw.criador?.nome ?? raw.criador?.nomeCompleto ?? "-",
       email: raw.criador?.email ?? "-",
+     
     },
     pagamentos: Array.isArray(raw.pagamentos)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? raw.pagamentos.map((pagamento: any) => ({
           ...pagamento,
           valor: Number(pagamento.valor ?? 0),
@@ -143,18 +150,22 @@ export function normalizeInvoiceDetail(raw: any): InvoiceDetail {
             ...pagamento.criador,
             nome: pagamento.criador?.nome ?? pagamento.criador?.nomeCompleto ?? "-",
           },
+         
         }))
       : [],
     itens: Array.isArray(raw.itens)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? raw.itens.map((item: any) => ({
           ...item,
           quantidade: Number(item.quantidade ?? 0),
           precoUnitario: Number(item.precoUnitario ?? 0),
           desconto: Number(item.desconto ?? 0),
+           
           subtotal: Number(item.subtotal ?? 0),
         }))
       : [],
     lembretes: Array.isArray(raw.lembretes)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? raw.lembretes.map((l: any) => ({
           ...l,
           dataEnvio: l.dataEnvio ?? l.criadoEm,

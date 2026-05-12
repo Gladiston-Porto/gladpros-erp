@@ -39,6 +39,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const validatedFilters = bankAccountFiltersSchema.parse(filters);
     
     // Build where clause
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     
     if (validatedFilters.empresaId) {
@@ -185,7 +187,9 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const conta = await prisma.bankAccount.create({
       data: {
         ...validated,
+         
         saldoAtual: validated.saldoInicial
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any,
       include: {
         empresa: {

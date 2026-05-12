@@ -22,7 +22,7 @@ import {
   closestCorners,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { AlertCircle, Calendar, CheckCircle2, Clock, Flag, Loader2, Pause, Plus, User, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Loader2, Plus, X } from 'lucide-react';
 import { Badge } from "@gladpros/ui/badge";
 import { Button } from '@gladpros/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from "@gladpros/ui/card";

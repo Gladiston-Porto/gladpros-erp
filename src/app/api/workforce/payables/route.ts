@@ -23,6 +23,8 @@ async function getHandler(request: NextRequest) {
     const workerId = searchParams.get('workerId');
     const status = searchParams.get('status');
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
 
     if (workerId) {

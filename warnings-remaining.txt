@@ -1,0 +1,20 @@
+src/app/dashboard/financeiro/contas/[id]/page.tsx:13:3 [@typescript-eslint/no-unused-vars] 'Download' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/contas/[id]/page.tsx:14:3 [@typescript-eslint/no-unused-vars] 'Calendar' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/contas/[id]/page.tsx:15:3 [@typescript-eslint/no-unused-vars] 'Filter' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/contas/[id]/page.tsx:32:38 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/dashboard/financeiro/contas/[id]/page.tsx:33:42 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/dashboard/financeiro/contas/[id]/page.tsx:47:6 [react-hooks/exhaustive-deps] React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array
+src/app/dashboard/financeiro/despesas/[id]/page.tsx:26:3 [@typescript-eslint/no-unused-vars] 'FileText' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/despesas/[id]/page.tsx:194:57 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/dashboard/financeiro/despesas/novo/DespesaFormPageClient.tsx:19:3 [@typescript-eslint/no-unused-vars] 'Upload' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/despesas/novo/DespesaFormPageClient.tsx:20:3 [@typescript-eslint/no-unused-vars] 'X' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/despesas/novo/DespesaFormPageClient.tsx:23:3 [@typescript-eslint/no-unused-vars] 'Calendar' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/despesas/novo/DespesaFormPageClient.tsx:25:3 [@typescript-eslint/no-unused-vars] 'User' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/despesas/novo/DespesaFormPageClient.tsx:26:3 [@typescript-eslint/no-unused-vars] 'Building2' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/despesas/novo/DespesaFormPageClient.tsx:156:22 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/dashboard/financeiro/payables/page.tsx:15:10 [@typescript-eslint/no-unused-vars] 'Card' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/payables/page.tsx:15:16 [@typescript-eslint/no-unused-vars] 'CardContent' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/payables/page.tsx:22:5 [@typescript-eslint/no-unused-vars] 'ChevronRight' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/payables/page.tsx:86:48 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/dashboard/financeiro/receitas/novo/ReceitaFormPageClient.tsx:11:3 [@typescript-eslint/no-unused-vars] 'Calendar' is defined but never used. Allowed unused vars must match /^_/u
+src/app/dashboard/financeiro/relatorios/balanco/page.tsx:31:9 [@typescript-eslint/no-unused-vars] 'startDate' is assigned a value but never used. Allowed unused vars must match /^_/u

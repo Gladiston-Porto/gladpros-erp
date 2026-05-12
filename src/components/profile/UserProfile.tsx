@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-  User, MapPin, Settings, Shield, Eye, EyeOff,
+  User, MapPin, Shield, Eye, EyeOff,
   ShieldCheck, Clock, AlertTriangle, Activity, Bell, Monitor,
   Camera, KeyRound, HelpCircle, Info, CheckCircle2,
 } from 'lucide-react';

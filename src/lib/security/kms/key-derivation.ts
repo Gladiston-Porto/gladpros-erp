@@ -90,6 +90,8 @@ export async function deriveJWTKey(version?: number): Promise<Buffer> {
     // Se não existe chave ativa, criar a primeira
     if (error instanceof Error && error.message.includes('No active')) {
       if (shouldDebugKms()) {
+         
+        // eslint-disable-next-line no-console
         console.log('[KMS] No JWT key found, creating initial key...');
       }
       
@@ -140,7 +142,9 @@ export async function deriveDocKey(version?: number): Promise<Buffer> {
     
   } catch (error) {
     if (error instanceof Error && error.message.includes('No active')) {
+       
       if (shouldDebugKms()) {
+        // eslint-disable-next-line no-console
         console.log('[KMS] No DOC_ENCRYPTION key found, creating initial key...');
       }
       
@@ -185,8 +189,10 @@ export async function deriveBackupKey(): Promise<Buffer> {
     const activeKey = await getActiveKey('BACKUP');
     return activeKey.key;
   } catch (error) {
+     
     if (error instanceof Error && error.message.includes('No active')) {
       if (shouldDebugKms()) {
+        // eslint-disable-next-line no-console
         console.log('[KMS] No BACKUP key found, creating initial key...');
       }
       
@@ -241,9 +247,11 @@ function decryptWithMaster(encryptedKeyB64: string, masterKey: Buffer): Buffer {
  * Inicializa todas as chaves necessárias do sistema
  * 
  * Deve ser executado no primeiro deploy ou quando chaves são perdidas
+ // eslint-disable-next-line no-console
  */
 export async function initializeAllKeys(userId?: number): Promise<void> {
   if (shouldDebugKms()) {
+    // eslint-disable-next-line no-console
     console.log('[KMS] Initializing all system keys...');
   }
   
@@ -253,24 +261,34 @@ export async function initializeAllKeys(userId?: number): Promise<void> {
     { type: 'BACKUP', algorithm: 'AES-256-GCM' }
   ];
   
+   
   for (const { type, algorithm } of keyTypes) {
     try {
+       
       await getActiveKey(type);
       if (shouldDebugKms()) {
+         
+        // eslint-disable-next-line no-console
         console.log(`[KMS] ✅ ${type} key already exists`);
       }
-    } catch (error) {
+     
+     
+    } catch (_error) {
       if (shouldDebugKms()) {
+        // eslint-disable-next-line no-console
         console.log(`[KMS] Creating ${type} key...`);
       }
       await createKey(type, algorithm, 32, userId, 'System initialization');
+       
       if (shouldDebugKms()) {
+        // eslint-disable-next-line no-console
         console.log(`[KMS] ✅ ${type} key created`);
       }
     }
   }
   
   if (shouldDebugKms()) {
+    // eslint-disable-next-line no-console
     console.log('[KMS] ✅ All keys initialized');
   }
 }

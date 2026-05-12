@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 /**
  * Testes unitários — GET /api/dashboard
  * Cobertura: auth, RBAC, happy path, N+1 fix, erro interno.
@@ -77,7 +77,8 @@ describe('GET /api/dashboard', () => {
   let prisma: ReturnType<typeof require>;
   let requireUser: jest.Mock;
   let can: jest.Mock;
-  let GET: (req: NextRequest) => Promise<NextResponse>;
+   
+  let _GET: (req: NextRequest) => Promise<NextResponse>;
 
   beforeEach(() => {
     jest.clearAllMocks();

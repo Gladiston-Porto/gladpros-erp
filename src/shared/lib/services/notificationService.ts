@@ -27,15 +27,22 @@ class NotificationService {
       })
 
       this.io.on('connection', (socket) => {
+         
+        // eslint-disable-next-line no-console
         console.log('Cliente conectado:', socket.id)
 
         // Join room for user notifications
         socket.on('join_user_room', (userId: string) => {
+           
           socket.join(`user_${userId}`)
+          // eslint-disable-next-line no-console
           console.log(`Usuario ${userId} joined room`)
         })
 
+ 
+
         socket.on('disconnect', () => {
+          // eslint-disable-next-line no-console
           console.log('Cliente desconectado:', socket.id)
         })
       })

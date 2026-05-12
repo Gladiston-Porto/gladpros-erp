@@ -29,6 +29,8 @@ async function getHandler(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
 
     if (status) {
@@ -188,7 +190,9 @@ async function postHandler(request: NextRequest) {
                                 }
                             }
                         }
+                     
                     })
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 }) as any,
                 include: {
                     financialProfile: {
@@ -216,8 +220,10 @@ async function postHandler(request: NextRequest) {
                                 accountLast4: body.financialProfile.accountLast4,
                                 taxIdLast4: body.financialProfile.taxIdLast4
                             }
+                         
                         }
                     })
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 }) as any,
                 include: {
                     financialProfile: {
@@ -233,14 +239,19 @@ async function postHandler(request: NextRequest) {
             });
         }
 
+ 
+
         return successResponse(worker, undefined, isNew ? 201 : 200);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
         // Tratar race condition (violação de chave única)
+         
         if (error.code === 'P2002') {
             const field = error.meta?.target?.[0] || 'campo único';
             return errorResponse(
                 `Worker já existe com este ${field}. Use outro valor ou atualize o existente.`,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 409 as any
             );
         }

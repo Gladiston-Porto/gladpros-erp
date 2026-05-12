@@ -18,6 +18,8 @@ if (process.env.NODE_ENV !== "production") global.__prisma = prisma;
 // Evita connection leaks em reinicializações do servidor
 if (process.env.NODE_ENV === "production") {
   const shutdown = async (signal: string) => {
+     
+    // eslint-disable-next-line no-console
     console.log(`[Prisma] Received ${signal}. Disconnecting...`);
     await prisma.$disconnect();
     process.exit(0);

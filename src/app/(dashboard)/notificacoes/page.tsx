@@ -9,7 +9,6 @@ import {
   XCircle,
   Info,
   Trash2,
-  Filter,
   RefreshCw,
 } from 'lucide-react';
 import { Badge } from '@gladpros/ui/badge'

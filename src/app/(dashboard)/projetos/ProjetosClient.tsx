@@ -12,7 +12,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Filter } from 'lucide-react';
 
@@ -43,13 +43,12 @@ import {
 import {
   STATUS_BADGE_VARIANTS,
   PRIORITY_BADGE_VARIANTS,
-  getHealthBadge,
   type BadgeVariant,
 } from '@/lib/projetos/ui';
 
 export default function ProjetosClient() {
   const router = useRouter();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const { fetchProjetos, deleteProjeto, loading: _loading, fetching } = useProjetoOperations({
     onSuccess: () => {
       // Recarregar lista após ação bem-sucedida

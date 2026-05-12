@@ -1010,10 +1010,12 @@ export function calcPaintingInterior(respostas: EstimadorRespostas): EstimadorRe
   const [rLow, rHigh] = rateMap[quality] || rateMap.mid
   const paintPrice: Record<string, number> = { basic: 35, mid: 55, premium: 85 }  // $/gallon
 
-  const gallons   = Math.ceil(totalArea / 350)  // ~350 sqft/gallon, 2 coats = ÷ 175
+   
+  const _gallons   = Math.ceil(totalArea / 350)  // ~350 sqft/gallon, 2 coats = ÷ 175
   const galFinal  = Math.ceil(totalArea / 175)   // 2 coats
   const paintCost = r(galFinal * paintPrice[quality])
-  const laborCost = r(totalArea * ((rLow + rHigh) / 2 - paintCost / totalArea))
+   
+  const _laborCost = r(totalArea * ((rLow + rHigh) / 2 - paintCost / totalArea))
   const prepCost  = prepWork ? r(rooms * 150 + sqftFloor * 0.30) : 0
 
   const low  = r(totalArea * rLow + prepCost * 0.7)
@@ -1077,7 +1079,8 @@ export function calcPaintingExterior(respostas: EstimadorRespostas): EstimadorRe
   const [rLow, rHigh] = rateMap[quality] || rateMap.mid
   const paintPrice: Record<string, number> = { basic: 45, mid: 65, premium: 95 }
 
-  const gallons   = Math.ceil(sqftFacade / 150)   // exterior uses more (rougher)
+   
+  const _gallons   = Math.ceil(sqftFacade / 150)   // exterior uses more (rougher)
   const galFinal  = Math.ceil(sqftFacade / 150)
   const paintCost = r(galFinal * paintPrice[quality])
   const pwCost    = pressureWash ? r(sqftFacade * 0.20 + 150) : 0

@@ -281,6 +281,8 @@ describe('Load and Stress Testing', () => {
     });
 
     it('should handle sorting large datasets', () => {
+       
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const items = Array.from({ length: 10000 }, (_, i) => ({
         id: Math.random() * 10000,
         value: Math.random() * 1000,

@@ -16,7 +16,7 @@ import { UserViewDrawer } from "./_components/UserViewDrawer";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { UsersTable } from "./_components/UsersTable";
 import { UsersToolbar } from "./_components/UsersToolbar";
-import type { SortKey, UserRole, Usuario } from "./_components/types";
+import type { UserRole, Usuario } from "./_components/types";
 
 // Funções temporárias
 function exportUsersToCSV(users: Usuario[]): void {
@@ -208,6 +208,8 @@ export default function UsersPage() {
       setSelectedIds([]);
       setSelectionResetKey(k => k + 1);
       load();
+     
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       toast.error('Erro', 'Erro ao alterar status dos usuários');
     }

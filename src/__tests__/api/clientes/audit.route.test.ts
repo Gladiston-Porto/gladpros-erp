@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { NextRequest } from 'next/server'
+import {  } from 'next/server'
 
 jest.mock('@/shared/lib/rbac', () => ({
   requireUser: jest.fn(),

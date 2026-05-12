@@ -111,7 +111,8 @@ export function FinanceiroDashboard({ projeto }: Props) {
     }).format(value);
   };
 
-  const formatPercentage = (value: number) => {
+   
+  const _formatPercentage = (value: number) => {
     return `${(value * 100).toFixed(1)}%`;
   };
 

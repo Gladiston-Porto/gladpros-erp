@@ -11,7 +11,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
   }
   const body = await request.json();
-  const { shareWith, permissions } = body;
+   
+  const { shareWith, permissions: _permissions } = body;
 
   if (!shareWith || !Array.isArray(shareWith) || shareWith.length === 0) {
     return NextResponse.json(

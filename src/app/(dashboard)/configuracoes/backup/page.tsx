@@ -61,6 +61,8 @@ export default function BackupPage() {
         throw new Error('Erro ao buscar dados de backup.');
       }
       setData(await res.json());
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setError(err.message || 'Falha na comunicação com o servidor.');
     } finally {

@@ -22,7 +22,7 @@ import {
   businessErrorResponse,
   ApiErrorCode
 } from '@/lib/api';
-import { z } from 'zod';
+import {  } from 'zod';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 
@@ -53,6 +53,8 @@ async function getHandler(request: NextRequest) {
   const { filters } = getSearchParams(request);
   
   // 5. FILTROS CUSTOMIZADOS
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const whereFilters: any = {};
   
   // Filtro por tipo de movimentação

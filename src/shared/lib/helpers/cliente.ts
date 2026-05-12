@@ -76,6 +76,8 @@ export async function decryptDocumento(encryptedDoc: string, tipo: TipoCliente):
     const decrypted = await decryptDoc(encryptedDoc)
     // SECURITY CRITICAL: Apply mask immediately. Do not return raw decrypted value.
     return maskDocumento(decrypted, tipo)
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     return ''
   }

@@ -40,6 +40,8 @@ export function CreateCategoriaModal({
 }: CreateCategoriaModalProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [categoriasPai, setCategoriasPai] = useState<any[]>([]);
     const [loadingPais, setLoadingPais] = useState(false);
 
@@ -102,7 +104,9 @@ export function CreateCategoriaModal({
 
             let result;
             try {
+                 
                 result = await res.json();
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e) {
                 throw new Error(`Erro de resposta do servidor (${res.status}). Tente novamente.`);
             }
@@ -123,8 +127,10 @@ export function CreateCategoriaModal({
             });
 
             onSuccess({ id: result.data.id, nome: result.data.nome, paiId: result.data.paiId ?? null });
+             
             form.reset();
             onOpenChange(false);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             toast({
                 title: 'Erro',

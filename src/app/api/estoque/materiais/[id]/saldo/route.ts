@@ -84,6 +84,8 @@ async function handler(
     .reduce((acc, s) => acc + Number(s.quantidade), 0);
   
   // 7. BUSCA LOTES POR LOCALIZAÇÃO (se rastreia lote)
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let lotesPorLocalizacao: any[] = [];
   if (saldos.some(s => s.loteId)) {
     const lotes = await prisma.materialLote.findMany({

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 
 async function seedInvoiceSystem() {
+   
+  // eslint-disable-next-line no-console
   console.log('🌱 Seeding Invoice System...');
 
   // Seed TaxRate: Texas Sales Tax 8.25%
@@ -14,6 +16,9 @@ async function seedInvoiceSystem() {
     },
   });
 
+ 
+
+  // eslint-disable-next-line no-console
   console.log('✅ TaxRate criada:', texasTaxRate.name, '-', Number(texasTaxRate.rate) * 100 + '%');
 
   // Opcional: Adicionar outras tax rates para cidades do Texas
@@ -25,8 +30,10 @@ async function seedInvoiceSystem() {
       jurisdictionType: 'CITY',
       rate: 0.02, // 2% local rate
     },
+   
   });
 
+  // eslint-disable-next-line no-console
   console.log('✅ TaxRate criada:', austinTaxRate.name, '-', Number(austinTaxRate.rate) * 100 + '%');
 
   const houstonTaxRate = await prisma.taxRate.upsert({
@@ -36,11 +43,16 @@ async function seedInvoiceSystem() {
       name: 'Houston Sales Tax',
       jurisdictionType: 'CITY',
       rate: 0.02, // 2% local rate
+     
     },
   });
 
+ 
+
+  // eslint-disable-next-line no-console
   console.log('✅ TaxRate criada:', houstonTaxRate.name, '-', Number(houstonTaxRate.rate) * 100 + '%');
 
+  // eslint-disable-next-line no-console
   console.log('✅ Invoice System seed completo!');
 }
 

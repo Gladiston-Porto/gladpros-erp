@@ -135,7 +135,8 @@ describe('Database Query Performance', () => {
       const clientes = await mockPrisma.cliente.findMany();
       queryCount.count++; // 1 query
 
-      for (const cliente of clientes) {
+       
+      for (const _cliente of clientes) {
         await mockPrisma.proposta.findMany(); // N queries
         queryCount.count++;
       }
@@ -185,12 +186,14 @@ describe('Database Query Performance', () => {
       const users = await mockPrisma.user.findMany();
       queryCount.count++;
 
-      for (const user of users) {
+       
+      for (const _user of users) {
         // Level 2: Clientes for each user
         const clientes = await mockPrisma.cliente.findMany();
         queryCount.count++;
 
-        for (const cliente of clientes) {
+         
+        for (const _cliente of clientes) {
           // Level 3: Propostas for each cliente
           await mockPrisma.proposta.findMany();
           queryCount.count++;
@@ -301,7 +304,8 @@ describe('Database Query Performance', () => {
       
       await mockPrisma.cliente.findMany();
       
-      const selectDuration = performance.now() - startSelectTime;
+       
+      const _selectDuration = performance.now() - startSelectTime;
 
       // COUNT should be faster than SELECT with data
       expect(countResult[0].count).toBe(100);
@@ -329,7 +333,8 @@ describe('Database Query Performance', () => {
     });
 
     it('should not exceed connection pool limit', async () => {
-      const maxConnections = 10;
+       
+      const _maxConnections = 10;
       const attemptedConnections = 15;
       
       (mockPrisma.user.findMany as jest.Mock).mockResolvedValue([{ id: 1 }]);
@@ -416,7 +421,8 @@ describe('Database Query Performance', () => {
     it('should benchmark batch INSERT operation', async () => {
       const startTime = performance.now();
       
-      const batchData = Array.from({ length: 100 }, (_, i) => ({
+       
+      const _batchData = Array.from({ length: 100 }, (_, i) => ({
         id: i + 1,
         nome: `Cliente ${i + 1}`,
       }));
@@ -496,6 +502,8 @@ describe('Database Query Performance', () => {
       expect(hasSubquery).toBe(true);
       
       if (hasSubquery) {
+         
+        // eslint-disable-next-line no-console
         console.info('Subquery detected - consider using JOIN for better performance');
       }
     });

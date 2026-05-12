@@ -83,6 +83,7 @@ export function CatalogoItemAutocomplete({
     <div ref={containerRef} className={`relative ${className}`}>
       <div className="flex items-center rounded-lg border border-border bg-background px-3 py-2 gap-2 focus-within:ring-2 focus-within:ring-brand-primary">
         <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" aria-hidden="true" />
+        {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props */}
         <input
           type="text"
           value={query}
@@ -121,6 +122,7 @@ export function CatalogoItemAutocomplete({
                 key={item.id}
                 type="button"
                 role="option"
+                aria-selected={false}
                 onClick={() => handleSelect(item)}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-brand-primary/10 focus:bg-brand-primary/10 outline-none"
               >

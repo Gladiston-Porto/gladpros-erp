@@ -121,6 +121,8 @@ export default function InvoiceDetailPage() {
       showSuccess('Configuração fiscal atualizada');
       setShowTaxOverrideModal(false);
       void fetchInvoice();
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       showError('Erro', err.message);
     } finally {
@@ -181,7 +183,9 @@ export default function InvoiceDetailPage() {
 
       showSuccess('Pagamento registrado com sucesso!');
       setShowPaymentDialog(false);
+       
       await fetchInvoice();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Erro ao registrar pagamento:', error);
       showError('Erro ao registrar pagamento', error.message);
@@ -211,8 +215,10 @@ export default function InvoiceDetailPage() {
         throw new Error(error.message || error.error || 'Erro ao cancelar invoice');
       }
 
+       
       showSuccess('Invoice cancelada com sucesso');
       router.push('/invoices');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Erro ao cancelar invoice:', error);
       showError('Erro ao cancelar invoice', error.message);

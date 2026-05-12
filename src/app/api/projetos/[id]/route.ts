@@ -6,7 +6,7 @@ import {
   shouldMaskFinancials 
 } from '@/shared/lib/rbac-projects'
 import { updateProjetoSchema } from '@/domains/projects/validators'
-import { ZodError } from 'zod'
+import {  } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { withErrorHandler } from '@/lib/api/error-handler';
 

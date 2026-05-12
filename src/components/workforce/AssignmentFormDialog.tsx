@@ -108,6 +108,8 @@ export function AssignmentFormDialog({
 
         setSubmitting(true);
         try {
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const payload: any = {
                 workerId: parseInt(selectedWorkerId),
                 payType,
@@ -139,7 +141,9 @@ export function AssignmentFormDialog({
                 const { fieldErrors: serverErrors, firstMessage } = parseApiError(data, 'Erro ao adicionar worker');
                 setFieldErrors(serverErrors);
                 toast.error(firstMessage);
+             
             }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (error) {
             toast.error('Erro ao adicionar worker');
         } finally {

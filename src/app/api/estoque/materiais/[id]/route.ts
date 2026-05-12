@@ -75,6 +75,8 @@ async function getHandler(
   }
 
   // 5. CALCULA SALDO TOTAL
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const saldoTotal = material.saldos.reduce((acc: number, s: any) => acc + Number(s.quantidade), 0);
 
   // 6. BUSCA ÚLTIMAS MOVIMENTAÇÕES

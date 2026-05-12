@@ -121,6 +121,8 @@ export function adaptPropostaFormToAPI(formData: PropostaFormData): PropostaAPIP
     titulo: formData.cliente.titulo,
     descricao: formData.escopo,
     valorEstimado: valorTotal,
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: formData.status as any,
 
     // Contato
@@ -136,7 +138,9 @@ export function adaptPropostaFormToAPI(formData: PropostaFormData): PropostaAPIP
     janelaExecucao: formData.prazos.janela,
     restricoesAcesso: formData.prazos.restricoes,
 
+     
     // Permits
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     permite: formData.permite as any,
     quaisPermites: formData.quaisPermites,
     normasReferencia: formData.normas,
@@ -243,8 +247,10 @@ export function adaptAPIToPropostaForm(proposta: PropostaComRelacoes): PropostaF
     codigo: m.codigo || '',
     nome: m.nome,
     quantidade: Number(m.quantidade),
+     
     unidade: m.unidade || 'un',
     preco: Number(m.precoUnitario || 0),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: (m.status === 'PLANEJADO' ? 'necessario' : 'opcional') as any,
     obs: m.observacao || '',
     fornecedor: m.fornecedorPreferencial || '',
@@ -265,9 +271,11 @@ export function adaptAPIToPropostaForm(proposta: PropostaComRelacoes): PropostaF
     servico: e.servico,
     descricao: e.descricao,
     quantidade: Number(e.quantidade || 1),
+     
     unidade: e.unidade || 'serviço',
     duracaoHoras: Number(e.duracaoEstimadaHoras || 0),
     custoMO: Number(e.custoMaoObraEstimado || 0),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: (e.status === 'PLANEJADA' ? 'planejada' : 'opcional') as any // Simplified map
   }));
 
@@ -314,10 +322,12 @@ export function adaptAPIToPropostaForm(proposta: PropostaComRelacoes): PropostaF
       overhead_pct: internoData.overheadPercentual || 0,
       margem_pct: internoData.margemDesejadaPercentual || 0,
       impostos_pct: internoData.impostosPercentual || 0,
+       
       contingencia_pct: internoData.contingenciaPercentual || 0,
       frete: internoData.freteLogisticaEstimado || 0
     },
     faturamento: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       gatilho: (proposta.gatilhoFaturamento?.toLowerCase() as any) || 'na_aprovacao',
       percentual_sinal: Number(proposta.percentualSinal || 0),
       forma_preferida: proposta.formaPagamentoPreferida || 'Invoice',

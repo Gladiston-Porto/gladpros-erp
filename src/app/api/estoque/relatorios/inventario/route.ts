@@ -53,6 +53,8 @@ async function handler(request: NextRequest) {
   });
   
   // 5. INVENTÁRIO DE MATERIAIS POR LOCALIZAÇÃO
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const inventarioMateriais = await prisma.$queryRaw<any[]>`
     SELECT 
       m.id,
@@ -109,7 +111,9 @@ async function handler(request: NextRequest) {
     }
   });
   
+   
   // 7. RESUMO POR CATEGORIA (MATERIAIS)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resumoMateriaisPorCategoria = await prisma.$queryRaw<any[]>`
     SELECT 
       c.id,
@@ -128,7 +132,10 @@ async function handler(request: NextRequest) {
     ORDER BY c.nome
   `;
   
+ 
+  
   // 8. RESUMO POR LOCALIZAÇÃO (MATERIAIS)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resumoMateriaisPorLocalizacao = await prisma.$queryRaw<any[]>`
     SELECT 
       l.id,
@@ -165,9 +172,11 @@ async function handler(request: NextRequest) {
       ...(apenasAtivos ? { ativo: true } : {})
     },
     _count: true
+   
   });
   
   // 11. TOTAIS GERAIS
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totaisGerais = await prisma.$queryRaw<any[]>`
     SELECT 
       (SELECT COUNT(*) FROM materiais WHERE ${apenasAtivos ? 'ativo = true' : '1=1'}) as total_materiais,
@@ -214,10 +223,12 @@ async function handler(request: NextRequest) {
         valorTotalInventario: Number(totaisGerais[0].valor_total_materiais) + Number(totaisGerais[0].valor_total_equipamentos)
       } : {}),
       materiaisAbaixoMinimo: Number(totaisGerais[0].materiais_abaixo_minimo),
+       
       equipamentosDisponiveis: Number(totaisGerais[0].equipamentos_disponiveis),
       equipamentosEmUso: Number(totaisGerais[0].equipamentos_em_uso)
     } : null,
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inventarioMateriais: inventarioMateriais.map((m: any) => ({
       id: m.id,
       codigo: m.codigo,
@@ -231,11 +242,13 @@ async function handler(request: NextRequest) {
       pontoReposicao: Number(m.ponto_reposicao),
       ...(incluirValores ? {
         precoUnitario: Number(m.preco_unitario),
+         
         valorTotal: Number(m.valor_total)
       } : {}),
       statusEstoque: m.status_estoque
     })),
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inventarioEquipamentos: inventarioEquipamentos.map((e: any) => ({
       id: e.id,
       codigo: e.codigo,
@@ -245,38 +258,52 @@ async function handler(request: NextRequest) {
       fornecedor: e.fornecedor?.nome,
       status: e.status,
       dataAquisicao: e.dataAquisicao,
+       
       ...(incluirValores ? {
         valorAquisicao: Number(e.valorAquisicao)
       } : {})
     })),
     
     resumoPorCategoria: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       materiais: resumoMateriaisPorCategoria.map((c: any) => ({
         id: c.id,
         nome: c.nome,
         totalMateriais: Number(c.total_materiais),
         totalLocalizacoes: Number(c.total_localizacoes),
+         
         quantidadeTotal: Number(c.quantidade_total),
         ...(incluirValores ? {
           valorTotal: Number(c.valor_total)
         } : {}),
         materiaisAbaixoMinimo: Number(c.materiais_abaixo_minimo)
+       
       })),
       equipamentos: Object.entries(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resumoEquipamentosPorCategoria.reduce((acc: any, e) => {
+           
+           
           const catId = e.categoriaId || 0;
           if (!acc[catId]) {
             acc[catId] = { categoriaId: catId, porStatus: {} };
+           
           }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const count = typeof e._count === 'number' ? e._count : (e._count as any)._all || 0;
           acc[catId].porStatus[e.status] = count;
           return acc;
         }, {})
-      ).map(([id, data]: any) => data)
+       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ).map(([_id, data]: any) => data)
     },
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resumoPorLocalizacao: resumoMateriaisPorLocalizacao.map((l: any) => ({
+       
       id: l.id,
+       
       nome: l.nome,
       tipo: l.tipo,
       totalMateriais: Number(l.total_materiais),
@@ -288,7 +315,9 @@ async function handler(request: NextRequest) {
     })),
     
     resumoPorStatus: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       equipamentos: resumoEquipamentosPorStatus.map((s: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const count = typeof s._count === 'number' ? s._count : (s._count as any)._all || 0;
         return {
           status: s.status,

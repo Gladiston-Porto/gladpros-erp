@@ -31,6 +31,8 @@ export async function MovimentacaoList({ searchParams }: MovimentacaoListProps) 
 
   // Filtro de tipo
   if (params.tipo) {
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     where.tipo = params.tipo as any;
   }
 

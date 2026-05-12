@@ -93,6 +93,8 @@ async function putHandler(
         return errorResponse('Assignment não encontrado', ApiErrorCode.NOT_FOUND, 404);
     }
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: any = {};
 
     if (body.status) updateData.status = body.status;

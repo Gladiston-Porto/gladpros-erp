@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 import { GET, POST } from '../../../app/api/propostas/route'
 import { NextRequest } from 'next/server'
 

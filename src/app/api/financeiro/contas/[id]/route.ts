@@ -192,6 +192,8 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     // Atualiza conta
     const contaAtualizada = await prisma.bankAccount.update({
       where: { id },
+       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: validated as any,
       include: {
         empresa: {

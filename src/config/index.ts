@@ -101,5 +101,7 @@ export function validateConfig() {
     throw new Error('JWT_SECRET deve ter pelo menos 32 caracteres');
   }
 
+   
+  // eslint-disable-next-line no-console
   console.log('✅ Todas as configurações críticas validadas');
 }

@@ -162,6 +162,8 @@ export default function EditInvoicePage() {
     setItens((current) => current.filter((_, i) => i !== index));
   };
 
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateItem = (index: number, field: keyof InvoiceFormItem, value: any) => {
     setItens((current) =>
       current.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
@@ -208,7 +210,9 @@ export default function EditInvoicePage() {
       }
 
       showSuccess('Invoice atualizada com sucesso!');
+       
       router.push(`/invoices/${invoiceId}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Erro ao atualizar invoice:', error);
       showError('Erro ao atualizar invoice', error.message);

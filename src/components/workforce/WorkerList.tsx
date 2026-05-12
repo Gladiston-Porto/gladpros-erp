@@ -15,8 +15,6 @@ import {
     User,
     Building2,
     Search,
-    Filter,
-    MoreVertical,
     Mail,
     Phone,
     DollarSign,

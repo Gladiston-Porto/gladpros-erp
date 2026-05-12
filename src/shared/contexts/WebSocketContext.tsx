@@ -30,11 +30,15 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     });
 
     newSocket.on('connect', () => {
+       
+      // eslint-disable-next-line no-console
       console.log('WebSocket connected');
       setIsConnected(true);
     });
 
+     
     newSocket.on('disconnect', () => {
+      // eslint-disable-next-line no-console
       console.log('WebSocket disconnected');
       setIsConnected(false);
     });

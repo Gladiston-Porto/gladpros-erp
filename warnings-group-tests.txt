@@ -1,0 +1,33 @@
+src/__tests__/api/clientes/audit.route.test.ts:5:10 [@typescript-eslint/no-unused-vars] 'NextRequest' is defined but never used. Allowed unused vars must match /^_/u
+src/__tests__/api/dashboard/dashboard.test.ts:80:7 [@typescript-eslint/no-unused-vars] 'GET' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/api/dashboard/executive.test.ts:6:23 [@typescript-eslint/no-unused-vars] 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u
+src/__tests__/api/invoices/gateway.test.ts:63:7 [@typescript-eslint/no-unused-vars] 'mockProjetoNoMateriais' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/backup-recovery.test.ts:231:13 [@typescript-eslint/no-unused-vars] 'baseTime' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/business-logic/advanced-workflows.test.ts:252:13 [@typescript-eslint/no-unused-vars] 'total' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/business-logic/advanced-workflows.test.ts:254:13 [@typescript-eslint/no-unused-vars] 'monthlyRate' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/business-logic/advanced-workflows.test.ts:329:13 [@typescript-eslint/no-unused-vars] 'frequency' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/load-stress.test.ts:284:55 [@typescript-eslint/no-unused-vars] 'i' is defined but never used. Allowed unused args must match /^_/u
+src/__tests__/middleware/security.test.ts:41:46 [@typescript-eslint/no-unused-vars] 'url' is defined but never used. Allowed unused args must match /^_/u
+src/__tests__/performance/database-queries.test.ts:138:18 [@typescript-eslint/no-unused-vars] 'cliente' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/performance/database-queries.test.ts:188:18 [@typescript-eslint/no-unused-vars] 'user' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/performance/database-queries.test.ts:193:20 [@typescript-eslint/no-unused-vars] 'cliente' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/performance/database-queries.test.ts:304:13 [@typescript-eslint/no-unused-vars] 'selectDuration' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/performance/database-queries.test.ts:332:13 [@typescript-eslint/no-unused-vars] 'maxConnections' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/performance/database-queries.test.ts:419:13 [@typescript-eslint/no-unused-vars] 'batchData' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/performance/database-queries.test.ts:499:9 [no-console] Unexpected console statement. Only these console methods are allowed: error, warn
+src/__tests__/performance/transaction-performance.test.ts:287:18 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/__tests__/schemas/bank-account.schema.test.ts:14:3 [@typescript-eslint/no-unused-vars] 'updateTransferStatusSchema' is defined but never used. Allowed unused vars must match /^_/u
+src/__tests__/schemas/bank-account.schema.test.ts:15:3 [@typescript-eslint/no-unused-vars] 'executeTransferSchema' is defined but never used. Allowed unused vars must match /^_/u
+src/__tests__/schemas/expense.schema.test.ts:16:3 [@typescript-eslint/no-unused-vars] 'updateExpenseCategorySchema' is defined but never used. Allowed unused vars must match /^_/u
+src/__tests__/schemas/expense.schema.test.ts:18:3 [@typescript-eslint/no-unused-vars] 'StatusDespesaEnum' is defined but never used. Allowed unused vars must match /^_/u
+src/__tests__/schemas/expense.schema.test.ts:19:3 [@typescript-eslint/no-unused-vars] 'StatusAprovacaoEnum' is defined but never used. Allowed unused vars must match /^_/u
+src/__tests__/schemas/expense.schema.test.ts:20:3 [@typescript-eslint/no-unused-vars] 'TipoAprovadorEnum' is defined but never used. Allowed unused vars must match /^_/u
+src/__tests__/scripts/check-github-status.test.js:12:21 [no-console] Unexpected console statement. Only these console methods are allowed: error, warn
+src/__tests__/scripts/check-github-status.test.js:13:1 [no-console] Unexpected console statement. Only these console methods are allowed: error, warn
+src/__tests__/scripts/check-github-status.test.js:23:5 [no-console] Unexpected console statement. Only these console methods are allowed: error, warn
+src/__tests__/services/email-service.test.ts:9:11 [@typescript-eslint/no-unused-vars] 'EmailTemplate' is defined but never used. Allowed unused vars must match /^_/u
+src/__tests__/services/notification-service.test.ts:448:13 [@typescript-eslint/no-unused-vars] 'n2' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/services/pdf-service.test.ts:88:54 [@typescript-eslint/no-unused-vars] 'options' is defined but never used. Allowed unused args must match /^_/u
+src/__tests__/unit/revenue-validations.test.ts:33:15 [@typescript-eslint/no-unused-vars] 'clienteId' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/unit/revenue-validations.test.ts:173:15 [@typescript-eslint/no-unused-vars] 'status' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/__tests__/unit/revenue-validations.test.ts:179:15 [@typescript-eslint/no-unused-vars] 'recorrente' is assigned a value but never used. Allowed unused vars must match /^_/u

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 import { MFAService } from '../../../shared/lib/mfa'
 
 // Mock do Prisma

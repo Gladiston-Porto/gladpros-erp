@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
     const pageSize = Number(searchParams.get("pageSize")) || 20
 
     const result = await listCompensations({
+       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       empresaId: (user as any).empresaId ?? 1,
       year,
       tipo: tipo || undefined,
@@ -76,7 +78,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+     
     const result = await createCompensation({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       empresaId: (user as any).empresaId ?? 1,
       workerId: body.data.workerId,
       tipo: body.data.tipo,

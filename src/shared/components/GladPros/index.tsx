@@ -39,6 +39,8 @@ import {
   Camera,
   KeyRound,
   Sliders,
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Briefcase,
 } from "lucide-react";
 import { useConfirm } from "@gladpros/ui/confirm-dialog";
@@ -256,8 +258,9 @@ export function HeaderBar({
   user: AppUser;
   theme: "light" | "dark";
   onToggleTheme: () => void;
+ 
 }) {
-  const router = useRouter();
+  const _router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 

@@ -54,7 +54,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   const now = new Date();
-  const cutoff14 = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+   
+  const _cutoff14 = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
   const cutoff3 = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 
   const propostas = await prisma.proposta.findMany({

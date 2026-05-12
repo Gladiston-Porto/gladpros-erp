@@ -155,6 +155,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const validatedFilters = revenueFiltersSchema.parse(filters);
 
     // 4. Construir where clause
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       empresaId: validatedFilters.empresaId,
     };

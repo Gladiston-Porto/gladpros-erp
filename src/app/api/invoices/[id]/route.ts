@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
-import { calculateInvoiceTax, validateTaxBeforeSend } from '@/shared/services/salesTaxService';
+import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 

@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@gladpros/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@gladpros/ui/dialog";
 import { useToast } from '@/shared/hooks/use-toast';
-import { Loader2, Plus, ImagePlus, X, Package, MapPin, RotateCcw, Barcode, Trash2, Upload, FileText, ExternalLink } from 'lucide-react';
+import { Loader2, Plus, ImagePlus, X, Package, MapPin, RotateCcw, Barcode, Upload, FileText, ExternalLink } from 'lucide-react';
 import { CreateCategoriaModal } from '@/components/estoque/categorias/CreateCategoriaModal';
 import { organizeCategoriesForSelect } from '@/lib/estoque/category-utils';
 import Image from 'next/image';

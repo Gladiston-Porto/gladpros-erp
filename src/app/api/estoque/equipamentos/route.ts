@@ -51,6 +51,8 @@ async function getHandler(request: NextRequest) {
   const { search, filters } = getSearchParams(request);
   
   // 5. FILTROS CUSTOMIZADOS
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const whereFilters: any = {};
   
   // Filtro por tipo
@@ -127,7 +129,9 @@ async function getHandler(request: NextRequest) {
     prisma.equipamento.count({ where })
   ]);
   
+   
   // 9. ENRIQUECE COM DADOS ADICIONAIS
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const equipamentosEnriquecidos = equipamentos.map((equip: any) => ({
     ...equip,
     emUso: equip.status === 'EM_USO',

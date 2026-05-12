@@ -142,6 +142,8 @@ export function handleApiError(error: unknown): NextResponse<ApiError> {
 /**
  * Wrapper para route handlers com tratamento de erro
  */
+ 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withErrorHandler<T extends any[]>(
   handler: (...args: T) => Promise<NextResponse>
 ) {

@@ -249,9 +249,11 @@ describe('Advanced Workflow Logic', () => {
     });
 
     it('should apply interest for long-term payments', () => {
-      const total = 1000;
+       
+      const _total = 1000;
       const installments = 12;
-      const monthlyRate = 0.01; // 1% per month
+       
+      const _monthlyRate = 0.01; // 1% per month
       
       const requiresInterest = installments > 6;
       
@@ -326,7 +328,8 @@ describe('Advanced Workflow Logic', () => {
 
     it('should calculate next occurrence date', () => {
       const lastDate = new Date('2025-01-15');
-      const frequency = 'MONTHLY';
+       
+      const _frequency = 'MONTHLY';
       
       const nextDate = new Date(lastDate);
       nextDate.setMonth(nextDate.getMonth() + 1);

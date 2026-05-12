@@ -104,6 +104,8 @@ export default function GeralPage() {
       const { data } = await res.json();
       setEmpresa(data);
       toast({ title: 'Salvo', description: 'Dados da empresa atualizados com sucesso.' });
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message || 'Falha ao salvar.', variant: 'destructive' });
     } finally {

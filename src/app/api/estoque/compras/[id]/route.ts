@@ -209,6 +209,8 @@ async function putHandler(
   // 9. ATUALIZAÇÃO
   const compra = await prisma.compra.update({
     where: { id },
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: dados as any,
     include: {
       fornecedor: {

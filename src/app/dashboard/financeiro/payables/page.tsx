@@ -12,14 +12,13 @@ import { requireServerUser } from "@/shared/lib/requireServerUser";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { Badge } from "@gladpros/ui/badge"
 import { Button } from "@gladpros/ui/button"
-import { Card, CardContent } from "@gladpros/ui/card"
+import {  } from "@gladpros/ui/card"
 import { PageHeader } from "@gladpros/ui/page-header";
 import {
     DollarSign,
     Clock,
     CheckCircle,
     AlertCircle,
-    ChevronRight,
     User,
     Banknote,
     ArrowRight
@@ -83,6 +82,8 @@ async function PayablesContent() {
         }).format(value);
     };
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const statusConfig: Record<string, { icon: any; color: string; label: string; bgColor: string }> = {
         PENDING: { icon: Clock, color: 'text-yellow-600', bgColor: 'bg-yellow-100', label: 'Pendente' },
         APPROVED: { icon: CheckCircle, color: 'text-blue-600', bgColor: 'bg-blue-100', label: 'Aprovado' },

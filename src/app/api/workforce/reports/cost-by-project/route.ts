@@ -23,6 +23,8 @@ async function getHandler(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
         status: 'PAID'
     };
@@ -86,7 +88,9 @@ async function getHandler(request: NextRequest) {
             costByProject[item.projectId].workers.add(payable.workerId);
         }
 
+         
         // Count unique payables per project
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const projectIds = [...new Set(payable.lineItems.map((i: any) => i.projectId).filter(Boolean))];
         for (const pid of projectIds) {
             if (pid && costByProject[pid]) {

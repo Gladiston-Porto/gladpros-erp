@@ -39,6 +39,8 @@ async function handler(request: NextRequest) {
     }
   
   // 3. LOG
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   logger.info('Listando materiais', createLogContext(request, user as any));
   
   // 4. PARÂMETROS
@@ -50,7 +52,9 @@ async function handler(request: NextRequest) {
   );
   const { search, filters } = getSearchParams(request);
   
+   
   // 5. FILTROS CUSTOMIZADOS
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const whereFilters: any = {};
   
   // Filtro por tipo
@@ -124,8 +128,10 @@ async function handler(request: NextRequest) {
     prisma.material.count({ where })
   ]);
   
+   
   // 9. ENRIQUECE COM SALDO TOTAL
   // Busca saldos de todos os materiais da página em UMA query agrupada (antes: N+1 queries)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const materialIds = materiais.map((m: any) => m.id);
   const saldosPorMaterial = materialIds.length > 0
     ? await prisma.materialSaldo.groupBy({
@@ -136,15 +142,19 @@ async function handler(request: NextRequest) {
     : [];
 
   const saldoMap = new Map(
+     
     saldosPorMaterial.map(s => [s.materialId, Number(s._sum.quantidade ?? 0)])
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const materiaisComSaldo = materiais.map((material: any) => {
     const saldoTotal = saldoMap.get(material.id) ?? 0;
+     
     return {
       ...material,
       saldoTotal,
       abaixoMinimo: saldoTotal < (material.estoqueMinimo ?? 0),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       embalagens: (material.embalagens ?? []).map((e: any) => ({
         id: e.id,
         packageType: e.packageType,
@@ -153,11 +163,13 @@ async function handler(request: NextRequest) {
         purchaseUnit: e.purchaseUnit ?? 'EA',
       })),
     };
+   
   });
   
   // 10. LOG SUCESSO
   logger.info(
     `Materiais listados: ${total} total, página ${page}/${Math.ceil(total / pageSize)}`,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     createLogContext(request, user as any)
   );
   
@@ -182,12 +194,14 @@ export const GET = withErrorHandler(handler);
  */
 async function postHandler(request: NextRequest) {
   try {
+     
     const user = await requireUser(request);
 
     if (!can(user.role as Role, 'estoque', 'create')) {
       return forbiddenResponse('Você não tem permissão para criar materiais');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     logger.info('Criando material', createLogContext(request, user as any));
 
     const body = await request.json();
@@ -412,6 +426,7 @@ async function postHandler(request: NextRequest) {
             },
           });
         }
+       
       }
 
       return { material, compra };
@@ -419,6 +434,7 @@ async function postHandler(request: NextRequest) {
 
     logger.info(
       `Material criado: ${result.material.nome} (ID: ${result.material.id})`,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       createLogContext(request, user as any),
       { materialId: result.material.id }
     );

@@ -187,7 +187,8 @@ export default function ProjetoDetailPage() {
     projeto.prioridade as keyof typeof PRIORITY_BADGE_VARIANTS
     ] ?? 'secondary';
 
-  const healthBadge = getHealthBadge({ delayed, daysLate, overBudget });
+   
+  const _healthBadge = getHealthBadge({ delayed, daysLate, overBudget });
 
   const StatusIcon =
     projeto.status === 'planejado'

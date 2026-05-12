@@ -34,6 +34,8 @@ export class AuditLogger {
   static async log(event: AuditEvent): Promise<void> {
     try {
       // Log no console para desenvolvimento
+       
+      // eslint-disable-next-line no-console
       console.log(`[AUDIT] ${event.status} - ${event.action}`, {
         user: event.userEmail || `ID:${event.userId}` || 'Anonymous',
         resource: event.resource ? `${event.resource}${event.resourceId ? `:${event.resourceId}` : ''}` : undefined,

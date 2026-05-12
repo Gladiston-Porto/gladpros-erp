@@ -109,6 +109,8 @@ export async function MaterialList({ searchParams }: MaterialListProps) {
     // Aplicar filtros de status em memória
     // Nota: 'reservado' já é filtrado no banco via Prisma query.
     if (status === 'abaixo_minimo') {
+       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       materialsForTable = materialsForTable.filter(m => (m as any)._abaixoMinimo);
     }
 

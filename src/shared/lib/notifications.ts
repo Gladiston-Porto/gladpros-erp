@@ -41,6 +41,8 @@ export class NotificationService {
       
       await cacheService.set(cacheKey, trimmedNotifications, 30 * 24 * 3600); // 30 dias
 
+       
+      // eslint-disable-next-line no-console
       console.log(`[NOTIFICATIONS] Nova notificação criada para usuário ${notification.userId}: ${notification.title}`);
       
       return id;
@@ -113,6 +115,9 @@ export class NotificationService {
 
       await cacheService.set(cacheKey, updatedNotifications, 30 * 24 * 3600);
       
+ 
+      
+      // eslint-disable-next-line no-console
       console.log(`[NOTIFICATIONS] Notificação ${notificationId} marcada como lida`);
       return true;
     } catch (error) {
@@ -129,8 +134,10 @@ export class NotificationService {
       
       const updatedNotifications = notifications.map(notif => ({ ...notif, read: true }));
 
+       
       await cacheService.set(cacheKey, updatedNotifications, 30 * 24 * 3600);
       
+      // eslint-disable-next-line no-console
       console.log(`[NOTIFICATIONS] Todas notificações marcadas como lidas para usuário ${userId}`);
       return true;
     } catch (error) {
@@ -147,8 +154,11 @@ export class NotificationService {
       
       const updatedNotifications = notifications.filter(notif => notif.id !== notificationId);
 
+ 
+
       await cacheService.set(cacheKey, updatedNotifications, 30 * 24 * 3600);
       
+      // eslint-disable-next-line no-console
       console.log(`[NOTIFICATIONS] Notificação ${notificationId} deletada`);
       return true;
     } catch (error) {
@@ -178,10 +188,12 @@ export class NotificationService {
         return true;
       });
 
+       
       const removedCount = notifications.length - validNotifications.length;
       
       if (removedCount > 0) {
         await cacheService.set(cacheKey, validNotifications, 30 * 24 * 3600);
+        // eslint-disable-next-line no-console
         console.log(`[NOTIFICATIONS] ${removedCount} notificações antigas removidas para usuário ${userId}`);
       }
 
@@ -259,10 +271,13 @@ export class NotificationService {
   const globalNotifications = await cacheService.get<Array<Omit<Notification, 'userId'>>>(globalKey) || [];
       globalNotifications.unshift(globalNotification);
       
+ 
+      
       // Manter apenas as últimas 10 notificações globais
       const trimmedGlobal = globalNotifications.slice(0, 10);
   await cacheService.set(globalKey, trimmedGlobal, 30 * 24 * 3600);
 
+      // eslint-disable-next-line no-console
       console.log(`[NOTIFICATIONS] Notificação global criada: ${notification.title}`);
     } catch (error) {
       console.error('[NOTIFICATIONS] Erro ao criar notificação global:', error);

@@ -62,6 +62,8 @@ export function EquipamentoForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<EquipamentoFormData>({
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(equipamentoSchema) as any,
     defaultValues: {
       codigo: initialData?.codigo || '',
@@ -146,7 +148,9 @@ export function EquipamentoForm({
   };
 
   return (
+     
     <Form {...form}>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6">
         {/* SEÇÃO 1: Identificação */}
         <Card>

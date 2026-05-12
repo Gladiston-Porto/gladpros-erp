@@ -77,6 +77,8 @@ export function errorResponse(
   error: string,
   code: ApiErrorCode = ApiErrorCode.INTERNAL_ERROR,
   status: number = HttpStatus.INTERNAL_SERVER_ERROR,
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any
 ): NextResponse<ApiError> {
   return NextResponse.json(
@@ -151,7 +153,9 @@ export function forbiddenResponse(
  * Resposta de conflito
  */
 export function conflictResponse(
+   
   message: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any
 ): NextResponse<ApiError> {
   return errorResponse(
@@ -166,8 +170,10 @@ export function conflictResponse(
  * Resposta de erro de negócio
  */
 export function businessErrorResponse(
+   
   message: string,
   code: ApiErrorCode,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any
 ): NextResponse<ApiError> {
   return errorResponse(

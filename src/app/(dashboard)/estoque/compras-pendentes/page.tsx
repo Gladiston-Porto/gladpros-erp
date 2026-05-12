@@ -2,13 +2,13 @@
 import { useEffect, useState, useCallback } from "react";
 import {
     Package, AlertTriangle, Clock, CheckCircle,
-    ChevronDown, ChevronUp, DollarSign, Truck,
+    ChevronDown, ChevronUp, Truck,
     RefreshCw, ExternalLink
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from '@gladpros/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from "@gladpros/ui/card";
-import { Badge } from "@gladpros/ui/badge";
+import { Card, CardContent } from "@gladpros/ui/card";
+import {  } from "@gladpros/ui/badge";
 
 // Types
 type ServiceOrderRef = {
@@ -260,6 +260,8 @@ export default function ProcurementHubPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null);
+     
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [processing, setProcessing] = useState(false);
 
     const loadData = useCallback(async () => {

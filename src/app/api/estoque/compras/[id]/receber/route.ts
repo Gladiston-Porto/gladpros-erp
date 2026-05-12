@@ -331,6 +331,8 @@ async function handler(
           expenseId = newExpense.id;
         }
       } else {
+         
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         expenseId = existingExpense.id;
       }
     }

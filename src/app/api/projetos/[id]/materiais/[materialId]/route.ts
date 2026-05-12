@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ProjectMaterialService } from '@/domains/projects/services/ProjectMaterialService'
 import { requireProjectPermission } from '@/shared/lib/rbac-projects'
 import { updateProjetoMaterialSchema, alterarStatusMaterialSchema } from '@/domains/projects/validators'
-import { ZodError } from 'zod'
+import {  } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
 
 export const runtime = "nodejs"

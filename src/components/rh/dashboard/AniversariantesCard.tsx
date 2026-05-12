@@ -2,9 +2,7 @@
  * Aniversariantes Card - Mostra aniversariantes do mês
  */
 
-import { prisma } from '@/lib/prisma';
 import { Cake } from 'lucide-react';
-import { formatDate } from '@/components/financeiro/shared/formatters';
 
 export async function AniversariantesCard({ empresaId }: { empresaId: number }) {
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/rh/dashboard?empresaId=${empresaId}`, {
@@ -25,6 +23,7 @@ export async function AniversariantesCard({ empresaId }: { empresaId: number }) 
         <p className="text-sm text-gray-500">Nenhum aniversariante este mês</p>
       ) : (
         <div className="space-y-3">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {aniversariantes.map((pessoa: any) => (
             <div key={pessoa.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
               <div>

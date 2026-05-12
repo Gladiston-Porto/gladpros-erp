@@ -25,6 +25,8 @@ async function getHandler(request: NextRequest) {
     const workerId = searchParams.get('workerId');
     const status = searchParams.get('status');
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
 
     if (assignmentId) where.assignmentId = parseInt(assignmentId);
@@ -72,7 +74,9 @@ async function postHandler(request: NextRequest) {
             periodEnd: new Date(body.periodEnd),
             status: 'DRAFT',
             ...(body.entries && {
+                 
                 entries: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     create: body.entries.map((e: any) => ({
                         date: new Date(e.date),
                         hours: e.hours,

@@ -445,7 +445,8 @@ describe('Notification Service', () => {
 
     it('should order by creation time descending when sorted', () => {
       const n1 = notificationService.createNotification(1, 'INFO', 'T1', 'M1');
-      const n2 = notificationService.createNotification(1, 'INFO', 'T2', 'M2');
+       
+      const _n2 = notificationService.createNotification(1, 'INFO', 'T2', 'M2');
       const n3 = notificationService.createNotification(1, 'INFO', 'T3', 'M3');
 
       // Original order (ascending by creation time)

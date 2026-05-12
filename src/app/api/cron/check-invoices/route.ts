@@ -142,6 +142,8 @@ export async function POST(request: Request) {
                     }
                 });
                 results.closedServiceOrders.push(invoice.ServiceOrder.ticketNumber);
+             
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (err) {
                 results.errors.push(`Failed to close ${invoice.ServiceOrder.ticketNumber}`);
             }

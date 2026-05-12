@@ -101,6 +101,8 @@ export const POST = withErrorHandler(async (request: Request,
             const targetIds = structuredItems?.map(i => i.serviceOrderMaterialId);
 
             // Fetch materials — broader filter to support both stock and external
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const whereClause: any = { serviceOrderId };
 
             if (isBulkReturn) {
@@ -184,7 +186,9 @@ export const POST = withErrorHandler(async (request: Request,
                 // ── REFUND TRACKING (STORE destination) ──
                 if (destination === 'STORE' && itemConfig.refundAmount != null && itemConfig.refundAmount > 0) {
                     // Update linked field expense with refund info
+                     
                     if (mat.fieldExpenseId && mat.fieldExpense) {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const existingRefund = Number((mat.fieldExpense as any).refundAmount || 0);
                         await tx.expense.update({
                             where: { id: mat.fieldExpenseId },

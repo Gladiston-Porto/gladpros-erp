@@ -17,6 +17,8 @@ let cachedDocKeys: Buffer[] | null = null
 let cacheTimestamp: number = 0
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutos
 
+ 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type KMSKey = Awaited<ReturnType<typeof KMS.getAllValidKeys>>[number];
 
 // Legacy keys (fallback se KMS não disponível)

@@ -65,6 +65,8 @@ export async function POST(
     })
 
     return NextResponse.json({ success: true, counted: true })
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     // Error is surfaced to client via 500 response — no console needed
     return NextResponse.json({ success: false }, { status: 500 })

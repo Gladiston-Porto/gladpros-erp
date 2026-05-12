@@ -120,7 +120,7 @@ export default function ApprovalsPage() {
     setShowApprovalModal(true);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const _submitApprovalAction = async (comentario?: string) => {
     if (!selectedApproval || !approvalAction) return;
 

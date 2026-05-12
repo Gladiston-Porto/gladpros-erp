@@ -191,7 +191,8 @@ export default function FluxoCaixaDataTable({
     {
       id: "actions",
       header: "Ações",
-      cell: ({ row }) => (
+       
+      cell: ({ row: _row }) => (
         <Button variant="ghost" size="sm">
           <Eye className="h-4 w-4" />
         </Button>

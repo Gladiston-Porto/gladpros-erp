@@ -29,6 +29,8 @@ async function getHandler(request: NextRequest) {
     const projectId = searchParams.get('projectId');
     const status = searchParams.get('status');
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
 
     if (workerId) {

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 import { POST, DELETE } from '../../../app/api/auth/me/avatar/route'
 import { NextRequest } from 'next/server'
 

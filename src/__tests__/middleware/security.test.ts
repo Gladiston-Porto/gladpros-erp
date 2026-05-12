@@ -38,6 +38,8 @@ jest.mock('next/server', () => {
     return instance
   })
   ;(NextResponse as any).json = jest.fn((body: unknown, init: { status?: number } = {}) => new (NextResponse as any)(body, init))
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ;(NextResponse as any).redirect = jest.fn((url: string) => {
     const instance = new (NextResponse as any)(null, { status: 307 })
     instance.headers = createMockHeaders()

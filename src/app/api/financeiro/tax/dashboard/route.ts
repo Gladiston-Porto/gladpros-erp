@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden", success: false }, { status: 403 })
     }
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const empresaId = (user as any).empresaId ?? 1
     const currentYear = new Date().getFullYear()
 

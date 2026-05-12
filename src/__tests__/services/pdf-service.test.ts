@@ -85,6 +85,8 @@ class MockPDFService {
     timestamp: Date;
   }> = [];
 
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   generatePDF(filename: string, content: PDFContent, options?: PDFOptions): PDFResult {
     if (!validatePDFContent(content)) {
       return {

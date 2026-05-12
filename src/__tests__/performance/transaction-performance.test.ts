@@ -284,6 +284,8 @@ describe('Transaction Performance', () => {
         
         try {
           await callback(nestedPrisma);
+         
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (error) {
           // Rollback to savepoint
           return { rolledBack: true };

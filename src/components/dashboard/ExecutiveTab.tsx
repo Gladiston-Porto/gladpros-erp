@@ -17,7 +17,6 @@ import {
   DollarSign,
   AlertCircle,
   ArrowRight,
-  Calendar,
   AlertTriangle,
   CheckCircle
 } from 'lucide-react';

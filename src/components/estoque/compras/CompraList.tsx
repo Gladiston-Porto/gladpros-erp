@@ -27,10 +27,14 @@ export async function CompraList({ searchParams }: CompraListProps) {
   const where: Prisma.CompraWhereInput = {};
 
   if (params.status) {
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     where.status = params.status as any;
   }
 
+   
   if (params.tipo) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     where.tipo = params.tipo as any;
   }
 

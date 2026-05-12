@@ -12,7 +12,6 @@ import {
   Plus,
   CheckCircle,
   Send,
-  FileEdit,
   ArrowRight,
   TrendingUp,
 } from 'lucide-react';
@@ -30,6 +29,8 @@ export default async function DashboardPropostasPage() {
     novasEsteMes,
     aprovadas,
     enviadas,
+     
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     rascunhos
   ] = await Promise.all([
     prisma.proposta.count(),

@@ -23,10 +23,14 @@ export async function GET(request: NextRequest) {
     const year = Number(searchParams.get("year")) || new Date().getFullYear()
     const format = searchParams.get("format") || "json"
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const summary = await getContractor1099Summary((user as any).empresaId ?? 1, year)
 
     if (format === "excel") {
+       
       const empresa = await prisma.empresa.findUniqueOrThrow({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         where: { id: (user as any).empresaId ?? 1 },
         select: { nome: true, razaoSocial: true },
       })

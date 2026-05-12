@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 import { POST } from '../../../app/api/auth/user-status/route'
 import { NextRequest } from 'next/server'
 
@@ -45,7 +45,7 @@ describe('POST /api/auth/user-status', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     // Restaurar comportamento padrão do rate limiter após clearAllMocks
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { __isAllowed } = require('../../../shared/lib/rate-limit') as any
     __isAllowed.mockResolvedValue({ allowed: true })
     require('../../../lib/prisma').prisma.$queryRaw.mockResolvedValue([BLOCKED_USER])
@@ -60,7 +60,7 @@ describe('POST /api/auth/user-status', () => {
   // ---- Rate limit ----------------------------------------------------------
 
   it('retorna 429 quando o rate limit é excedido', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { __isAllowed } = require('../../../shared/lib/rate-limit') as any
     __isAllowed.mockResolvedValueOnce({
       allowed: false,

@@ -16,18 +16,14 @@ import {
   ArrowLeft, 
   Save, 
   AlertCircle,
-  Upload,
-  X,
   CheckCircle,
   DollarSign,
-  Calendar,
   FileText,
-  User,
-  Building2
 } from 'lucide-react';
 
 interface Category {
   id: number;
+   
   nome: string;
   cor: string;
   icone: string;
@@ -153,10 +149,12 @@ export default function DespesaFormPageClient() {
       setLoading(true);
       setError(null);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payload: any = {
         empresaId: formData.empresaId,
         categoriaId: parseInt(formData.categoriaId),
         fornecedorId: formData.fornecedorId ? parseInt(formData.fornecedorId) : null,
+         
         descricao: formData.descricao,
         valor: parseFloat(formData.valor),
         tipo: formData.tipo,

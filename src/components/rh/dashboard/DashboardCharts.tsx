@@ -21,6 +21,7 @@ export async function DashboardCharts({ empresaId }: { empresaId: number }) {
           <h3 className="text-lg font-semibold">Por Departamento</h3>
         </div>
         <div className="space-y-3">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {data.departamentos.map((dept: any) => (
             <div key={dept.departamento} className="flex items-center justify-between">
               <span className="text-sm">{dept.departamento}</span>

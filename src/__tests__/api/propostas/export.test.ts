@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 import { POST as PostPDF } from '../../../app/api/propostas/export/pdf/route'
 import { POST as PostCSV } from '../../../app/api/propostas/export/csv/route'
 import { NextRequest } from 'next/server'

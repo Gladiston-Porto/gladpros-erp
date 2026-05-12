@@ -513,6 +513,8 @@ export default function NovaOrdemServicoPage() {
                 if (costRatio > 1.1)       { status = 'LOSS';     badge = 'bg-destructive/10 text-destructive'; statusLabel = '⛔ Prejuízo projetado'; }
                 else if (costRatio > 1.0)  { status = 'CRITICAL'; badge = 'bg-red-500/10 text-red-600';         statusLabel = '🔴 CRÍTICO — custo > receita'; }
                 else if (costRatio >= 0.85) { status = 'ALERT';    badge = 'bg-orange-500/10 text-orange-600';   statusLabel = '🟠 Alerta — margem baixa'; }
+                 
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 else if (costRatio >= 0.70) { status = 'WARNING';  badge = 'bg-yellow-500/10 text-yellow-600';   statusLabel = '⚠️ Atenção — margem reduzida'; }
 
                 const fmt = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);

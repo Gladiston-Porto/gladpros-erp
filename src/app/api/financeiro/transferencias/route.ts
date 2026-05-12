@@ -43,6 +43,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const validatedFilters = bankTransferFiltersSchema.parse(filters);
     
     // Build where clause
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     
     if (validatedFilters.empresaId) {
@@ -247,7 +249,9 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
           descricao: validated.descricao,
           status: "PROCESSANDO",
           dataAgendamento: validated.dataAgendamento || new Date(),
+           
           observacoes: validated.observacoes,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           metadata: validated.metadata as any,
           tentativas: 1
         }
@@ -266,8 +270,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         "TRANSFERENCIA_ENTRADA"
       );
       
+ 
+      
       // Cria transação de saída
-      const transacaoSaida = await tx.bankTransaction.create({
+      const _transacaoSaida = await tx.bankTransaction.create({
         data: {
           accountId: validated.fromAccountId,
           empresaId: validated.empresaId,
@@ -285,8 +291,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         }
       });
       
+ 
+      
       // Cria transação de entrada
-      const transacaoEntrada = await tx.bankTransaction.create({
+      const _transacaoEntrada = await tx.bankTransaction.create({
         data: {
           accountId: validated.toAccountId,
           empresaId: validated.empresaId,

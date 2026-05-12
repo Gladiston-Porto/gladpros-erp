@@ -86,6 +86,8 @@ export const GET = withErrorHandler(async (request: Request) => {
           propostas,
           invoices,
           previousReceitas,
+           
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           previousDespesas,
           revenueItems,
           propostaItems,

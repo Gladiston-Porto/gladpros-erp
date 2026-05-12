@@ -98,7 +98,11 @@ export default async function DashboardEstoquePage() {
   todayStart.setHours(0, 0, 0, 0);
 
   const [
+     
+     
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     totalMateriais,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     totalEquipamentos,
     alertasPendentes,
     movimentacoesHoje,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z, ZodError } from "zod";
+import { z } from "zod";
 import { requireProjectPermission } from "@/shared/lib/rbac-projects";
 import { ProjectMaterialMetricsService } from "@/domains/projects/services/ProjectMaterialMetricsService";
 import { withErrorHandler } from '@/lib/api/error-handler';

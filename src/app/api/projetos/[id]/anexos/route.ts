@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ProjectAttachmentService } from '@/domains/projects/services/ProjectAttachmentService'
 import { requireProjectPermission } from '@/shared/lib/rbac-projects'
 import { createProjetoAnexoSchema } from '@/domains/projects/validators'
-import { ZodError } from 'zod'
+import {  } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
 
 export const runtime = "nodejs"

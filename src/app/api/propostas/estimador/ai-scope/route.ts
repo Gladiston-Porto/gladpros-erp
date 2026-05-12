@@ -147,6 +147,8 @@ export async function POST(request: NextRequest) {
     // Log cost for monitoring (fire-and-forget)
     if (completion.usage) {
       const cost = estimateCost(completion.usage.prompt_tokens, completion.usage.completion_tokens, 'gpt-4o')
+       
+      // eslint-disable-next-line no-console
       console.info('[AI Estimator] tokens=%d cost=$%s user=%s', completion.usage.total_tokens, cost.toFixed(4), user.id)
     }
 

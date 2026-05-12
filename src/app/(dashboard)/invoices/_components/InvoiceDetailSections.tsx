@@ -24,6 +24,8 @@ type InvoiceDetailHeaderProps = {
 
 export function InvoiceDetailHeader({
   invoice,
+   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   invoiceId,
   onBack,
   onSendInvoice,

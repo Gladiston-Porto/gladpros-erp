@@ -32,7 +32,7 @@ export default async function EquipamentosPage({ searchParams }: PageProps) {
   thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
   // Categorias + estatísticas em paralelo — 1 round-trip ao banco em vez de 5 sequenciais
-  const [categorias, totalEquipamentos, disponiveis, emManutencao, calibraPendentes] = await Promise.all([
+  const [categorias, _totalEquipamentos, disponiveis, emManutencao, calibraPendentes] = await Promise.all([
     prisma.categoria.findMany({
       where: { tipo: 'EQUIPAMENTO' },
       orderBy: { nome: 'asc' }

@@ -108,6 +108,8 @@ export function AvatarUpload({
             title={!preview ? 'Clique para escolher uma foto' : undefined}
           >
             {displaySrc ? (
+               
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 ref={imgRef}
                 src={displaySrc}

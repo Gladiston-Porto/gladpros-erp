@@ -27,6 +27,8 @@ export function registerEventHandlers() {
         `[Playbook] proposal.approved failed at "${failed?.step}": ${failed?.detail}`
       );
     } else {
+       
+      // eslint-disable-next-line no-console
       console.log(
         `[Playbook] proposal.approved completed — projeto=${ctx.projetoId}${ctx.invoiceId ? ` invoice=${ctx.invoiceId}` : ''}`
       );
@@ -50,7 +52,9 @@ export function registerEventHandlers() {
     if (!result.ok) {
       const failed = result.steps.find((s) => !s.ok);
       console.error(`[Playbook] project.created failed at "${failed?.step}": ${failed?.detail}`);
+     
     } else {
+      // eslint-disable-next-line no-console
       console.log(`[Playbook] project.created completed — projeto=${ctx.projetoId}${ctx.triagemId ? ` triagem=${ctx.triagemId}` : ''}`);
     }
   });
@@ -70,8 +74,10 @@ export function registerEventHandlers() {
 
     if (!result.ok) {
       const failed = result.steps.find((s) => !s.ok);
+       
       console.error(`[Playbook] serviceOrder.completed failed at "${failed?.step}": ${failed?.detail}`);
     } else {
+      // eslint-disable-next-line no-console
       console.log(`[Playbook] serviceOrder.completed — SO=${ctx.serviceOrderId}${ctx.invoiceId ? ` invoice=${ctx.invoiceId}` : ''}`);
     }
   });
@@ -89,12 +95,16 @@ export function registerEventHandlers() {
     const result = await runner.run(steps, ctx);
 
     if (!result.ok) {
+       
       const failed = result.steps.find((s) => !s.ok);
       console.error(`[Playbook] invoice.overdue failed at "${failed?.step}": ${failed?.detail}`);
     } else {
+       
+      // eslint-disable-next-line no-console
       console.log(`[Playbook] invoice.overdue — invoice=${ctx.invoiceId}`);
     }
   });
 
+  // eslint-disable-next-line no-console
   console.log('[EventBus] All handlers registered: proposal.approved, project.created, serviceOrder.completed, invoice.overdue');
 }

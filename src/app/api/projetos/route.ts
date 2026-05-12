@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ProjectService } from '@/domains/projects/services/ProjectService'
 import { requireProjectPermission, shouldMaskFinancials } from '@/shared/lib/rbac-projects'
 import { createProjetoSchema, listarProjetosSchema } from '@/domains/projects/validators'
-import { ZodError } from 'zod'
+import {  } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { prisma } from '@/lib/prisma'
 import { apiRateLimit } from '@/shared/lib/rate-limit'

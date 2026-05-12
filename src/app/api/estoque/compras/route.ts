@@ -65,6 +65,8 @@ async function getHandler(request: NextRequest) {
     : {};
 
   // 6. FILTROS CUSTOMIZADOS
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const whereFilters: any = {};
 
   // Filtro por fornecedor
@@ -120,7 +122,9 @@ async function getHandler(request: NextRequest) {
     prisma.compra.count({ where })
   ]);
 
+   
   // 9. ENRIQUECIMENTO
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const comprasEnriquecidas = compras.map((compra: any) => ({
     ...compra,
     totalItens: compra._count.itens,

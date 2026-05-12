@@ -228,7 +228,8 @@ describe('Backup and Recovery Tests', () => {
     });
 
     it('should find nearest restore point', () => {
-      const baseTime = new Date('2024-01-01T12:00:00Z');
+       
+      const _baseTime = new Date('2024-01-01T12:00:00Z');
 
       backupService.createRestorePoint(
         'point-1',

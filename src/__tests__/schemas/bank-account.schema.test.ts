@@ -11,8 +11,6 @@ import {
   createBankTransactionSchema,
   reconcileBankTransactionsSchema,
   createBankTransferSchema,
-  updateTransferStatusSchema,
-  executeTransferSchema,
   bankAccountFiltersSchema,
   bankTransactionFiltersSchema,
   bankTransferFiltersSchema,

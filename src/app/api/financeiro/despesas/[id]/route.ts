@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { updateExpenseSchema } from '@/schemas/expense.schema';
-import { ZodError } from 'zod';
+import {  } from 'zod';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";

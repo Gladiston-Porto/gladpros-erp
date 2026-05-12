@@ -10,9 +10,6 @@ import {
   ArrowLeft,
   TrendingUp,
   TrendingDown,
-  Download,
-  Calendar,
-  Filter
 } from "lucide-react";
 
 interface BankTransaction {
@@ -29,8 +26,12 @@ interface BankTransaction {
 export default function BankAccountDetailsPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const [resolvedParams, setResolvedParams] = useState<{ id: string } | null>(null);
   const router = useRouter();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [conta, setConta] = useState<any>(null);
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [extrato, setExtrato] = useState<any>(null);
+   
   const [loading, setLoading] = useState(true);
   
   // Filtros
@@ -44,6 +45,8 @@ export default function BankAccountDetailsPage({ params: paramsPromise }: { para
   
   useEffect(() => {
     if (resolvedParams) loadData();
+   
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedParams, tipoFilter, dataInicio, dataFim]);
   
   async function loadData() {

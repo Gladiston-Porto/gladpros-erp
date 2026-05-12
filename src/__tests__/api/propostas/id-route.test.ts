@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 import { GET, DELETE } from '../../../app/api/propostas/[id]/route'
 import { NextRequest } from 'next/server'
 

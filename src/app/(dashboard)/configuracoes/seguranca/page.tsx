@@ -11,7 +11,6 @@ import {
   Key,
   Lock,
   Clock,
-  Users,
   AlertTriangle,
   RefreshCw,
   CheckCircle,
@@ -20,6 +19,7 @@ import {
   Monitor,
 } from 'lucide-react';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface SessionSummary {
   totalActive: number;
   uniqueUsers: number;

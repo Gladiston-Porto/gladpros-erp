@@ -17,16 +17,13 @@ import { useRouter } from 'next/navigation';
 import {
     User,
     Building2,
-    Mail,
-    Phone,
     MapPin,
-    DollarSign,
     CreditCard,
     Save,
     ArrowLeft,
     Loader2
 } from 'lucide-react';
-import { Badge } from '@gladpros/ui/badge'
+import {  } from '@gladpros/ui/badge'
 import { Button } from '@gladpros/ui/button'
 import { Input } from '@gladpros/ui/input'
 import { Label } from '@gladpros/ui/label';

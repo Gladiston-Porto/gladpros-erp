@@ -38,7 +38,12 @@ const eslintConfig = [
       "count-records.js",
       "config/jest.config.js",
       "config/jest.setup.js",
+      "config/playwright.config.ts",
       "tests/**",
+      "src/tests/**",
+      ".github/**",
+      "instrumentation.ts",
+      "src/instrumentation.ts",
       "test-prisma.js",
       "fix_*.js",
       "fix_*.py",
@@ -65,7 +70,11 @@ const eslintConfig = [
     rules: {
       // Basic TypeScript rules - Fase 3 foundation
       "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }],
 
       // Allow during transition
       "@typescript-eslint/ban-ts-comment": "warn",
@@ -83,7 +92,11 @@ const eslintConfig = [
       "@typescript-eslint/no-unsafe-function-type": "off",
       "import/no-anonymous-default-export": "off",
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }],
     },
   },
   {

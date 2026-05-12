@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
   Plus, Package, AlertTriangle, ShoppingCart,
-  PackageX, Clock, Lock, CheckCircle
+  PackageX, Clock, Lock
 } from 'lucide-react';
 import { Badge } from '@gladpros/ui/badge'
 import { Button } from '@gladpros/ui/button'
@@ -47,7 +47,8 @@ export default async function MateriaisPage({ searchParams }: PageProps) {
   if (!can(user.role as Role, 'estoque', 'read')) redirect('/403');
 
   // Await searchParams para uso local (simplificado)
-  const sp = await searchParams;
+   
+  const _sp = await searchParams;
 
   const canSeeValue = ['ADMIN', 'FINANCEIRO'].includes(user.role);
 

@@ -103,6 +103,8 @@ async function getHandler(request: NextRequest) {
         },
         recentPayments: recentPayables.map(p => ({
             id: p.id,
+             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             worker: (p as any).worker?.name,
             amount: p.totalAmount,
             paidAt: p.paidAt,

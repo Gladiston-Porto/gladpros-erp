@@ -4,6 +4,8 @@
  * Tipos padronizados para respostas de API
  */
 
+ 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -13,11 +15,15 @@ export interface ApiResponse<T = any> {
 
 export interface ApiError {
   success: false;
+   
   error: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any;
   code?: string;
+ 
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface PaginatedResponse<T = any> {
   success: true;
   data: T[];

@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
     const page = Number(searchParams.get("page") ?? "1")
     const pageSize = Math.min(Number(searchParams.get("pageSize") ?? "50"), 200)
 
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where = { empresaId: (user as any).empresaId ?? 1 }
 
     const [total, categories] = await Promise.all([

@@ -32,6 +32,8 @@ const TIPO_LABELS: Record<string, string> = {
   EQUIPAMENTO_DANIFICADO: 'Equipamento Danificado',
 };
 
+ 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const PRIORIDADE_LABELS: Record<string, { variant: any; label: string }> = {
   BAIXA: { variant: 'outline' as const, label: 'Baixa' },
   MEDIA: { variant: 'secondary' as const, label: 'Média' },

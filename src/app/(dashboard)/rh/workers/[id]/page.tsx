@@ -17,9 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users,
   DollarSign,
-  FileText,
   Loader2,
-  User,
   Building2,
   Mail,
   Phone,

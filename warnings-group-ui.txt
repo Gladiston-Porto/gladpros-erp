@@ -1,0 +1,156 @@
+src/app/(dashboard)/aprovacoes/[id]/page.tsx:19:10 [@typescript-eslint/no-unused-vars] 'Badge' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/aprovacoes/[id]/page.tsx:210:25 [@typescript-eslint/no-unused-vars] 'aprCfg' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/clientes/lista/_components/ClienteViewDrawer.tsx:18:3 [@typescript-eslint/no-unused-vars] 'DollarSign' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/clientes/lista/_components/ClienteViewDrawer.tsx:19:3 [@typescript-eslint/no-unused-vars] 'Briefcase' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/clientes/lista/_components/ClienteViewDrawer.tsx:20:3 [@typescript-eslint/no-unused-vars] 'ClipboardList' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/configuracoes/backup/page.tsx:64:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/configuracoes/email/page.tsx:81:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/configuracoes/geral/page.tsx:107:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/configuracoes/health/page.tsx:5:29 [@typescript-eslint/no-unused-vars] 'CardHeader' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/configuracoes/health/page.tsx:5:41 [@typescript-eslint/no-unused-vars] 'CardTitle' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/configuracoes/seguranca/page.tsx:14:3 [@typescript-eslint/no-unused-vars] 'Users' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/configuracoes/seguranca/page.tsx:23:11 [@typescript-eslint/no-unused-vars] 'SessionSummary' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/estoque/alertas/[id]/page.tsx:35:52 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/estoque/compras-pendentes/page.tsx:5:29 [@typescript-eslint/no-unused-vars] 'DollarSign' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/estoque/compras-pendentes/page.tsx:10:29 [@typescript-eslint/no-unused-vars] 'CardHeader' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/estoque/compras-pendentes/page.tsx:10:41 [@typescript-eslint/no-unused-vars] 'CardTitle' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/estoque/compras-pendentes/page.tsx:11:10 [@typescript-eslint/no-unused-vars] 'Badge' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/estoque/compras-pendentes/page.tsx:263:12 [@typescript-eslint/no-unused-vars] 'processing' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/estoque/equipamentos/[id]/page.tsx:181:70 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/estoque/equipamentos/page.tsx:35:22 [@typescript-eslint/no-unused-vars] 'totalEquipamentos' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/estoque/materiais/page.tsx:17:26 [@typescript-eslint/no-unused-vars] 'CheckCircle' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/estoque/materiais/page.tsx:50:9 [@typescript-eslint/no-unused-vars] 'sp' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/estoque/page.tsx:101:5 [@typescript-eslint/no-unused-vars] 'totalMateriais' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/estoque/page.tsx:102:5 [@typescript-eslint/no-unused-vars] 'totalEquipamentos' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/invoices/[id]/edit/page.tsx:165:75 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/[id]/edit/page.tsx:212:21 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/[id]/page.tsx:124:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/[id]/page.tsx:185:21 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/[id]/page.tsx:216:21 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/_components/InvoiceDetailSections.tsx:27:3 [@typescript-eslint/no-unused-vars] 'invoiceId' is defined but never used. Allowed unused args must match /^_/u
+src/app/(dashboard)/invoices/_components/InvoiceFormSections.tsx:120:70 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/_components/invoice-utils.tsx:94:47 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/_components/invoice-utils.tsx:119:45 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/_components/invoice-utils.tsx:139:40 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/_components/invoice-utils.tsx:149:30 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/_components/invoice-utils.tsx:158:31 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/new/page.tsx:137:75 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/invoices/new/page.tsx:178:21 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/notificacoes/page.tsx:12:3 [@typescript-eslint/no-unused-vars] 'Filter' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/ordens-servico/[id]/_components/ServiceOrderDetailModals.tsx:364:5 [@typescript-eslint/no-unused-vars] 'externalOrderMaterials' is defined but never used. Allowed unused args must match /^_/u
+src/app/(dashboard)/ordens-servico/[id]/page.tsx:451:56 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/ordens-servico/[id]/page.tsx:658:18 [@typescript-eslint/no-unused-vars] 'err' is defined but never used. Allowed unused caught errors must match /^_/u
+src/app/(dashboard)/ordens-servico/[id]/page.tsx:743:18 [@typescript-eslint/no-unused-vars] 'err' is defined but never used. Allowed unused caught errors must match /^_/u
+src/app/(dashboard)/ordens-servico/[id]/page.tsx:977:29 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/ordens-servico/[id]/page.tsx:978:26 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/ordens-servico/[id]/page.tsx:1895:73 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/ordens-servico/[id]/page.tsx:1896:72 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/ordens-servico/[id]/page.tsx:1900:65 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/ordens-servico/[id]/page.tsx:1903:105 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/ordens-servico/[id]/page.tsx:2102:108 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/ordens-servico/lista/page.tsx:62:48 [@typescript-eslint/no-unused-vars] 'currentDir' is defined but never used. Allowed unused args must match /^_/u
+src/app/(dashboard)/ordens-servico/nova/_components/ServiceOrderClientSection.tsx:22:3 [@typescript-eslint/no-unused-vars] 'clients' is defined but never used. Allowed unused args must match /^_/u
+src/app/(dashboard)/ordens-servico/nova/page.tsx:516:47 [@typescript-eslint/no-unused-vars] 'status' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/projetos/ProjetosClient.tsx:15:20 [@typescript-eslint/no-unused-vars] 'useEffect' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/projetos/ProjetosClient.tsx:46:3 [@typescript-eslint/no-unused-vars] 'getHealthBadge' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/projetos/[id]/page.tsx:190:9 [@typescript-eslint/no-unused-vars] 'healthBadge' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/propostas/lista/page.tsx:65:30 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/propostas/lista/page.tsx:118:74 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/app/(dashboard)/propostas/page.tsx:15:3 [@typescript-eslint/no-unused-vars] 'FileEdit' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/propostas/page.tsx:33:5 [@typescript-eslint/no-unused-vars] 'rascunhos' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/rh/workers/[id]/page.tsx:20:3 [@typescript-eslint/no-unused-vars] 'FileText' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/rh/workers/[id]/page.tsx:22:3 [@typescript-eslint/no-unused-vars] 'User' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/usuarios/page.tsx:19:15 [@typescript-eslint/no-unused-vars] 'SortKey' is defined but never used. Allowed unused vars must match /^_/u
+src/app/(dashboard)/usuarios/page.tsx:211:14 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/analytics/ClientsStatusChart.tsx:37:44 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/dashboard/DashboardChart.tsx:26:29 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/dashboard/DashboardChart.tsx:27:28 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/dashboard/DashboardChart.tsx:28:33 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/dashboard/ExecutiveTab.tsx:20:3 [@typescript-eslint/no-unused-vars] 'Calendar' is defined but never used. Allowed unused vars must match /^_/u
+src/components/dashboard/QuickActions.tsx:38:63 [react-hooks/exhaustive-deps] React Hook useCallback has a missing dependency: 'props'. Either include it or remove the dependency array. However, 'props' will change when *any* prop changes, so the preferred fix is to destructure the 'props' object outside of the useCallback call and refer to those specific props inside useCallback
+src/components/dashboard/QuickActions.tsx:39:63 [react-hooks/exhaustive-deps] React Hook useCallback has a missing dependency: 'props'. Either include it or remove the dependency array. However, 'props' will change when *any* prop changes, so the preferred fix is to destructure the 'props' object outside of the useCallback call and refer to those specific props inside useCallback
+src/components/dashboard/QuickActions.tsx:40:63 [react-hooks/exhaustive-deps] React Hook useCallback has a missing dependency: 'props'. Either include it or remove the dependency array. However, 'props' will change when *any* prop changes, so the preferred fix is to destructure the 'props' object outside of the useCallback call and refer to those specific props inside useCallback
+src/components/dashboard/QuickActions.tsx:41:63 [react-hooks/exhaustive-deps] React Hook useCallback has a missing dependency: 'props'. Either include it or remove the dependency array. However, 'props' will change when *any* prop changes, so the preferred fix is to destructure the 'props' object outside of the useCallback call and refer to those specific props inside useCallback
+src/components/estoque/alertas/AlertaList.tsx:31:33 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/alertas/AlertaList.tsx:35:45 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/categorias/CategoriaList.tsx:120:18 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/estoque/categorias/CreateCategoriaModal.tsx:43:56 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/categorias/CreateCategoriaModal.tsx:106:22 [@typescript-eslint/no-unused-vars] 'e' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/estoque/categorias/CreateCategoriaModal.tsx:128:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/CompraForm.tsx:142:48 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/CompraForm.tsx:216:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/CompraForm.tsx:248:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/CompraList.tsx:30:37 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/CompraList.tsx:34:33 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/CreateFornecedorModal.tsx:60:52 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/CreateFornecedorModal.tsx:101:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/CreateMaterialModal.tsx:70:55 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/CreateMaterialModal.tsx:125:23 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/ReceberCompraForm.tsx:11:19 [@typescript-eslint/no-unused-vars] 'ArrowLeft' is defined but never used. Allowed unused vars must match /^_/u
+src/components/estoque/compras/ReceberCompraForm.tsx:12:10 [@typescript-eslint/no-unused-vars] 'formatCurrency' is defined but never used. Allowed unused vars must match /^_/u
+src/components/estoque/compras/ReceberCompraForm.tsx:81:9 [@typescript-eslint/no-unused-vars] 'setValue' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/estoque/compras/ReceberCompraForm.tsx:83:55 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/compras/ReceberCompraForm.tsx:84:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/equipamentos/EquipamentoForm.tsx:65:49 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/equipamentos/EquipamentoForm.tsx:150:53 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/equipamentos/EquipamentoList.tsx:47:33 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/equipamentos/EquipamentoList.tsx:52:37 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/materiais/MaterialForm.tsx:21:76 [@typescript-eslint/no-unused-vars] 'Trash2' is defined but never used. Allowed unused vars must match /^_/u
+src/components/estoque/materiais/MaterialList.tsx:112:63 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/movimentacoes/MovimentacaoList.tsx:34:33 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/estoque/shared/SearchBar.tsx:8:31 [@typescript-eslint/no-unused-vars] 'useCallback' is defined but never used. Allowed unused vars must match /^_/u
+src/components/estoque/solicitacoes-compra/SCReconciliacaoPanel.tsx:62:3 [@typescript-eslint/no-unused-vars] 'valorEstimado' is defined but never used. Allowed unused args must match /^_/u
+src/components/financeiro/conciliacao/ConciliacaoDataTable.tsx:210:16 [@typescript-eslint/no-unused-vars] 'row' is defined but never used. Allowed unused args must match /^_/u
+src/components/financeiro/conciliacao/ConciliacaoList.tsx:77:11 [@typescript-eslint/no-unused-vars] 'ultimaTransacao' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/financeiro/fluxo-caixa/FluxoCaixaDataTable.tsx:194:16 [@typescript-eslint/no-unused-vars] 'row' is defined but never used. Allowed unused args must match /^_/u
+src/components/profile/AvatarUpload.tsx:111:15 [@next/next/no-img-element] Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element
+src/components/profile/UserProfile.tsx:7:17 [@typescript-eslint/no-unused-vars] 'Settings' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/ProjetoForm.tsx:19:31 [@typescript-eslint/no-unused-vars] 'useCallback' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/ProjetoForm.tsx:21:19 [@typescript-eslint/no-unused-vars] 'Controller' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/ProjetoForm.tsx:32:3 [@typescript-eslint/no-unused-vars] 'ChevronDown' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/ProjetoForm.tsx:44:10 [@typescript-eslint/no-unused-vars] 'formatCurrency' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/ProjetoForm.tsx:63:9 [@typescript-eslint/no-unused-vars] 'router' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/projetos/ProjetoForm.tsx:78:5 [@typescript-eslint/no-unused-vars] 'control' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/projetos/ProjetoForm.tsx:164:16 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/projetos/ProjetoForm.tsx:186:16 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/projetos/ProjetoForm.tsx:211:18 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/projetos/ProjetoForm.tsx:253:14 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/projetos/equipe/EquipeManager.tsx:11:10 [@typescript-eslint/no-unused-vars] 'Plus' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/equipe/EquipeManager.tsx:163:14 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/projetos/equipe/EquipeManager.tsx:186:14 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/projetos/etapas/EtapaCard.tsx:38:3 [@typescript-eslint/no-unused-vars] 'totalEtapas' is defined but never used. Allowed unused args must match /^_/u
+src/components/projetos/financeiro/FinanceiroDashboard.tsx:114:9 [@typescript-eslint/no-unused-vars] 'formatPercentage' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/projetos/tarefas/TarefaCard.tsx:8:10 [@typescript-eslint/no-unused-vars] 'format' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/tarefas/TarefaCard.tsx:9:10 [@typescript-eslint/no-unused-vars] 'ptBR' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/tarefas/TarefasKanban.tsx:25:23 [@typescript-eslint/no-unused-vars] 'Calendar' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/tarefas/TarefasKanban.tsx:25:54 [@typescript-eslint/no-unused-vars] 'Flag' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/tarefas/TarefasKanban.tsx:25:69 [@typescript-eslint/no-unused-vars] 'Pause' is defined but never used. Allowed unused vars must match /^_/u
+src/components/projetos/tarefas/TarefasKanban.tsx:25:82 [@typescript-eslint/no-unused-vars] 'User' is defined but never used. Allowed unused vars must match /^_/u
+src/components/propostas/CatalogoItemAutocomplete.tsx:86:9 [jsx-a11y/role-supports-aria-props] The attribute aria-expanded is not supported by the role textbox. This role is implicit on the element input
+src/components/propostas/CatalogoItemAutocomplete.tsx:123:17 [jsx-a11y/role-has-required-aria-props] Elements with the ARIA role "option" must have the following attributes defined: aria-selected
+src/components/propostas/PropostaForm.tsx:54:10 [@typescript-eslint/no-unused-vars] 'colors' is defined but never used. Allowed unused vars must match /^_/u
+src/components/propostas/PropostaForm.tsx:118:21 [@typescript-eslint/no-unused-vars] 'setPermite' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/propostas/PropostaForm.tsx:119:27 [@typescript-eslint/no-unused-vars] 'setQuaisPermites' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/propostas/PropostaForm.tsx:120:20 [@typescript-eslint/no-unused-vars] 'setNormas' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/propostas/PropostaForm.tsx:121:23 [@typescript-eslint/no-unused-vars] 'setInspecoes' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/propostas/PropostaForm.tsx:147:25 [@typescript-eslint/no-unused-vars] 'setFaturamento' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/propostas/PropostaForm.tsx:155:25 [@typescript-eslint/no-unused-vars] 'setObsInternas' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/propostas/PropostaForm.tsx:388:11 [@typescript-eslint/no-unused-vars] 'statusBadgeVariant' is assigned a value but never used. Allowed unused vars must match /^_/u
+src/components/propostas/adapter.ts:124:32 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/propostas/adapter.ts:140:34 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/propostas/adapter.ts:248:71 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/propostas/adapter.ts:271:70 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/propostas/adapter.ts:321:63 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/rh/dashboard/AniversariantesCard.tsx:5:10 [@typescript-eslint/no-unused-vars] 'prisma' is defined but never used. Allowed unused vars must match /^_/u
+src/components/rh/dashboard/AniversariantesCard.tsx:7:10 [@typescript-eslint/no-unused-vars] 'formatDate' is defined but never used. Allowed unused vars must match /^_/u
+src/components/rh/dashboard/AniversariantesCard.tsx:28:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/rh/dashboard/DashboardCharts.tsx:24:42 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/workforce/AssignmentFormDialog.tsx:111:28 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
+src/components/workforce/AssignmentFormDialog.tsx:143:18 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/workforce/AssignmentList.tsx:91:18 [@typescript-eslint/no-unused-vars] 'error' is defined but never used. Allowed unused caught errors must match /^_/u
+src/components/workforce/WorkerForm.tsx:20:5 [@typescript-eslint/no-unused-vars] 'Mail' is defined but never used. Allowed unused vars must match /^_/u
+src/components/workforce/WorkerForm.tsx:21:5 [@typescript-eslint/no-unused-vars] 'Phone' is defined but never used. Allowed unused vars must match /^_/u
+src/components/workforce/WorkerForm.tsx:23:5 [@typescript-eslint/no-unused-vars] 'DollarSign' is defined but never used. Allowed unused vars must match /^_/u
+src/components/workforce/WorkerForm.tsx:29:10 [@typescript-eslint/no-unused-vars] 'Badge' is defined but never used. Allowed unused vars must match /^_/u
+src/components/workforce/WorkerList.tsx:18:5 [@typescript-eslint/no-unused-vars] 'Filter' is defined but never used. Allowed unused vars must match /^_/u
+src/components/workforce/WorkerList.tsx:19:5 [@typescript-eslint/no-unused-vars] 'MoreVertical' is defined but never used. Allowed unused vars must match /^_/u

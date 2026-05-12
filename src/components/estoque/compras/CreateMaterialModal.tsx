@@ -67,6 +67,8 @@ export function CreateMaterialModal({
     const [loading, setLoading] = useState(false);
 
     const form = useForm<MaterialFormData>({
+         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(materialQuickSchema) as any,
         defaultValues: {
             nome: '',
@@ -121,7 +123,9 @@ export function CreateMaterialModal({
 
             onSuccess(materialCreated);
             form.reset();
+             
             onOpenChange(false);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             toast({
                 title: 'Erro',

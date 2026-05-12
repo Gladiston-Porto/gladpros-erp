@@ -192,6 +192,8 @@ export const POST = withErrorHandler(
                 dataVencimento: new Date(body.dataPagamento),
                 dataPagamento: new Date(body.dataPagamento),
                 tipo: 'SERVICO',
+                 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
                 status: 'RECEBIDA',
               },

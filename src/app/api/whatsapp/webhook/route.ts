@@ -39,6 +39,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       (body.entry as { changes?: unknown[] }[])?.forEach((entry) => {
         (entry.changes as { field?: string; value?: { messages?: unknown[] } }[])?.forEach((change) => {
           if (change.field === 'messages') {
+             
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             (change.value?.messages as { from?: string; type?: string; text?: { body?: string }; timestamp?: string }[])?.forEach((message) => {
               // Log only non-PII metadata (no message text)
               if (process.env.NODE_ENV === 'development') {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { ModulePageHeader } from '@gladpros/ui/module-page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@gladpros/ui/card';
+import { Card, CardContent } from '@gladpros/ui/card';
 import { Button } from '@gladpros/ui/button';
 import { Badge } from '@gladpros/ui/badge';
 import {

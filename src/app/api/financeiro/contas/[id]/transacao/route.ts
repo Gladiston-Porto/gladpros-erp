@@ -40,6 +40,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     // Adiciona accountId ao body se não estiver presente
     body.accountId = accountId;
     // Single-tenant: force empresaId from user context for security
+     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     body.empresaId = (user as any).empresaId ?? 1;
     
     // Valida dados
@@ -155,7 +157,9 @@ export const POST = withErrorHandler(async (request: NextRequest,
         data: {
           ...validated,
           saldoAnterior,
+           
           saldoPosterior
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
         include: {
           account: {
