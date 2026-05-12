@@ -1,14 +1,49 @@
 // src/lib/api/client.ts
 // Utilitários centralizados para chamadas API autenticadas (client-safe)
 
+// Singleton promise to prevent concurrent refresh calls
+let refreshTokenInFlight: Promise<boolean> | null = null;
+
+/**
+ * Tenta renovar o access token silenciosamente usando o refreshToken cookie.
+ * Retorna true se o refresh foi bem-sucedido.
+ */
+async function tryRefreshToken(): Promise<boolean> {
+  if (refreshTokenInFlight) return refreshTokenInFlight;
+  refreshTokenInFlight = fetch('/api/auth/refresh', { method: 'POST' })
+    .then(r => r.ok)
+    .catch(() => false)
+    .finally(() => { refreshTokenInFlight = null; });
+  return refreshTokenInFlight;
+}
+
 /**
  * Wrapper para fetch autenticado (client-side).
- * Em Next.js com cookies, o browser envia cookies automaticamente.
+ *
+ * Em Next.js com cookies httpOnly, o browser envia cookies automaticamente
+ * para requests same-origin. Quando recebe 401, tenta renovar o token
+ * silenciosamente antes de redirecionar para login.
+ *
+ * @param options.noRedirectOn401 - Se true, não redireciona para login em 401.
+ *   Use em formulários longos para preservar o estado do form (ex: PropostaForm).
  */
-export async function authenticatedFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
-  const res = await fetch(input, init);
+export async function authenticatedFetch(
+  input: RequestInfo,
+  init?: RequestInit,
+  options?: { noRedirectOn401?: boolean }
+): Promise<Response> {
+  let res = await fetch(input, init);
   if (res.status === 401 && typeof window !== 'undefined') {
-    window.location.href = '/login?e=session_expired';
+    // Try to refresh the token silently first (uses refreshToken httpOnly cookie)
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      // Token renewed — retry the original request once with new cookie
+      res = await fetch(input, init);
+    }
+    // If still 401 and redirect is not suppressed, send to login
+    if (res.status === 401 && !options?.noRedirectOn401) {
+      window.location.href = '/login?e=session_expired';
+    }
   }
   return res;
 }
