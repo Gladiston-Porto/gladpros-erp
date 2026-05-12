@@ -18,7 +18,7 @@ export function useAutoSave(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rascunhoData),
-      })
+      }, { noRedirectOn401: true }) // Preserve form state on expiry — callback handles UX
 
       // authenticatedFetch já redireciona para /login em 401,
       // mas chamamos o callback para que o componente possa avisar o usuário antes

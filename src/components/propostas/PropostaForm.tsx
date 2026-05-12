@@ -1,8 +1,10 @@
 'use client'
 
-import React, { useMemo, useState, useEffect } from "react";
-import { MaterialSearchCombobox } from './MaterialSearchCombobox'
+import React, { useMemo, useState, useEffect, useRef } from "react";
+import { MaterialSearchCombobox, type EmbalagemOption } from './MaterialSearchCombobox'
+import { HoursInput } from './HoursInput'
 import { useRouter } from 'next/navigation'
+import { authenticatedFetch } from '@/lib/api/client'
 import { StatusProposta, StatusPropostaValues, StatusPermite, StatusPermiteValues } from '@/shared/types/prisma-temp';
 import { Badge } from "@gladpros/ui/badge"
 import { Button } from "@gladpros/ui/button"
@@ -32,6 +34,9 @@ const currency = (n: number | undefined) => {
     if (n == null || Number.isNaN(n)) return "-";
     return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
+
+/** Format packaging type to human-readable label, e.g. "ROLL" → "Roll" */
+const formatPkgType = (t: string) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()
 
 import {
     Material,
@@ -116,10 +121,10 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
     const [inspecoes, setInspecoes] = useState(initialData?.inspecoes || "")
 
     const [comerciais, setComerciais] = useState<ComerciaisInfo>(initialData?.comerciais || {
-        condicoes_pagamento: "40% na aprovação, 40% após etapa X, 20% na entrega",
-        garantia: "12 meses mão de obra; 3 meses materiais",
-        exclusoes: "Demolições estruturais, pintura externa, taxas municipais",
-        condicoes_gerais: "Serviços conforme normas; atrasos por clima não imputáveis; SLA 48h.",
+        condicoes_pagamento: "",
+        garantia: "",
+        exclusoes: "",
+        condicoes_gerais: "",
         desconto: 0,
     })
 
@@ -135,36 +140,15 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
         frete: 0,
     })
 
-    const [materiais, setMateriais] = useState<Material[]>(initialData?.materiais || [
-        {
-            id: crypto.randomUUID(),
-            codigo: "CABO-14AWG",
-            nome: "Cabo 14 AWG",
-            quantidade: 120,
-            unidade: "m",
-            preco: 0.35,
-            status: "necessario"
-        },
-    ])
+    const [materiais, setMateriais] = useState<Material[]>(initialData?.materiais || [])
 
-    const [etapas, setEtapas] = useState<Etapa[]>(initialData?.etapas || [
-        {
-            id: crypto.randomUUID(),
-            servico: "Instalação de QDC",
-            descricao: "Montagem e organização de circuitos.",
-            quantidade: 1,
-            unidade: "serviço",
-            duracaoHoras: 8,
-            custoMO: 250,
-            status: "planejada"
-        },
-    ])
+    const [etapas, setEtapas] = useState<Etapa[]>(initialData?.etapas || [])
 
     const [faturamento, setFaturamento] = useState<FaturamentoInfo>(initialData?.faturamento || {
         gatilho: "na_aprovacao",
         percentual_sinal: 40,
         forma_preferida: "Invoice",
-        instrucoes: "Pagamento via invoice até 3 dias após emissão.",
+        instrucoes: "",
     })
 
     const [obsCliente, setObsCliente] = useState(initialData?.obsCliente || "")
@@ -175,9 +159,15 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
     const [serviceCategory, setServiceCategory] = useState<PropostaFormData['serviceCategory']>(initialData?.serviceCategory ?? 'REPAIR')
     const [contractType, setContractType] = useState<PropostaFormData['contractType']>(initialData?.contractType ?? 'LUMP_SUM')
 
-    // Stock availability check state
-    const [estoqueCheck, setEstoqueCheck] = useState<Record<number, { disponivel: number; needsToPurchase: boolean; shortfall: number }>>({})
-    const [checkingStock, setCheckingStock] = useState(false)
+    // Stock availability check state (populated when material is auto-linked from estoque)
+    const [estoqueCheck] = useState<Record<number, { disponivel: number; needsToPurchase: boolean; shortfall: number }>>({})
+
+    // Embalagem options per estoqueItemId (populated when user selects a material that has packaged entries)
+    const [embalagemOpcoes, setEmbalagemOpcoes] = useState<Record<number, EmbalagemOption[]>>({})
+
+    // Refs for auto-scroll when adding rows
+    const materialsEndRef = useRef<HTMLDivElement>(null)
+    const etapasEndRef = useRef<HTMLDivElement>(null)
 
     // Smart Estimator
     const [showEstimador, setShowEstimador] = useState(false)
@@ -200,7 +190,8 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
             quantidade: m.quantidade,
             unidade: m.unidade,
             preco: m.preco ?? 0,
-            status: 'necessario',
+            status: 'necessario' as const,
+            aComprar: true,
         })))
         if (result.escopoTexto) setEscopo(result.escopoTexto)
         setInterno(prev => ({
@@ -208,35 +199,6 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
             custo_material: result.custoMaterial,
             custo_mo: result.custoMO,
         }))
-    }
-
-    const handleCheckEstoque = async () => {
-        const linkedItems = materiais.filter((m) => m.estoqueItemId)
-        if (linkedItems.length === 0) {
-            showToast({ title: 'Estoque', message: 'Nenhum material vinculado ao estoque', type: 'info' })
-            return
-        }
-        setCheckingStock(true)
-        try {
-            const { authenticatedFetch } = await import('@/lib/api/client')
-            const res = await authenticatedFetch('/api/propostas/estoque-check', {
-                method: 'POST',
-                body: JSON.stringify({ items: linkedItems.map((m) => ({ estoqueItemId: m.estoqueItemId!, quantidade: m.quantidade })) }),
-            })
-            if (!res.ok) throw new Error('Falha ao verificar estoque')
-            const json = await res.json()
-            const map: Record<number, { disponivel: number; needsToPurchase: boolean; shortfall: number }> = {}
-            for (const item of json.data) {
-                map[item.estoqueItemId] = { disponivel: item.disponivel, needsToPurchase: item.needsToPurchase, shortfall: item.shortfall }
-            }
-            setEstoqueCheck(map)
-            const needsBuy = json.data.filter((i: { needsToPurchase: boolean }) => i.needsToPurchase).length
-            showToast({ title: 'Estoque verificado', message: needsBuy > 0 ? `${needsBuy} item(s) precisam ser comprados` : 'Todos os itens têm estoque disponível', type: needsBuy > 0 ? 'warning' : 'success' })
-        } catch {
-            showToast({ title: 'Erro', message: 'Erro ao verificar estoque', type: 'error' })
-        } finally {
-            setCheckingStock(false)
-        }
     }
 
     // Exibir erro de clientes se houver
@@ -284,18 +246,22 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
     }, [formData, cliente.id, debouncedSave, escopo.length, propostaId])
 
     // Handlers utilitários
-    const addMaterial = () =>
+    const addMaterial = () => {
         setMateriais((arr) => [
             ...arr,
-            { id: crypto.randomUUID(), codigo: "", nome: "", quantidade: 1, unidade: "un", status: "necessario" },
+            { id: crypto.randomUUID(), codigo: "", nome: "", quantidade: 1, unidade: "un", status: "necessario", aComprar: true },
         ])
+        setTimeout(() => materialsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
+    }
     const rmMaterial = (id: string) => setMateriais((arr) => arr.filter((m) => m.id !== id))
 
-    const addEtapa = () =>
+    const addEtapa = () => {
         setEtapas((arr) => [
             ...arr,
             { id: crypto.randomUUID(), servico: "", descricao: "", quantidade: 1, unidade: "serviço", status: "planejada" },
         ])
+        setTimeout(() => etapasEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
+    }
     const rmEtapa = (id: string) => setEtapas((arr) => arr.filter((e) => e.id !== id))
 
     const handleApplyTemplate = (data: TemplateData) => {
@@ -356,14 +322,35 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
         setSaveStatus('saving')
         setLoading(true)
         try {
-            const validatedData = propostaFormSchema.parse(formData)
+            const parseResult = propostaFormSchema.safeParse(formData)
+            if (!parseResult.success) {
+                const firstIssue = parseResult.error.issues[0]
+                const path = firstIssue.path
+                    .filter((p) => typeof p === 'string' && p !== 'id')
+                    .join(' → ')
+                const msg = path ? `${firstIssue.message} (${path})` : firstIssue.message
+                throw new Error(msg)
+            }
+            const validatedData = parseResult.data
             const url = propostaId ? `/api/propostas/${propostaId}` : '/api/propostas'
             const method = propostaId ? 'PUT' : 'POST'
-            const response = await fetch(url, {
+            // Use authenticatedFetch with noRedirectOn401 to preserve form data
+            // on session expiry — user can log in on another tab and come back to save.
+            const response = await authenticatedFetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validatedData)
-            })
+            }, { noRedirectOn401: true })
+
+            if (response.status === 401) {
+                setSaveStatus('error')
+                showToast({
+                    title: 'Sessão expirada',
+                    message: 'Sua sessão expirou. Abra uma nova aba, faça login e volte aqui para salvar — seus dados estão preservados.',
+                    type: 'error'
+                })
+                return
+            }
 
             if (response.ok) {
                 const result = await response.json()
@@ -388,7 +375,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
         } catch (error) {
             setSaveStatus('error')
             showToast({
-                title: 'Erro',
+                title: 'Erro ao salvar',
                 message: error instanceof Error ? error.message : 'Erro ao salvar proposta',
                 type: 'error'
             })
@@ -758,16 +745,16 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
 
                     {/* Materiais */}
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
+                        <CardHeader>
                             <CardTitle>Materiais</CardTitle>
-                            <div className="flex gap-2">
-                                <Button size="sm" variant="outline" onClick={handleCheckEstoque} disabled={checkingStock} aria-label="Verificar disponibilidade no estoque">
-                                    {checkingStock ? 'Verificando...' : '🔍 Verificar Estoque'}
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={addMaterial}>+ Adicionar</Button>
-                            </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {materiais.length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-2">
+                                    <span className="text-2xl">📦</span>
+                                    <p className="text-sm">Nenhum material adicionado ainda.</p>
+                                </div>
+                            )}
                             {materiais.map((m) => (
                                 <div key={m.id} className="space-y-2 border-b border-border pb-4 last:border-0 last:pb-0">
                                     {/* Row 1: search/name, qty, unit, price, total, delete */}
@@ -779,13 +766,16 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                                 estoqueItemId={m.estoqueItemId}
                                                 ariaLabel={`Material ${m.nome || ''}`}
                                                 onNomeChange={(nome) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, nome } : x)))}
-                                                onSelect={({ estoqueItemId, codigo, nome, unidade, precoSugerido }) =>
+                                                onSelect={({ estoqueItemId, codigo, nome, unidade, precoSugerido, saldoTotal, embalagens }) => {
+                                                    if (embalagens.length > 0) {
+                                                        setEmbalagemOpcoes(prev => ({ ...prev, [estoqueItemId]: embalagens }))
+                                                    }
                                                     setMateriais((arr) => arr.map((x) =>
                                                         x.id === m.id
-                                                            ? { ...x, estoqueItemId, codigo, nome, unidade, preco: precoSugerido ?? x.preco }
+                                                            ? { ...x, estoqueItemId, codigo, nome, unidade, preco: precoSugerido ?? x.preco, aComprar: saldoTotal <= 0 }
                                                             : x
                                                     ))
-                                                }
+                                                }}
                                                 onUnlink={() => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, estoqueItemId: undefined } : x)))}
                                             />
                                         </div>
@@ -807,7 +797,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                                 {m.preco != null ? currency(m.preco * m.quantidade) : '—'}
                                             </div>
                                         </div>
-                                        <div className="col-span-1 flex items-end">
+                                        <div className="col-span-1 flex items-end gap-1">
                                             {m.estoqueItemId && estoqueCheck[m.estoqueItemId] && (
                                                 <span
                                                     className={`text-xs font-medium px-1 rounded mr-1 ${estoqueCheck[m.estoqueItemId].needsToPurchase ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-600'}`}
@@ -819,34 +809,229 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                             <Button size="icon" variant="destructive" className="h-9 w-9" onClick={() => rmMaterial(m.id)} aria-label={`Remover material ${m.nome}`}>✕</Button>
                                         </div>
                                     </div>
-                                    {/* Row 2: obs + fornecedor */}
+                                    {/* Row 1b: Embalagem toggle — shown for all materials */}
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {/* Toggle Por Unidade / Em Embalagem */}
+                                        <div className="flex rounded-lg border border-border overflow-hidden text-xs">
+                                            <button
+                                                type="button"
+                                                onClick={() => setMateriais(arr => arr.map(x => x.id === m.id ? {
+                                                    ...x,
+                                                    tipoEntrada: 'unidade',
+                                                    embalagemId: undefined,
+                                                    qtdEmbalagens: undefined,
+                                                    embalagemBaseQtyAtTime: undefined,
+                                                    embalagemPrecoAtTime: undefined,
+                                                    embalagemUnitAtTime: undefined,
+                                                } : x))}
+                                                className={`px-3 py-1.5 transition-colors ${m.tipoEntrada !== 'embalagem' ? 'bg-brand-primary text-white' : 'bg-transparent text-muted-foreground hover:text-foreground'}`}
+                                                aria-pressed={m.tipoEntrada !== 'embalagem'}
+                                            >
+                                                Por Unidade
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setMateriais(arr => arr.map(x => x.id === m.id ? { ...x, tipoEntrada: 'embalagem' } : x))}
+                                                className={`px-3 py-1.5 transition-colors ${m.tipoEntrada === 'embalagem' ? 'bg-brand-primary text-white' : 'bg-transparent text-muted-foreground hover:text-foreground'}`}
+                                                aria-pressed={m.tipoEntrada === 'embalagem'}
+                                            >
+                                                📦 Em Embalagem
+                                            </button>
+                                        </div>
+                                        {m.tipoEntrada === 'embalagem' && (
+                                            <>
+                                                {(m.estoqueItemId && (embalagemOpcoes[m.estoqueItemId]?.length ?? 0) > 0) ? (
+                                                    /* Pre-registered options — dropdown */
+                                                    <>
+                                                        <select
+                                                            className="h-8 rounded-lg border border-border bg-background text-sm px-2"
+                                                            value={m.embalagemId ?? ''}
+                                                            onChange={(e) => {
+                                                                const embId = Number(e.target.value)
+                                                                const emb = embalagemOpcoes[m.estoqueItemId!]?.find(x => x.id === embId)
+                                                                if (!emb) return
+                                                                const qty = m.qtdEmbalagens ?? 1
+                                                                setMateriais(arr => arr.map(x => x.id === m.id ? {
+                                                                    ...x,
+                                                                    embalagemId: emb.id,
+                                                                    embalagemBaseQtyAtTime: emb.baseQtyPerUnit,
+                                                                    embalagemPrecoAtTime: emb.precoCompra ?? undefined,
+                                                                    embalagemUnitAtTime: emb.purchaseUnit,
+                                                                    quantidade: qty * emb.baseQtyPerUnit,
+                                                                    preco: emb.precoCompra != null ? emb.precoCompra / emb.baseQtyPerUnit : x.preco,
+                                                                } : x))
+                                                            }}
+                                                            aria-label="Selecionar embalagem"
+                                                        >
+                                                            <option value="">Selecionar embalagem...</option>
+                                                            {embalagemOpcoes[m.estoqueItemId!]?.map(emb => (
+                                                                <option key={emb.id} value={emb.id}>
+                                                                    {formatPkgType(emb.packageType)} — {emb.baseQtyPerUnit} {m.unidade}
+                                                                    {emb.precoCompra != null ? ` ($${Number(emb.precoCompra).toFixed(2)}/pkg)` : ''}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-xs text-muted-foreground">Qtd pkgs:</span>
+                                                            <Input
+                                                                className="h-8 w-16 text-xs"
+                                                                type="number" min="1" step="1"
+                                                                value={m.qtdEmbalagens ?? ''}
+                                                                onChange={(e) => {
+                                                                    const qty = Math.max(1, Number(e.target.value) || 1)
+                                                                    const emb = m.embalagemId != null ? embalagemOpcoes[m.estoqueItemId!]?.find(x => x.id === m.embalagemId) : null
+                                                                    setMateriais(arr => arr.map(x => x.id === m.id ? {
+                                                                        ...x,
+                                                                        qtdEmbalagens: qty,
+                                                                        quantidade: emb ? qty * emb.baseQtyPerUnit : x.quantidade,
+                                                                    } : x))
+                                                                }}
+                                                                aria-label="Quantidade de embalagens"
+                                                            />
+                                                        </div>
+                                                        {m.embalagemId && m.qtdEmbalagens && m.quantidade > 0 && (
+                                                            <span className="text-xs text-green-600 font-medium">
+                                                                = {m.quantidade} {m.unidade} total
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    /* Manual entry — no pre-registered options */
+                                                    <>
+                                                        <select
+                                                            className="h-8 rounded-lg border border-border bg-background text-sm px-2"
+                                                            value={m.embalagemUnitAtTime ?? ''}
+                                                            onChange={(e) => setMateriais(arr => arr.map(x => x.id === m.id ? {
+                                                                ...x,
+                                                                embalagemId: undefined,
+                                                                embalagemUnitAtTime: e.target.value,
+                                                            } : x))}
+                                                            aria-label="Tipo de embalagem"
+                                                        >
+                                                            <option value="">Tipo de pkg...</option>
+                                                            {['ROLL','PACK','BOX','BAG','STICK','BUNDLE','PALLET','UNIT'].map(t => (
+                                                                <option key={t} value={t}>{formatPkgType(t)}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-xs text-muted-foreground">Qtd/{m.unidade || 'un'} por pkg:</span>
+                                                            <Input
+                                                                className="h-8 w-16 text-xs"
+                                                                type="number" min="0.001" step="any"
+                                                                value={m.embalagemBaseQtyAtTime ?? ''}
+                                                                onChange={(e) => {
+                                                                    const baseQty = Math.max(0.001, Number(e.target.value) || 0)
+                                                                    const qty = m.qtdEmbalagens ?? 1
+                                                                    setMateriais(arr => arr.map(x => x.id === m.id ? {
+                                                                        ...x,
+                                                                        embalagemBaseQtyAtTime: baseQty,
+                                                                        quantidade: qty * baseQty,
+                                                                    } : x))
+                                                                }}
+                                                                aria-label="Quantidade por embalagem"
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-xs text-muted-foreground">$pkg:</span>
+                                                            <Input
+                                                                className="h-8 w-20 text-xs"
+                                                                type="number" min="0" step="0.01"
+                                                                value={m.embalagemPrecoAtTime ?? ''}
+                                                                onChange={(e) => {
+                                                                    const pkgPrice = Number(e.target.value) || 0
+                                                                    const baseQty = m.embalagemBaseQtyAtTime ?? 1
+                                                                    setMateriais(arr => arr.map(x => x.id === m.id ? {
+                                                                        ...x,
+                                                                        embalagemPrecoAtTime: pkgPrice,
+                                                                        preco: baseQty > 0 ? pkgPrice / baseQty : x.preco,
+                                                                    } : x))
+                                                                }}
+                                                                aria-label="Preço por embalagem"
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-xs text-muted-foreground">Qtd pkgs:</span>
+                                                            <Input
+                                                                className="h-8 w-16 text-xs"
+                                                                type="number" min="1" step="1"
+                                                                value={m.qtdEmbalagens ?? ''}
+                                                                onChange={(e) => {
+                                                                    const qty = Math.max(1, Number(e.target.value) || 1)
+                                                                    const baseQty = m.embalagemBaseQtyAtTime ?? 0
+                                                                    setMateriais(arr => arr.map(x => x.id === m.id ? {
+                                                                        ...x,
+                                                                        qtdEmbalagens: qty,
+                                                                        quantidade: baseQty > 0 ? qty * baseQty : x.quantidade,
+                                                                    } : x))
+                                                                }}
+                                                                aria-label="Quantidade de embalagens"
+                                                            />
+                                                        </div>
+                                                        {m.embalagemBaseQtyAtTime && m.qtdEmbalagens && m.quantidade > 0 && (
+                                                            <span className="text-xs text-green-600 font-medium">
+                                                                = {m.quantidade} {m.unidade} total
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                    {/* Row 2: obs + fornecedor + aComprar toggle */}
                                     <div className="grid grid-cols-12 gap-2 items-end">
                                         <div className="col-span-6">
                                             <Label className="text-xs text-muted-foreground">Observação</Label>
                                             <Input className="h-8 text-xs" placeholder="Observação ou especificação..." value={m.obs ?? ''} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, obs: e.target.value } : x)))} aria-label={`Observação de ${m.nome}`} />
                                         </div>
-                                        <div className="col-span-5">
+                                        <div className="col-span-4">
                                             <Label className="text-xs text-muted-foreground">Fornecedor preferencial</Label>
                                             <Input className="h-8 text-xs" placeholder="Ex: Home Depot, Grainger..." value={m.fornecedor ?? ''} onChange={(e) => setMateriais((arr) => arr.map((x) => (x.id === m.id ? { ...x, fornecedor: e.target.value } : x)))} aria-label={`Fornecedor de ${m.nome}`} />
                                         </div>
-                                        <div className="col-span-1 flex items-end pb-0.5">
+                                        <div className="col-span-2 flex items-end gap-1 pb-0.5">
                                             {m.codigo && (
                                                 <span className="text-xs text-muted-foreground truncate" title={`Código: ${m.codigo}`}>{m.codigo}</span>
                                             )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setMateriais(arr => arr.map(x => x.id === m.id ? { ...x, aComprar: !x.aComprar } : x))}
+                                                className={`ml-auto text-xs px-2 py-1 rounded-lg border whitespace-nowrap ${
+                                                    m.aComprar
+                                                        ? 'border-brand-secondary/40 bg-brand-secondary/10 text-brand-secondary'
+                                                        : 'border-green-500/40 bg-green-500/10 text-green-600'
+                                                }`}
+                                                title={m.aComprar ? 'Clique para marcar como material do estoque (sem taxa adicional)' : 'Clique para marcar como material a comprar (+ TX tax 8.25%)'}
+                                                aria-label={`Status de compra: ${m.aComprar ? 'a comprar' : 'do estoque'}`}
+                                            >
+                                                {m.aComprar ? '🛒 A comprar' : '📦 Estoque'}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             ))}
+                            <div ref={materialsEndRef} />
+                            <button
+                                type="button"
+                                onClick={addMaterial}
+                                className="w-full mt-2 py-2.5 rounded-xl border-2 border-dashed border-border hover:border-brand-primary/50 hover:bg-brand-primary/5 text-sm text-muted-foreground hover:text-brand-primary transition-colors flex items-center justify-center gap-2"
+                                aria-label="Adicionar novo material"
+                            >
+                                <span className="text-lg leading-none">+</span> Adicionar material
+                            </button>
                         </CardContent>
                     </Card>
 
                     {/* Serviços */}
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
+                        <CardHeader>
                             <CardTitle>Etapas / Serviços</CardTitle>
-                            <Button size="sm" variant="outline" onClick={addEtapa}>+ Adicionar</Button>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {etapas.length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-2">
+                                    <span className="text-2xl">🔧</span>
+                                    <p className="text-sm">Nenhum serviço adicionado ainda.</p>
+                                </div>
+                            )}
                             {etapas.map((e) => (
                                 <div key={e.id} className="grid grid-cols-12 gap-2 border-b border-gray-100 pb-4 last:border-0 last:pb-0">
                                     <div className="col-span-12 md:col-span-4">
@@ -862,8 +1047,13 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                         <Input className="h-9" type="number" value={e.quantidade ?? ""} onChange={(ev) => setEtapas((arr) => arr.map((x) => (x.id === e.id ? { ...x, quantidade: Number(ev.target.value) } : x)))} />
                                     </div>
                                     <div className="col-span-3">
-                                        <Label className="text-xs">Horas</Label>
-                                        <Input className="h-9" type="number" value={e.duracaoHoras ?? ""} onChange={(ev) => setEtapas((arr) => arr.map((x) => (x.id === e.id ? { ...x, duracaoHoras: Number(ev.target.value) } : x)))} />
+                                        <Label className="text-xs">Horas (H:MM)</Label>
+                                        <HoursInput
+                                            className="h-9"
+                                            value={e.duracaoHoras}
+                                            onChange={(hours) => setEtapas((arr) => arr.map((x) => (x.id === e.id ? { ...x, duracaoHoras: hours } : x)))}
+                                            aria-label={`Duração em horas de ${e.servico || 'etapa'}`}
+                                        />
                                     </div>
                                     <div className="col-span-3">
                                         <Label className="text-xs">Custo MO</Label>
@@ -874,6 +1064,15 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                                     </div>
                                 </div>
                             ))}
+                            <div ref={etapasEndRef} />
+                            <button
+                                type="button"
+                                onClick={addEtapa}
+                                className="w-full mt-2 py-2.5 rounded-xl border-2 border-dashed border-border hover:border-brand-primary/50 hover:bg-brand-primary/5 text-sm text-muted-foreground hover:text-brand-primary transition-colors flex items-center justify-center gap-2"
+                                aria-label="Adicionar nova etapa ou serviço"
+                            >
+                                <span className="text-lg leading-none">+</span> Adicionar serviço
+                            </button>
                         </CardContent>
                     </Card>
 
@@ -885,15 +1084,15 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
                         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="col-span-2">
                                 <Label className="mb-2 block">Pagamento</Label>
-                                <Input value={comerciais.condicoes_pagamento} onChange={(e) => setComerciais({ ...comerciais, condicoes_pagamento: e.target.value })} />
+                                <Input placeholder="Ex: 40% upfront, 40% at midpoint, 20% on completion" value={comerciais.condicoes_pagamento} onChange={(e) => setComerciais({ ...comerciais, condicoes_pagamento: e.target.value })} />
                             </div>
                             <div>
                                 <Label className="mb-2 block">Garantia</Label>
-                                <Input value={comerciais.garantia} onChange={(e) => setComerciais({ ...comerciais, garantia: e.target.value })} />
+                                <Input placeholder="Ex: 1 year labor warranty; 3 months materials" value={comerciais.garantia} onChange={(e) => setComerciais({ ...comerciais, garantia: e.target.value })} />
                             </div>
                             <div>
                                 <Label className="mb-2 block">Exclusões</Label>
-                                <Input value={comerciais.exclusoes} onChange={(e) => setComerciais({ ...comerciais, exclusoes: e.target.value })} />
+                                <Input placeholder="Ex: Structural demolition, exterior painting, permits" value={comerciais.exclusoes} onChange={(e) => setComerciais({ ...comerciais, exclusoes: e.target.value })} />
                             </div>
                         </CardContent>
                     </Card>
