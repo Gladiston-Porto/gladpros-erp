@@ -1,9 +1,0 @@
-src/hooks/projetos/useProjetoOperations.ts:210:40 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
-src/hooks/projetos/useProjetoOperations.ts:234:37 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
-src/hooks/projetos/useProjetoOperations.ts:234:51 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
-src/hooks/projetos/useProjetoOperations.ts:266:54 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
-src/hooks/projetos/useProjetoOperations.ts:266:68 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
-src/shared/services/workforceService.ts:56:40 [@typescript-eslint/no-unused-vars] 'userId' is defined but never used. Allowed unused args must match /^_/u
-src/shared/services/workforceService.ts:431:42 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
-src/shared/services/workforceService.ts:435:35 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
-src/shared/services/workforceService.ts:436:50 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type
