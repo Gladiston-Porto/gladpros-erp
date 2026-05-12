@@ -1,6 +1,6 @@
 # Módulo Propostas — Documentação Completa
 
-**Última atualização:** 2026-05-05  
+**Última atualização:** 2026-05-11  
 **Status:** ✅ Pronto para produção — audit 15/15 | `npm run type-check` ✅ | `npm run lint` ✅  
 **Nota enterprise:** 10/10  
 **Testes:** 35/35 unit ✅ | 6 specs E2E (58 testes) ✅
@@ -100,6 +100,7 @@ src/components/propostas/
 │   └── ...
 ├── ui-components.tsx                     # Select → tokens, text-destructive para required *
 ├── PropostaForm.tsx                      # bg-background, text-foreground, text-destructive
+├── MaterialSearchCombobox.tsx            # Combobox com busca no estoque (debounced, linked badge)
 ├── PropostaFormModular.tsx               # bg-brand-primary nos botões, rounded-xl
 ├── ClientPropostaView.tsx                # Tokens completos (portal do cliente)
 ├── ConvertProposalButton.tsx             # rounded-2xl, bg-brand-primary, min-h-[48px]
@@ -509,7 +510,122 @@ Resultado do `/production-ready-module`: **15/15 ✅** após todas as correçõe
 
 ---
 
-## Variáveis de Ambiente — Módulo Propostas
+## Fase 5 — Prazos, Restrições & Materiais com Estoque (2026-05-11)
+
+### Prazos & Validade — Correções
+
+#### Problema
+O campo `Validade` (Data Limite) era estático e não tinha relação com `Prazo para Aceite` (dias). O campo `Restrições de Acesso` existia no banco mas não era renderizado no formulário.
+
+#### Correções aplicadas
+
+| Arquivo | Mudança |
+|---|---|
+| `src/components/propostas/PropostaForm.tsx` | Auto-calc de `Data Limite` a partir de `Prazo para Aceite` (dias) com checkbox `Auto`. Usa timezone `America/Chicago` — não UTC. Campo `Restrições de Acesso` agora visível como `Textarea`. |
+
+**Comportamento do checkbox Auto:**
+- Nova proposta: `Auto = true` (Data Limite calculada automaticamente)
+- Proposta existente com data salva: `Auto = false` (preserva data salva)
+- Toggle manual: quando `Auto = false`, campo `Data Limite` fica editável
+
+#### Restrições propagadas ao Projeto
+Quando uma proposta `APROVADA` é convertida em projeto, os campos de restrições são copiados:
+
+| Campo na Proposta | Destino no Projeto |
+|---|---|
+| `restricoesDeAcesso` | `restricoesOperacionais` (primeira linha) |
+| `janelaExecucaoPreferencial` | `restricoesOperacionais` (segunda linha) |
+
+Banner de alerta (`AlertTriangle` amarelo) exibido no topo da página de detalhe do projeto quando `restricoesOperacionais` tem conteúdo.
+
+**Arquivos:**
+- `src/domains/projects/services/ProjectProposalConversionService.ts` — copia restrições na conversão
+- `src/app/(dashboard)/projetos/[id]/page.tsx` — banner de aviso
+- `src/domains/projects/dtos/index.ts` — `restricoesOperacionais` adicionado ao DTO
+- `src/lib/projetos/types.ts` — interface `Projeto` atualizada
+- `src/domains/projects/services/ProjectService.ts` — mapper atualizado
+- `prisma/schema.prisma` — coluna `restricoes_operacionais TEXT NULL` no model `Projeto`
+
+---
+
+### Materiais — Correção de Perda Silenciosa de Dados
+
+#### Problema raiz
+O campo `estoqueItemId` nunca era salvo no banco porque o schema Zod (`src/schemas/proposta.schema.ts`) não o incluía. O `parse()` do Zod descartava o campo silenciosamente antes de chegar ao handler da API.
+
+Outros campos (`codigo`, `unidade`) eram obrigatórios no schema Zod mas opcionais no banco, causando erros de validação ao salvar materiais sem código de estoque.
+
+#### Correções aplicadas
+
+| Arquivo | Mudança |
+|---|---|
+| `src/schemas/proposta.schema.ts` | `estoqueItemId: z.number().int().optional()` adicionado; `codigo` e `unidade` alterados para `optional()` |
+| `src/components/propostas/adapter.ts` | `estoqueItemId: m.estoqueItemId` adicionado ao map de materiais |
+| `src/app/api/propostas/route.ts` | `estoqueItemId: m.estoqueItemId` adicionado ao `PropostaMaterial.create` |
+| `src/app/api/propostas/[id]/route.ts` | `estoqueItemId: m.estoqueItemId` adicionado ao `PropostaMaterial.createMany` |
+| `src/domains/projects/services/ProjectProposalConversionService.ts` | `plannedUnitCost: material.precoUnitario` agora copiado para `ProjetoMaterial` na conversão |
+
+---
+
+### Materiais — Novo Componente: `MaterialSearchCombobox`
+
+**Arquivo:** `src/components/propostas/MaterialSearchCombobox.tsx`
+
+Substitui o campo "Est. Item ID" (número bruto) por um combobox com busca inteligente no catálogo de estoque.
+
+**Comportamento:**
+- Digitar 2+ caracteres → dropdown com resultados de `/api/estoque/materiais?search={q}&pageSize=10`
+- Cada resultado mostra: nome + código + quantidade em estoque + custo médio (`custoMedio`)
+- Ao selecionar: preenche automaticamente `estoqueItemId`, `codigo`, `nome`, `unidade`, `preco` (custo médio como sugestão)
+- Badge "🔗 vinculado" quando ligado ao estoque
+- Botão "Desvincular" — limpa `estoqueItemId` mas preserva nome digitado
+- Sem vínculo: campo de texto livre para nome do material
+
+**Novo layout do formulário de materiais (dois rows por item):**
+- Row 1: `MaterialSearchCombobox` (5 cols) + Qtd + Unidade + $ Unit + Total (calculado) + Delete
+- Row 2: Observação + Fornecedor preferencial + Código (exibido como legenda quando presente)
+
+**Campos agora visíveis e salvos:**
+- `observacao` (obs no formulário) — existia no banco, não era renderizado
+- `fornecedorPreferencial` (fornecedor no formulário) — existia no banco, não era renderizado
+- Total por linha (qty × price) — calculado em tempo real, não persistido
+
+---
+
+### Modelo PropostaMaterial — Campos completos
+
+```prisma
+model PropostaMaterial {
+  estoqueItemId          Int?     // FK soft → Material.id (agora salvo corretamente)
+  codigo                 String?  // auto-preenchido pelo combobox
+  nome                   String
+  quantidade             Decimal
+  unidade                String?  // auto-preenchido pelo combobox
+  status                 PropostaMaterial_status @default(PLANEJADO)
+  observacao             String?  // visível no formulário desde 2026-05-11
+  precoUnitario          Decimal? // mapeado de custoMedio na seleção
+  moeda                  String   @default("USD")
+  totalItem              Decimal? // pode ser calculado no futuro
+  fornecedorPreferencial String?  // visível no formulário desde 2026-05-11
+}
+```
+
+---
+
+### Fluxo de dados de materiais corrigido
+
+```
+Formulário (Material)
+  ├── preco         →  adapter  →  valorUnitarioEstimado  →  API handler  →  DB precoUnitario
+  ├── obs           →  adapter  →  observacoes            →  API handler  →  DB observacao
+  ├── fornecedor    →  adapter  →  fornecedor             →  API handler  →  DB fornecedorPreferencial
+  └── estoqueItemId →  Zod ✅  →  adapter  →  estoqueItemId  →  API handler  →  DB estoqueItemId
+                                                                                  (antes: perdido no Zod)
+```
+
+---
+
+### Variáveis de Ambiente — Módulo Propostas
 
 | Variável | Obrigatório | Descrição |
 |---|---|---|

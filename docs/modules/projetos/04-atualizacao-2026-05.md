@@ -170,6 +170,72 @@ O fallback é um grid de 6 cards animados (`animate-pulse`) que espelha o layout
 
 ---
 
+## Feature: Restrições Operacionais da Proposta (2026-05-11)
+
+### Objetivo
+
+Quando uma proposta é aprovada e convertida em projeto, as restrições de acesso e janelas de execução informadas na proposta devem ser visíveis para a equipe operacional no projeto.
+
+### Novo campo `restricoesOperacionais`
+
+**Schema Prisma:**
+```prisma
+model Projeto {
+  // ...
+  restricoesOperacionais String? @db.Text @map("restricoes_operacionais")
+}
+```
+
+Adicionado ao banco via `ALTER TABLE Projeto ADD COLUMN IF NOT EXISTS restricoes_operacionais TEXT NULL`.
+
+### Preenchimento automático na conversão
+
+**Arquivo:** `src/domains/projects/services/ProjectProposalConversionService.ts`
+
+Na conversão de proposta aprovada → projeto, o campo é montado assim:
+
+```typescript
+restricoesOperacionais: [
+  proposta.restricoesDeAcesso,
+  proposta.janelaExecucaoPreferencial
+].filter(Boolean).join('\n') || null
+```
+
+### Exibição no projeto
+
+**Arquivo:** `src/app/(dashboard)/projetos/[id]/page.tsx`
+
+Quando `restricoesOperacionais` tem valor, exibe um banner de alerta no topo da página:
+
+```tsx
+{projeto.restricoesOperacionais && (
+  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 flex gap-3">
+    <AlertTriangle className="text-yellow-600 shrink-0" />
+    <div>
+      <p className="font-semibold text-yellow-700 dark:text-yellow-400">
+        Restrições Operacionais
+      </p>
+      <p className="text-sm text-yellow-700/80 dark:text-yellow-400/80 whitespace-pre-line">
+        {projeto.restricoesOperacionais}
+      </p>
+    </div>
+  </div>
+)}
+```
+
+### Arquivos modificados
+
+| Arquivo | Mudança |
+|---|---|
+| `prisma/schema.prisma` | Campo `restricoesOperacionais String? @db.Text` adicionado ao model `Projeto` |
+| `src/domains/projects/services/ProjectProposalConversionService.ts` | Monta e copia restrições na conversão |
+| `src/domains/projects/dtos/index.ts` | `restricoesOperacionais: string \| null` adicionado ao DTO |
+| `src/lib/projetos/types.ts` | `restricoesOperacionais: string \| null` adicionado à interface `Projeto` |
+| `src/domains/projects/services/ProjectService.ts` | `mapearParaResponse()` inclui o novo campo |
+| `src/app/(dashboard)/projetos/[id]/page.tsx` | Banner `AlertTriangle` amarelo quando campo tem valor |
+
+---
+
 ## Débitos Técnicos Registrados (não corrigidos neste ciclo)
 
 | ID | Arquivo | Problema | Impacto |
