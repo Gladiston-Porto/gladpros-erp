@@ -17,7 +17,8 @@ export function MaterialSection({ materiais, onMateriaisChange }: MaterialSectio
       nome: "",
       quantidade: 1,
       unidade: "un",
-      status: "necessario"
+      status: "necessario",
+      aComprar: true,
     }
     onMateriaisChange([...materiais, novoMaterial])
   }

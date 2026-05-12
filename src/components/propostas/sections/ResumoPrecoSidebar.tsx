@@ -34,10 +34,38 @@ export function ResumoPrecoSidebar({
           <Badge>Privado</Badge>
         </div>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 text-sm">
-            <span className="text-muted-foreground">Materiais</span>
-            <span className="text-right font-medium">{currency(totais.mat)}</span>
-          </div>
+          {/* Materials breakdown */}
+          {(totais.matEstoque > 0 || totais.matComprar > 0) ? (
+            <>
+              {totais.matEstoque > 0 && (
+                <div className="grid grid-cols-2 text-sm">
+                  <span className="text-muted-foreground pl-2 border-l-2 border-green-500/40">📦 Mat. em estoque</span>
+                  <span className="text-right font-medium text-green-600">{currency(totais.matEstoque)}</span>
+                </div>
+              )}
+              {totais.matComprar > 0 && (
+                <div className="grid grid-cols-2 text-sm">
+                  <span className="text-muted-foreground pl-2 border-l-2 border-brand-secondary/40">🛒 Mat. a comprar</span>
+                  <span className="text-right font-medium">{currency(totais.matComprar)}</span>
+                </div>
+              )}
+              {totais.salesTax > 0 && (
+                <div className="grid grid-cols-2 text-sm">
+                  <span className="text-muted-foreground pl-2 border-l-2 border-brand-secondary/40 text-brand-secondary">Sales Tax (8.25%)</span>
+                  <span className="text-right font-medium text-brand-secondary">+{currency(totais.salesTax)}</span>
+                </div>
+              )}
+              <div className="grid grid-cols-2 text-sm">
+                <span className="text-muted-foreground font-medium">Materiais (total)</span>
+                <span className="text-right font-medium">{currency(totais.mat)}</span>
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-2 text-sm">
+              <span className="text-muted-foreground">Materiais</span>
+              <span className="text-right font-medium">{currency(totais.mat)}</span>
+            </div>
+          )}
           <div className="grid grid-cols-2 text-sm">
             <span className="text-muted-foreground">Mão de obra</span>
             <span className="text-right font-medium">{currency(totais.mo)}</span>

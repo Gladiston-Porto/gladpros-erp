@@ -120,11 +120,12 @@ export function createTextSearchWhere(
 ): any {
   if (!search || !fields.length) return {};
   
+  // Note: mode 'insensitive' is PostgreSQL-only in Prisma.
+  // MySQL default collation (utf8mb4_unicode_ci) is already case-insensitive.
   return {
     OR: fields.map(field => ({
       [field]: {
         contains: search,
-        mode: 'insensitive'
       }
     }))
   };

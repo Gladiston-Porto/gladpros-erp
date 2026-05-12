@@ -12,6 +12,23 @@ import { generateNumeroProposta } from '@/shared/lib/services/proposta-numbering
 import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
 import type { Prisma, Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, Proposta_status, PropostaMaterial_status, PropostaEtapa_status, PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
 
+/** Normaliza texto livre de forma de pagamento para o enum do Prisma. */
+function normalizeFormaPagamento(value?: string): Proposta_formaPagamentoPreferida | undefined {
+  if (!value) return undefined;
+  const map: Record<string, Proposta_formaPagamentoPreferida> = {
+    'invoice': 'INVOICE', 'check': 'CHECK', 'cheque': 'CHEQUE',
+    'ach': 'ACH', 'ach transfer': 'ACH', 'wire': 'TRANSFERENCIA',
+    'credit card': 'CREDIT_CARD', 'cartao': 'CARTAO', 'card': 'CREDIT_CARD',
+    'pix': 'PIX', 'boleto': 'BOLETO', 'cash': 'DINHEIRO', 'dinheiro': 'DINHEIRO',
+    'transferencia': 'TRANSFERENCIA', 'transfer': 'TRANSFERENCIA',
+  };
+  const normalized = map[value.toLowerCase().trim()];
+  // Se já é um valor válido do enum, aceita direto
+  const validValues: Proposta_formaPagamentoPreferida[] = ['PIX','CARTAO','BOLETO','TRANSFERENCIA','DINHEIRO','CHEQUE','INVOICE','CHECK','ACH','CREDIT_CARD'];
+  if (validValues.includes(value as Proposta_formaPagamentoPreferida)) return value as Proposta_formaPagamentoPreferida;
+  return normalized; // undefined se não mapeado (campo é opcional)
+}
+
 /** Compute TX sales tax for a proposal and return fields ready for Prisma upsert. */
 function computePropostaTax(payload: {
   valorEstimado: number;
@@ -157,6 +174,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         numeroProposta,
         clienteId: payload.clienteId,
         titulo: payload.titulo || 'Sem título',
+        tipoServico: (payload.serviceCategory as string) ?? 'GENERAL',
         descricaoEscopo: payload.descricao || '',
         valorEstimado: payload.valorEstimado,
         status: payload.status,
@@ -189,7 +207,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         internalEstimate: JSON.stringify(payload.estimativasInternas),
         gatilhoFaturamento: payload.gatilhoFaturamento as Proposta_gatilhoFaturamento | undefined,
         percentualSinal: payload.percentualSinal,
-        formaPagamentoPreferida: payload.formaPreferida as Proposta_formaPagamentoPreferida | undefined,
+        formaPagamentoPreferida: normalizeFormaPagamento(payload.formaPreferida),
         instrucoesPagamento: payload.instrucoesFaturamento,
         observacoesParaCliente: payload.observacoesCliente,
         observacoesInternas: payload.observacoesInternas,
@@ -206,7 +224,13 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             precoUnitario: m.valorUnitarioEstimado,
             status: m.status as PropostaMaterial_status | undefined,
             fornecedorPreferencial: m.fornecedor,
-            observacao: m.observacoes
+            observacao: m.observacoes,
+            aComprar: m.aComprar,
+            embalagemId: m.embalagemId,
+            qtdEmbalagens: m.qtdEmbalagens,
+            embalagemBaseQtyAtTime: m.embalagemBaseQtyAtTime,
+            embalagemPrecoAtTime: m.embalagemPrecoAtTime,
+            embalagemUnitAtTime: m.embalagemUnitAtTime,
           }))
         },
         PropostaEtapa: {

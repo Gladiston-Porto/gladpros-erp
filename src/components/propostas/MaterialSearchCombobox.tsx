@@ -5,13 +5,23 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
+export interface EmbalagemOption {
+  id: number
+  packageType: string       // e.g. "ROLL", "PACK", "BOX"
+  baseQtyPerUnit: number    // how many base units per package
+  precoCompra: number | null
+  purchaseUnit: string      // e.g. "EA", "FT"
+}
+
 interface EstoqueResult {
   id: number
   codigo: string
   nome: string
   saldoTotal: number
   custoMedio: number | null
+  ultimoCusto: number | null
   unidade?: { codigo: string; nome: string }
+  embalagens: EmbalagemOption[]
 }
 
 interface MaterialSearchComboboxProps {
@@ -24,6 +34,8 @@ interface MaterialSearchComboboxProps {
     nome: string
     unidade: string
     precoSugerido: number | null
+    saldoTotal: number
+    embalagens: EmbalagemOption[]
   }) => void
   /** Called when user types freely in the input (not selecting from dropdown) */
   onNomeChange: (nome: string) => void
@@ -71,7 +83,15 @@ export function MaterialSearchCombobox({
         nome: m.nome as string,
         saldoTotal: Number(m.saldoTotal ?? 0),
         custoMedio: m.custoMedio != null ? Number(m.custoMedio) : null,
+        ultimoCusto: m.ultimoCusto != null ? Number(m.ultimoCusto) : null,
         unidade: m.unidade as { codigo: string; nome: string } | undefined,
+        embalagens: (Array.isArray(m.embalagens) ? m.embalagens : []).map((e: Record<string, unknown>) => ({
+          id: e.id as number,
+          packageType: e.packageType as string,
+          baseQtyPerUnit: Number(e.baseQtyPerUnit),
+          precoCompra: e.precoCompra != null ? Number(e.precoCompra) : null,
+          purchaseUnit: (e.purchaseUnit as string) ?? 'EA',
+        })),
       }))
       setResults(items)
       setOpen(items.length > 0)
@@ -95,7 +115,9 @@ export function MaterialSearchCombobox({
       codigo: item.codigo,
       nome: item.nome,
       unidade: item.unidade?.codigo ?? '',
-      precoSugerido: item.custoMedio,
+      precoSugerido: item.custoMedio ?? item.ultimoCusto,
+      saldoTotal: item.saldoTotal,
+      embalagens: item.embalagens,
     })
   }
 
@@ -179,8 +201,11 @@ export function MaterialSearchCombobox({
                 <span className={item.saldoTotal > 0 ? 'text-green-600' : 'text-destructive'}>
                   {item.saldoTotal} {item.unidade?.codigo ?? 'un'}
                 </span>
-                {item.custoMedio != null && (
-                  <span>${item.custoMedio.toFixed(2)}</span>
+                {(item.custoMedio ?? item.ultimoCusto) != null && (
+                  <span className="text-brand-primary font-medium">
+                    ${(item.custoMedio ?? item.ultimoCusto)!.toFixed(2)}
+                    {item.custoMedio == null && <span className="text-muted-foreground font-normal"> (último)</span>}
+                  </span>
                 )}
               </div>
             </li>

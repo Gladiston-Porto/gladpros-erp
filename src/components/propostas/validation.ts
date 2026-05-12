@@ -2,14 +2,16 @@ import { z } from 'zod'
 
 export const materialSchema = z.object({
   id: z.string(),
-  codigo: z.string().min(1, 'Código obrigatório'),
-  nome: z.string().min(1, 'Nome obrigatório'),
+  codigo: z.string().optional().default(''),
+  nome: z.string().min(1, 'Nome do material obrigatório'),
   quantidade: z.number().min(0, 'Quantidade deve ser positiva'),
   unidade: z.string().min(1, 'Unidade obrigatória'),
   preco: z.number().optional(),
   status: z.enum(['necessario', 'opcional', 'substituivel']),
   fornecedor: z.string().optional(),
   obs: z.string().optional(),
+  estoqueItemId: z.number().int().optional(),
+  aComprar: z.boolean().optional(),
 })
 
 export const etapaSchema = z.object({
@@ -28,8 +30,13 @@ export const clienteInfoSchema = z.object({
   contato_nome: z.string().min(1, 'Nome do contato obrigatório'),
   contato_email: z.string().email('E-mail inválido'),
   contato_telefone: z.string().optional(),
-  local_endereco: z.string().min(1, 'Endereço obrigatório'),
+  local_endereco: z.string().optional().default(''),
   titulo: z.string().min(1, 'Título obrigatório'),
+  serviceAddressLine1: z.string().optional(),
+  serviceAddressLine2: z.string().optional(),
+  serviceAddressCity: z.string().optional(),
+  serviceAddressState: z.string().optional(),
+  serviceAddressZip: z.string().optional(),
 })
 
 export const prazosInfoSchema = z.object({
@@ -41,10 +48,10 @@ export const prazosInfoSchema = z.object({
 })
 
 export const comerciaisInfoSchema = z.object({
-  condicoes_pagamento: z.string().min(1, 'Condições de pagamento obrigatórias'),
-  garantia: z.string().min(1, 'Garantia obrigatória'),
-  exclusoes: z.string().min(1, 'Exclusões obrigatórias'),
-  condicoes_gerais: z.string().min(1, 'Condições gerais obrigatórias'),
+  condicoes_pagamento: z.string().default(''),
+  garantia: z.string().default(''),
+  exclusoes: z.string().default(''),
+  condicoes_gerais: z.string().default(''),
   desconto: z.number().min(0).max(100, 'Desconto deve estar entre 0 e 100%'),
 })
 
@@ -83,6 +90,9 @@ export const propostaFormSchema = z.object({
   obsCliente: z.string().optional(),
   obsInternas: z.string().optional(),
   status: z.enum(['RASCUNHO', 'ENVIADA', 'ASSINADA', 'APROVADA', 'CANCELADA']),
+  propertyType: z.enum(['RESIDENTIAL', 'COMMERCIAL', 'MIXED_USE', 'EXEMPT_ORGANIZATION', 'GOVERNMENT']).optional(),
+  serviceCategory: z.enum(['NEW_CONSTRUCTION', 'REPAIR', 'REMODEL', 'RESTORATION', 'MAINTENANCE', 'INSPECTION', 'CONSULTATION']).optional(),
+  contractType: z.enum(['LUMP_SUM', 'SEPARATED', 'COST_PLUS']).optional(),
 })
 
 export type PropostaFormValidated = z.infer<typeof propostaFormSchema>

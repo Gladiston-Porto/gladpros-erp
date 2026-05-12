@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { requireUser } from '@/shared/lib/rbac'
 import { can } from '@/shared/lib/rbac-core'
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     ...expired.map((p) =>
       prisma.propostaLog.create({
         data: {
-          id: require('crypto').randomUUID(),
+          id: randomUUID(),
           propostaId: p.id,
           actorId: parseInt(user.id) || null,
           action: 'CANCELLED',

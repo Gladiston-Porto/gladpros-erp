@@ -81,6 +81,12 @@ export interface PropostaAPIPayload {
     status: string
     fornecedor?: string
     observacoes?: string
+    aComprar: boolean
+    embalagemId?: number
+    qtdEmbalagens?: number
+    embalagemBaseQtyAtTime?: number
+    embalagemPrecoAtTime?: number
+    embalagemUnitAtTime?: string
   }>
 
   etapas: Array<{
@@ -188,7 +194,13 @@ export function adaptPropostaFormToAPI(formData: PropostaFormData): PropostaAPIP
       valorUnitarioEstimado: m.preco,
       status: m.status === 'substituivel' ? 'SUBSTITUIDO' : 'PLANEJADO',
       fornecedor: m.fornecedor,
-      observacoes: m.obs
+      observacoes: m.obs,
+      aComprar: m.aComprar,
+      embalagemId: m.embalagemId,
+      qtdEmbalagens: m.qtdEmbalagens,
+      embalagemBaseQtyAtTime: m.embalagemBaseQtyAtTime,
+      embalagemPrecoAtTime: m.embalagemPrecoAtTime,
+      embalagemUnitAtTime: m.embalagemUnitAtTime,
     })),
 
     // Etapas adaptadas
@@ -227,16 +239,24 @@ export function adaptAPIToPropostaForm(proposta: PropostaComRelacoes): PropostaF
 
   // Map materials
   const materiais = proposta.PropostaMaterial.map(m => ({
-    id: String(m.id), // Form expects string IDs often for drag/drop or temp ids
+    id: String(m.id),
     codigo: m.codigo || '',
     nome: m.nome,
     quantidade: Number(m.quantidade),
     unidade: m.unidade || 'un',
     preco: Number(m.precoUnitario || 0),
-    status: (m.status === 'PLANEJADO' ? 'necessario' : 'opcional') as any, // Simplified map
+    status: (m.status === 'PLANEJADO' ? 'necessario' : 'opcional') as any,
     obs: m.observacao || '',
     fornecedor: m.fornecedorPreferencial || '',
     estoqueItemId: m.estoqueItemId ?? undefined,
+    aComprar: m.aComprar,
+    embalagemId: m.embalagemId ?? undefined,
+    qtdEmbalagens: m.qtdEmbalagens ? Number(m.qtdEmbalagens) : undefined,
+    embalagemBaseQtyAtTime: m.embalagemBaseQtyAtTime ? Number(m.embalagemBaseQtyAtTime) : undefined,
+    embalagemPrecoAtTime: m.embalagemPrecoAtTime ? Number(m.embalagemPrecoAtTime) : undefined,
+    embalagemUnitAtTime: m.embalagemUnitAtTime ?? undefined,
+    tipoEntrada: (m.embalagemId != null || (m.embalagemBaseQtyAtTime != null && Number(m.embalagemBaseQtyAtTime) > 0))
+      ? 'embalagem' : 'unidade' as 'embalagem' | 'unidade',
   }));
 
   // Map etapas

@@ -65,6 +65,12 @@ export async function duplicateProposal(
             status: m.status,
             fornecedorPreferencial: m.fornecedorPreferencial,
             observacao: m.observacao,
+            aComprar: m.aComprar,
+            embalagemId: m.embalagemId,
+            qtdEmbalagens: m.qtdEmbalagens,
+            embalagemBaseQtyAtTime: m.embalagemBaseQtyAtTime,
+            embalagemPrecoAtTime: m.embalagemPrecoAtTime,
+            embalagemUnitAtTime: m.embalagemUnitAtTime,
           })),
         },
         PropostaEtapa: {

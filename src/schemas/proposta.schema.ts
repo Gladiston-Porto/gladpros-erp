@@ -92,6 +92,15 @@ const materialSchema = z.object({
   status: StatusMaterialEnum,
   fornecedor: z.string().optional(),
   obs: z.string().optional(),
+  // TX Sales Tax: false = from stock, true = needs purchasing (8.25% applies)
+  aComprar: z.boolean().default(true),
+  // Multi-UOM / embalagem fields (optional)
+  tipoEntrada: z.enum(['unidade', 'embalagem']).optional(),
+  embalagemId: z.number().int().optional(),
+  qtdEmbalagens: z.number().optional(),
+  embalagemBaseQtyAtTime: z.number().optional(),
+  embalagemPrecoAtTime: z.number().optional(),
+  embalagemUnitAtTime: z.string().optional(),
 });
 
 const etapaSchema = z.object({
@@ -106,10 +115,10 @@ const etapaSchema = z.object({
 });
 
 const comerciaisInfoSchema = z.object({
-  condicoes_pagamento: z.string().min(1, 'Condições de pagamento são obrigatórias'),
-  garantia: z.string().min(1, 'Garantia é obrigatória'),
-  exclusoes: z.string().min(1, 'Exclusões são obrigatórias'),
-  condicoes_gerais: z.string().min(1, 'Condições gerais são obrigatórias'),
+  condicoes_pagamento: z.string().default(''),
+  garantia: z.string().default(''),
+  exclusoes: z.string().default(''),
+  condicoes_gerais: z.string().default(''),
   desconto: z.number().min(0).max(100),
 });
 

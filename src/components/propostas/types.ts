@@ -7,12 +7,21 @@ export interface Material {
   nome: string;
   quantidade: number;
   unidade: string;
-  preco?: number; // interno
+  preco?: number; // interno (custo por unidade base)
   status: "necessario" | "opcional" | "substituivel";
   fornecedor?: string;
   obs?: string;
   estoqueItemId?: number; // soft-link to EstoqueItem for stock availability check
   estoqueDisponivel?: number; // read-only: populated when checking stock
+  /** false = material from stock (tax already embedded in cost); true = needs to be purchased (TX sales tax 8.25% applies) */
+  aComprar: boolean;
+  // Multi-UOM fields (optional — only set when entering via embalagem)
+  tipoEntrada?: 'unidade' | 'embalagem'; // UI toggle
+  embalagemId?: number;       // FK to MaterialEmbalagem
+  qtdEmbalagens?: number;     // number of packages entered
+  embalagemBaseQtyAtTime?: number; // SNAPSHOT: baseQtyPerUnit at time of entry
+  embalagemPrecoAtTime?: number;   // SNAPSHOT: precoCompra at time of entry
+  embalagemUnitAtTime?: string;    // SNAPSHOT: packageType label (e.g. "ROLL", "PACK")
 }
 
 export interface Etapa {
@@ -144,7 +153,10 @@ export interface PropostaFormData {
 }
 
 export interface TotaisCalculados {
-  mat: number;
+  mat: number;          // total materials including sales tax
+  matEstoque: number;   // materials from stock (tax already in purchase cost)
+  matComprar: number;   // materials to buy (pre-tax base price)
+  salesTax: number;     // TX sales tax 8.25% applied only on matComprar
   mo: number;
   terce: number;
   frete: number;

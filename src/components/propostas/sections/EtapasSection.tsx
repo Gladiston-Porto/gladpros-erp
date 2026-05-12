@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Label, Input, Textarea, Select } from '../ui-components'
+import { HoursInput } from '../HoursInput'
 import { Etapa } from '../types'
 
 interface EtapasSectionProps {
@@ -67,11 +68,11 @@ export function EtapasSection({ etapas, onEtapasChange }: EtapasSectionProps) {
             />
           </div>
           <div className="col-span-1">
-            <Label>Horas</Label>
-            <Input 
-              type="number" 
-              value={etapa.duracaoHoras ?? ""} 
-              onChange={(e) => updateEtapa(etapa.id, { duracaoHoras: Number(e.target.value) })} 
+            <Label>Horas (H:MM)</Label>
+            <HoursInput
+              value={etapa.duracaoHoras}
+              onChange={(hours) => updateEtapa(etapa.id, { duracaoHoras: hours })}
+              aria-label={`Duração de ${etapa.servico || 'etapa'}`}
             />
           </div>
           <div className="col-span-1">

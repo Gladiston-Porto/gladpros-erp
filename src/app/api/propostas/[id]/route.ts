@@ -10,6 +10,20 @@ import { can, type Role } from '@/shared/lib/rbac-core';
 import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
 import type { Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, PropostaMaterial_status, PropostaEtapa_status, PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
 
+function normalizeFormaPagamento(value?: string): Proposta_formaPagamentoPreferida | undefined {
+  if (!value) return undefined;
+  const map: Record<string, Proposta_formaPagamentoPreferida> = {
+    'invoice': 'INVOICE', 'check': 'CHECK', 'cheque': 'CHEQUE',
+    'ach': 'ACH', 'ach transfer': 'ACH', 'wire': 'TRANSFERENCIA',
+    'credit card': 'CREDIT_CARD', 'cartao': 'CARTAO', 'card': 'CREDIT_CARD',
+    'pix': 'PIX', 'boleto': 'BOLETO', 'cash': 'DINHEIRO', 'dinheiro': 'DINHEIRO',
+    'transferencia': 'TRANSFERENCIA', 'transfer': 'TRANSFERENCIA',
+  };
+  const validValues: Proposta_formaPagamentoPreferida[] = ['PIX','CARTAO','BOLETO','TRANSFERENCIA','DINHEIRO','CHEQUE','INVOICE','CHECK','ACH','CREDIT_CARD'];
+  if (validValues.includes(value as Proposta_formaPagamentoPreferida)) return value as Proposta_formaPagamentoPreferida;
+  return map[value.toLowerCase().trim()];
+}
+
 function computePropostaTax(payload: {
   valorEstimado: number;
   propertyType?: string | null;
@@ -133,7 +147,7 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
           internalEstimate: JSON.stringify(payload.estimativasInternas),
           gatilhoFaturamento: payload.gatilhoFaturamento as Proposta_gatilhoFaturamento | undefined,
           percentualSinal: payload.percentualSinal,
-          formaPagamentoPreferida: payload.formaPreferida as Proposta_formaPagamentoPreferida | undefined,
+          formaPagamentoPreferida: normalizeFormaPagamento(payload.formaPreferida),
           instrucoesPagamento: payload.instrucoesFaturamento,
           observacoesParaCliente: payload.observacoesCliente,
           observacoesInternas: payload.observacoesInternas,
@@ -158,7 +172,13 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
             precoUnitario: m.valorUnitarioEstimado,
             status: m.status as PropostaMaterial_status | undefined,
             fornecedorPreferencial: m.fornecedor,
-            observacao: m.observacoes
+            observacao: m.observacoes,
+            aComprar: m.aComprar,
+            embalagemId: m.embalagemId,
+            qtdEmbalagens: m.qtdEmbalagens,
+            embalagemBaseQtyAtTime: m.embalagemBaseQtyAtTime,
+            embalagemPrecoAtTime: m.embalagemPrecoAtTime,
+            embalagemUnitAtTime: m.embalagemUnitAtTime,
           }))
         })
       }
