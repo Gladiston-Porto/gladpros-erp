@@ -24,14 +24,14 @@ Cada item deve aparecer somente se:
 | Grupo | Itens | Status de decisao |
 |---|---|---|
 | Dashboard | Dashboard, Notificacoes | Aprovavel |
-| Comercial | Clientes, Propostas | Recomendado |
-| Operacao | Projetos, Ordens de Servico, Documentos | Recomendado, com Documentos como beta |
-| Estoque | Estoque | Recomendado; submenus internos devem concentrar materiais/equipamentos/compras |
+| Comercial | Clientes, Propostas | Aplicado |
+| Operacao | Projetos, Ordens de Servico, Documentos | Aplicado, com Documentos ainda beta |
+| Estoque | Estoque | Aplicado; submenus internos devem concentrar materiais/equipamentos/compras |
 | Financeiro | Visao geral, Receitas, Despesas, Contas, Transferencias, Fluxo de Caixa, Conciliacao, Relatorios | Ja parcialmente aplicado |
 | Faturamento | Invoices, Relatorios de Invoices | Ja aplicado |
 | Fiscal | Painel Fiscal, Impostos Estimados, Payables 1099, Owner Compensation, Relatorios Fiscais, Categorias Fiscais | Ja aplicado; sensivel |
 | Pessoas | Usuarios, RH/Workers | Recomendado, mas RH/Workers deve ser beta ate auditoria |
-| Gestao | Reports/Analytics, Aprovacoes | Recomendado como beta/admin ate hardening |
+| Gestao | Reports/Analytics, Aprovacoes | Parcialmente aplicado com Relatorios; Aprovacoes ainda nao foi promovido |
 | Sistema | Configuracoes, Eventos, Integracao, Perfil | Eventos/Integracao admin-only; Perfil sempre visivel |
 
 ### 2.2 Mudanca principal em relacao ao estado atual
@@ -44,6 +44,8 @@ Recomendacao:
 - **Operacao:** Projetos, Ordens de Servico, Documentos.
 
 Motivo: proposta e cliente pertencem ao ciclo de venda; projeto e OS pertencem a execucao.
+
+Status: aplicado na sidebar principal em `src/shared/components/GladPros/index.tsx`.
 
 ## 3. Exposicao por role
 

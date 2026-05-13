@@ -253,6 +253,7 @@ Motivo:
 | Protecao direta | Rotas em `/admin/*` ganharam layout server-side que redireciona nao-ADMIN para `/403`. |
 | Testes | Foi adicionada regressao cobrindo financeiro, admin-only e fail-closed de rotas desconhecidas. |
 | Estrutura financeira | A sidebar foi reorganizada em `FINANCEIRO`, `FATURAMENTO` e `FISCAL`; a rota legada `/financeiro/relatorios` redireciona para `/dashboard/financeiro/relatorios`. |
+| Estrutura operacional | `COMERCIAL` ficou focado em Clientes/Propostas; Projetos, OS e Documentos foram movidos para `OPERAÇÃO`; Estoque e Relatórios ganharam grupos próprios. |
 
 ### Decisoes pendentes
 

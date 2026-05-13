@@ -48,6 +48,33 @@ describe("Navigation RBAC", () => {
   describe("filterNavGroupsByRole", () => {
     const groups: TestNavGroup[] = [
       {
+        title: "COMERCIAL",
+        items: [
+          { href: "/clientes", label: "Clientes" },
+          { href: "/propostas", label: "Propostas" },
+        ],
+      },
+      {
+        title: "OPERAÇÃO",
+        items: [
+          { href: "/projetos", label: "Projetos" },
+          { href: "/ordens-servico", label: "Ordens de Servico" },
+          { href: "/documentos", label: "Documentos" },
+        ],
+      },
+      {
+        title: "ESTOQUE",
+        items: [
+          { href: "/estoque", label: "Estoque" },
+        ],
+      },
+      {
+        title: "GESTÃO",
+        items: [
+          { href: "/relatorios", label: "Relatorios Gerais" },
+        ],
+      },
+      {
         title: "FINANCEIRO",
         items: [
           { href: "/dashboard/financeiro", label: "Visao Geral" },
@@ -84,6 +111,13 @@ describe("Navigation RBAC", () => {
       const filtered = filterNavGroupsByRole(groups, "FINANCEIRO")
 
       expect(labelsFor(filtered)).toEqual([
+        "Clientes",
+        "Propostas",
+        "Projetos",
+        "Ordens de Servico",
+        "Documentos",
+        "Estoque",
+        "Relatorios Gerais",
         "Visao Geral",
         "Despesas",
         "Relatorios",
@@ -98,7 +132,28 @@ describe("Navigation RBAC", () => {
     it("hides finance and admin-only items from regular users", () => {
       const filtered = filterNavGroupsByRole(groups, "USUARIO")
 
-      expect(labelsFor(filtered)).toEqual(["Invoices", "Relatorios de Invoices", "Perfil"])
+      expect(labelsFor(filtered)).toEqual([
+        "Clientes",
+        "Projetos",
+        "Ordens de Servico",
+        "Documentos",
+        "Estoque",
+        "Invoices",
+        "Relatorios de Invoices",
+        "Perfil",
+      ])
+    })
+
+    it("keeps commercial focused on sales and operation focused on execution", () => {
+      expect(groups.find((group) => group.title === "COMERCIAL")?.items.map((item) => item.label)).toEqual([
+        "Clientes",
+        "Propostas",
+      ])
+      expect(groups.find((group) => group.title === "OPERAÇÃO")?.items.map((item) => item.label)).toEqual([
+        "Projetos",
+        "Ordens de Servico",
+        "Documentos",
+      ])
     })
   })
 })

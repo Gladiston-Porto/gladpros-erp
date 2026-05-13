@@ -85,15 +85,25 @@ export const DEFAULT_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/clientes", label: "Clientes", icon: Users },
       { href: "/propostas", label: "Propostas", icon: ScrollText },
-      { href: "/projetos", label: "Projetos", icon: FolderKanban },
-      { href: "/ordens-servico", label: "Ordens de Serviço", icon: ClipboardList },
     ]
   },
   {
-    title: "OPERACIONAL",
+    title: "OPERAÇÃO",
+    items: [
+      { href: "/projetos", label: "Projetos", icon: FolderKanban },
+      { href: "/ordens-servico", label: "Ordens de Serviço", icon: ClipboardList },
+      { href: "/documentos", label: "Documentos", icon: FolderOpen },
+    ]
+  },
+  {
+    title: "ESTOQUE",
     items: [
       { href: "/estoque", label: "Estoque", icon: Package },
-      { href: "/documentos", label: "Documentos", icon: FolderOpen },
+    ]
+  },
+  {
+    title: "GESTÃO",
+    items: [
       { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
     ]
   },
