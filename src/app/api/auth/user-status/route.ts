@@ -64,13 +64,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({
       blocked: true,
       success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        nomeCompleto: user.nomeCompleto,
-        requiresPinUnlock: !!user.pinSeguranca,
-        requiresSecurityQuestion: !!user.perguntaSecreta,
-        perguntaSecreta: user.perguntaSecreta
+      recovery: {
+        requiresPinUnlock: Boolean(user.pinSeguranca),
+        requiresSecurityQuestion: Boolean(user.perguntaSecreta)
       }
     });
 

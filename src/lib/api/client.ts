@@ -306,7 +306,7 @@ export const authApi = {
     return res.json();
   },
 
-  async resendMFA(data: { userId: number; tipoAcao?: 'LOGIN' | 'PRIMEIRO_ACESSO' | 'RESET_PASSWORD' | 'RESET' | 'DESBLOQUEIO' }) {
+  async resendMFA(data: { userId: number; tipoAcao?: 'LOGIN' | 'PRIMEIRO_ACESSO' | 'RESET_PASSWORD' | 'RESET' | 'DESBLOQUEIO'; challenge: string }) {
      
     const res = await authenticatedFetch('/api/auth/mfa/resend', {
       method: 'POST',

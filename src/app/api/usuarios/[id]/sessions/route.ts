@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { SecurityService } from "@/shared/lib/security";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
-import { can, type Role } from "@/shared/lib/rbac-core";
 import { apiRateLimit } from '@/shared/lib/rate-limit';
+import { checkUserManagementAccess } from "../../_helpers/access";
 
 interface Params {
   id: string;
@@ -16,17 +16,15 @@ export const GET = withErrorHandler(async (request: NextRequest,
     const { id } = await params;
     const userId = parseInt(id);
 
-    // Only ADMIN/GERENTE can view other users' sessions
-    if (Number(authUser.id) !== userId && !can(authUser.role as Role, 'usuarios', 'update')) {
-      return NextResponse.json({ error: 'Forbidden', message: "Acesso negado", success: false }, { status: 403 });
-    }
-
     if (isNaN(userId)) {
       return NextResponse.json(
         { message: "ID de usuário inválido" },
         { status: 400 }
       );
     }
+
+    const access = await checkUserManagementAccess(authUser, userId, { allowSelf: true });
+    if (!access.allowed) return access.response;
 
   const sessions = await SecurityService.getUserSessions(userId);
   return NextResponse.json({ sessions });
@@ -53,10 +51,8 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
       );
     }
 
-    // Owner pode revogar as próprias sessões; ADMIN/GERENTE podem revogar de outros
-    if (Number(authUser.id) !== userId && !can(authUser.role as Role, 'usuarios', 'update')) {
-      return NextResponse.json({ error: 'Forbidden', message: "Acesso negado", success: false }, { status: 403 });
-    }
+    const access = await checkUserManagementAccess(authUser, userId, { allowSelf: true });
+    if (!access.allowed) return access.response;
 
     await SecurityService.revokeAllUserSessions(userId);
 

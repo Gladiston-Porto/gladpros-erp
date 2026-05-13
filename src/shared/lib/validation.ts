@@ -140,7 +140,8 @@ export const unlockSchema = z.discriminatedUnion('method', [
 export const mfaResendSchema = z.object({
   userId: z.number().int().positive('ID do usuário inválido'),
   // Aceitar valores usados no front e no serviço; mapearemos para o enum do serviço
-  tipoAcao: z.enum(['LOGIN', 'PRIMEIRO_ACESSO', 'RESET_PASSWORD', 'RESET', 'DESBLOQUEIO']).optional()
+  tipoAcao: z.enum(['LOGIN', 'PRIMEIRO_ACESSO', 'RESET_PASSWORD', 'RESET', 'DESBLOQUEIO']).optional(),
+  challenge: z.string().min(1, 'Challenge MFA é obrigatório')
 });
 
 // Export PDF payload

@@ -5,16 +5,23 @@ import { MFAService } from "@/shared/lib/mfa";
 import { EmailService } from "@/shared/lib/email";
 import { mfaRequestSchema } from "@/shared/lib/validation";
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { mfaRateLimit } from "@/shared/lib/rate-limit";
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
   const raw = await req.json().catch(() => ({}));
   const parsed = mfaRequestSchema.safeParse(raw);
   if (!parsed.success) return NextResponse.json({ error: "INVALID_BODY", message: "email obrigatório", success: false }, { status: 400 });
   const { email } = parsed.data;
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const rl = await mfaRateLimit.isAllowed(req, `mfa:request:${normalizedEmail}`);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: rl.message, success: false }, { status: 429 });
+  }
 
   type UserRow = { id: number; email: string; status: string; nome?: string | null; primeiroAcesso?: boolean };
   const rows = await prisma.$queryRaw<UserRow[]>`
-    SELECT id, email, status, nomeCompleto as nome, primeiroAcesso FROM Usuario WHERE email = ${email} LIMIT 1
+    SELECT id, email, status, nomeCompleto as nome, primeiroAcesso FROM Usuario WHERE email = ${normalizedEmail} LIMIT 1
   `;
   const user = rows[0];
   if (!user || user.status !== "ATIVO") {

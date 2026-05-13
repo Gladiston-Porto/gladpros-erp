@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { SecurityService } from "@/shared/lib/security";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
-import { can, type Role } from "@/shared/lib/rbac-core";
 import { apiRateLimit } from '@/shared/lib/rate-limit';
+import {
+  canAccessSessionOwner,
+  getSessionOwner,
+  sessionNotFoundResponse,
+  userManagementForbiddenResponse,
+} from "../../_helpers/access";
 
 interface Params {
   sessionId: string;
@@ -19,11 +24,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
         { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
       );
     }
-    // Only ADMIN/GERENTE can revoke sessions (roles with update permission on usuarios)
     const authUser = await requireUser(request);
-    if (!can(authUser.role as Role, 'usuarios', 'update')) {
-      return NextResponse.json({ error: 'Forbidden', message: "Acesso negado", success: false }, { status: 403 });
-    }
 
     const { sessionId } = await params;
     const id = parseInt(sessionId);
@@ -34,6 +35,10 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
         { status: 400 }
       );
     }
+
+    const owner = await getSessionOwner(id);
+    if (!owner) return sessionNotFoundResponse();
+    if (!canAccessSessionOwner(authUser, owner)) return userManagementForbiddenResponse();
 
     await SecurityService.revokeSession(id);
     

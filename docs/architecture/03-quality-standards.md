@@ -1,5 +1,8 @@
 # Configuração de Qualidade - Fase 3
 
+> **Gate obrigatório de produção:** para declarar qualquer módulo como pronto para produção, siga `docs/architecture/06-production-readiness.md`.
+> Este arquivo cobre padrões gerais de qualidade; o gate de produção define os critérios bloqueantes de segurança, RBAC, fluxo ERP, performance e regressão.
+
 ## Visão Geral
 Este arquivo define os padrões de qualidade estabelecidos na Fase 3 do plano de melhoria TypeScript.
 
@@ -93,6 +96,7 @@ Esta configuração será expandida nas próximas fases:
 - **Fase 4**: Regras ESLint avançadas
 - **Fase 5**: Cobertura de testes
 - **Fase 6**: Métricas de performance
+- **Gate contínuo**: Certificação production-ready por módulo conforme `06-production-readiness.md`
 
 ## Contato
 Para dúvidas sobre padrões de qualidade, consulte o RELATORIO-FASE-3.md

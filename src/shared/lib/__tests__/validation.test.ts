@@ -157,13 +157,18 @@ describe('Validation Schemas', () => {
   });
 
   describe('mfaResendSchema', () => {
-    it('should accept valid userId', () => {
-      const result = mfaResendSchema.safeParse({ userId: 1 });
+    it('should accept valid userId with signed challenge', () => {
+      const result = mfaResendSchema.safeParse({ userId: 1, challenge: 'signed-challenge' });
       expect(result.success).toBe(true);
     });
 
     it('should reject negative userId', () => {
-      const result = mfaResendSchema.safeParse({ userId: -1 });
+      const result = mfaResendSchema.safeParse({ userId: -1, challenge: 'signed-challenge' });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject missing challenge', () => {
+      const result = mfaResendSchema.safeParse({ userId: 1 });
       expect(result.success).toBe(false);
     });
   });

@@ -54,6 +54,14 @@ npm run db:studio    # Prisma Studio UI
 
 ## Architecture
 
+### Production Readiness Gate
+
+Before declaring any module **Production Ready**, follow `docs/architecture/06-production-readiness.md`.
+
+Do not rely on prior audit status alone. A module is only production-ready when there are zero open P1/P2 findings, every corrected P1/P2 has a regression test, and API/RBAC, security, business flow, ERP cross-module, performance, data-sensitivity, and deploy/config gates have current evidence.
+
+Allowed final statuses: `Production Ready`, `Conditionally Ready`, `Not Ready`, or `Needs Re-audit`.
+
 ### Monorepo Structure
 The project uses npm workspaces. Internal packages live in `packages/`:
 - `packages/ui` → `@gladpros/ui` — shared component library (built before dev/build)

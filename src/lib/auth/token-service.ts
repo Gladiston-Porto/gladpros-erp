@@ -18,6 +18,7 @@ import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { KMS } from '@/lib/security/kms';
+import { signAuthJWT, type Role } from '@/shared/lib/jwt';
 
 const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutos
 const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias em ms (para datas)
@@ -485,14 +486,6 @@ export async function refreshAccessToken(
   const accessTokenExpiresAt = new Date(now.getTime() + 15 * 60 * 1000);
   const refreshTokenExpiresAt = new Date(now.getTime() + REFRESH_TOKEN_EXPIRY_MS);
   
-  const accessPayload: TokenPayload = {
-    userId: usuario.id,
-    email: usuario.email,
-    nivel: usuario.nivel,
-    jti: accessJti,
-    type: 'access'
-  };
-  
   const refreshPayload: TokenPayload = {
     userId: usuario.id,
     email: usuario.email,
@@ -503,12 +496,15 @@ export async function refreshAccessToken(
   
   // Obter chave JWT do KMS
   const jwtSecret = await getJwtSecret();
-  
-  const accessToken = jwt.sign(accessPayload, jwtSecret, {
-    expiresIn: ACCESS_TOKEN_EXPIRY
-   
-  });
-  
+
+  const accessToken = await signAuthJWT({
+    sub: String(usuario.id),
+    role: (usuario.nivel || 'USUARIO') as Role,
+    email: usuario.email,
+    status: 'ATIVO',
+    tokenVersion: usuario.tokenVersion ?? 0
+  }, ACCESS_TOKEN_EXPIRY);
+
   const refreshToken = jwt.sign(refreshPayload, jwtSecret, {
     expiresIn: REFRESH_TOKEN_EXPIRY_JWT
   });

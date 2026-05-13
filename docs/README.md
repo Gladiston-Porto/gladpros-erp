@@ -12,7 +12,7 @@ Sistema ERP para GladPros LLC — empresa de construção e serviços em Dallas,
 | Seção | Conteúdo |
 |-------|---------|
 | [Architecture](#architecture) | Visão geral do sistema, RBAC, TypeScript, escalabilidade |
-| [Modules](#modules) | Documentação técnica de cada módulo (✅ produção) |
+| [Modules](#modules) | Documentação técnica de cada módulo e status de certificação |
 | [Security](#security) | Relatórios de segurança, vulnerabilidades, análises |
 | [Design System](#design-system) | Status, spec de redesign |
 | [Runbooks](#runbooks) | Deploy, incidentes, KMS |
@@ -31,15 +31,19 @@ docs/architecture/
 ├── 02-scalability.md           # Estratégia de escalabilidade
 ├── 03-quality-standards.md     # Padrões de qualidade de código
 ├── 04-rbac.md                  # Modelo de controle de acesso (RBAC)
-└── 05-typescript-guide.md      # Guia TypeScript do projeto
+├── 05-typescript-guide.md      # Guia TypeScript do projeto
+└── 06-production-readiness.md  # Gate obrigatório para declarar módulo production-ready
 ```
 
 ---
 
 ## Modules
 
-Documentação técnica de cada módulo em produção.  
+Documentação técnica de cada módulo.
 Cada módulo segue o template de 10 seções: Visão Geral, Arquitetura, Modelo de Dados, API REST, Regras de Negócio, RBAC, Estados, Integrações, Problemas Conhecidos, Roadmap.
+
+> **Importante:** documentação antiga dizendo "produção" ou "completo" não substitui a certificação atual.
+> Um módulo só deve ser declarado **Production Ready** se passar pelo gate em `docs/architecture/06-production-readiness.md`.
 
 ### ✅ Auth
 ```
@@ -123,7 +127,7 @@ docs/modules/service-orders/
 ```
 docs/modules/usuarios/
 ├── 00-spec.md                  # Gerenciamento de usuários, hierarquia de roles, RBAC, segurança
-└── 01-audit.md                 # Auditoria production-ready — P1/P2/P3 corrigidos
+└── 01-audit.md                 # Auditoria histórica — revalidar pelo gate production-ready
 ```
 
 ### ✅ Workforce
@@ -206,19 +210,21 @@ docs/archive/
 
 ---
 
-## Módulos em Produção (resumo rápido)
+## Status dos módulos (resumo rápido)
 
-| Módulo | Status | Doc principal |
-|--------|--------|--------------|
-| Auth / MFA | ✅ Produção | `modules/auth/00-spec.md` |
-| Clientes | ✅ Produção | `modules/clientes/00-spec.md` |
-| Estoque | ✅ Produção | `modules/estoque/00-spec.md` |
-| Financeiro | ✅ Produção | `modules/financeiro/00-overview.md` |
-| Invoices | ✅ Produção | `modules/invoices/00-spec.md` |
-| Projetos | ✅ Produção | `modules/projetos/00-spec.md` |
-| Propostas | ✅ Produção | `modules/propostas/00-spec.md` |
-| Reports | ✅ Produção | `modules/reports/00-spec.md` |
-| RH | ✅ Produção | `modules/rh/00-spec.md` |
-| Service Orders | ✅ Produção | `modules/service-orders/00-spec.md` |
-| Usuários | ✅ Produção | `modules/usuarios/00-spec.md` |
-| Workforce | ✅ Produção | `modules/workforce/00-spec.md` |
+| Módulo | Status documental | Doc principal |
+|--------|-------------------|--------------|
+| Auth / MFA | Needs re-audit pelo gate production-ready | `modules/auth/00-spec.md` |
+| Clientes | Needs re-audit pelo gate production-ready | `modules/clientes/00-spec.md` |
+| Estoque | Needs re-audit pelo gate production-ready | `modules/estoque/00-spec.md` |
+| Financeiro | Needs re-audit pelo gate production-ready | `modules/financeiro/00-overview.md` |
+| Invoices | Needs re-audit pelo gate production-ready | `modules/invoices/00-spec.md` |
+| Projetos | Needs re-audit pelo gate production-ready | `modules/projetos/00-spec.md` |
+| Propostas | Needs re-audit pelo gate production-ready | `modules/propostas/00-spec.md` |
+| Reports | Needs re-audit pelo gate production-ready | `modules/reports/00-spec.md` |
+| RH | Needs re-audit pelo gate production-ready | `modules/rh/00-spec.md` |
+| Service Orders | Needs re-audit pelo gate production-ready | `modules/service-orders/00-spec.md` |
+| Usuários | Needs re-audit pelo gate production-ready | `modules/usuarios/00-spec.md` |
+| Workforce | Needs re-audit pelo gate production-ready | `modules/workforce/00-spec.md` |
+
+> Status "Needs re-audit" não significa que o módulo está quebrado; significa apenas que a documentação antiga não contém a evidência mínima exigida pelo gate atual.

@@ -335,7 +335,7 @@ export const PATCH = withErrorHandler(async (request: Request,
         // and assignment — those require a Change Order process.
         const INFORMATIONAL_FIELDS = ['title', 'description', 'priority', 'techNotes', 'clientNotes'];
         const nonEditableAfterStart = [
-            'COMPLETED', 'AWAITING_PAYMENT', 'CLOSED', 'CANCELED', 'WRITTEN_OFF', 'IN_PROGRESS',
+            'COMPLETED', 'AWAITING_PAYMENT', 'CLOSED', 'CANCELED', 'WRITE_OFF', 'IN_PROGRESS',
         ];
 
         if (nonEditableAfterStart.includes(existing.status as string)) {

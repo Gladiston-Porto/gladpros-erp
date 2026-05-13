@@ -7,18 +7,26 @@ agent: "agent"
 
 Use este prompt para transformar um módulo existente em **produção-ready**: auditado, corrigido, testado, documentado e blindado contra regressão.
 
+> **Fonte de verdade:** `docs/architecture/06-production-readiness.md`.
+> Nenhum módulo pode ser declarado Production Ready se contrariar esse gate.
+
 **Informe o módulo que deseja auditar:**
 
 > Exemplo: "Quero fazer a varredura completa no módulo clientes"
 
 ---
 
-## ⚠️ Módulos já auditados — NÃO executar novamente
+## ⚠️ Módulos já auditados — re-auditar quando houver dúvida ou mudança
 
 Os módulos abaixo já passaram pela varredura completa.
-**Não iniciar este processo neles** — risco de sobrescrever documentação ou testes existentes.
+**Isso não é certificação permanente.** Não sobrescreva documentação ou testes existentes sem necessidade, mas re-audite quando:
 
-> **O que "production-ready" significa aqui:** todos os bugs **P1** (críticos) e **P2** (funcionais) foram identificados e corrigidos. Gaps que exigem decisão arquitetural (ex: rate limiting, migrações cross-módulo) estão **documentados** na doc do módulo para ação futura.
+- houver mudança desde a última auditoria;
+- o usuário pedir confirmação de produção;
+- existir achado novo P1/P2;
+- a documentação antiga não trouxer evidência no formato do gate production-ready.
+
+> **O que "production-ready" significa aqui:** zero P1/P2 abertos, P1/P2 corrigidos com teste de regressão, gates de API/RBAC/segurança/lógica de negócio/performance aprovados e evidência documentada conforme `docs/architecture/06-production-readiness.md`.
 
 | Módulo | Data | P1/P2 críticos | Gaps documentados | Documentação |
 |--------|------|----------------|-------------------|--------------|
@@ -38,6 +46,8 @@ Os módulos abaixo já passaram pela varredura completa.
 
 > Se precisar **re-auditar** um módulo (ex: após grande refatoração), explicite ao iniciar:
 > `"Re-auditoria do módulo clientes — houve refatoração em Maio/2026"`
+
+> Se a auditoria anterior dizia "pronto" mas não apresenta evidência mínima atual, trate como `Needs re-audit`, não como `Production Ready`.
 
 ---
 
@@ -63,9 +73,13 @@ Antes de qualquer alteração, leia e mapeie:
 
 ### 1.2 Referências obrigatórias (ler antes de começar)
 - `AGENTS.md` — convenções críticas do projeto (auth, RBAC, Prisma, logger, formato de resposta)
+- `docs/architecture/06-production-readiness.md` — gate obrigatório para declarar módulo pronto para produção
 - `.github/skills/module-audit/SKILL.md` — checklist de 15 pontos
 - `.github/skills/ui-ux/SKILL.md` — design system, tokens, componentes
 - `.github/skills/rbac-access/SKILL.md` — permissões por role e módulo
+- `.github/skills/business-logic-validator/SKILL.md` — state machines e fluxos
+- `.github/skills/erp-data-flow/SKILL.md` — integração Proposta/Projeto/Estoque/Invoice/Financeiro
+- `.github/skills/performance-audit/SKILL.md` — performance, N+1, índices, env vars
 
 ### 1.3 Variáveis de ambiente usadas pelo módulo
 

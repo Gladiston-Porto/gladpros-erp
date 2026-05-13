@@ -912,6 +912,28 @@ Evitar:
 
 ## 20. Checklist antes de finalizar qualquer tarefa
 
+### 20.0 Gate para declarar módulo production-ready
+
+Nenhum agente pode declarar um módulo **Production Ready** apenas porque uma auditoria anterior disse que estava pronto, porque o build passou ou porque o fluxo feliz funcionou.
+
+Antes de usar as expressões "pronto para produção", "production-ready", "módulo blindado" ou equivalentes, seguir obrigatoriamente:
+
+> `docs/architecture/06-production-readiness.md`
+
+Regras bloqueantes:
+- se houver P1 aberto → **Not Ready**;
+- se houver P2 de segurança, integridade, fluxo financeiro/estoque/auth ou performance sem mitigação → **Not Ready** para liberação ampla;
+- P1/P2 corrigido sem teste de regressão correspondente continua sendo risco aberto;
+- auditoria anterior não é certificação permanente;
+- mudanças em API, schema, RBAC, auth, invoice, estoque, proposta, projeto, OS, upload, export, cron ou state machine exigem re-auditoria do escopo impactado;
+- a certificação deve trazer evidência com arquivos, linhas, comandos/testes e status dos gates de API/RBAC, segurança, lógica de negócio, ERP cross-module e performance.
+
+Classificações permitidas:
+- **Production Ready** — zero P1/P2, regressões cobertas por testes e gate aprovado;
+- **Conditionally Ready** — sem P1, P2 documentado/mitigado para uso controlado;
+- **Not Ready** — P1/P2 bloqueante ou falta de teste/evidência;
+- **Needs Re-audit** — documentação antiga ou escopo mudou desde a última auditoria.
+
 **Segurança e correção:**
 - [ ] A rota usa `requireUser()` ou `requireServerUser()`?
 - [ ] O RBAC foi checado com `can()`?

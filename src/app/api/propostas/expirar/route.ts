@@ -11,9 +11,26 @@ import type { Role } from '@/shared/lib/rbac-core'
  * Can be triggered manually (ADMIN/GERENTE) or by a cron job (no auth header → bearer token).
  */
 export async function POST(request: NextRequest) {
-  const user = await requireUser(request)
-  if (!can(user.role as Role, 'propostas', 'update')) {
-    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 })
+  const authHeader = request.headers.get('authorization')
+  const cronSecret = process.env.CRON_SECRET
+  let actorId: number | null = null
+
+  if (authHeader?.startsWith('Bearer ')) {
+    if (!cronSecret) {
+      return NextResponse.json(
+        { error: 'Configuration error', message: 'CRON_SECRET não configurado', success: false },
+        { status: 500 }
+      )
+    }
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Unauthorized', message: 'Token de cron inválido', success: false }, { status: 401 })
+    }
+  } else {
+    const user = await requireUser(request)
+    if (!can(user.role as Role, 'propostas', 'update')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 })
+    }
+    actorId = parseInt(user.id) || null
   }
 
   const now = new Date()
@@ -47,7 +64,7 @@ export async function POST(request: NextRequest) {
         data: {
           id: randomUUID(),
           propostaId: p.id,
-          actorId: parseInt(user.id) || null,
+            actorId,
           action: 'CANCELLED',
           newJson: JSON.stringify({
             motivo: 'Expirada automaticamente',

@@ -186,12 +186,13 @@ async function postHandler(request: NextRequest) {
       }
     });
     
-    if (!saldo || Number(saldo.quantidade) < validated.quantidade) {
+    const saldoDisponivel = saldo ? Number(saldo.quantidade) - Number(saldo.reservado) : 0;
+    if (!saldo || saldoDisponivel < validated.quantidade) {
       return businessErrorResponse(
         'Saldo insuficiente na localização de origem',
         ApiErrorCode.INSUFFICIENT_STOCK,
         {
-          saldoDisponivel: saldo ? Number(saldo.quantidade) : 0,
+          saldoDisponivel,
           quantidadeSolicitada: validated.quantidade
         }
       );

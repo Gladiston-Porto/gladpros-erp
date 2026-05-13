@@ -278,12 +278,18 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     // Email failure is logged internally by EmailService
   });
 
+  const { createMfaChallenge } = await import("@/shared/lib/mfa-challenge");
+
   // NUNCA enviar código MFA no response
   return NextResponse.json({
     success: true,
     mfaRequired: true,
     nextStep,
     emailSent: true,
+    mfaChallenge: createMfaChallenge({
+      userId: user.id,
+      tipoAcao: accessType,
+    }),
     user: {
       id: user.id,
       email: user.email,

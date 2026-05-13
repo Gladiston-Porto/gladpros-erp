@@ -6,7 +6,7 @@
  * Implementa VUL-003: Token Rotation
  * 
  * Fluxo:
- * 1. Recebe refresh token do cookie httpOnly (ou fallback body)
+ * 1. Recebe refresh token do cookie httpOnly
  * 2. Valida o refresh token
  * 3. Gera novo par de tokens (access + refresh)
  * 4. Marca o refresh token antigo como usado
@@ -23,16 +23,9 @@ import { refreshAccessToken } from '@/lib/auth/token-service';
 import { withErrorHandler } from '@/lib/api/error-handler';
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
-    // 1. Extrair refresh token do cookie httpOnly (seguro) com fallback para body
+    // 1. Extrair refresh token do cookie httpOnly (seguro)
     const cookieToken = request.cookies.get('refreshToken')?.value;
-    let bodyToken: string | undefined;
-    try {
-      const body = await request.json();
-      bodyToken = body?.refreshToken;
-    } catch {
-      // Body vazio ou inválido — ok se tiver cookie
-    }
-    const refreshToken = cookieToken || bodyToken;
+    const refreshToken = cookieToken;
     
     if (!refreshToken) {
       return NextResponse.json(
@@ -149,7 +142,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       return NextResponse.json(
         {
           error: 'REFRESH_ERROR',
-          message: errorMessage,
+          message: 'Não foi possível renovar a sessão',
           success: false
         },
         { status: 500 }

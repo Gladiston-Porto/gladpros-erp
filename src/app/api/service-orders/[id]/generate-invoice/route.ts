@@ -26,9 +26,8 @@ function addBusinessDays(date: Date, days: number): Date {
 export const POST = withErrorHandler(async (request: Request,
     { params }: { params: Promise<{ id: string }> }) => {
         const user = await requireUser(request as NextRequest);
-        const canUpdateOrder = can(user.role as Role, 'service-orders', 'update');
         const canCreateInvoice = can(user.role as Role, 'invoices', 'create');
-        if (!canUpdateOrder && !canCreateInvoice) {
+        if (!canCreateInvoice) {
             return NextResponse.json(
                 { error: 'Forbidden', message: 'Sem permissão', success: false },
                 { status: 403 }
@@ -93,6 +92,27 @@ export const POST = withErrorHandler(async (request: Request,
             );
         }
 
+        if (order.projetoId) {
+            const existingProjectInvoice = await prisma.invoice.findFirst({
+                where: {
+                    projetoId: order.projetoId,
+                    status: { not: 'CANCELLED' },
+                },
+                select: { id: true, numeroInvoice: true, status: true },
+            });
+
+            if (existingProjectInvoice) {
+                return NextResponse.json(
+                    {
+                        error: 'Conflict',
+                        message: 'Este projeto já possui uma fatura ativa. Gere a cobrança pelo fluxo do projeto ou cancele a fatura existente antes de gerar pela OS.',
+                        success: false,
+                    },
+                    { status: 409 }
+                );
+            }
+        }
+
         // Calculate totals
         const laborTotal = order.workEntries.reduce((sum, w) => sum + Number(w.totalCost), 0);
 
@@ -134,7 +154,7 @@ export const POST = withErrorHandler(async (request: Request,
             // Re-check idempotency inside the transaction
             const freshOrder = await tx.serviceOrder.findUnique({
                 where: { id: serviceOrderId },
-                select: { invoiceId: true }
+                select: { invoiceId: true, projetoId: true }
             });
             if (freshOrder?.invoiceId) {
                 const existing = await tx.invoice.findUnique({
@@ -143,6 +163,20 @@ export const POST = withErrorHandler(async (request: Request,
                 });
                 if (existing && existing.status !== 'CANCELLED') {
                     return { isExisting: true, invoice: existing };
+                }
+            }
+
+            if (freshOrder?.projetoId) {
+                const existingProjectInvoice = await tx.invoice.findFirst({
+                    where: {
+                        projetoId: freshOrder.projetoId,
+                        status: { not: 'CANCELLED' },
+                    },
+                    select: { id: true, numeroInvoice: true, status: true },
+                });
+
+                if (existingProjectInvoice) {
+                    return { projectInvoiceConflict: true, invoice: existingProjectInvoice };
                 }
             }
 
@@ -277,7 +311,7 @@ export const POST = withErrorHandler(async (request: Request,
                 }
             });
 
-            return { isExisting: false, invoice };
+            return { isExisting: false, projectInvoiceConflict: false, invoice };
         }, { isolationLevel: 'Serializable' });
 
         if (result.isExisting) {
@@ -293,6 +327,17 @@ export const POST = withErrorHandler(async (request: Request,
                 },
                 success: true
             }, { status: 200 });
+        }
+
+        if (result.projectInvoiceConflict) {
+            return NextResponse.json(
+                {
+                    error: 'Conflict',
+                    message: 'Este projeto já possui uma fatura ativa. Gere a cobrança pelo fluxo do projeto ou cancele a fatura existente antes de gerar pela OS.',
+                    success: false,
+                },
+                { status: 409 }
+            );
         }
 
         // Send MANUAL_REVIEW alert to ADMIN/FINANCEIRO (fire-and-forget, non-blocking)

@@ -20,6 +20,13 @@ export async function cancelProposal(
     return { success: false, error: 'Proposta não encontrada ou não pode ser cancelada' };
   }
 
+  if (proposta.projetoId) {
+    return {
+      success: false,
+      error: 'Proposta já vinculada a projeto. Cancele ou reverta o projeto antes de cancelar a proposta.',
+    };
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updated = await prisma.$transaction(async (tx: any) => {
     const result = await tx.proposta.update({

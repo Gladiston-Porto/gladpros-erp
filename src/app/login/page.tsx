@@ -20,6 +20,7 @@ type LoginBlockedData = {
 type LoginMfaData = {
   mfaRequired: boolean
   emailSent?: boolean
+  mfaChallenge?: string
   user: { id: number; email: string; nomeCompleto?: string; primeiroAcesso?: boolean }
 }
 
@@ -153,6 +154,7 @@ export default function LoginPage() {
           name: u.nomeCompleto || u.email,
           firstAccess: u.primeiroAcesso ? "true" : "false",
         })
+        if (res.data.mfaChallenge) params.set("challenge", res.data.mfaChallenge)
         router.push(`/mfa?${params.toString()}`)
         return
       }

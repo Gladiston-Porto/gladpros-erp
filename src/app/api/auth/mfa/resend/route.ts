@@ -5,6 +5,8 @@ import { MFAService } from "@/shared/lib/mfa";
 import { mfaResendSchema } from "@/shared/lib/validation";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { logger } from "@/lib/api/logger";
+import { mfaRateLimit } from "@/shared/lib/rate-limit";
+import { createMfaChallenge, verifyMfaChallenge } from "@/shared/lib/mfa-challenge";
 
 function getClientIP(req: NextRequest): string {
   return req.headers.get("x-forwarded-for")?.split(",")[0] || 
@@ -26,9 +28,24 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         { status: 400 }
       );
     }
-    const { userId, tipoAcao = "LOGIN" } = parsed.data;
+    const { userId, tipoAcao = "LOGIN", challenge } = parsed.data;
     const tipoAcaoMapped: "LOGIN" | "RESET" | "PRIMEIRO_ACESSO" | "DESBLOQUEIO" =
       tipoAcao === "RESET_PASSWORD" ? "RESET" : (tipoAcao as "LOGIN" | "RESET" | "PRIMEIRO_ACESSO" | "DESBLOQUEIO");
+
+    if (!verifyMfaChallenge(challenge, { userId, tipoAcao: tipoAcaoMapped })) {
+      return NextResponse.json(
+        { error: "MFA_CHALLENGE_INVALID", message: "Sessão MFA inválida ou expirada.", success: false },
+        { status: 401 }
+      );
+    }
+
+    const rl = await mfaRateLimit.isAllowed(req, `mfa:resend:${userId}:${ip}`);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: rl.message, success: false },
+        { status: 429 }
+      );
+    }
 
     // Buscar dados do usuário
     const userRows = await prisma.$queryRaw<Array<{
@@ -47,15 +64,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     const user = userRows[0];
     if (!user) {
       return NextResponse.json(
-        { error: "Usuário não encontrado", success: false },
-        { status: 404 }
+        { success: true, message: "Se houver uma sessão MFA válida, um novo código será enviado." },
+        { status: 200 }
       );
     }
 
     if (user.status !== "ATIVO") {
       return NextResponse.json(
-        { error: "Conta inativa", success: false },
-        { status: 401 }
+        { success: true, message: "Se houver uma sessão MFA válida, um novo código será enviado." },
+        { status: 200 }
       );
     }
 
@@ -94,7 +111,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({
       success: true,
       message: "Novo código enviado com sucesso",
-      email: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') // Email mascarado
+      challenge: createMfaChallenge({ userId: user.id, tipoAcao: tipoAcaoMapped })
     });
 
 });

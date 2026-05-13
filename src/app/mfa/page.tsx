@@ -13,6 +13,7 @@ function MFAVerification() {
   const userId = searchParams?.get('userId')
   const userEmail = searchParams?.get('email') || ''
   const userName = searchParams?.get('name') || ''
+  const initialChallenge = searchParams?.get('challenge') || ''
   const isFirstAccess = searchParams?.get('firstAccess') === 'true'
   const [code, setCode] = useState(Array(6).fill(''))
   const [loading, setLoading] = useState(false)
@@ -21,6 +22,7 @@ function MFAVerification() {
   const [timeLeft, setTimeLeft] = useState(300) // 5 minutos
   const [canResend, setCanResend] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
+  const [mfaChallenge, setMfaChallenge] = useState(initialChallenge)
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const autoSubmittedRef = useRef(false)
@@ -152,10 +154,12 @@ function MFAVerification() {
     setInfo(null)
     
     try {
-      await authApi.resendMFA({
+      const result = await authApi.resendMFA({
         userId: parseInt(userId!, 10),
-        tipoAcao: isFirstAccess ? 'PRIMEIRO_ACESSO' : 'LOGIN'
+        tipoAcao: isFirstAccess ? 'PRIMEIRO_ACESSO' : 'LOGIN',
+        challenge: mfaChallenge
       });
+      if (typeof result?.challenge === 'string') setMfaChallenge(result.challenge)
 
   // Resetar timer e estado
       setTimeLeft(300)

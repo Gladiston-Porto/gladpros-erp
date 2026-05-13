@@ -104,6 +104,9 @@ scripts/             # Scripts de automação
 
 📖 Documentação
 
+> **Status de produção:** qualquer declaração antiga de "100% pronto para produção" deve ser revalidada pelo gate atual em `docs/architecture/06-production-readiness.md`.
+> Auditoria anterior não é certificação permanente.
+
 ### Documentação Geral
 - **Visão geral**: [docs/01-arquitetura.md](docs/01-arquitetura.md)
 - **Módulos e lógica**: [docs/02-logica-sistema.md](docs/02-logica-sistema.md)
@@ -133,14 +136,14 @@ O módulo de Estoque foi desenvolvido com qualidade excepcional e conta com docu
   - 31 dicas e best practices
   - FAQ com 10 perguntas comuns
 
-#### Status do Módulo
+#### Status histórico do Módulo
 - ✅ **18 páginas** funcionais
 - ✅ **14 APIs REST** + endpoints extras
 - ✅ **0 erros** TypeScript ou runtime
 - ✅ **Build de produção** OK (7.6s)
 - ✅ **Documentação**: ~210.000 caracteres
 - ✅ **Qualidade**: 9.8/10 (melhor módulo do sistema)
-- 🚀 **100% pronto para produção**
+- ⚠️ **Status atual**: requer re-auditoria pelo gate `docs/architecture/06-production-readiness.md` antes de ser declarado Production Ready.
 
 ## 🛠️ Ambiente de Desenvolvimento
 

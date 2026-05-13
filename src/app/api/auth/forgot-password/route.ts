@@ -9,11 +9,10 @@ import { EmailService } from "@/shared/lib/email"
 import { forgotPasswordSchema } from "@/shared/lib/validation"
 import { resetPasswordRateLimit } from "@/shared/lib/rate-limit"
 
-function baseUrlFrom(req: Request) {
-  const h = (name: string) => req.headers.get(name) || ""
-  const host = h("x-forwarded-host") || h("host") || "localhost:3000"
-  const proto = h("x-forwarded-proto") || "http"
-  return `${proto}://${host}`
+function getAppUrl() {
+  const appUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  if (!appUrl) throw new Error("APP_URL is required to generate password reset links");
+  return appUrl.replace(/\/$/, "");
 }
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
@@ -44,7 +43,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       data: { userId: user.id, tokenHash, expiresAt },
     })
 
-    const resetUrl = `${baseUrlFrom(req)}/reset-senha/${raw}`
+    const resetUrl = `${getAppUrl()}/reset-senha/${raw}`
 
     EmailService.prewarm()
     void EmailService.sendPasswordReset({
