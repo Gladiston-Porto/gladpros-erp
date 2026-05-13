@@ -94,7 +94,7 @@ Cenário de Ataque:
 2. **`prisma/migrations/20251005111301_add_refresh_tokens/migration.sql`** (38 linhas)
 3. **`src/lib/auth/token-service.ts`** - Serviço de Token Rotation (470 linhas)
 4. **`src/app/api/auth/refresh/route.ts`** - Endpoint de refresh (135 linhas)
-5. **`src/modules/auth/docs/TOKEN-ROTATION.md`** - Esta documentação
+5. **`docs/modules/auth/03-token-rotation.md`** - Esta documentação
 
 ### Arquivos Modificados
 

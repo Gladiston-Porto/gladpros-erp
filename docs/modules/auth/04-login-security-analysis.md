@@ -111,5 +111,8 @@ Garantir que o logout chame `revokeRefreshToken` corretamente, passando o token 
 - **Resultado:** O fluxo de login completo (Login -> MFA -> Dashboard) foi validado com sucesso via teste automatizado (`test-full-login-flow.js`).
 
 ## 7. Próximos Passos
-- [ ] Monitorar logs de produção para garantir que a rotação de chaves KMS não cause invalidação em massa (chaves antigas devem ser aceitas por um período).
-- [ ] Implementar interceptor no Frontend para renovação automática do Access Token (15 min) usando o Refresh Token.
+
+> ⚠️ Estas pendências afetam estabilidade em produção e experiência do usuário. Devem ser rastreadas como issues no backlog.
+
+- [ ] **KMS key rotation monitoring** — Após qualquer rotação de chave KMS em produção, monitorar logs por 24h para garantir que tokens gerados com a chave anterior ainda são aceitos (janela de transição). Risco: invalidação em massa de sessões ativas.
+- [ ] **Frontend token interceptor** — Implementar interceptor (axios/fetch) que captura respostas `401`, chama `POST /api/auth/refresh` automaticamente e re-executa a request original. Sem isso, o usuário é deslogado após 15 minutos de inatividade mesmo com refresh token válido.

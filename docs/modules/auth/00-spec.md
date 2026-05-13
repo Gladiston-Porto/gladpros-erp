@@ -1,9 +1,9 @@
 # 🔐 MÓDULO DE AUTENTICAÇÃO — GladPros ERP
 
-**Data da última auditoria**: 2025  
+**Data da última auditoria**: 2026-05  
 **Módulo**: Sistema de Autenticação (`auth`)  
 **Status**: ✅ Pronto para produção  
-**Testes**: 20/20 unit + E2E completo (+ 4 regression guards P1/P2)
+**Testes**: 155 unit (16 suites) + E2E completo (+ 4 regression guards P1/P2)
 
 ---
 
@@ -13,7 +13,7 @@
 |----------|--------|----------|
 | Segurança | ✅ Excelente | JWT httpOnly, MFA obrigatório, rate limiting, bcrypt, sem token leak |
 | Qualidade de API | ✅ Excelente | Todas as rotas validadas com Zod, respostas padronizadas |
-| Testes unitários | ✅ 20/20 | login (8), mfa-verify (6), mfa-resend (6) |
+| Testes unitários | ✅ 155/155 | 16 suites: login, mfa-verify, mfa-resend, mfa-request, logout, me, me-avatar, me-security, refresh, user-status, forgot-password, reset-password, unlock, first-access-setup, password-validator, p1-guard |
 | Testes E2E | ✅ Completo | 6 spec files: smoke, login, mfa, security, recovery, regression (+ P1/P2 guards) |
 | Design system | ✅ Conforme | brand colors, rounded-2xl, Suspense, dark mode |
 | TypeScript | ✅ Sem erros | Sem `any` nas rotas críticas |
@@ -41,21 +41,35 @@ src/app/
 src/app/api/auth/
 ├── login/route.ts              # POST /api/auth/login
 ├── logout/route.ts             # POST /api/auth/logout
-├── me/route.ts                 # GET /api/auth/me
+├── me/route.ts                 # GET /api/auth/me — perfil do usuário logado
+├── me/avatar/route.ts          # POST /api/auth/me/avatar — upload de foto (max 5MB, validação magic bytes)
+├── me/preferences/route.ts     # GET|PATCH /api/auth/me/preferences — preferências do usuário
+├── me/security/route.ts        # GET|PATCH /api/auth/me/security — senha, MFA, config de segurança
+├── me/audit/route.ts           # GET /api/auth/me/audit — eventos de auditoria do próprio usuário
+├── me/sessions/route.ts        # GET /api/auth/me/sessions — lista sessões ativas do usuário
+├── me/sessions/[id]/route.ts   # DELETE /api/auth/me/sessions/[id] — encerra sessão específica
 ├── refresh/route.ts            # POST /api/auth/refresh
 ├── user-status/route.ts        # GET /api/auth/user-status
 ├── forgot-password/route.ts    # POST /api/auth/forgot-password
 ├── reset-password/route.ts     # POST /api/auth/reset-password
 ├── unlock/route.ts             # POST /api/auth/unlock
 ├── mfa/
+│   ├── request/route.ts        # POST /api/auth/mfa/request — solicita código para operação sensível
 │   ├── verify/route.ts         # POST /api/auth/mfa/verify
 │   └── resend/route.ts         # POST /api/auth/mfa/resend
 └── first-access/
     └── setup/route.ts          # POST /api/auth/first-access/setup
 
 src/shared/lib/
-├── password.ts                 # Funções de senha (server-only: bcrypt, Node.js crypto)
-├── password-client.ts          # Funções de senha (client-safe: regex apenas, sem bcrypt)
+├── auth-middleware.ts          # withAuthMiddleware — wrapper para rotas autenticadas
+├── blocking.ts                 # BlockingService — bloqueio por tentativas falhas (IP + usuário)
+├── jwt.ts                      # verifyAuthJWT — verificação e decode de JWT
+├── mfa-challenge.ts            # MFAChallengeService — desafio MFA para operações sensíveis
+├── mfa.ts                      # MFAService — geração e verificação de códigos por email
+├── session.ts                  # SessionService — criação, listagem e revogação de sessões ativas
+├── tokens.ts                   # generateToken, hashToken — utilitários de token de URL
+├── password.ts                 # (server-only) bcrypt, validação forte de senha
+├── password-client.ts          # (client-safe) validação de senha por regex pura, sem bcrypt
 ├── rbac.ts                     # requireUser() — autenticação de API routes
 ├── requireServerUser.ts        # requireServerUser() — autenticação de Server Components
 └── rbac-core.ts                # can(role, module, action) — verificação de permissões
@@ -71,9 +85,26 @@ src/lib/
 └── rate-limit.ts               # Rate limiter (loginRateLimit, mfaRateLimit)
 
 src/__tests__/api/auth/
-├── login.test.ts               # 8 testes unitários da rota de login
-├── mfa-verify.test.ts          # 6 testes unitários de MFA verify
-└── mfa-resend.test.ts          # 6 testes unitários de MFA resend
+├── login.test.ts               # 8 testes — credenciais, rate limit, MFA dispatch
+├── logout.test.ts              # 8 testes — revogação de token, limpeza de cookies
+├── mfa-verify.test.ts          # 6 testes — código MFA, JWT + cookies pós-verify
+├── mfa-resend.test.ts          # 6 testes — reenvio, anti-enumeration
+├── mfa-request.test.ts         # 9 testes — desafio MFA para operações sensíveis
+├── me.test.ts                  # 15 testes — perfil, dados do usuário logado
+├── me-avatar.test.ts           # 15 testes — upload de foto, validação magic bytes, limite 5MB
+├── me-security.test.ts         # 13 testes — troca de senha, configurações de segurança
+├── refresh.test.ts             # 9 testes — token rotation, detecção de reutilização
+├── user-status.test.ts         # 9 testes — status de sessão, expiração
+├── forgot-password.test.ts     # 6 testes — anti-enumeration, envio de email
+├── reset-password.test.ts      # 8 testes — token de URL, expiração, reutilização
+├── unlock.test.ts              # 9 testes — desbloqueio por PIN e por pergunta de segurança
+└── first-access-setup.test.ts  # 11 testes — anti account-takeover, validação de senha
+
+src/__tests__/unit/lib/auth/
+└── passwordValidator.test.ts   # 19 testes — regras de complexidade de senha
+
+src/app/api/auth/__tests__/
+└── auth-security-p1.test.ts    # 4 testes — regression guards para vulnerabilidades P1
 
 tests/e2e/auth/
 ├── auth-smoke.spec.ts          # Smoke: páginas carregam, login funciona, cookies OK
@@ -386,39 +417,33 @@ tests/e2e/auth/
 
 ## 🧪 COBERTURA DE TESTES
 
-### Testes Unitários (`src/__tests__/api/auth/`)
+### Testes Unitários — 155 testes em 16 suites
 
-#### `login.test.ts` — 8 testes
-| Teste | Cobre |
-|-------|-------|
-| body inválido | Zod validation → 400 |
-| email não encontrado | $queryRaw retorna [] → 401 |
-| senha incorreta | bcrypt.compare false → 401 |
-| usuário inativo | status != ATIVO → 423 |
-| rate limit | loginRateLimit.checkLimit → 429 |
-| sucesso | credenciais OK → MFA enviado → 200 |
-| MFAService.sendCode falha | email error → 500 |
-| campos extras no body | Zod strip → ignorados |
+#### Suites principais (`src/__tests__/api/auth/`)
 
-#### `mfa-verify.test.ts` — 6 testes
-| Teste | Cobre |
-|-------|-------|
-| body inválido | Zod → 400 |
-| rate limit | mfaRateLimit → 429 |
-| código inválido | MFAService.verifyMFACode false → 401 |
-| userId não encontrado | $queryRaw retorna [] → 404 |
-| login padrão | tipoAcao LOGIN → JWT + cookies |
-| primeiro acesso | tipoAcao PRIMEIRO_ACESSO → flags especiais |
+| Suite | Testes | O que cobre |
+|-------|--------|-------------|
+| `login.test.ts` | 8 | body inválido, email não encontrado, senha errada, usuário inativo, rate limit, sucesso, MFA fail, campos extras |
+| `logout.test.ts` | 8 | sem token, token inválido, revogação de refresh token, limpeza de cookies, audit log |
+| `mfa-verify.test.ts` | 6 | body inválido, rate limit, código inválido, userId não encontrado, LOGIN, PRIMEIRO_ACESSO |
+| `mfa-resend.test.ts` | 6 | userId ausente, não encontrado, inativo, rate limit, sucesso, código nunca no response |
+| `mfa-request.test.ts` | 9 | desafio MFA para operações sensíveis: sem auth, token inválido, geração e verificação |
+| `me.test.ts` | 15 | GET /me: sem auth, campos retornados, campos ocultos (senha, etc.) |
+| `me-avatar.test.ts` | 15 | POST /me/avatar: sem auth, magic bytes, limite 5MB, tipos inválidos, sucesso |
+| `me-security.test.ts` | 13 | GET/PATCH /me/security: senha atual errada, senha fraca, histórico, MFA toggle |
+| `refresh.test.ts` | 9 | sem token, token já usado (rotation attack), revogado, expirado, inválido, usuário inativo, happy path |
+| `user-status.test.ts` | 9 | status de sessão, usuário bloqueado, expiração de token |
+| `forgot-password.test.ts` | 6 | rate limit, email inválido, body vazio, anti-enumeration (200 para email inexistente), envio |
+| `reset-password.test.ts` | 8 | rate limit, body inválido, token inexistente, já usado, expirado, senha fraca, reutilizada, sucesso |
+| `unlock.test.ts` | 9 | body inválido, userId inexistente (genérico), não bloqueado, PIN ausente, errado, certo, desbloqueio por pergunta |
+| `first-access-setup.test.ts` | 11 | sem authToken, JWT inválido, userId divergente (403), senha fraca, PIN inválido, já completou, happy path |
 
-#### `mfa-resend.test.ts` — 6 testes
-| Teste | Cobre |
-|-------|-------|
-| userId ausente | Zod → 400 |
-| userId não encontrado | $queryRaw retorna [] → 404 |
-| usuário inativo | status != ATIVO → 401 |
-| rate limit | mfaRateLimit → 429 |
-| sucesso | email mascarado na resposta → 200 |
-| segurança | código MFA nunca no response body |
+#### Suites de segurança e biblioteca
+
+| Suite | Testes | O que cobre |
+|-------|--------|-------------|
+| `passwordValidator.test.ts` | 19 | regras de complexidade: mín 8 chars, maiúscula, minúscula, número, símbolo |
+| `auth-security-p1.test.ts` | 4 | regression guards: account takeover via first-access, MFA bypass |
 
 ### Testes E2E (`tests/e2e/auth/`)
 
