@@ -252,16 +252,22 @@ Motivo:
 | Admin | Itens `/admin/eventos` e `/admin/integracao` foram marcados como `ADMIN` only na sidebar. |
 | Protecao direta | Rotas em `/admin/*` ganharam layout server-side que redireciona nao-ADMIN para `/403`. |
 | Testes | Foi adicionada regressao cobrindo financeiro, admin-only e fail-closed de rotas desconhecidas. |
+| Estrutura financeira | A sidebar foi reorganizada em `FINANCEIRO`, `FATURAMENTO` e `FISCAL`; a rota legada `/financeiro/relatorios` redireciona para `/dashboard/financeiro/relatorios`. |
 
-### Decisao pendente
+### Decisoes pendentes
 
 Antes de implementar, precisamos decidir:
 
 1. A sidebar deve ser organizada por **operacao real** ou por **modulo tecnico**?
 2. `Reports`, `Documents`, `Aprovacoes`, `RH/Workforce` entram como principais, beta ou admin-only?
-3. Financeiro e Fiscal ficam juntos ou separados?
-4. Projetos e OS saem de COMERCIAL e vao para OPERACAO?
-5. Configuracoes/Admin ficam no mesmo grupo Sistema?
+3. Projetos e OS saem de COMERCIAL e vao para OPERACAO?
+4. Configuracoes/Admin ficam no mesmo grupo Sistema?
+
+### Decisoes ja aplicadas
+
+1. Financeiro, Faturamento e Fiscal ficam separados na sidebar.
+2. O namespace principal de financeiro permanece em `/dashboard/financeiro/*`.
+3. A rota antiga `/financeiro/relatorios` foi mantida apenas como redirect para nao quebrar links existentes.
 
 ## Conclusao
 

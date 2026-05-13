@@ -52,6 +52,21 @@ describe("Navigation RBAC", () => {
         items: [
           { href: "/dashboard/financeiro", label: "Visao Geral" },
           { href: "/dashboard/financeiro/despesas", label: "Despesas" },
+          { href: "/dashboard/financeiro/relatorios", label: "Relatorios" },
+        ],
+      },
+      {
+        title: "FATURAMENTO",
+        items: [
+          { href: "/invoices", label: "Invoices" },
+          { href: "/invoices/relatorios", label: "Relatorios de Invoices" },
+        ],
+      },
+      {
+        title: "FISCAL",
+        items: [
+          { href: "/dashboard/financeiro/fiscal", label: "Painel Fiscal" },
+          { href: "/dashboard/financeiro/fiscal/compensacao", label: "Compensacao" },
         ],
       },
       {
@@ -68,13 +83,22 @@ describe("Navigation RBAC", () => {
     it("keeps finance items for financeiro users and hides admin-only items", () => {
       const filtered = filterNavGroupsByRole(groups, "FINANCEIRO")
 
-      expect(labelsFor(filtered)).toEqual(["Visao Geral", "Despesas", "Perfil"])
+      expect(labelsFor(filtered)).toEqual([
+        "Visao Geral",
+        "Despesas",
+        "Relatorios",
+        "Invoices",
+        "Relatorios de Invoices",
+        "Painel Fiscal",
+        "Compensacao",
+        "Perfil",
+      ])
     })
 
     it("hides finance and admin-only items from regular users", () => {
       const filtered = filterNavGroupsByRole(groups, "USUARIO")
 
-      expect(labelsFor(filtered)).toEqual(["Perfil"])
+      expect(labelsFor(filtered)).toEqual(["Invoices", "Relatorios de Invoices", "Perfil"])
     })
   })
 })

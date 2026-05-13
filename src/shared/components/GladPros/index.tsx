@@ -111,15 +111,27 @@ export const DEFAULT_NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/financeiro/despesas", label: "Despesas", icon: TrendingDown },
       { href: "/dashboard/financeiro/contas", label: "Contas", icon: CreditCard },
       { href: "/dashboard/financeiro/transferencias", label: "Transferências", icon: ArrowLeftRight },
+      { href: "/dashboard/financeiro/fluxo-caixa", label: "Fluxo de Caixa", icon: Wallet },
+      { href: "/dashboard/financeiro/conciliacao", label: "Conciliação", icon: RefreshCw },
+      { href: "/dashboard/financeiro/relatorios", label: "Relatórios", icon: BarChart3 },
+    ]
+  },
+  {
+    title: "FATURAMENTO",
+    items: [
+      { href: "/invoices", label: "Invoices", icon: Receipt },
+      { href: "/invoices/relatorios", label: "Relatórios de Invoices", icon: BarChart3 },
     ]
   },
   {
     title: "FISCAL",
     items: [
-      { href: "/invoices", label: "Invoices", icon: Receipt },
-      { href: "/dashboard/financeiro/payables", label: "Payables (1099)", icon: HandCoins },
-      { href: "/dashboard/financeiro/fluxo-caixa", label: "Fluxo de Caixa", icon: Wallet },
       { href: "/dashboard/financeiro/fiscal", label: "Painel Fiscal", icon: Calculator },
+      { href: "/dashboard/financeiro/fiscal/impostos-estimados", label: "Impostos Estimados", icon: Bell },
+      { href: "/dashboard/financeiro/payables", label: "Payables (1099)", icon: HandCoins },
+      { href: "/dashboard/financeiro/fiscal/compensacao", label: "Compensação do Owner", icon: Wallet },
+      { href: "/dashboard/financeiro/fiscal/relatorios", label: "Relatórios Fiscais", icon: BarChart3 },
+      { href: "/dashboard/financeiro/fiscal/categorias", label: "Categorias Fiscais", icon: ClipboardList },
     ]
   },
   {
