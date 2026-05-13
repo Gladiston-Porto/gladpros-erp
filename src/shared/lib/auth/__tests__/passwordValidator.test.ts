@@ -2,7 +2,7 @@ import {
   validatePassword,
   generateStrongPassword,
   checkPasswordSimilarity,
-} from '../../../../shared/lib/auth/passwordValidator';
+} from '@/shared/lib/auth/passwordValidator';
 
 describe('Password Policy Validator', () => {
   describe('Requisitos Básicos', () => {

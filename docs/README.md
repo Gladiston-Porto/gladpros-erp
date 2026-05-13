@@ -34,7 +34,8 @@ docs/architecture/
 ├── 05-typescript-guide.md      # Guia TypeScript do projeto
 ├── 06-production-readiness.md  # Gate obrigatório para declarar módulo production-ready
 ├── 07-modular-arch-plan.md     # Plano de reorganização modular da documentação/código
-└── 08-engineering-vision-and-action-plan.md  # Visão de engenharia e plano de discussão
+├── 08-engineering-vision-and-action-plan.md  # Visão de engenharia e plano de discussão
+└── 09-system-inventory-and-sidebar-audit-plan.md  # Plano inicial para inventário e sidebar
 ```
 
 ---
