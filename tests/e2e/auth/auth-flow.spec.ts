@@ -18,6 +18,8 @@ async function loginAs(page: import('@playwright/test').Page, email: string, sen
 
 const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
 const QA_ADMIN_PASSWORD = 'Admin123!@#';
+
+test.describe('Authentication Flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
   });
