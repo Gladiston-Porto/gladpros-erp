@@ -1,0 +1,80 @@
+import { routeToModule, type Role } from "@/shared/lib/rbac-core"
+import { canReadNavItem, filterNavGroupsByRole, type NavAccessGroup, type NavAccessItem } from "@/shared/lib/sidebar-rbac"
+
+type TestNavItem = NavAccessItem & { label: string }
+type TestNavGroup = NavAccessGroup<TestNavItem> & { title: string }
+
+const labelsFor = (groups: TestNavGroup[]) => groups.flatMap((group) => group.items.map((item) => item.label))
+
+describe("Navigation RBAC", () => {
+  describe("routeToModule", () => {
+    it("maps dashboard finance routes to financeiro before the generic dashboard module", () => {
+      expect(routeToModule("/dashboard/financeiro")).toBe("financeiro")
+      expect(routeToModule("/dashboard/financeiro/despesas")).toBe("financeiro")
+      expect(routeToModule("/dashboard")).toBe("dashboard")
+    })
+
+    it("maps admin routes to configuracoes for explicit authorization decisions", () => {
+      expect(routeToModule("/admin/eventos")).toBe("configuracoes")
+      expect(routeToModule("/admin/integracao")).toBe("configuracoes")
+      expect(routeToModule("/api/admin/events")).toBe("configuracoes")
+    })
+  })
+
+  describe("canReadNavItem", () => {
+    it("hides financeiro navigation from roles without financeiro read access", () => {
+      const financeItem = { href: "/dashboard/financeiro/despesas" }
+
+      expect(canReadNavItem(financeItem, "USUARIO")).toBe(false)
+      expect(canReadNavItem(financeItem, "ESTOQUE")).toBe(false)
+      expect(canReadNavItem(financeItem, "GERENTE")).toBe(true)
+      expect(canReadNavItem(financeItem, "FINANCEIRO")).toBe(true)
+    })
+
+    it("hides unknown routes unless they are explicitly always visible", () => {
+      expect(canReadNavItem({ href: "/rota-sem-mapeamento" }, "ADMIN")).toBe(false)
+      expect(canReadNavItem({ href: "/perfil" }, "USUARIO")).toBe(true)
+    })
+
+    it("honors explicit role requirements for admin sidebar entries", () => {
+      const adminItem = { href: "/admin/eventos", requiredRoles: ["ADMIN"] as Role[] }
+
+      expect(canReadNavItem(adminItem, "ADMIN")).toBe(true)
+      expect(canReadNavItem(adminItem, "GERENTE")).toBe(false)
+      expect(canReadNavItem(adminItem, "FINANCEIRO")).toBe(false)
+    })
+  })
+
+  describe("filterNavGroupsByRole", () => {
+    const groups: TestNavGroup[] = [
+      {
+        title: "FINANCEIRO",
+        items: [
+          { href: "/dashboard/financeiro", label: "Visao Geral" },
+          { href: "/dashboard/financeiro/despesas", label: "Despesas" },
+        ],
+      },
+      {
+        title: "SISTEMA",
+        items: [
+          { href: "/admin/eventos", label: "Eventos", requiredRoles: ["ADMIN"] },
+          { href: "/admin/integracao", label: "Integracao", requiredRoles: ["ADMIN"] },
+          { href: "/perfil", label: "Perfil" },
+          { href: "/rota-sem-mapeamento", label: "Desconhecida" },
+        ],
+      },
+    ]
+
+    it("keeps finance items for financeiro users and hides admin-only items", () => {
+      const filtered = filterNavGroupsByRole(groups, "FINANCEIRO")
+
+      expect(labelsFor(filtered)).toEqual(["Visao Geral", "Despesas", "Perfil"])
+    })
+
+    it("hides finance and admin-only items from regular users", () => {
+      const filtered = filterNavGroupsByRole(groups, "USUARIO")
+
+      expect(labelsFor(filtered)).toEqual(["Perfil"])
+    })
+  })
+})

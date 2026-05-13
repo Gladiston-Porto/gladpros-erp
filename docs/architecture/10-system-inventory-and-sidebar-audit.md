@@ -1,6 +1,6 @@
 # Inventario do Sistema e Auditoria da Sidebar — Itens 1 a 5
 
-**Status:** Levantamento inicial concluido; aguardando discussao do item 6
+**Status:** Levantamento inicial concluido; primeira correcao do item 6 executada
 **Escopo:** paginas, APIs, sidebar, RBAC, documentacao, testes e classificacao preliminar dos modulos
 **Proximo passo:** discutir estrategia de execucao antes de alterar comportamento
 
@@ -220,9 +220,9 @@ Camada minima recomendada para nao depender apenas de mocks:
 | Documents | Upload/lista/criacao de pasta quando implementada |
 | Aprovacoes | Usuario real, lista, aprovar/rejeitar e notificacao sem mock |
 
-## Item 6 — Estrategia de execucao para discutir
+## Item 6 — Estrategia de execucao
 
-Este item ainda nao foi executado. A recomendacao para discussao e:
+A primeira etapa aprovada para execucao foi corrigir a base de RBAC/sidebar antes de qualquer reorganizacao visual ou mudanca de pastas.
 
 ### Opcao recomendada
 
@@ -236,12 +236,22 @@ Motivo:
 
 ### Estrategia sugerida
 
-1. Corrigir `routeToModule()` para mapear rotas especificas antes de `/dashboard`.
-2. Fazer sidebar falhar fechado para rotas desconhecidas, exceto lista explicita de always-visible.
-3. Criar teste unitario para `routeToModule()` e `filterNavGroupsByRole()`.
+1. Corrigir `routeToModule()` para mapear rotas especificas antes de `/dashboard`. **Executado.**
+2. Fazer sidebar falhar fechado para rotas desconhecidas, exceto lista explicita de always-visible. **Executado.**
+3. Criar teste unitario para `routeToModule()` e `filterNavGroupsByRole()`. **Executado.**
 4. Propor nova estrutura de grupos sem alterar ainda os destinos.
 5. Validar com voce quais grupos e nomes fazem sentido para a operacao.
 6. Implementar sidebar nova em uma mudanca pequena e testavel.
+
+### Correcao ja aplicada
+
+| Area | Resultado |
+|---|---|
+| Financeiro | `/dashboard/financeiro/*` agora mapeia para o modulo `financeiro`, antes do fallback generico de `/dashboard`. |
+| Rotas desconhecidas | Itens sem mapeamento RBAC deixam de aparecer automaticamente na sidebar. |
+| Admin | Itens `/admin/eventos` e `/admin/integracao` foram marcados como `ADMIN` only na sidebar. |
+| Protecao direta | Rotas em `/admin/*` ganharam layout server-side que redireciona nao-ADMIN para `/403`. |
+| Testes | Foi adicionada regressao cobrindo financeiro, admin-only e fail-closed de rotas desconhecidas. |
 
 ### Decisao pendente
 

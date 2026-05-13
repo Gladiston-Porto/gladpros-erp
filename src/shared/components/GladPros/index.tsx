@@ -46,7 +46,8 @@ import {
 import { useConfirm } from "@gladpros/ui/confirm-dialog";
 import { useTheme } from "@/components/ThemeProvider";
 import { ToastContainer } from "@gladpros/ui/toast";
-import { can, routeToModule, type Role } from "@/shared/lib/rbac-core";
+import type { Role } from "@/shared/lib/rbac-core";
+import { filterNavGroupsByRole } from "@/shared/lib/sidebar-rbac";
 
 /**
  * =============================
@@ -69,7 +70,7 @@ import { can, routeToModule, type Role } from "@/shared/lib/rbac-core";
 // Tipos mínimos
 export type UserRole = "ADMIN" | "GERENTE" | "FINANCEIRO" | "USUARIO" | "ESTOQUE" | "CLIENTE";
 export type AppUser = { name: string; role: UserRole; avatarUrl?: string };
-export type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
+export type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; requiredRoles?: Role[] };
 export type NavGroup = { title?: string; items: NavItem[] };
 
 // Navegação padrão do GladPros (pode ser sobrescrita via prop se desejar)
@@ -125,32 +126,12 @@ export const DEFAULT_NAV_GROUPS: NavGroup[] = [
     title: "SISTEMA",
     items: [
       { href: "/usuarios", label: "Usuários", icon: ShieldCheck },
-      { href: "/admin/eventos", label: "Eventos", icon: Activity },
-      { href: "/admin/integracao", label: "Integração", icon: Plug },
+      { href: "/admin/eventos", label: "Eventos", icon: Activity, requiredRoles: ["ADMIN"] },
+      { href: "/admin/integracao", label: "Integração", icon: Plug, requiredRoles: ["ADMIN"] },
       { href: "/perfil", label: "Perfil", icon: UserCircle },
     ]
   }
 ];
-
-// =============================
-// RBAC — Filtra NavGroups por role
-// =============================
-const ALWAYS_VISIBLE_HREFS = new Set(["/dashboard", "/perfil", "/meus-projetos"]);
-
-function filterNavGroupsByRole(groups: NavGroup[], role: UserRole): NavGroup[] {
-  return groups
-    .map((group) => {
-      const filteredItems = group.items.filter((item) => {
-        if (ALWAYS_VISIBLE_HREFS.has(item.href)) return true;
-        const mod = routeToModule(item.href);
-        if (!mod) return true; // unknown routes stay visible
-        return can(role as Role, mod, "read");
-      });
-      if (filteredItems.length === 0) return null;
-      return { ...group, items: filteredItems };
-    })
-    .filter(Boolean) as NavGroup[];
-}
 
 // Mapa de cores por nível - Padrão v2.0
 // Usando as cores semânticas mapeadas em colors.ts e globals.css
@@ -183,7 +164,7 @@ export default function DashboardShell({
 
 
   const roleTheme = useMemo(() => ROLE_THEME[(user?.role || "USUARIO") as UserRole], [user?.role]);
-  const filteredGroups = useMemo(() => filterNavGroupsByRole(groups, (user?.role || "USUARIO") as UserRole), [groups, user?.role]);
+  const filteredGroups = useMemo(() => filterNavGroupsByRole(groups, (user?.role || "USUARIO") as Role), [groups, user?.role]);
 
   // Logout unificado (confirmação + chamada API + redirecionamento)
   const handleLogout = async () => {
