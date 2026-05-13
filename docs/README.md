@@ -36,7 +36,8 @@ docs/architecture/
 ├── 07-modular-arch-plan.md     # Plano de reorganização modular da documentação/código
 ├── 08-engineering-vision-and-action-plan.md  # Visão de engenharia e plano de discussão
 ├── 09-system-inventory-and-sidebar-audit-plan.md  # Plano inicial para inventário e sidebar
-└── 10-system-inventory-and-sidebar-audit.md       # Inventário real, diagnóstico da sidebar e estratégia para discussão
+├── 10-system-inventory-and-sidebar-audit.md       # Inventário real, diagnóstico da sidebar e estratégia para discussão
+└── 11-operational-system-map.md                   # Mapa operacional do ERP e fluxos entre módulos
 ```
 
 ---
