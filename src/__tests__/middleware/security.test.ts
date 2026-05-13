@@ -108,6 +108,9 @@ describe('Middleware (unit)', () => {
     jest.clearAllMocks()
   })
 
+  // TODO: These tests need a pre-authenticated request fixture (valid JWT cookie) so the
+  // middleware does not redirect to /login before applying security/CORS headers.
+  // For now, security header behavior is covered by E2E auth tests.
   it.skip('adiciona headers de segurança básicos', async () => {
     const response = await middleware(createRequest())
 
@@ -146,6 +149,7 @@ describe('Middleware (unit)', () => {
     expect(response.headers.get('Access-Control-Allow-Origin')).toBeUndefined()
   })
 
+  // TODO: Same issue as above — needs authenticated request to reach CORS/headers logic.
   it.skip('honra a lista de origens customizada', async () => {
     process.env.ALLOWED_ORIGINS = 'https://example.com'
     const request = createRequest({
@@ -160,6 +164,7 @@ describe('Middleware (unit)', () => {
     delete process.env.ALLOWED_ORIGINS
   })
 
+  // TODO: Same issue — OPTIONS preflight likely intercepted before headers/CORS logic.
   it.skip('responde pré-flight OPTIONS imediatamente', async () => {
     const request = createRequest({ method: 'OPTIONS' })
     const response = await middleware(request)
