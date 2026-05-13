@@ -18,40 +18,29 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { resetAuthTestState, seedAuthenticatedSessionWithMFA } from '../helpers/auth';
+import { resetAuthTestState, seedAuthenticatedSessionFromDatabase } from '../helpers/auth';
+import { setupMfaChallenge } from '../helpers/email';
 
-const ADMIN_EMAIL = process.env.AUTH_ADMIN_EMAIL || 'admin@gladpros.com';
-const ADMIN_PASSWORD = process.env.AUTH_ADMIN_PASSWORD || 'Admin123!@#';
+const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
+const QA_ADMIN_ID = 13;
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const AUTH_TIMEOUT_MS = 120000;
-
-function getPendingMfaUserId(body: { user?: { id?: number } }): number | undefined {
-  return typeof body.user?.id === 'number' ? body.user.id : undefined;
-}
 
 test.describe('Auth Regression Guards', () => {
   test.describe.configure({ mode: 'serial' });
   test.setTimeout(300000);
 
   test.beforeEach(async ({ page }) => {
-    await resetAuthTestState(page.request, ADMIN_EMAIL);
+    await resetAuthTestState(page.request, QA_ADMIN_EMAIL);
   });
 
   // [SEC-001] MFA code nunca em response body
   test('[SEC-001] resposta de mfa/resend nunca contém código de 6 dígitos', async ({ page }) => {
-    const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const loginBody = await loginResp.json();
-    const userId = getPendingMfaUserId(loginBody);
-
-    if (!userId) {
-      test.skip(true, 'userId não disponível neste ambiente');
-      return;
-    }
+    // Get a valid mfaChallenge via dev helper — no dependency on login credentials
+    const { mfaChallenge } = await setupMfaChallenge(page.request, BASE_URL, QA_ADMIN_ID);
 
     const resendResp = await page.request.post('/api/auth/mfa/resend', {
-      data: { userId },
+      data: { userId: QA_ADMIN_ID, challenge: mfaChallenge },
       headers: { 'Content-Type': 'application/json' },
     });
 
@@ -66,7 +55,7 @@ test.describe('Auth Regression Guards', () => {
 
   // [SEC-002] authToken httpOnly
   test('[SEC-002] authToken é httpOnly e não acessível via document.cookie', async ({ page }) => {
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
 
     const tokenFromJs = await page.evaluate(() =>
@@ -109,20 +98,9 @@ test.describe('Auth Regression Guards', () => {
   });
 
   test('[API-001] mfa/verify com código inválido retorna { success: false }', async ({ page }) => {
-    const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const loginBody = await loginResp.json();
-    const userId = getPendingMfaUserId(loginBody);
-
-    if (!userId) {
-      test.skip(true, 'userId não disponível');
-      return;
-    }
-
+    // Direct call — verify endpoint does not require mfaChallenge token
     const resp = await page.request.post('/api/auth/mfa/verify', {
-      data: { userId, code: '000000' },
+      data: { userId: QA_ADMIN_ID, code: '000000' },
       headers: { 'Content-Type': 'application/json' },
     });
 
@@ -133,20 +111,10 @@ test.describe('Auth Regression Guards', () => {
 
   // [API-002] success: true em respostas de sucesso
   test('[API-002] mfa/resend com userId válido retorna { success: true }', async ({ page }) => {
-    const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const loginBody = await loginResp.json();
-    const userId = getPendingMfaUserId(loginBody);
-
-    if (!userId) {
-      test.skip(true, 'userId não disponível');
-      return;
-    }
+    const { mfaChallenge } = await setupMfaChallenge(page.request, BASE_URL, QA_ADMIN_ID);
 
     const resp = await page.request.post('/api/auth/mfa/resend', {
-      data: { userId },
+      data: { userId: QA_ADMIN_ID, challenge: mfaChallenge },
       headers: { 'Content-Type': 'application/json' },
     });
 
@@ -157,7 +125,7 @@ test.describe('Auth Regression Guards', () => {
 
   // [API-003] Logout retorna success: true
   test('[API-003] logout de sessão autenticada retorna { success: true }', async ({ page }) => {
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
 
     const resp = await page.request.post('/api/auth/logout', {
@@ -171,21 +139,8 @@ test.describe('Auth Regression Guards', () => {
 
   // [UI-001] página MFA mostra mensagem real da API
   test('[UI-001] página /mfa renderiza mensagem específica de erro da API (não mensagem genérica)', async ({ page }) => {
-    // Verificar que o componente não usa "Algo deu errado" como fallback hardcoded
-    const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const loginBody = await loginResp.json();
-    const userId = getPendingMfaUserId(loginBody);
-
-    if (!userId) {
-      test.skip(true, 'userId não disponível');
-      return;
-    }
-
     await page.goto(
-      `/mfa?userId=${userId}&email=${encodeURIComponent(ADMIN_EMAIL)}&name=Admin`,
+      `/mfa?userId=${QA_ADMIN_ID}&email=${encodeURIComponent(QA_ADMIN_EMAIL)}&name=QA+Admin`,
       { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS }
     );
 

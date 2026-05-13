@@ -12,10 +12,9 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { resetAuthTestState, seedAuthenticatedSessionWithMFA } from '../helpers/auth';
+import { resetAuthTestState, seedAuthenticatedSessionFromDatabase } from '../helpers/auth';
 
-const ADMIN_EMAIL = process.env.AUTH_ADMIN_EMAIL || 'admin@gladpros.com';
-const ADMIN_PASSWORD = process.env.AUTH_ADMIN_PASSWORD || 'Admin123!@#';
+const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
 const AUTH_TIMEOUT_MS = 120000;
 
 test.describe('Login Flow', () => {
@@ -23,7 +22,7 @@ test.describe('Login Flow', () => {
   test.setTimeout(180000);
 
   test.beforeEach(async ({ page }) => {
-    await resetAuthTestState(page.request, ADMIN_EMAIL);
+    await resetAuthTestState(page.request, QA_ADMIN_EMAIL);
     await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
   });
 
@@ -33,20 +32,20 @@ test.describe('Login Flow', () => {
   });
 
   test('botão Entrar desabilitado com apenas email preenchido', async ({ page }) => {
-    await page.fill('input[name="email"]', 'admin@gladpros.com');
+    await page.fill('input[name="email"]', QA_ADMIN_EMAIL);
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeDisabled();
   });
 
   test('botão Entrar desabilitado com senha muito curta (< 6 chars)', async ({ page }) => {
-    await page.fill('input[name="email"]', 'admin@gladpros.com');
+    await page.fill('input[name="email"]', QA_ADMIN_EMAIL);
     await page.fill('input[name="senha"]', '12345');
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeDisabled();
   });
 
   test('botão Entrar habilitado com email válido + senha ≥ 6 chars', async ({ page }) => {
-    await page.fill('input[name="email"]', 'admin@gladpros.com');
+    await page.fill('input[name="email"]', QA_ADMIN_EMAIL);
     await page.fill('input[name="senha"]', '123456');
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeEnabled();
@@ -86,7 +85,7 @@ test.describe('Login Flow', () => {
   });
 
   test('login completo com MFA redireciona para dashboard e define cookie authToken', async ({ page }) => {
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
     await expect(page).toHaveURL(/\/dashboard$/);
@@ -99,7 +98,7 @@ test.describe('Login Flow', () => {
   });
 
   test('sessão persiste após reload da página', async ({ page }) => {
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
 
     await page.reload({ waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
@@ -107,7 +106,7 @@ test.describe('Login Flow', () => {
   });
 
   test('logout limpa cookies e redireciona para login', async ({ page }) => {
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
 
     // Fazer logout via API diretamente (mais confiável que UI)
@@ -122,11 +121,38 @@ test.describe('Login Flow', () => {
   });
 
   test('usuário já autenticado é redirecionado do login para dashboard', async ({ page }) => {
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
 
     // Tentar acessar /login já autenticado deve redirecionar para dashboard
     await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
     await expect(page).toHaveURL(/\/dashboard/);
+  });
+
+  test('/api/auth/me retorna dados do usuário autenticado', async ({ page }) => {
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
+
+    const resp = await page.request.get('/api/auth/me', {
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.success).toBe(true);
+    expect(body.data).toBeDefined();
+    expect(body.data.email).toBe(QA_ADMIN_EMAIL);
+    expect(body.data.id).toBeDefined();
+    expect(body.data.nivel).toBeDefined();
+    // Nunca deve retornar a senha
+    expect(body.data.senha).toBeUndefined();
+    expect(body.data.senhaHash).toBeUndefined();
+  });
+
+  test('/api/auth/me retorna 401 sem autenticação', async ({ page }) => {
+    const resp = await page.request.get('/api/auth/me', {
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    expect([401, 403]).toContain(resp.status());
   });
 });

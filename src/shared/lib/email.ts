@@ -248,20 +248,23 @@ export class EmailService {
     bcc?: string;
   }): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
-      if (process.env.NODE_ENV === 'development' && !process.env.SMTP_USER) {
-        // Modo desenvolvimento - log no console
-         
+      const isDevOrE2E =
+        (process.env.NODE_ENV === 'development' && !process.env.SMTP_USER) ||
+        process.env.E2E_MODE === '1';
+
+      if (isDevOrE2E) {
+        // Captura o e-mail em memória para que /api/dev/last-mail possa devolvê-lo
+        // nos testes E2E. Em produção esta branch nunca é atingida.
+        const globalForMail = global as unknown as {
+          __lastMail?: { to: string; subject: string; html: string; sentAt: string }
+        };
+        globalForMail.__lastMail = { to, subject, html, sentAt: new Date().toISOString() };
+
         if (shouldDebugEmail()) {
-           
-           
           // eslint-disable-next-line no-console
-          console.log('\n📧 [EMAIL DEV MODE]');
-           
-           
+          console.log('\n📧 [EMAIL DEV/E2E MODE]');
           // eslint-disable-next-line no-console
           console.log('Para:', to);
-           
-           
           // eslint-disable-next-line no-console
           if (bcc) console.log('BCC:', bcc);
           // eslint-disable-next-line no-console
@@ -271,7 +274,7 @@ export class EmailService {
           // eslint-disable-next-line no-console
           console.log('Conteúdo:', text || html.replace(/<[^>]*>/g, ''));
           // eslint-disable-next-line no-console
-          console.log('📧 [/EMAIL DEV MODE]\n');
+          console.log('📧 [/EMAIL DEV/E2E MODE]\n');
         }
         return { success: true, messageId: 'dev-mode' };
       }

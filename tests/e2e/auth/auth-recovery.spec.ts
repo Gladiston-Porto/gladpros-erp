@@ -29,7 +29,7 @@ test.describe('Auth Recovery Flows', () => {
 
     test('API esqueci-senha retorna 200 para email existente', async ({ page }) => {
       const resp = await page.request.post('/api/auth/forgot-password', {
-        data: { email: 'admin@gladpros.com' },
+        data: { email: 'qa.admin.clientes@teste.local' },
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -53,7 +53,7 @@ test.describe('Auth Recovery Flows', () => {
     test('resposta de esqueci-senha não revela se email existe', async ({ page }) => {
       const [resp1, resp2] = await Promise.all([
         page.request.post('/api/auth/forgot-password', {
-          data: { email: process.env.AUTH_ADMIN_EMAIL || 'admin@gladpros.com' },
+          data: { email: 'qa.admin.clientes@teste.local' },
           headers: { 'Content-Type': 'application/json' },
         }),
         page.request.post('/api/auth/forgot-password', {

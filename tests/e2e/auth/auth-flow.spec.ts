@@ -16,7 +16,8 @@ async function loginAs(page: import('@playwright/test').Page, email: string, sen
   await submitBtn.click();
 }
 
-test.describe('Authentication Flow', () => {
+const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
+const QA_ADMIN_PASSWORD = 'Admin123!@#';
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
   });
@@ -25,7 +26,7 @@ test.describe('Authentication Flow', () => {
     await expect(page).toHaveURL('/login');
 
     // Fill valid credentials
-    await loginAs(page, 'admin@gladpros.com', 'Admin123!@#');
+    await loginAs(page, QA_ADMIN_EMAIL, QA_ADMIN_PASSWORD);
 
     // Wait for redirect to dashboard
     await page.waitForURL('**/dashboard', { timeout: 15000 });
@@ -68,7 +69,7 @@ test.describe('Authentication Flow', () => {
   test('should handle rate limiting after multiple failed attempts', async ({ page }) => {
     // Attempt login multiple times with wrong credentials
     for (let i = 0; i < 6; i++) {
-      await page.fill('input[name="email"]', 'admin@gladpros.com');
+      await page.fill('input[name="email"]', QA_ADMIN_EMAIL);
       await page.fill('input[name="senha"]', 'wrongpassword123');
       const btn = page.locator('button:has-text("Entrar")');
       await expect(btn).toBeEnabled({ timeout: 3000 });
@@ -85,7 +86,7 @@ test.describe('Authentication Flow', () => {
 
   test('should logout successfully', async ({ page }) => {
     // Login first
-    await loginAs(page, 'admin@gladpros.com', 'Admin123!@#');
+    await loginAs(page, QA_ADMIN_EMAIL, QA_ADMIN_PASSWORD);
     await page.waitForURL('**/dashboard', { timeout: 15000 });
 
     // Look for user menu or logout button
@@ -114,7 +115,7 @@ test.describe('Authentication Flow', () => {
     await page.waitForURL(/\/(login)?$/, { timeout: 10000 });
 
     // Login
-    await loginAs(page, 'admin@gladpros.com', 'Admin123!@#');
+    await loginAs(page, QA_ADMIN_EMAIL, QA_ADMIN_PASSWORD);
 
     // Should redirect somewhere after login (dashboard or originally requested page)
     await page.waitForURL(/\/(dashboard|clientes)/, { timeout: 15000 });
@@ -154,7 +155,7 @@ test.describe('Authentication Flow', () => {
 test.describe('Session Management', () => {
   test('should maintain session across page refreshes', async ({ page }) => {
     await page.goto('/login');
-    await loginAs(page, 'admin@gladpros.com', 'Admin123!@#');
+    await loginAs(page, QA_ADMIN_EMAIL, QA_ADMIN_PASSWORD);
     await page.waitForURL('**/dashboard', { timeout: 15000 });
 
     // Refresh page
@@ -167,7 +168,7 @@ test.describe('Session Management', () => {
 
   test('should expire session after timeout', async ({ page }) => {
     await page.goto('/login');
-    await loginAs(page, 'admin@gladpros.com', 'Admin123!@#');
+    await loginAs(page, QA_ADMIN_EMAIL, QA_ADMIN_PASSWORD);
     await page.waitForURL('**/dashboard', { timeout: 15000 });
 
     // Clear cookies to simulate session expiration  

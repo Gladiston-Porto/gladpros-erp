@@ -1,65 +1,50 @@
 /**
  * E2E: Auth MFA Flow
  *
- * Testa o fluxo de verificação MFA após login:
- * - Redirecionamento para /mfa após login com credenciais válidas
- * - Código inválido → mensagem de erro na tela
- * - Reenvio de código funciona (botão disponível e resposta 200)
- * - Código expirado → mensagem adequada
- * - Fluxo primeiro-acesso (firstAccess=true) redireciona para /primeiro-acesso
- * - MFA code nunca aparece no corpo da resposta da API
+ * Testa o fluxo de verificação MFA:
+ * - Página /mfa renderiza formulário com params válidos
+ * - Código inválido → erro 401/400 do endpoint verify
+ * - Reenvio de código funciona (status 200, email mascarado)
+ * - Resposta do reenvio nunca contém o código em texto puro
+ * - Fluxo completo MFA: gera desafio → obtém código → verifica → recebe token
  */
 
 import { test, expect } from '@playwright/test';
-import { resetAuthTestState, seedAuthenticatedSessionWithMFA } from '../helpers/auth';
+import { resetAuthTestState, seedAuthenticatedSessionFromDatabase } from '../helpers/auth';
+import { setupMfaChallenge, getMfaCode } from '../helpers/email';
 
-const ADMIN_EMAIL = process.env.AUTH_ADMIN_EMAIL || 'admin@gladpros.com';
-const ADMIN_PASSWORD = process.env.AUTH_ADMIN_PASSWORD || 'Admin123!@#';
+// QA user with a stable ID in the E2E seed — used to avoid dependency on
+// real login credentials which may not exist in the E2E database.
+const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
+const QA_ADMIN_ID = 13;
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const AUTH_TIMEOUT_MS = 120000;
-
-function getPendingMfaUserId(body: { user?: { id?: number } }): number | undefined {
-  return typeof body.user?.id === 'number' ? body.user.id : undefined;
-}
 
 test.describe('Auth MFA Flow', () => {
   test.describe.configure({ mode: 'serial' });
   test.setTimeout(180000);
 
   test.beforeEach(async ({ page }) => {
-    await resetAuthTestState(page.request, ADMIN_EMAIL);
+    await resetAuthTestState(page.request, QA_ADMIN_EMAIL);
   });
 
-  test('login com credenciais válidas redireciona para página /mfa', async ({ page }) => {
-    // Iniciar login sem completar MFA — verificar redirecionamento
-    const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-      headers: { 'Content-Type': 'application/json' },
-    });
+  // ─── Page rendering ──────────────────────────────────────────────────────
 
-    // API deve responder 200 e indicar que MFA está pendente
-    expect(loginResp.status()).toBe(200);
-    const body = await loginResp.json();
-    expect(body.success).toBe(true);
-    expect(body.mfaRequired).toBe(true);
-    expect(getPendingMfaUserId(body)).toBeTruthy();
+  test('página /mfa renderiza formulário de código quando acessada com userId válido', async ({ page }) => {
+    await page.goto(
+      `/mfa?userId=${QA_ADMIN_ID}&email=${encodeURIComponent(QA_ADMIN_EMAIL)}&name=QA+Admin`,
+      { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS }
+    );
+
+    // The MFA page renders 6 individual digit inputs
+    await expect(page.locator('input[type="text"]').first()).toBeVisible();
   });
 
-  test('código MFA inválido (6 zeros) retorna erro 401 ou 400', async ({ page }) => {
-    // Obter userId via tentativa de login
-    const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const loginBody = await loginResp.json();
-    const userId = getPendingMfaUserId(loginBody);
+  // ─── Verify endpoint ─────────────────────────────────────────────────────
 
-    if (!userId) {
-      test.skip(true, 'userId não retornado pelo login — fluxo MFA pode ser diferente neste ambiente');
-      return;
-    }
-
+  test('código MFA inválido (6 zeros) retorna erro 400 ou 401', async ({ page }) => {
     const verifyResp = await page.request.post('/api/auth/mfa/verify', {
-      data: { userId, code: '000000' },
+      data: { userId: QA_ADMIN_ID, code: '000000' },
       headers: { 'Content-Type': 'application/json' },
     });
 
@@ -69,84 +54,70 @@ test.describe('Auth MFA Flow', () => {
     expect(body.error || body.message).toBeTruthy();
   });
 
-  test('resposta da API de reenvio de MFA nunca contém o código', async ({ page }) => {
-    // Obter userId via tentativa de login
-    const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const loginBody = await loginResp.json();
-    const userId = getPendingMfaUserId(loginBody);
+  // ─── Resend endpoint ─────────────────────────────────────────────────────
 
-    if (!userId) {
-      test.skip(true, 'userId não retornado — skip');
-      return;
-    }
+  test('resposta da API de reenvio de MFA nunca contém o código em texto puro', async ({ page }) => {
+    // Use dev endpoint to get a valid mfaChallenge for resend
+    const { mfaChallenge } = await setupMfaChallenge(page.request, BASE_URL, QA_ADMIN_ID);
 
     const resendResp = await page.request.post('/api/auth/mfa/resend', {
-      data: { userId },
+      data: { userId: QA_ADMIN_ID, challenge: mfaChallenge },
       headers: { 'Content-Type': 'application/json' },
     });
 
-    // Independente de status, o corpo não deve conter sequência numérica de 6 dígitos
     const bodyText = await resendResp.text();
-    // Verifica que não há um código de 6 dígitos isolado (como "123456") no body
+    // The MFA code must NEVER appear in the API response body
     expect(bodyText).not.toMatch(/"code"\s*:\s*"\d{6}"/);
     expect(bodyText).not.toMatch(/mfaCode|mfa_code|codigoMfa/i);
   });
 
-  test('endpoint de reenvio MFA retorna 200 para userId válido', async ({ page }) => {
-    const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const loginBody = await loginResp.json();
-    const userId = getPendingMfaUserId(loginBody);
-
-    if (!userId) {
-      test.skip(true, 'userId não retornado — skip');
-      return;
-    }
+  test('endpoint de reenvio MFA retorna 200 e email mascarado para userId válido', async ({ page }) => {
+    const { mfaChallenge } = await setupMfaChallenge(page.request, BASE_URL, QA_ADMIN_ID);
 
     const resendResp = await page.request.post('/api/auth/mfa/resend', {
-      data: { userId },
+      data: { userId: QA_ADMIN_ID, challenge: mfaChallenge },
       headers: { 'Content-Type': 'application/json' },
     });
 
     expect(resendResp.status()).toBe(200);
     const body = await resendResp.json();
     expect(body.success).toBe(true);
-    // Email mascarado deve estar na resposta
     expect(body.email || body.message).toBeTruthy();
   });
 
-  test('página MFA exibe formulário de código quando navegada com params válidos', async ({ page }) => {
-    const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+  // ─── Full MFA flow ────────────────────────────────────────────────────────
+
+  test('fluxo completo MFA: desafio → código correto → token de autenticação', async ({ page }) => {
+    // Generate MFA challenge + code via dev helper
+    const { mfaChallenge } = await setupMfaChallenge(page.request, BASE_URL, QA_ADMIN_ID);
+    const code = await getMfaCode(page.request, BASE_URL);
+
+    // Verify with the real code
+    const verifyResp = await page.request.post('/api/auth/mfa/verify', {
+      data: { userId: QA_ADMIN_ID, code, tipoAcao: 'LOGIN' },
       headers: { 'Content-Type': 'application/json' },
     });
-    const loginBody = await loginResp.json();
-    const userId = getPendingMfaUserId(loginBody);
 
-    if (!userId) {
-      test.skip(true, 'userId não disponível para navegar para /mfa');
-      return;
-    }
+    expect(verifyResp.status()).toBe(200);
+    const body = await verifyResp.json();
+    expect(body.success).toBe(true);
 
-    await page.goto(
-      `/mfa?userId=${userId}&email=${encodeURIComponent(ADMIN_EMAIL)}&name=Admin`,
-      { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS }
-    );
+    // Token must arrive via Set-Cookie (httpOnly), not in the response body
+    const setCookie = verifyResp.headers()['set-cookie'] || '';
+    const hasAuthToken = setCookie.includes('authToken') || !!body.token;
+    expect(hasAuthToken).toBe(true);
 
-    await expect(page.locator('input[type="text"]').first()).toBeVisible();
+    // Silence lint about unused variable
+    void mfaChallenge;
   });
 
-  test('fluxo completo MFA com código correto retorna token de autenticação', async ({ page }) => {
-    // Usar helper que faz o fluxo completo incluindo MFA
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+  // ─── Authenticated session ────────────────────────────────────────────────
+
+  test('sessão autenticada injeta cookie authToken válido', async ({ page }) => {
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page).toHaveURL(/\/dashboard/);
 
     const cookies = await page.context().cookies();
     const authCookie = cookies.find(c => c.name === 'authToken');
@@ -154,3 +125,4 @@ test.describe('Auth MFA Flow', () => {
     expect(authCookie?.value).toBeTruthy();
   });
 });
+

@@ -8,8 +8,12 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 export async function GET(_request: NextRequest) {
-  // ⚠️ SEGURANÇA: Apenas em desenvolvimento ou ambiente de teste explícito
-  if (process.env.NODE_ENV !== 'development' && process.env.TEST_MODE !== 'true') {
+  // ⚠️ SEGURANÇA: Apenas em desenvolvimento, TEST_MODE ou E2E_MODE
+  const allowed =
+    process.env.NODE_ENV === 'development' ||
+    process.env.TEST_MODE === 'true' ||
+    process.env.E2E_MODE === '1';
+  if (!allowed) {
     return NextResponse.json(
       { error: 'Endpoint disponível apenas em desenvolvimento ou TEST_MODE', success: false },
       { status: 403 }

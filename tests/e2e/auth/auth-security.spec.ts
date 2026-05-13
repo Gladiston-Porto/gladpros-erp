@@ -12,24 +12,19 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { resetAuthTestState, seedAuthenticatedSessionWithMFA } from '../helpers/auth';
+import { resetAuthTestState, seedAuthenticatedSessionFromDatabase } from '../helpers/auth';
 
-const ADMIN_EMAIL = process.env.AUTH_ADMIN_EMAIL || 'admin@gladpros.com';
-const ADMIN_PASSWORD = process.env.AUTH_ADMIN_PASSWORD || 'Admin123!@#';
-const ATTACK_EMAIL = process.env.AUTH_ATTACK_EMAIL || ADMIN_EMAIL;
-const ATTACK_PASSWORD = process.env.AUTH_ATTACK_PASSWORD || ADMIN_PASSWORD;
+const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
+const QA_ADMIN_ID = 13;
+const ATTACK_EMAIL = process.env.AUTH_ATTACK_EMAIL || 'naoexiste_attack@teste.local';
 const AUTH_TIMEOUT_MS = 120000;
-
-function getPendingMfaUserId(body: { user?: { id?: number } }): number | undefined {
-  return typeof body.user?.id === 'number' ? body.user.id : undefined;
-}
 
 test.describe('Auth Security', () => {
   test.describe.configure({ mode: 'serial' });
   test.setTimeout(300000); // testes de rate-limit precisam de tempo extra
 
   test.beforeEach(async ({ page }) => {
-    await resetAuthTestState(page.request, ADMIN_EMAIL);
+    await resetAuthTestState(page.request, QA_ADMIN_EMAIL);
     await resetAuthTestState(page.request, ATTACK_EMAIL);
   });
 
@@ -68,7 +63,7 @@ test.describe('Auth Security', () => {
 
     for (let i = 0; i < 10; i++) {
       const resp = await page.request.post('/api/auth/login', {
-        data: { email: ATTACK_EMAIL, password: ATTACK_PASSWORD },
+        data: { email: ATTACK_EMAIL, password: 'SenhaErradaParaBloquear999!' },
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -96,7 +91,7 @@ test.describe('Auth Security', () => {
   });
 
   test('token não fica em localStorage após autenticação', async ({ page }) => {
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
 
     // Verificar que nenhum token JWT está em localStorage
@@ -110,7 +105,7 @@ test.describe('Auth Security', () => {
   });
 
   test('cookie authToken é httpOnly (não acessível via JavaScript)', async ({ page }) => {
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
 
     // Cookie não deve ser acessível via document.cookie
@@ -136,7 +131,7 @@ test.describe('Auth Security', () => {
   });
 
   test('após logout, rota protegida redireciona para login', async ({ page }) => {
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
     await expect(page).toHaveURL(/\/dashboard$/);
 
@@ -154,18 +149,7 @@ test.describe('Auth Security', () => {
   });
 
   test('MFA rate limiting: muitas tentativas de código inválido retornam 429', async ({ page }) => {
-    const loginResp = await page.request.post('/api/auth/login', {
-      data: { email: ATTACK_EMAIL, password: ATTACK_PASSWORD },
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const loginBody = await loginResp.json();
-    const userId = getPendingMfaUserId(loginBody);
-
-    if (!userId) {
-      test.skip(true, 'userId não disponível — fluxo MFA diferente neste ambiente');
-      return;
-    }
-
+    const userId = QA_ADMIN_ID;
     let hitRateLimit = false;
 
     for (let i = 0; i < 6; i++) {

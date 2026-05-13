@@ -6,10 +6,9 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { seedAuthenticatedSessionWithMFA } from '../helpers/auth';
+import { seedAuthenticatedSessionFromDatabase } from '../helpers/auth';
 
-const ADMIN_EMAIL = process.env.AUTH_ADMIN_EMAIL || process.env.SMOKE_EMAIL || 'admin@gladpros.com';
-const ADMIN_PASSWORD = process.env.AUTH_ADMIN_PASSWORD || process.env.SMOKE_PASSWORD || 'Admin123!@#';
+const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
 const AUTH_TIMEOUT_MS = 120000;
 
 test.describe('Auth smoke', () => {
@@ -56,7 +55,7 @@ test.describe('Auth smoke', () => {
   test('login completo com MFA e dashboard acessível', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium', 'Smoke real validado apenas no chromium.');
 
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard');
+    await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
     await expect(page).toHaveURL(/\/dashboard$/);

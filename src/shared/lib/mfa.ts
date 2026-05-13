@@ -94,7 +94,7 @@ export class MFAService {
         select: { id: true }
       });
       // In development or explicit test mode, also keep last code in-memory for E2E helper routes
-      if (process.env.NODE_ENV === 'development' || process.env.TEST_MODE === 'true') {
+      if (process.env.NODE_ENV === 'development' || process.env.TEST_MODE === 'true' || process.env.E2E_MODE === '1') {
         const g = global as unknown as { __lastMFA?: { usuarioId: number; code: string; id: number; tipoAcao: string } };
         g.__lastMFA = { usuarioId, code, id: created.id, tipoAcao };
       }
