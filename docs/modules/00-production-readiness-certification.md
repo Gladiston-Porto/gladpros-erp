@@ -3,13 +3,15 @@
 **Data:** 2026-05-12  
 **Escopo:** Auth/Login, Usuarios, Clientes, Service Orders/OS, Propostas e Estoque  
 **Gate aplicado:** `docs/architecture/06-production-readiness.md`  
-**Status:** **Production Ready para o escopo corrigido e validado**
+**Status:** **Conditionally Ready — P1 corrigidos; P2 complementares ainda abertos**
 
 Esta certificacao substitui declaracoes antigas de "modulo completo" ou "pronto para producao" que nao tinham evidencia atual no formato do gate oficial.
 
+> Correcao de status: esta documentacao foi inicialmente registrada como "Production Ready para o escopo corrigido e validado". A revisao item-a-item do plano mostrou P2 complementares ainda nao fechados. Portanto, o status correto e **Conditionally Ready**, nao Production Ready amplo.
+
 ## Resultado executivo
 
-Os P1/P2 encontrados durante a re-auditoria foram corrigidos e cobertos por regressao. A validacao final passou com:
+Os P1 principais encontrados durante a re-auditoria foram corrigidos e cobertos por regressao. Parte dos P2 de hardening tambem foi corrigida. A validacao tecnica do escopo alterado passou com:
 
 ```bash
 git diff --check
@@ -24,7 +26,7 @@ npm run check
 | `17760f1` | P2 de hardening: exports, uploads, limites, rate limit e Host header |
 | `da2a018` | Atualizacao de suites legadas para validar os novos gates |
 
-## Correcoes P1/P2 certificadas
+## Correcoes P1/P2 ja fechadas
 
 | Modulo | Risco corrigido | Evidencia |
 |---|---|---|
@@ -34,6 +36,18 @@ npm run check
 | Estoque | Saida manual podia consumir estoque reservado | `src/app/api/estoque/__tests__/movimentacoes-integrity.test.ts` |
 | Propostas | Cron sem secret e cancelamento de proposta ja vinculada a projeto | `src/app/api/propostas/__tests__/propostas-flow-p1.test.ts` |
 | Exports/Uploads | CSV injection, volume abusivo, Host header em PDF e extensao de upload por filename | `src/app/api/__tests__/export-hardening-p2.test.ts`, `src/app/api/service-orders/__tests__/upload-hardening-p2.test.ts` |
+
+## P2 complementares ainda abertos
+
+Estes itens bloqueiam a declaracao ampla de **Production Ready** ate serem corrigidos ou formalmente aceitos com mitigacao.
+
+| Prioridade | Modulo | Pendencia | Evidencia atual |
+|---|---|---|---|
+| P2 | Service Orders/Uploads | Validar magic bytes/assinatura real do arquivo antes de persistir. Hoje a rota valida MIME declarado, tamanho e extensao derivada do MIME, mas grava o `arrayBuffer` sem conferir assinatura. | `src/app/api/service-orders/[id]/attachments/route.ts:180-206` |
+| P2 | Estoque | Paginar/capar snapshot de inventario. A rota usa `materialSaldo.findMany()` sem `take/skip`. | `src/app/api/estoque/inventario/route.ts:137-145` |
+| P2 | Estoque | Paginar/capar relatorio de inventario. A query raw de materiais e a listagem de equipamentos nao aplicam limite/paginacao. | `src/app/api/estoque/relatorios/inventario/route.ts:58-90` |
+| P2 | Clientes | Garantir fallback legado de endereco em todos os retornos relevantes. A listagem/detalhe retornam campos `address*` diretamente, sem fallback visivel para `cidade/estado/zipcode`. | `src/app/api/clientes/route.ts:167-181`, `src/app/api/clientes/[id]/route.ts:108-121` |
+| P2 | Propostas | Confirmar e fechar politica de `gatilhoFaturamento`: cada valor precisa estar implementado ou bloqueado/desabilitado se ainda nao suportado. Hoje o campo e persistido diretamente. | `src/app/api/propostas/route.ts:207-209`, `src/app/api/propostas/[id]/route.ts:147-149` |
 
 ## Regra sobre mocks em testes
 
@@ -51,19 +65,28 @@ Para declarar um modulo production-ready:
 
 | Gate | Status | Observacao |
 |---|---|---|
-| API & Auth | Passou | Rotas sensiveis revisadas com `requireUser`, validacao e formato seguro |
-| RBAC & Hierarquia | Passou | Hierarquia centralizada em Usuarios e permissoes reforcadas em OS/Invoices |
-| Seguranca OWASP | Passou | Host header, token em body, MFA resend, exports e uploads endurecidos |
-| Logica de negocio | Passou | Estoque reservado, proposta vinculada e billing OS/projeto protegidos |
-| Fluxo ERP cross-module | Passou | OS -> Invoice, Proposta -> Projeto e Estoque -> Financeiro revisados no escopo |
-| Dados sensiveis | Passou | User status e MFA nao expoem dados desnecessarios |
-| Performance & escala | Passou | Exports capados/rate-limited e listagens preservadas com limites |
+| API & Auth | Passou para P1 | Rotas sensiveis revisadas com `requireUser`, validacao e formato seguro no escopo corrigido |
+| RBAC & Hierarquia | Passou para P1 | Hierarquia centralizada em Usuarios e permissoes reforcadas em OS/Invoices |
+| Seguranca OWASP | Parcial | Host header, token em body, MFA resend e exports foram endurecidos; upload ainda precisa magic bytes |
+| Logica de negocio | Parcial | Estoque reservado, proposta vinculada e billing OS/projeto protegidos; gatilhos de faturamento ainda precisam fechamento |
+| Fluxo ERP cross-module | Parcial | OS -> Invoice, Proposta -> Projeto e Estoque -> Financeiro revisados no escopo; gatilhos pendentes |
+| Dados sensiveis | Passou para P1 | User status e MFA nao expoem dados desnecessarios |
+| Performance & escala | Parcial | Exports capados/rate-limited; inventario/relatorio de estoque ainda precisam limite/paginacao |
 | UI/UX operacional | Sem P1/P2 no escopo | Itens P3 devem continuar em backlog visual/acessibilidade |
-| Testes de regressao | Passou | P1/P2 corrigidos possuem regressao |
+| Testes de regressao | Parcial | P1/P2 corrigidos possuem regressao; P2 abertos ainda precisam testes apos correcao |
 | Deploy & config | Passou no escopo | `APP_URL` exigido para PDF seguro; cron falha fechado sem secret |
 
 ## Riscos e limites
 
-- Esta certificacao cobre o estado atual dos arquivos auditados e commits acima.
+- Esta certificacao cobre o estado atual dos arquivos auditados e commits acima, mas nao declara Production Ready amplo enquanto os P2 complementares estiverem abertos.
 - Qualquer mudanca em API, auth, RBAC, Prisma schema, invoice, estoque, proposta, OS, upload, export, cron ou state machine reabre a certificacao do escopo impactado.
 - Documentacao antiga em `docs/modules/*` continua como historico quando divergir deste gate.
+
+## Fase pendente para concluir o plano em sua totalidade
+
+1. Corrigir upload com validacao de magic bytes e regressao.
+2. Paginar/capar inventario e relatorios grandes de estoque, com regressao.
+3. Corrigir/confirmar fallback legado de endereco em Clientes, com regressao.
+4. Implementar, bloquear ou desabilitar gatilhos de faturamento de Propostas ainda nao suportados, com regressao.
+5. Rodar novamente `git diff --check`, `npm run check` e certificacao por modulo.
+6. Atualizar este documento para **Production Ready** somente se nao restar P1/P2 aberto.
