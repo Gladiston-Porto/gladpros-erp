@@ -58,10 +58,15 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     }
   }
 
-  const proto = request.headers.get('x-forwarded-proto') ?? 'http';
-  const host = request.headers.get('host') ?? 'localhost:3000';
-  const baseUrl = `${proto}://${host}`;
-  const cookie = request.headers.get('cookie') ?? undefined;
+  const baseUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  if (!baseUrl) {
+    return NextResponse.json(
+      { error: 'Configuration error', message: 'APP_URL não configurado', success: false },
+      { status: 500 }
+    );
+  }
+  const authToken = request.cookies.get('authToken')?.value;
+  const cookie = authToken ? `authToken=${authToken}` : undefined;
 
   const pdfBuffer = await generateReportPDFFromHTML({
     printPath: '/reports/users',

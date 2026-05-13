@@ -91,6 +91,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       where.id = { in: selectedIds }
     }
 
+    const exportPage = Number(parsed.page ?? 1)
+    const exportPageSize = selectedIds?.length
+      ? selectedIds.length
+      : Math.min(Number(parsed.pageSize ?? 2000), 2000)
+
     const dbRows = await prisma.cliente.findMany({
       where,
       select: {
@@ -107,6 +112,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         criadoEm: true,
       },
       orderBy: [{ status: 'desc' }, { atualizadoEm: 'desc' }],
+      take: exportPageSize,
+      skip: selectedIds?.length ? 0 : (exportPage - 1) * exportPageSize,
     })
 
     if (!dbRows.length) {

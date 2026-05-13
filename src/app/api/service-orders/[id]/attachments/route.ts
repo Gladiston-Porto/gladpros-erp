@@ -3,7 +3,7 @@ import { requireUser, can, type Role } from "@/shared/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from "@/lib/api/error-handler";
 import { writeFile, mkdir } from "fs/promises";
-import { resolve, join, extname } from "path";
+import { resolve, join } from "path";
 
 export const runtime = "nodejs";
 
@@ -18,6 +18,23 @@ const ALLOWED_MIME = new Set([
 ]);
 
 const MAX_SIZE = 15 * 1024 * 1024; // 15MB — PDFs e fotos de alta resolução
+
+function extensionForMime(mime: string): string {
+    switch (mime) {
+        case "image/jpeg":
+            return ".jpg";
+        case "image/png":
+            return ".png";
+        case "image/webp":
+            return ".webp";
+        case "image/heic":
+            return ".heic";
+        case "application/pdf":
+            return ".pdf";
+        default:
+            return ".bin";
+    }
+}
 
 const VALID_TYPES = new Set([
     "BEFORE_PHOTO",
@@ -171,9 +188,7 @@ export const POST = withErrorHandler(async (
         return NextResponse.json({ error: "Validation failed", message: "Arquivo muito grande. Máximo 15MB.", success: false }, { status: 400 });
     }
 
-    // Sanitize original filename — keep extension only
-    const originalExt = extname(file.name).toLowerCase().replace("jpeg", "jpg") || ".bin";
-    const safeFilename = `${type.toLowerCase()}-${orderId}-${Date.now()}${originalExt}`;
+    const safeFilename = `${type.toLowerCase()}-${orderId}-${Date.now()}${extensionForMime(file.type)}`;
 
     // Build upload dir: uploads/service-orders/{orderId}/{type}/
     const typeDir = type.toLowerCase().replace("_", "-");

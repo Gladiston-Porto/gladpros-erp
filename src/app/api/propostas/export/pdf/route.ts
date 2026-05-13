@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
+import { apiRateLimit } from '@/shared/lib/rate-limit';
 
 const exportSchema = z.object({
   filename: z.string().max(100).optional(),
@@ -24,6 +25,14 @@ function escapeHtml(str: string): string {
 }
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
+  const rateLimitResult = await apiRateLimit.isAllowed(request, 'propostas:export:pdf')
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded', message: rateLimitResult.message ?? 'Muitas requisições', success: false },
+      { status: 429 }
+    )
+  }
+
   const user = await requireUser(request);
   if (!can(user.role as Role, 'propostas', 'read')) {
     return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });

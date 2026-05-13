@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
+import { apiRateLimit } from '@/shared/lib/rate-limit';
 
 const exportSchema = z.object({
   filename: z.string().max(100).optional(),
@@ -14,7 +15,20 @@ const exportSchema = z.object({
   }).optional(),
 })
 
+function sanitizeCsvCell(value: unknown) {
+  const stringValue = String(value ?? '')
+  return /^[=+\-@]/.test(stringValue) ? `'${stringValue}` : stringValue
+}
+
 export const POST = withErrorHandler(async (request: NextRequest) => {
+  const rateLimitResult = await apiRateLimit.isAllowed(request, 'propostas:export:csv')
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded', message: rateLimitResult.message ?? 'Muitas requisições', success: false },
+      { status: 429 }
+    )
+  }
+
   const user = await requireUser(request);
   if (!can(user.role as Role, 'propostas', 'read')) {
     return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
@@ -78,16 +92,16 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     p.status ?? '',
     p.precoPropostaCliente ? Number(p.precoPropostaCliente).toFixed(2) : '',
     p.valorEstimado ? Number(p.valorEstimado).toFixed(2) : '',
-    p.criadoEm ? new Date(p.criadoEm).toLocaleDateString('en-US') : '',
-    p.validadeProposta ? new Date(p.validadeProposta).toLocaleDateString('en-US') : '',
-    p.assinadaEm ? new Date(p.assinadaEm).toLocaleDateString('en-US') : '',
+    p.criadoEm ? new Date(p.criadoEm).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }) : '',
+    p.validadeProposta ? new Date(p.validadeProposta).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }) : '',
+    p.assinadaEm ? new Date(p.assinadaEm).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }) : '',
     p.contatoNome ?? '',
     p.contatoEmail ?? '',
     p.localExecucaoEndereco ?? '',
   ])
 
   const csvContent = [headers, ...rows]
-    .map((row) => row.map((field) => `"${String(field).replace(/"/g, '""')}"`).join(','))
+    .map((row) => row.map((field) => `"${sanitizeCsvCell(field).replace(/"/g, '""')}"`).join(','))
     .join('\n')
 
   const safeFilename = String(filename).replace(/[^a-zA-Z0-9_-]/g, '_')

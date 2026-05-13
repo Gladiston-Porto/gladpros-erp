@@ -17,6 +17,7 @@ type UserRow = {
 type ColumnRow = { COLUMN_NAME: string };
 
 type SqlValue = string | number | null | Date | boolean;
+const MAX_EXPORT_ROWS = 5000;
 
 const USER_EXPORT_COLUMNS = [
 	"id",
@@ -40,6 +41,11 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 300): P
 		try { return await fn(); } catch (e) { last = e; await new Promise(r => setTimeout(r, delayMs)); }
 	}
 	throw last;
+}
+
+function sanitizeCsvCell(value: unknown) {
+	const stringValue = String(value ?? "");
+	return /^[=+\-@]/.test(stringValue) ? `'${stringValue}` : stringValue;
 }
 
 const FiltersSchema = z.object({
@@ -135,8 +141,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 		const orderDir = (f.sortDir && f.sortDir.toUpperCase() === "ASC") ? "ASC" : "DESC";
 
 		const selectColumns = await buildUsuarioSelect(USER_EXPORT_COLUMNS);
-		const sql = `SELECT ${selectColumns} FROM Usuario ${whereSql} ORDER BY ${orderKey} ${orderDir}`;
-		const rows = (await withRetry(() => prisma.$queryRawUnsafe(sql, ...params))) as unknown as UserRow[];
+		const sql = `SELECT ${selectColumns} FROM Usuario ${whereSql} ORDER BY ${orderKey} ${orderDir} LIMIT ?`;
+		const rows = (await withRetry(() => prisma.$queryRawUnsafe(sql, ...params, MAX_EXPORT_ROWS))) as unknown as UserRow[];
 
 		// CSV
 		const headers = ["ID","Nome Completo","E-mail","Nível","Status","Criado Em"];
@@ -146,7 +152,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 			const nivel = r.role ?? r.nivel ?? "";
 			const status = r.status ?? "";
 			const criado = r.criadoEm ? new Date(r.criadoEm).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }) : "";
-			const data = [r.id, nome, r.email, nivel, status, criado].map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",");
+			const data = [r.id, nome, r.email, nivel, status, criado]
+				.map((v) => `"${sanitizeCsvCell(v).replace(/"/g, '""')}"`)
+				.join(",");
 			lines.push(data);
 		}
 		const csv = lines.join("\n");
