@@ -113,6 +113,51 @@ describe("/api/clientes - GET", () => {
       })
     );
   });
+
+  it("uses legacy endereco JSON as fallback for old address fields", async () => {
+    mockPrisma.cliente.findMany.mockResolvedValue([
+      {
+        id: 2,
+        tipo: "PF",
+        nomeCompleto: "Legacy Client",
+        razaoSocial: null,
+        nomeFantasia: null,
+        email: "legacy@email.com",
+        telefone: "4695550100",
+        endereco: {
+          rua: "Old Oak St 55",
+          cidade: "Plano",
+          estado: "TX",
+          zipcode: "75024",
+        },
+        addressStreet: null,
+        addressUnit: null,
+        addressCity: null,
+        addressState: null,
+        addressZip: null,
+        addressCounty: null,
+        docLast4: "1234",
+        status: "ATIVO",
+        criadoEm: new Date("2026-01-15T12:00:00.000Z"),
+        atualizadoEm: new Date("2026-02-15T12:00:00.000Z"),
+      },
+    ]);
+    mockPrisma.cliente.count.mockResolvedValue(1);
+
+    const response = await GET(new NextRequest("http://localhost/api/clientes"));
+    const responseData = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(responseData.data[0]).toMatchObject({
+      addressStreet: "Old Oak St 55",
+      addressCity: "Plano",
+      addressState: "TX",
+      addressZip: "75024",
+      cidade: "Plano",
+      estado: "TX",
+      zipcode: "75024",
+    });
+  });
 });
 
 describe("/api/clientes - POST", () => {

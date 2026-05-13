@@ -4,7 +4,11 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 100;
 
 const inventarioItemSchema = z.object({
   materialId: z.number().int().positive(),
@@ -128,21 +132,33 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
   const localizacaoId = searchParams.get('localizacaoId');
   const materialId = searchParams.get('materialId');
+  const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+  const requestedPageSize = Number(searchParams.get('pageSize') ?? String(DEFAULT_PAGE_SIZE)) || DEFAULT_PAGE_SIZE;
+  const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, requestedPageSize));
+  const skip = (page - 1) * pageSize;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = {};
+  const where: Prisma.MaterialSaldoWhereInput = {};
   if (localizacaoId) where.localizacaoId = parseInt(localizacaoId);
   if (materialId) where.materialId = parseInt(materialId);
 
-  const saldos = await prisma.materialSaldo.findMany({
-    where,
-    include: {
-      material: { select: { id: true, nome: true, codigo: true, unidade: true } },
-      localizacao: { select: { id: true, nome: true, codigo: true } },
-      lote: { select: { id: true, codigoLote: true, dataValidade: true } },
-    },
-    orderBy: [{ material: { nome: 'asc' } }, { localizacao: { nome: 'asc' } }],
-  });
+  const [total, saldos] = await Promise.all([
+    prisma.materialSaldo.count({ where }),
+    prisma.materialSaldo.findMany({
+      where,
+      include: {
+        material: { select: { id: true, nome: true, codigo: true, unidade: true } },
+        localizacao: { select: { id: true, nome: true, codigo: true } },
+        lote: { select: { id: true, codigoLote: true, dataValidade: true } },
+      },
+      orderBy: [{ material: { nome: 'asc' } }, { localizacao: { nome: 'asc' } }],
+      take: pageSize,
+      skip,
+    }),
+  ]);
 
-  return NextResponse.json({ data: saldos });
+  return NextResponse.json({
+    data: saldos,
+    pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+    success: true,
+  });
 });

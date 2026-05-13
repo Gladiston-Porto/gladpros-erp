@@ -36,6 +36,37 @@ function extensionForMime(mime: string): string {
     }
 }
 
+function hasValidMagicBytes(mime: string, bytes: Buffer): boolean {
+    if (bytes.length === 0) return false;
+
+    if (mime === "image/jpeg") {
+        return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    }
+
+    if (mime === "image/png") {
+        return bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    }
+
+    if (mime === "image/webp") {
+        return bytes.length >= 12
+            && bytes.subarray(0, 4).toString("ascii") === "RIFF"
+            && bytes.subarray(8, 12).toString("ascii") === "WEBP";
+    }
+
+    if (mime === "image/heic") {
+        const brand = bytes.length >= 12 ? bytes.subarray(8, 12).toString("ascii") : "";
+        return bytes.length >= 12
+            && bytes.subarray(4, 8).toString("ascii") === "ftyp"
+            && ["heic", "heix", "hevc", "hevx", "mif1", "msf1"].includes(brand);
+    }
+
+    if (mime === "application/pdf") {
+        return bytes.length >= 5 && bytes.subarray(0, 5).toString("ascii") === "%PDF-";
+    }
+
+    return false;
+}
+
 const VALID_TYPES = new Set([
     "BEFORE_PHOTO",
     "AFTER_PHOTO",
@@ -188,6 +219,17 @@ export const POST = withErrorHandler(async (
         return NextResponse.json({ error: "Validation failed", message: "Arquivo muito grande. Máximo 15MB.", success: false }, { status: 400 });
     }
 
+    const bytes = Buffer.from(await file.arrayBuffer());
+    if (bytes.length > MAX_SIZE) {
+        return NextResponse.json({ error: "Validation failed", message: "Arquivo muito grande. Máximo 15MB.", success: false }, { status: 400 });
+    }
+    if (!hasValidMagicBytes(file.type, bytes)) {
+        return NextResponse.json(
+            { error: "Validation failed", message: "Conteúdo do arquivo não corresponde ao formato informado.", success: false },
+            { status: 400 }
+        );
+    }
+
     const safeFilename = `${type.toLowerCase()}-${orderId}-${Date.now()}${extensionForMime(file.type)}`;
 
     // Build upload dir: uploads/service-orders/{orderId}/{type}/
@@ -202,8 +244,7 @@ export const POST = withErrorHandler(async (
         return NextResponse.json({ error: "Validation failed", message: "Caminho inválido", success: false }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    await writeFile(filePath, Buffer.from(bytes));
+    await writeFile(filePath, bytes);
 
     // Relative path for DB + serving via /api/uploads/
     const relPath = `service-orders/${orderId}/${typeDir}/${safeFilename}`;

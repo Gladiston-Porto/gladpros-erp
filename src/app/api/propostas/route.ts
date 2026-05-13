@@ -10,6 +10,7 @@ import { can, type Role } from '@/shared/lib/rbac-core';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { generateNumeroProposta } from '@/shared/lib/services/proposta-numbering';
 import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
+import { getUnsupportedBillingTrigger, unsupportedBillingTriggerMessage } from '@/domains/proposals/services/billingTriggerPolicy';
 import type { Prisma, Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, Proposta_status, PropostaMaterial_status, PropostaEtapa_status, PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
 
 /** Normaliza texto livre de forma de pagamento para o enum do Prisma. */
@@ -159,6 +160,13 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     }
     const body = createPropostaSchema.parse(await request.json()) as unknown as PropostaFormData
     const payload = adaptPropostaFormToAPI(body);
+    const unsupportedTrigger = getUnsupportedBillingTrigger(payload.gatilhoFaturamento);
+    if (unsupportedTrigger) {
+      return NextResponse.json(
+        { error: 'Unsupported billing trigger', message: unsupportedBillingTriggerMessage(unsupportedTrigger), success: false },
+        { status: 400 }
+      );
+    }
     try {
     const numeroProposta = await generateNumeroProposta();
     const taxFields = computePropostaTax({

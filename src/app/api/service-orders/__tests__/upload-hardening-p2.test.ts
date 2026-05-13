@@ -81,7 +81,7 @@ describe('Service Order upload hardening', () => {
         name: 'invoice.php',
         type: 'image/png',
         size: 1024,
-        arrayBuffer: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer),
+        arrayBuffer: jest.fn().mockResolvedValue(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).buffer),
       }),
       { params: Promise.resolve({ id: '123' }) }
     );
@@ -94,5 +94,23 @@ describe('Service Order upload hardening', () => {
     expect(savedPath).not.toContain('.php');
     expect(writePath).toMatch(/\.png$/);
     expect(writePath).not.toContain('.php');
+  });
+
+  it('rejects files whose magic bytes do not match the declared MIME type', async () => {
+    const response = await POST(
+      multipartRequest({
+        name: 'fake.png',
+        type: 'image/png',
+        size: 1024,
+        arrayBuffer: jest.fn().mockResolvedValue(new TextEncoder().encode('<?php echo "x";').buffer),
+      }),
+      { params: Promise.resolve({ id: '123' }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.success).toBe(false);
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(attachmentCreateMock).not.toHaveBeenCalled();
   });
 });

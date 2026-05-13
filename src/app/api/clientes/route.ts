@@ -17,6 +17,51 @@ import { withBusinessCache } from '@/shared/lib/cache/business-cache';
 
 export const runtime = "nodejs"
 
+type LegacyAddress = {
+  addressStreet?: unknown;
+  addressUnit?: unknown;
+  addressCity?: unknown;
+  addressState?: unknown;
+  addressZip?: unknown;
+  addressCounty?: unknown;
+  street?: unknown;
+  rua?: unknown;
+  logradouro?: unknown;
+  cidade?: unknown;
+  estado?: unknown;
+  zipcode?: unknown;
+  zip?: unknown;
+  county?: unknown;
+};
+
+function legacyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function parseLegacyAddress(endereco: Prisma.JsonValue | null): LegacyAddress {
+  return endereco && typeof endereco === 'object' && !Array.isArray(endereco) ? endereco as LegacyAddress : {};
+}
+
+function resolveAddress(cliente: {
+  endereco: Prisma.JsonValue | null;
+  addressStreet: string | null;
+  addressUnit: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressZip: string | null;
+  addressCounty: string | null;
+}) {
+  const legacy = parseLegacyAddress(cliente.endereco);
+  return {
+    addressStreet: cliente.addressStreet ?? legacyString(legacy.addressStreet) ?? legacyString(legacy.street) ?? legacyString(legacy.rua) ?? legacyString(legacy.logradouro),
+    addressUnit: cliente.addressUnit ?? legacyString(legacy.addressUnit),
+    addressCity: cliente.addressCity ?? legacyString(legacy.addressCity) ?? legacyString(legacy.cidade),
+    addressState: cliente.addressState ?? legacyString(legacy.addressState) ?? legacyString(legacy.estado),
+    addressZip: cliente.addressZip ?? legacyString(legacy.addressZip) ?? legacyString(legacy.zipcode) ?? legacyString(legacy.zip),
+    addressCounty: cliente.addressCounty ?? legacyString(legacy.addressCounty) ?? legacyString(legacy.county),
+  };
+}
+
 /**
  * GET /api/clientes - Lista clientes com filtros e paginação
  */
@@ -164,26 +209,27 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           prisma.cliente.count({ where })
         ])
 
-        const data = clientes.map(cliente => ({
-          id: cliente.id,
-          tipo: cliente.tipo,
-          nomeCompletoOuRazao: cliente.tipo === 'PF'
-            ? (cliente.nomeCompleto || 'Nome não informado')
-            : (cliente.nomeFantasia || cliente.razaoSocial || 'Razão social não informada'),
-          email: cliente.email,
-          telefone: formatTelefone(cliente.telefone || ''),
-          endereco: cliente.endereco,
-          addressStreet: cliente.addressStreet,
-          addressUnit: cliente.addressUnit,
-          addressCity: cliente.addressCity,
-          addressState: cliente.addressState,
-          addressZip: cliente.addressZip,
-          addressCounty: cliente.addressCounty,
-          documentoMasked: maskDocumento(cliente.docLast4 || '', cliente.tipo),
-          ativo: cliente.status === 'ATIVO',
-          criadoEm: cliente.criadoEm.toISOString(),
-          atualizadoEm: cliente.atualizadoEm.toISOString()
-        }))
+        const data = clientes.map(cliente => {
+          const address = resolveAddress(cliente);
+          return {
+            id: cliente.id,
+            tipo: cliente.tipo,
+            nomeCompletoOuRazao: cliente.tipo === 'PF'
+              ? (cliente.nomeCompleto || 'Nome não informado')
+              : (cliente.nomeFantasia || cliente.razaoSocial || 'Razão social não informada'),
+            email: cliente.email,
+            telefone: formatTelefone(cliente.telefone || ''),
+            endereco: cliente.endereco,
+            ...address,
+            cidade: address.addressCity,
+            estado: address.addressState,
+            zipcode: address.addressZip,
+            documentoMasked: maskDocumento(cliente.docLast4 || '', cliente.tipo),
+            ativo: cliente.status === 'ATIVO',
+            criadoEm: cliente.criadoEm.toISOString(),
+            atualizadoEm: cliente.atualizadoEm.toISOString()
+          };
+        })
 
         return { data, total }
       },

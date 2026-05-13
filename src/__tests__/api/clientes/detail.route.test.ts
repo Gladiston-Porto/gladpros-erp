@@ -108,4 +108,51 @@ describe("/api/clientes/[id] - GET", () => {
     expect(mockPrisma.invoice.aggregate).not.toHaveBeenCalled();
     expect(mockPrisma.invoice.findFirst).not.toHaveBeenCalled();
   });
+
+  it("usa endereco legado como fallback para registros antigos", async () => {
+    mockPrisma.cliente.findUnique.mockResolvedValueOnce({
+      id: 8,
+      tipo: "PF",
+      nomeCompleto: "Legacy Client",
+      razaoSocial: null,
+      nomeFantasia: null,
+      email: "legacy@example.com",
+      telefone: "(469) 555-0101",
+      nomeChave: "legacy-client",
+      endereco: {
+        rua: "Old Main St 10",
+        cidade: "Irving",
+        estado: "TX",
+        zipcode: "75039",
+      },
+      addressStreet: null,
+      addressUnit: null,
+      addressCity: null,
+      addressState: null,
+      addressZip: null,
+      addressCounty: null,
+      status: "ATIVO",
+      documentoEnc: "enc",
+      docLast4: "1234",
+      observacoes: null,
+      criadoEm: new Date("2026-01-01T00:00:00.000Z"),
+      atualizadoEm: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    (requireClientePermission as jest.Mock).mockResolvedValue({ id: "1", role: "ADMIN" });
+    (can as jest.Mock).mockReturnValue(true);
+
+    const response = await GET(new NextRequest("http://localhost/api/clientes/8"), { params: Promise.resolve({ id: "8" }) });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.data).toMatchObject({
+      addressStreet: "Old Main St 10",
+      addressCity: "Irving",
+      addressState: "TX",
+      addressZip: "75039",
+      cidade: "Irving",
+      estado: "TX",
+      zipcode: "75039",
+    });
+  });
 });

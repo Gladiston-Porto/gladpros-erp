@@ -8,6 +8,7 @@ import { updatePropostaSchema } from '@/schemas/proposta.schema';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
+import { getUnsupportedBillingTrigger, unsupportedBillingTriggerMessage } from '@/domains/proposals/services/billingTriggerPolicy';
 import type { Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, PropostaMaterial_status, PropostaEtapa_status, PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
 
 function normalizeFormaPagamento(value?: string): Proposta_formaPagamentoPreferida | undefined {
@@ -99,6 +100,13 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: Rou
     const body = updatePropostaSchema.parse(await request.json()) as unknown as PropostaFormData
     // Convert form data to API/DB payload
     const payload = adaptPropostaFormToAPI(body)
+    const unsupportedTrigger = getUnsupportedBillingTrigger(payload.gatilhoFaturamento);
+    if (unsupportedTrigger) {
+      return NextResponse.json(
+        { error: 'Unsupported billing trigger', message: unsupportedBillingTriggerMessage(unsupportedTrigger), success: false },
+        { status: 400 }
+      );
+    }
 
     const taxFields = computePropostaTax({
       valorEstimado: payload.valorEstimado,

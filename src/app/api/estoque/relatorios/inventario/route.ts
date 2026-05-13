@@ -22,6 +22,9 @@ import { can, type Role } from '@/shared/lib/rbac-core';
 
 export const dynamic = 'force-dynamic';
 
+const DEFAULT_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = 250;
+
 /**
  * GET /api/estoque/relatorios/inventario
  * 
@@ -44,6 +47,11 @@ async function handler(request: NextRequest) {
   const localizacaoId = filters?.localizacaoId ? Number(filters.localizacaoId) : undefined;
   const apenasAtivos = filters?.apenasAtivos !== 'false'; // Default true
   const incluirValores = filters?.incluirValores === 'true'; // Default false
+  const url = new URL(request.url);
+  const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1);
+  const requestedPageSize = Number(url.searchParams.get('pageSize') ?? String(DEFAULT_PAGE_SIZE)) || DEFAULT_PAGE_SIZE;
+  const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, requestedPageSize));
+  const skip = (page - 1) * pageSize;
   
   // 4. LOG
   logger.info('Gerando relatório de inventário', createLogContext(request, user), {
@@ -84,6 +92,17 @@ async function handler(request: NextRequest) {
       ${categoriaId ? Prisma.sql`AND m.categoria_id = ${categoriaId}` : Prisma.empty}
       ${localizacaoId ? Prisma.sql`AND l.id = ${localizacaoId}` : Prisma.empty}
     ORDER BY m.codigo, l.nome
+    LIMIT ${pageSize} OFFSET ${skip}
+  `;
+
+  const totalMateriaisRows = await prisma.$queryRaw<Array<{ total: bigint | number }>>`
+    SELECT COUNT(*) as total
+    FROM materiais m
+    LEFT JOIN materiais_saldo ms ON ms.material_id = m.id
+    LEFT JOIN localizacoes l ON l.id = ms.localizacao_id
+    WHERE ${apenasAtivos ? Prisma.sql`m.ativo = true` : Prisma.sql`1=1`}
+      ${categoriaId ? Prisma.sql`AND m.categoria_id = ${categoriaId}` : Prisma.empty}
+      ${localizacaoId ? Prisma.sql`AND l.id = ${localizacaoId}` : Prisma.empty}
   `;
   
   // 6. INVENTÁRIO DE EQUIPAMENTOS
@@ -108,6 +127,15 @@ async function handler(request: NextRequest) {
     },
     orderBy: {
       codigo: 'asc'
+    },
+    take: pageSize,
+    skip,
+  });
+
+  const totalEquipamentos = await prisma.equipamento.count({
+    where: {
+      ...(apenasAtivos ? { ativo: true } : {}),
+      ...(categoriaId ? { categoriaId } : {})
     }
   });
   
@@ -209,7 +237,21 @@ async function handler(request: NextRequest) {
       localizacaoId,
       apenasAtivos,
       incluirValores,
+      page,
+      pageSize,
       dataGeracao: new Date()
+    },
+    pagination: {
+      page,
+      pageSize,
+      materiais: {
+        total: Number(totalMateriaisRows[0]?.total ?? 0),
+        totalPages: Math.ceil(Number(totalMateriaisRows[0]?.total ?? 0) / pageSize),
+      },
+      equipamentos: {
+        total: totalEquipamentos,
+        totalPages: Math.ceil(totalEquipamentos / pageSize),
+      },
     },
     
     totaisGerais: totaisGerais.length > 0 ? {

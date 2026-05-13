@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 
 import { requireClientePermission } from '@/shared/lib/rbac'
 import { clienteUpdateSchema, clienteParamsSchema } from '@/shared/lib/validations/cliente'
@@ -21,6 +22,51 @@ import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { can, type Role } from '@/shared/lib/rbac-core';
 
 export const runtime = 'nodejs'
+
+type LegacyAddress = {
+  addressStreet?: unknown;
+  addressUnit?: unknown;
+  addressCity?: unknown;
+  addressState?: unknown;
+  addressZip?: unknown;
+  addressCounty?: unknown;
+  street?: unknown;
+  rua?: unknown;
+  logradouro?: unknown;
+  cidade?: unknown;
+  estado?: unknown;
+  zipcode?: unknown;
+  zip?: unknown;
+  county?: unknown;
+};
+
+function legacyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function parseLegacyAddress(endereco: Prisma.JsonValue | null): LegacyAddress {
+  return endereco && typeof endereco === 'object' && !Array.isArray(endereco) ? endereco as LegacyAddress : {};
+}
+
+function resolveAddress(cliente: {
+  endereco: Prisma.JsonValue | null;
+  addressStreet: string | null;
+  addressUnit: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressZip: string | null;
+  addressCounty: string | null;
+}) {
+  const legacy = parseLegacyAddress(cliente.endereco);
+  return {
+    addressStreet: cliente.addressStreet ?? legacyString(legacy.addressStreet) ?? legacyString(legacy.street) ?? legacyString(legacy.rua) ?? legacyString(legacy.logradouro),
+    addressUnit: cliente.addressUnit ?? legacyString(legacy.addressUnit),
+    addressCity: cliente.addressCity ?? legacyString(legacy.addressCity) ?? legacyString(legacy.cidade),
+    addressState: cliente.addressState ?? legacyString(legacy.addressState) ?? legacyString(legacy.estado),
+    addressZip: cliente.addressZip ?? legacyString(legacy.addressZip) ?? legacyString(legacy.zipcode) ?? legacyString(legacy.zip),
+    addressCounty: cliente.addressCounty ?? legacyString(legacy.addressCounty) ?? legacyString(legacy.county),
+  };
+}
 
 /**
  * GET /api/clientes/[id] - Obter detalhes de um cliente
@@ -105,6 +151,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
     // Preparar resposta base
     // Use inferred or loose type for response to include new fields without explicit interface block if tedious,
     // but explicit is better for documentation.
+    const address = resolveAddress(cliente);
     const response = {
       id: cliente.id,
       tipo: cliente.tipo,
@@ -113,12 +160,10 @@ export const GET = withErrorHandler(async (request: NextRequest,
       nomeFantasia: cliente.nomeFantasia,
       email: cliente.email,
       telefone: formatTelefone(cliente.telefone || ''),
-      addressStreet: cliente.addressStreet,
-      addressUnit: cliente.addressUnit,
-      addressCity: cliente.addressCity,
-      addressState: cliente.addressState,
-      addressZip: cliente.addressZip,
-      addressCounty: cliente.addressCounty,
+      ...address,
+      cidade: address.addressCity,
+      estado: address.addressState,
+      zipcode: address.addressZip,
       observacoes: cliente.observacoes,
       ativo: cliente.status === 'ATIVO',
       documentoMasked: maskDocumento(cliente.docLast4 || '', cliente.tipo),
