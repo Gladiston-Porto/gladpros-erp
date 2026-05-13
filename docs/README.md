@@ -44,6 +44,7 @@ Cada módulo segue o template de 10 seções: Visão Geral, Arquitetura, Modelo 
 
 > **Importante:** documentação antiga dizendo "produção" ou "completo" não substitui a certificação atual.
 > Um módulo só deve ser declarado **Production Ready** se passar pelo gate em `docs/architecture/06-production-readiness.md`.
+> Certificação atual dos módulos auditados: `docs/modules/00-production-readiness-certification.md`.
 
 ### ✅ Auth
 ```

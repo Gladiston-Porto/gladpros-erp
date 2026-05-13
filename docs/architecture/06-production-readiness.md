@@ -97,6 +97,18 @@ Exemplos de regressao obrigatoria:
 | Cron sem secret | `CRON_SECRET` ausente falha fechado e nao executa job. |
 | MFA resend por userId | Reenvio exige challenge token e aplica rate limit. |
 
+## Regra sobre mocks em testes
+
+Mocks sao normais e permitidos em testes unitarios (`*.test.ts`, `src/__tests__/**`) para isolar banco, auth, RBAC, email, PDF e servicos externos. Isso nao significa dado falso no sistema real.
+
+Mas mock nao e certificacao de producao por si so. Para declarar um modulo **Production Ready**:
+
+1. o mock deve validar uma regra real, nao inventar comportamento desejado;
+2. nenhum mock/fake/demo data pode existir no fluxo real de `src/app/**`, `src/components/**` ou `src/app/api/**`;
+3. botoes, graficos, cards e exports criticos devem ter validacao integrada, E2E ou contrato real com dados controlados;
+4. se a unica evidencia de um fluxo critico for teste mockado, o item deve ficar como P2 ate haver validacao real;
+5. testes E2E devem usar seed/dados controlados sempre que possivel, nao mocks que escondam falhas de API ou RBAC.
+
 ## Regras para documentacao de modulo
 
 Documentos em `docs/modules/<modulo>/` podem dizer que o modulo esta completo apenas se apontarem para a certificacao atual.
