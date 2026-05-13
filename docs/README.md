@@ -32,7 +32,9 @@ docs/architecture/
 ├── 03-quality-standards.md     # Padrões de qualidade de código
 ├── 04-rbac.md                  # Modelo de controle de acesso (RBAC)
 ├── 05-typescript-guide.md      # Guia TypeScript do projeto
-└── 06-production-readiness.md  # Gate obrigatório para declarar módulo production-ready
+├── 06-production-readiness.md  # Gate obrigatório para declarar módulo production-ready
+├── 07-modular-arch-plan.md     # Plano de reorganização modular da documentação/código
+└── 08-engineering-vision-and-action-plan.md  # Visão de engenharia e plano de discussão
 ```
 
 ---
