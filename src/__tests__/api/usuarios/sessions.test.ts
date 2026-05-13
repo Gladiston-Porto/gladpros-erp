@@ -28,8 +28,12 @@ jest.mock('@/shared/lib/rbac', () => ({
   requireUser: jest.fn(),
 }));
 
-jest.mock('@/shared/lib/rbac-core', () => ({
-  can: jest.fn(),
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
+    usuario: {
+      findUnique: jest.fn(),
+    },
+  },
 }));
 
 jest.mock('@/shared/lib/rate-limit', () => ({
@@ -52,12 +56,11 @@ jest.mock('@/lib/api/error-handler', () => ({
 }));
 
 import { requireUser } from '@/shared/lib/rbac';
-import { can } from '@/shared/lib/rbac-core';
 import { SecurityService } from '@/shared/lib/security';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
+import { prisma } from '@/lib/prisma';
 
 const mockRequireUser = requireUser as jest.MockedFunction<typeof requireUser>;
-const mockCan = can as jest.MockedFunction<typeof can>;
 const mockGetSessions = SecurityService.getUserSessions as jest.Mock;
 const mockRevokeAll = SecurityService.revokeAllUserSessions as jest.Mock;
 const mockRateLimit = apiRateLimit.isAllowed as jest.Mock;
@@ -70,6 +73,7 @@ describe('GET /api/usuarios/[id]/sessions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetTime: Date.now() + 60000, message: '' });
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValue({ nivel: 'USUARIO' });
   });
 
   it('401 — sem autenticação', async () => {
@@ -81,7 +85,7 @@ describe('GET /api/usuarios/[id]/sessions', () => {
 
   it('403 — USUARIO acessando sessões de outro usuário', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 99, role: 'USUARIO', email: 'u@test.com' } as any);
-    mockCan.mockReturnValueOnce(false);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'ADMIN' });
     const { GET } = await import('@/app/api/usuarios/[id]/sessions/route');
     const res = await GET(makeRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(403);
@@ -102,7 +106,7 @@ describe('GET /api/usuarios/[id]/sessions', () => {
 
   it('200 — ADMIN pode ver sessões de outro usuário', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    mockCan.mockReturnValueOnce(true);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'USUARIO' });
     mockGetSessions.mockResolvedValueOnce([]);
     const { GET } = await import('@/app/api/usuarios/[id]/sessions/route');
     const res = await GET(makeRequest('2'), { params: Promise.resolve({ id: '2' }) });
@@ -114,6 +118,7 @@ describe('DELETE /api/usuarios/[id]/sessions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetTime: Date.now() + 60000, message: '' });
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValue({ nivel: 'USUARIO' });
   });
 
   it('401 — sem autenticação', async () => {
@@ -135,7 +140,7 @@ describe('DELETE /api/usuarios/[id]/sessions', () => {
   it('403 — USUARIO revogando sessões de outro usuário', async () => {
     mockRateLimit.mockResolvedValueOnce({ allowed: true, remaining: 99, resetTime: Date.now() + 60000, message: '' });
     mockRequireUser.mockResolvedValueOnce({ id: 99, role: 'USUARIO', email: 'u@test.com' } as any);
-    mockCan.mockReturnValueOnce(false);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'ADMIN' });
     const { DELETE } = await import('@/app/api/usuarios/[id]/sessions/route');
     const res = await DELETE(makeRequest('5', 'DELETE'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(403);
@@ -156,7 +161,7 @@ describe('DELETE /api/usuarios/[id]/sessions', () => {
   it('200 — ADMIN revoga sessões de outro usuário', async () => {
     mockRateLimit.mockResolvedValueOnce({ allowed: true, remaining: 99, resetTime: Date.now() + 60000, message: '' });
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    mockCan.mockReturnValueOnce(true);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'USUARIO' });
     mockRevokeAll.mockResolvedValueOnce(undefined);
     const { DELETE } = await import('@/app/api/usuarios/[id]/sessions/route');
     const res = await DELETE(makeRequest('3', 'DELETE'), { params: Promise.resolve({ id: '3' }) });

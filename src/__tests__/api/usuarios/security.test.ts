@@ -19,16 +19,15 @@ import { NextRequest } from 'next/server';
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
+    usuario: {
+      findUnique: jest.fn(),
+    },
     $queryRaw: jest.fn(),
   },
 }));
 
 jest.mock('@/shared/lib/rbac', () => ({
   requireUser: jest.fn(),
-}));
-
-jest.mock('@/shared/lib/rbac-core', () => ({
-  can: jest.fn(),
 }));
 
 jest.mock('@/lib/api/error-handler', () => ({
@@ -45,11 +44,9 @@ jest.mock('@/lib/api/error-handler', () => ({
 }));
 
 import { requireUser } from '@/shared/lib/rbac';
-import { can } from '@/shared/lib/rbac-core';
 import { prisma } from '@/lib/prisma';
 
 const mockRequireUser = requireUser as jest.MockedFunction<typeof requireUser>;
-const mockCan = can as jest.MockedFunction<typeof can>;
 
 function makeRequest(userId = '1') {
   return new NextRequest(`http://localhost/api/usuarios/${userId}/security`);
@@ -58,6 +55,7 @@ function makeRequest(userId = '1') {
 describe('GET /api/usuarios/[id]/security', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValue({ nivel: 'USUARIO' });
   });
 
   it('401 — sem autenticação', async () => {
@@ -70,7 +68,6 @@ describe('GET /api/usuarios/[id]/security', () => {
   it('400 — id inválido', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
     // NOTE: can() is never called — route returns 400 before the authorization check
-    // Do NOT set mockCan here to avoid polluting the queue for subsequent tests
     const { GET } = await import('@/app/api/usuarios/[id]/security/route');
     const res = await GET(makeRequest('abc'), { params: Promise.resolve({ id: 'abc' }) });
     expect(res.status).toBe(400);
@@ -78,7 +75,7 @@ describe('GET /api/usuarios/[id]/security', () => {
 
   it('403 — USUARIO acessando outro usuário', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 99, role: 'USUARIO', email: 'u@test.com' } as any);
-    mockCan.mockReturnValueOnce(false);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'ADMIN' });
     const { GET } = await import('@/app/api/usuarios/[id]/security/route');
     const res = await GET(makeRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(403);
@@ -103,7 +100,7 @@ describe('GET /api/usuarios/[id]/security', () => {
 
   it('200 — ADMIN pode ver dados de segurança de outro usuário', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    mockCan.mockReturnValueOnce(true);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'USUARIO' });
     (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([
       { id: 2, bloqueado: true, bloqueadoEm: new Date('2024-01-10T08:00:00Z'), ultimoLoginEm: null },
     ]);
@@ -117,7 +114,7 @@ describe('GET /api/usuarios/[id]/security', () => {
 
   it('404 — usuário não encontrado', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    mockCan.mockReturnValueOnce(true);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'USUARIO' });
     (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([]); // empty result
     const { GET } = await import('@/app/api/usuarios/[id]/security/route');
     const res = await GET(makeRequest('999'), { params: Promise.resolve({ id: '999' }) });
@@ -126,7 +123,7 @@ describe('GET /api/usuarios/[id]/security', () => {
 
   it('retorna bloqueado=true quando bloqueado=1 (MySQL tinyint)', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    mockCan.mockReturnValueOnce(true);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'USUARIO' });
     (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([
       { id: 3, bloqueado: 1, bloqueadoEm: new Date(), ultimoLoginEm: null },
     ]);

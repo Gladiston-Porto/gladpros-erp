@@ -22,6 +22,7 @@ jest.mock('next/server', () => {
       url,
       method: (init?.method ?? 'POST').toUpperCase(),
       headers: { get: (name: string) => { const h = (init?.headers ?? {}) as Record<string, string>; return h[name] ?? h[name.toLowerCase()] ?? null; } },
+      cookies: { get: jest.fn().mockReturnValue(null) },
       json: jest.fn().mockImplementation(() => {
         if (init?.body) { try { return Promise.resolve(JSON.parse(init.body)); } catch { return Promise.resolve({}); } }
         return Promise.resolve({});
@@ -103,6 +104,7 @@ function makePostRequest(body = {}) {
 describe('POST /api/usuarios/export/csv', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.APP_URL = 'http://localhost:3000';
     mockRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetTime: Date.now() + 60000, message: '' });
   });
 

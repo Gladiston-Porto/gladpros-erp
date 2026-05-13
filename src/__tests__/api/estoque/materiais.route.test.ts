@@ -41,6 +41,7 @@ jest.mock('@/lib/prisma', () => ({
       groupBy: jest.fn().mockResolvedValue([]),
     },
     auditLog: { create: jest.fn() },
+    $transaction: jest.fn(),
   },
 }));
 
@@ -199,6 +200,7 @@ describe('POST /api/estoque/materiais', () => {
     mockCan.mockReturnValue(true);
     (mockPrisma.material.findFirst as jest.Mock).mockResolvedValue(null); // no duplicate
     (mockPrisma.material.create as jest.Mock).mockResolvedValue({ ...mockMaterial, ...validBody, id: 2 });
+    (mockPrisma.$transaction as jest.Mock).mockImplementation((callback) => callback(mockPrisma));
   });
 
   it('201 — creates material successfully', async () => {
