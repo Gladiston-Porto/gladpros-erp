@@ -102,7 +102,9 @@ docs/modules/projetos/
 ├── 00-spec.md                  # Especificação do módulo
 ├── 01-implementation-plan.md   # Plano de implementação
 ├── 02-stages-integration.md    # Integração de etapas
-└── 03-bugfix-infinite-loop.md  # Fix: loop infinito
+├── 03-bugfix-infinite-loop.md  # Fix: loop infinito
+├── 04-atualizacao-2026-05.md   # Log de atualizações e auditoria parcial
+└── 05-production-hardening-plan.md  # Plano de auditoria e hardening para production readiness
 ```
 
 ### ✅ Propostas
