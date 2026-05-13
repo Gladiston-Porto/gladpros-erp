@@ -7,9 +7,12 @@ export type BadgeVariant = ComponentProps<typeof Badge>['variant']
 
 export const STATUS_BADGE_VARIANTS: Record<ProjetoStatus, BadgeVariant> = {
   planejado: 'projectPlanning',
-  em_andamento: 'projectActive',
-  pausado: 'projectOnHold',
+  em_execucao: 'projectActive',
+  em_inspecao: 'info',
+  aguardando_devolucoes: 'warning',
   concluido: 'projectCompleted',
+  arquivado: 'secondary',
+  suspenso: 'projectOnHold',
   cancelado: 'projectCancelled',
 }
 
@@ -17,7 +20,7 @@ export const PRIORITY_BADGE_VARIANTS: Record<ProjetoPrioridade, BadgeVariant> = 
   baixa: 'secondary',
   media: 'info',
   alta: 'warning',
-  urgente: 'error',
+  critica: 'error',
 }
 
 export function getHealthBadge(

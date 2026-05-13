@@ -33,6 +33,12 @@ jest.mock('../../../shared/lib/email', () => ({
   },
 }))
 
+jest.mock('../../../shared/lib/rate-limit', () => ({
+  mfaRateLimit: {
+    isAllowed: jest.fn().mockResolvedValue({ allowed: true }),
+  },
+}))
+
 const ACTIVE_USER = {
   id: 3,
   email: 'ativo@gladpros.com',
@@ -46,6 +52,7 @@ describe('POST /api/auth/mfa/request', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    require('../../../shared/lib/rate-limit').mfaRateLimit.isAllowed.mockResolvedValue({ allowed: true })
     require('../../../lib/prisma').prisma.$queryRaw.mockResolvedValue([ACTIVE_USER])
 
     mockRequest = {

@@ -69,7 +69,6 @@ async function postHandler(
           codigo: true,
           nome: true,
           pontoReposicao: true,
-          empresaId: true,
         }
       }
     }
@@ -128,7 +127,7 @@ async function postHandler(
   const sc = await prisma.$transaction(async (tx) => {
     const novaSC = await tx.solicitacaoCompra.create({
       data: {
-        empresaId: alerta.material!.empresaId,
+        empresaId: 1, // single-tenant
         origemTipo: 'ALERTA_ESTOQUE',
         origemId: Number(alertaId),
         status: 'RASCUNHO',

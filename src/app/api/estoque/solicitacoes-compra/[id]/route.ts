@@ -86,7 +86,7 @@ const patchSchema = z.object({
 
 async function patchHandler(request: NextRequest, { params }: Params) {
   const user = await requireUser(request);
-  if (!can(user.role as Role, 'estoque', 'write')) return forbiddenResponse();
+  if (!can(user.role as Role, 'estoque', 'update')) return forbiddenResponse();
 
   const { id } = await params;
   const scId = Number(id);
@@ -108,7 +108,7 @@ async function patchHandler(request: NextRequest, { params }: Params) {
   const dados = parsed.data;
 
   const updated = await prisma.$transaction(async (tx) => {
-    let valorEstimado = sc.valorEstimado;
+    let valorEstimado: number = Number(sc.valorEstimado ?? 0);
 
     if (dados.itens) {
       // Remove todos os itens existentes e recria

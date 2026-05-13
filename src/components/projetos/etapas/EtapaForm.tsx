@@ -21,7 +21,7 @@ import type { ProjetoEtapa, EtapaInput } from '@/lib/projetos/types';
 const etapaSchema = z.object({
   nome: z.string().min(3, 'Mínimo 3 caracteres').max(150, 'Máximo 150 caracteres'),
   descricao: z.string().optional(),
-  status: z.enum(['pendente', 'em_andamento', 'concluida', 'bloqueada']),
+  status: z.enum(['pendente', 'em_andamento', 'em_validacao', 'concluida', 'bloqueada', 'cancelada']),
   dataInicioPrevista: z.string().nullable().optional(),
   dataInicioReal: z.string().nullable().optional(),
   dataConclusaoPrevista: z.string().nullable().optional(),

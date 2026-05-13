@@ -37,7 +37,7 @@ const itemSchema = z.object({
 });
 
 const formSchema = z.object({
-  origemTipo: z.enum(['MANUAL', 'PROJETO', 'OS', 'ALERTA_ESTOQUE']).default('MANUAL'),
+  origemTipo: z.enum(['MANUAL', 'PROJETO', 'OS', 'ALERTA_ESTOQUE']),
   observacoes: z.string().optional(),
   itens: z.array(itemSchema).min(1, 'Adicione pelo menos 1 item'),
 });

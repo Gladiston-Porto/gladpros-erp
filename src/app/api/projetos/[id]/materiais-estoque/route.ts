@@ -102,7 +102,7 @@ async function postHandler(
   // Verificar projeto existe
   const projeto = await prisma.projeto.findUnique({
     where: { id: projetoId },
-    select: { id: true, empresaId: true, numeroProjeto: true, titulo: true, status: true }
+    select: { id: true, numeroProjeto: true, titulo: true, status: true }
   });
   if (!projeto) return notFoundResponse('Projeto não encontrado');
 
@@ -135,7 +135,7 @@ async function postHandler(
     totalDisponivel
   });
 
-  const empresaId = projeto.empresaId;
+  const empresaId = 1; // single-tenant
 
   if (totalDisponivel >= dados.quantidade - 0.001) {
     // ── CAMINHO 1: Saldo suficiente → RESERVADA ──────────────────────────────

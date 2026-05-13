@@ -47,7 +47,6 @@ async function postHandler(
     where: { id: projetoId },
     select: {
       id: true,
-      empresaId: true,
       numeroProjeto: true,
       titulo: true,
       materiaisEstoque: {
@@ -184,7 +183,7 @@ async function postHandler(
         );
         const novaS = await tx.solicitacaoCompra.create({
           data: {
-            empresaId: projeto.empresaId,
+            empresaId: 1, // single-tenant
             origemTipo: 'PROJETO',
             origemId: projetoId,
             status: 'RASCUNHO',

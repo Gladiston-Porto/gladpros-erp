@@ -469,12 +469,15 @@ export function MateriaisEstoqueTab({ projetoId }: Props) {
             <div className="space-y-2">
               <Label>Material</Label>
               <MaterialSearchCombobox
-                onSelect={(id, nome, embalagens) => {
+                nome={addForm.materialNome}
+                onNomeChange={(nome) => setAddForm((f) => ({ ...f, materialNome: nome }))}
+                onUnlink={() => setAddForm((f) => ({ ...f, materialId: null, materialNome: '', embalagemOpcoes: [] }))}
+                onSelect={(item) => {
                   setAddForm((f) => ({
                     ...f,
-                    materialId: id,
-                    materialNome: nome,
-                    embalagemOpcoes: embalagens,
+                    materialId: item.estoqueItemId,
+                    materialNome: item.nome,
+                    embalagemOpcoes: item.embalagens,
                     tipoEntrada: 'unidade',
                     embalagemId: null,
                     qtdEmbalagens: 1,

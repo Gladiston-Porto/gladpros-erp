@@ -157,7 +157,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     if (!can(user.role as Role, 'propostas', 'create')) {
       return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
     }
-    const body: PropostaFormData = createPropostaSchema.parse(await request.json());
+    const body = createPropostaSchema.parse(await request.json()) as unknown as PropostaFormData
     const payload = adaptPropostaFormToAPI(body);
     try {
     const numeroProposta = await generateNumeroProposta();

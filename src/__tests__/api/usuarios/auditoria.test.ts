@@ -19,6 +19,9 @@ import { NextRequest } from 'next/server';
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
+    usuario: {
+      findUnique: jest.fn(),
+    },
     $queryRaw: jest.fn(),
   },
 }));
@@ -58,6 +61,7 @@ function makeRequest(userId = '1') {
 describe('GET /api/usuarios/[id]/auditoria', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValue({ nivel: 'USUARIO' });
   });
 
   it('401 — sem autenticação', async () => {
@@ -69,7 +73,7 @@ describe('GET /api/usuarios/[id]/auditoria', () => {
 
   it('403 — role sem permissão (USUARIO)', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 99, role: 'USUARIO', email: 'u@test.com' } as any);
-    mockCan.mockReturnValueOnce(false);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'ADMIN' });
     const { GET } = await import('@/app/api/usuarios/[id]/auditoria/route');
     const res = await GET(makeRequest(), { params: Promise.resolve({ id: '1' }) });
     expect(res.status).toBe(403);
@@ -79,7 +83,7 @@ describe('GET /api/usuarios/[id]/auditoria', () => {
 
   it('403 — role sem permissão (CLIENTE)', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 99, role: 'CLIENTE', email: 'c@test.com' } as any);
-    mockCan.mockReturnValueOnce(false);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'USUARIO' });
     const { GET } = await import('@/app/api/usuarios/[id]/auditoria/route');
     const res = await GET(makeRequest(), { params: Promise.resolve({ id: '1' }) });
     expect(res.status).toBe(403);

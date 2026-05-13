@@ -134,14 +134,14 @@ describe('POST /api/auth/user-status', () => {
     const response = await POST(mockRequest)
     expect(response.status).toBe(200)
     const data = await response.json()
-    expect(data.blocked).toBe(true)
-    expect(data.success).toBe(true)
-    expect(data.user.id).toBe(BLOCKED_USER.id)
-    expect(data.user.email).toBe(BLOCKED_USER.email)
-    expect(data.user.nomeCompleto).toBe(BLOCKED_USER.nomeCompleto)
-    expect(data.user.requiresPinUnlock).toBe(true)
-    expect(data.user.requiresSecurityQuestion).toBe(true)
-    expect(data.user.perguntaSecreta).toBe(BLOCKED_USER.perguntaSecreta)
+    expect(data).toEqual({
+      blocked: true,
+      success: true,
+      recovery: {
+        requiresPinUnlock: true,
+        requiresSecurityQuestion: true,
+      },
+    })
   })
 
   it('retorna requiresPinUnlock:false quando usuário bloqueado não tem PIN cadastrado', async () => {
@@ -151,8 +151,8 @@ describe('POST /api/auth/user-status', () => {
     ;(mockRequest.json as jest.Mock).mockResolvedValue({ email: BLOCKED_USER.email })
     const response = await POST(mockRequest)
     const data = await response.json()
-    expect(data.user.requiresPinUnlock).toBe(false)
-    expect(data.user.requiresSecurityQuestion).toBe(true)
+    expect(data.recovery.requiresPinUnlock).toBe(false)
+    expect(data.recovery.requiresSecurityQuestion).toBe(true)
   })
 
   it('retorna requiresSecurityQuestion:false quando usuário bloqueado não tem questão de segurança', async () => {
@@ -162,7 +162,7 @@ describe('POST /api/auth/user-status', () => {
     ;(mockRequest.json as jest.Mock).mockResolvedValue({ email: BLOCKED_USER.email })
     const response = await POST(mockRequest)
     const data = await response.json()
-    expect(data.user.requiresSecurityQuestion).toBe(false)
-    expect(data.user.perguntaSecreta).toBeNull()
+    expect(data.recovery.requiresSecurityQuestion).toBe(false)
+    expect(JSON.stringify(data)).not.toContain(BLOCKED_USER.perguntaSecreta)
   })
 })

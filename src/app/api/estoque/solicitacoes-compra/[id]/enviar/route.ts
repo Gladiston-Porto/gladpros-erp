@@ -24,7 +24,7 @@ type Params = { params: Promise<{ id: string }> };
 
 async function patchHandler(request: NextRequest, { params }: Params) {
   const user = await requireUser(request);
-  if (!can(user.role as Role, 'estoque', 'write')) return forbiddenResponse();
+  if (!can(user.role as Role, 'estoque', 'update')) return forbiddenResponse();
 
   const { id } = await params;
   const scId = Number(id);

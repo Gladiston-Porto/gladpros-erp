@@ -5,6 +5,7 @@
  */
 
 import { prisma } from "@/lib/prisma"
+import type { Usuario_nivel } from "@prisma/client"
 import { NotificationService } from "@/shared/lib/notifications"
 
 export type MarginStatus = "OK" | "WARNING" | "ALERT" | "CRITICAL" | "LOSS"
@@ -157,7 +158,7 @@ async function fireMarginAlert(
     .catch(() => {/* non-blocking */})
 
   // In-memory notifications to GERENTE + ADMIN (LOSS: ADMIN only)
-  const roles = result.status === "LOSS" ? ["ADMIN"] : ["ADMIN", "GERENTE"]
+  const roles = (result.status === "LOSS" ? ["ADMIN"] : ["ADMIN", "GERENTE"]) as Usuario_nivel[]
   const users = await prisma.usuario.findMany({
     where: { nivel: { in: roles }, status: "ATIVO" },
     select: { id: true },

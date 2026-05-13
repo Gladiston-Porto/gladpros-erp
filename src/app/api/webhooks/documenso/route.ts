@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
             id: randomUUID(),
             propostaId: proposta.id,
             actorId: 0,
-            action: 'DOCUMENSO_COMPLETED',
+            action: 'SIGNED',
             newJson: JSON.stringify({
               documentId: doc.id,
               completedAt: doc.completedAt,
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
           id: randomUUID(),
           propostaId: proposta.id,
           actorId: 0,
-          action: 'DOCUMENSO_EXPIRED',
+          action: 'CANCELLED',
           newJson: JSON.stringify({ documentId: doc.id }),
           ip: 'webhook',
           userAgent: 'documenso-webhook',

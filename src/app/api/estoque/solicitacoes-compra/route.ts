@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import {
   successResponse,
+  paginatedResponse,
   validationErrorResponse,
   withErrorHandler,
   getPaginationParams,
@@ -36,14 +37,14 @@ async function getHandler(request: NextRequest) {
   const user = await requireUser(request);
   if (!can(user.role as Role, 'estoque', 'read')) return forbiddenResponse();
 
+  const { page, pageSize, skip } = getPaginationParams(request);
   const { searchParams } = new URL(request.url);
-  const { page, pageSize, skip } = getPaginationParams(searchParams);
 
   const status = searchParams.get('status') ?? undefined;
   const origemTipo = searchParams.get('origemTipo') ?? undefined;
   const minha = searchParams.get('minha') === '1';
 
-  const canViewAll = can(user.role as Role, 'financeiro', 'read') || can(user.role as Role, 'estoque', 'write');
+  const canViewAll = can(user.role as Role, 'financeiro', 'read') || can(user.role as Role, 'estoque', 'create');
 
   const where = {
     // Se não pode ver todas, filtra pelas próprias
@@ -83,11 +84,7 @@ async function getHandler(request: NextRequest) {
     }),
   ]);
 
-  return successResponse(
-    { solicitacoes },
-    undefined,
-    { page, pageSize, total, totalPages: Math.ceil(total / pageSize) }
-  );
+  return paginatedResponse(solicitacoes, page, pageSize, total);
 }
 
 // ========================================
@@ -112,7 +109,7 @@ const criarSCSchema = z.object({
 
 async function postHandler(request: NextRequest) {
   const user = await requireUser(request);
-  if (!can(user.role as Role, 'estoque', 'write')) return forbiddenResponse();
+  if (!can(user.role as Role, 'estoque', 'create')) return forbiddenResponse();
 
   const body = await request.json();
   const parsed = criarSCSchema.safeParse(body);

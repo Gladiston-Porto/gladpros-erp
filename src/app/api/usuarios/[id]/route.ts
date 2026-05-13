@@ -82,6 +82,7 @@ type UserRow = {
   criadoEm?: Date | null;
   atualizadoEm?: Date | null;
   avatarUrl?: string | null;
+  expiresAt?: Date | string | null
 };
 
 /* helper para suportar context.params Promise (Next 15 HMR) */

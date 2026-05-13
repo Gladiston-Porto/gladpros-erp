@@ -3,7 +3,7 @@ import { StatusProposta, StatusPermite } from '@/shared/types/prisma-temp'
 // Tipos específicos do formulário de proposta
 export interface Material {
   id: string;
-  codigo: string;
+  codigo?: string
   nome: string;
   quantidade: number;
   unidade: string;

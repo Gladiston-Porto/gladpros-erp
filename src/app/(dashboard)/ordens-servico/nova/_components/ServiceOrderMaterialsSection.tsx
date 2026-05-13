@@ -109,8 +109,8 @@ export function ServiceOrderMaterialsSection({
       } else if (pendingEmbBaseQty) {
         embalagemFields.qtdEmbalagens = pendingEmbQty;
         embalagemFields.embalagemBaseQtyAtTime = pendingEmbBaseQty;
-        embalagemFields.embalagemPrecoAtTime = pendingEmbPkgPrice;
-        embalagemFields.embalagemUnitAtTime = pendingEmbPkgType || null;
+        embalagemFields.embalagemPrecoAtTime = pendingEmbPkgPrice ?? undefined;
+        embalagemFields.embalagemUnitAtTime = pendingEmbPkgType || undefined;
       }
     }
 

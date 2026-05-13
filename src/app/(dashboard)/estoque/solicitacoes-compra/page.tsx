@@ -20,11 +20,13 @@ import { formatDistanceToNow } from 'date-fns';
 export default async function SolicitacoesCompraPage() {
   const user = await requireServerUser();
   if (!can(user.role as Role, 'estoque', 'read')) redirect('/403');
+  const userId = Number(user.id);
+  if (!Number.isInteger(userId)) redirect('/login');
 
   const canViewAll = can(user.role as Role, 'financeiro', 'read');
 
   const solicitacoes = await prisma.solicitacaoCompra.findMany({
-    where: canViewAll ? {} : { solicitanteId: user.id },
+    where: canViewAll ? {} : { solicitanteId: userId },
     orderBy: { criadoEm: 'desc' },
     take: 100,
     include: {

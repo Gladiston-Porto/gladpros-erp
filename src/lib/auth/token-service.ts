@@ -479,7 +479,6 @@ export async function refreshAccessToken(
   });
   
   // 4. Gerar novo par de tokens
-  const accessJti = generateJti();
   const refreshJti = generateJti();
   
   const now = new Date();

@@ -15,7 +15,7 @@ import { ArrowLeft, ClipboardList } from 'lucide-react';
 
 export default async function NovaSolicitacaoCompraPage() {
   const user = await requireServerUser();
-  if (!can(user.role as Role, 'estoque', 'write')) redirect('/403');
+  if (!can(user.role as Role, 'estoque', 'create')) redirect('/403');
 
   const materiais = await prisma.material.findMany({
     where: { ativo: true },

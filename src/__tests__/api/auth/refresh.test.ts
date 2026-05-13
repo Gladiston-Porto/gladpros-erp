@@ -135,13 +135,13 @@ describe('POST /api/auth/refresh', () => {
     )
   })
 
-  it('aceita refresh token do body como fallback quando sem cookie', async () => {
+  it('rejeita refresh token do body quando não há cookie httpOnly', async () => {
     mockRequest.cookies.get = jest.fn().mockReturnValue(undefined)
     ;(mockRequest.json as jest.Mock).mockResolvedValue({ refreshToken: 'body-refresh-token' })
 
     const response = await POST(mockRequest)
-    expect(response.status).toBe(200)
-    expect(require('../../../lib/auth/token-service').refreshAccessToken).toHaveBeenCalledWith(
+    expect(response.status).toBe(400)
+    expect(require('../../../lib/auth/token-service').refreshAccessToken).not.toHaveBeenCalledWith(
       'body-refresh-token',
       expect.any(Object)
     )

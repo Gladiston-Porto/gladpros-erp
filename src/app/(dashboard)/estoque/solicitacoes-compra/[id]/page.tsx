@@ -23,6 +23,8 @@ export default async function SolicitacaoCompraDetailPage({ params }: Props) {
   const { id } = await params;
   const user = await requireServerUser();
   if (!can(user.role as Role, 'estoque', 'read')) redirect('/403');
+  const userId = Number(user.id);
+  if (!Number.isInteger(userId)) redirect('/login');
 
   const sc = await prisma.solicitacaoCompra.findUnique({
     where: { id: Number(id) },
@@ -53,7 +55,7 @@ export default async function SolicitacaoCompraDetailPage({ params }: Props) {
   if (!sc) notFound();
 
   const canViewAll = can(user.role as Role, 'financeiro', 'read');
-  if (!canViewAll && sc.solicitanteId !== Number(user.id)) redirect('/403');
+  if (!canViewAll && sc.solicitanteId !== userId) redirect('/403');
 
   const canApprove = can(user.role as Role, 'financeiro', 'update');
   const canReconciliar = can(user.role as Role, 'financeiro', 'read');
@@ -275,7 +277,7 @@ export default async function SolicitacaoCompraDetailPage({ params }: Props) {
         scId={sc.id}
         status={sc.status}
         solicitanteId={sc.solicitanteId}
-        currentUserId={user.id}
+        currentUserId={userId}
         canApprove={canApprove}
       />
 

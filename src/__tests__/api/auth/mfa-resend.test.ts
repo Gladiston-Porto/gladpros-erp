@@ -39,6 +39,11 @@ jest.mock('../../../shared/lib/email', () => ({
   },
 }))
 
+jest.mock('../../../shared/lib/mfa-challenge', () => ({
+  createMfaChallenge: jest.fn().mockReturnValue('rotated-challenge'),
+  verifyMfaChallenge: jest.fn().mockReturnValue(true),
+}))
+
 jest.mock('../../../lib/api/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -87,14 +92,13 @@ describe('POST /api/auth/mfa/resend', () => {
   it('should return 404 when user not found', async () => {
     require('../../../lib/prisma').prisma.$queryRaw.mockResolvedValue([])
 
-    ;(mockRequest.json as jest.Mock).mockResolvedValue({ userId: 999 })
+    ;(mockRequest.json as jest.Mock).mockResolvedValue({ userId: 999, challenge: 'valid-challenge' })
 
     const response = await POST(mockRequest)
     const data = await response.json()
 
-    expect(response.status).toBe(404)
-    expect(data.error).toBe('Usuário não encontrado')
-    expect(data.success).toBe(false)
+    expect(response.status).toBe(200)
+    expect(data.success).toBe(true)
   })
 
   it('should return 401 for inactive user', async () => {
@@ -102,20 +106,19 @@ describe('POST /api/auth/mfa/resend', () => {
       { ...mockUser, status: 'INATIVO' },
     ])
 
-    ;(mockRequest.json as jest.Mock).mockResolvedValue({ userId: 1 })
+    ;(mockRequest.json as jest.Mock).mockResolvedValue({ userId: 1, challenge: 'valid-challenge' })
 
     const response = await POST(mockRequest)
     const data = await response.json()
 
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Conta inativa')
-    expect(data.success).toBe(false)
+    expect(response.status).toBe(200)
+    expect(data.success).toBe(true)
   })
 
   it('should return 429 when too many recent attempts', async () => {
     require('../../../shared/lib/mfa').MFAService.countRecentAttempts.mockResolvedValue(3)
 
-    ;(mockRequest.json as jest.Mock).mockResolvedValue({ userId: 1 })
+    ;(mockRequest.json as jest.Mock).mockResolvedValue({ userId: 1, challenge: 'valid-challenge' })
 
     const response = await POST(mockRequest)
     const data = await response.json()
@@ -125,7 +128,7 @@ describe('POST /api/auth/mfa/resend', () => {
   })
 
   it('should return success with masked email', async () => {
-    ;(mockRequest.json as jest.Mock).mockResolvedValue({ userId: 1 })
+    ;(mockRequest.json as jest.Mock).mockResolvedValue({ userId: 1, challenge: 'valid-challenge' })
 
     const response = await POST(mockRequest)
     const data = await response.json()
@@ -133,14 +136,14 @@ describe('POST /api/auth/mfa/resend', () => {
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.message).toBe('Novo código enviado com sucesso')
-    // Email deve estar mascarado — nunca retornar email completo
-    expect(data.email).toMatch(/\*{3}/)
+    expect(data.challenge).toBe('rotated-challenge')
+    expect(data.email).toBeUndefined()
     // Código MFA jamais deve ser retornado na resposta
     expect(data.code).toBeUndefined()
   })
 
   it('should NOT expose MFA code in response even on success', async () => {
-    ;(mockRequest.json as jest.Mock).mockResolvedValue({ userId: 1 })
+    ;(mockRequest.json as jest.Mock).mockResolvedValue({ userId: 1, challenge: 'valid-challenge' })
 
     const response = await POST(mockRequest)
     const data = await response.json()

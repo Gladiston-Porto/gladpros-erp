@@ -31,6 +31,7 @@ type UserRow = {
   criadoEm?: Date | null;
   atualizadoEm?: Date | null;
   avatarUrl?: string | null;
+  expiresAt?: Date | string | null
 };
 
 type CountRow = { cnt: number };

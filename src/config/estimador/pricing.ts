@@ -1170,8 +1170,8 @@ export function calcPaintingFull(respostas: EstimadorRespostas): EstimadorResult
     fonte: 'internal',
     notas: [
       'Desconto de ~8% aplicado por contratar interior + exterior no mesmo projeto.',
-      ...interior.notas,
-      ...exterior.notas,
+      ...(interior.notas ?? []),
+      ...(exterior.notas ?? []),
     ],
   }
 }

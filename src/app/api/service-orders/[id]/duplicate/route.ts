@@ -74,13 +74,11 @@ export const POST = withErrorHandler(async (
     const scopeItems = await prisma.serviceOrderScopeItem.findMany({
         where: { serviceOrderId },
         select: {
-            title: true,
             description: true,
-            estimatedHours: true,
-            unitPrice: true,
-            quantity: true,
-            unit: true,
+            status: true,
+            sortOrder: true,
         },
+        orderBy: { sortOrder: 'asc' },
     });
 
     const newServiceOrder = await prisma.$transaction(async (tx) => {
@@ -141,14 +139,9 @@ export const POST = withErrorHandler(async (
             await tx.serviceOrderScopeItem.createMany({
                 data: scopeItems.map((item, index) => ({
                     serviceOrderId: created.id,
-                    title: item.title,
                     description: item.description,
-                    estimatedHours: item.estimatedHours,
-                    unitPrice: item.unitPrice,
-                    quantity: item.quantity,
-                    unit: item.unit,
-                    status: 'PENDING',
-                    sortOrder: index,
+                    status: item.status,
+                    sortOrder: item.sortOrder ?? index,
                 })),
             });
         }

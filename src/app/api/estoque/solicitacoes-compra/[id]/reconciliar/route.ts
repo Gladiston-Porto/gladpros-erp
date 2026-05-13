@@ -84,7 +84,7 @@ async function postHandler(request: NextRequest, { params }: Params) {
           criadoEm: true,
           status: true,
           fornecedor: { select: { id: true, nome: true } },
-          expense: { select: { id: true, status: true, amount: true } }
+          expense: { select: { id: true, status: true, valor: true } }
         }
       },
       solicitante: { select: { id: true, nomeCompleto: true } },
@@ -119,7 +119,7 @@ async function postHandler(request: NextRequest, { params }: Params) {
   const itensRecebidos = sc.itens.filter(i => i.status === 'RECEBIDO').length;
   const totalCompras = sc.compras.length;
   const expensesPendentes = sc.compras.flatMap(c => c.expense ? [c.expense] : [])
-    .filter(e => e.status !== 'PAGO').length;
+    .filter(e => e.status !== 'PAGA').length;
 
   logger.info('Reconciliação de SC iniciada', createLogContext(request, user), {
     scId, valorAprovado, valorTotalGasto, devolucao, itensPendentes, forcarFechamento: dados.forcarFechamento
@@ -165,7 +165,6 @@ async function postHandler(request: NextRequest, { params }: Params) {
     where: {
       nivel: { in: ['FINANCEIRO', 'GERENTE', 'ADMIN'] },
       status: 'ATIVO',
-      empresaId: sc.empresaId,
     },
     select: { id: true }
   });
@@ -206,7 +205,7 @@ async function postHandler(request: NextRequest, { params }: Params) {
     compras: {
       total: totalCompras,
       expensesPendentes,
-      expensesPagos: sc.compras.flatMap(c => c.expense ? [c.expense] : []).filter(e => e.status === 'PAGO').length,
+      expensesPagos: sc.compras.flatMap(c => c.expense ? [c.expense] : []).filter(e => e.status === 'PAGA').length,
     },
     mensagem: devolucao > 0
       ? `Devolução de $${devolucao.toFixed(2)} ao budget financeiro. FINANCEIRO notificado.`
