@@ -135,19 +135,19 @@ Projetos deve ser o primeiro hardening profundo porque e o ponto onde o ERP deix
 
 Antes de implementar a sidebar final inteira, confirmar:
 
-1. **Projetos e OS devem sair de COMERCIAL e ir para OPERACAO?**  
+1. **Projetos e OS devem sair de COMERCIAL e ir para OPERACAO?**
    Recomendacao: sim.
 
-2. **Documents deve aparecer em OPERACAO como beta ou ficar oculto ate completar pastas?**  
+2. **Documents deve aparecer em OPERACAO como beta ou ficar oculto ate completar pastas?**
    Recomendacao: aparecer como beta apenas para roles internas que realmente usam documentos.
 
-3. **Reports/Analytics deve ir para GESTAO ou ficar oculto ate remover mocks?**  
+3. **Reports/Analytics deve ir para GESTAO ou ficar oculto ate remover mocks?**
    Recomendacao: GESTAO beta/admin/gerente ate hardening.
 
-4. **Usuarios deve ficar em PESSOAS ou SISTEMA?**  
+4. **Usuarios deve ficar em PESSOAS ou SISTEMA?**
    Recomendacao: Pessoas para gestao de equipe; Sistema fica para configuracoes/eventos/integracoes.
 
-5. **Aprovacoes deve ficar em GESTAO ou aparecer apenas quando houver fluxos reais ativos?**  
+5. **Aprovacoes deve ficar em GESTAO ou aparecer apenas quando houver fluxos reais ativos?**
    Recomendacao: Gestao beta ate remover mock e validar notificacoes reais.
 
 ## 8. Proximo passo pratico
