@@ -141,14 +141,19 @@ test.describe('Auth Regression Guards', () => {
   test('[UI-001] página /mfa renderiza mensagem específica de erro da API (não mensagem genérica)', async ({ page }) => {
     await page.goto(
       `/mfa?userId=${QA_ADMIN_ID}&email=${encodeURIComponent(QA_ADMIN_EMAIL)}&name=QA+Admin`,
-      { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS }
+      { waitUntil: 'networkidle', timeout: AUTH_TIMEOUT_MS }
     );
 
     // Submeter código inválido via UI
     const codeInput = page.locator('input[type="text"], input[name="code"]').first();
     if (await codeInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await codeInput.fill('000000');
-      await page.getByRole('button', { name: /Verificar|Confirmar|Entrar/i }).click();
+      // The MFA page uses 6 separate single-character inputs.
+      // Click the first input to focus, then use page.keyboard.type so each
+      // keystroke goes to whichever input is currently focused (which advances
+      // automatically as each digit is entered via handleInputChange focus logic).
+      await codeInput.click();
+      await page.keyboard.type('000000');
+      // The form auto-submits when all 6 digits are filled — wait for API response
 
       // Aguardar erro aparecer
       await page.waitForTimeout(2000);

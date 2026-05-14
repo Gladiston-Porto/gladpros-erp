@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ProjectService } from '@/domains/projects/services/ProjectService'
 import { 
+  maskProjectFinancials,
   requireProjectPermission, 
-  requireProjectOwnershipPermission,
+  requireProjectAccess,
   shouldMaskFinancials 
 } from '@/shared/lib/rbac-projects'
 import { updateProjetoSchema } from '@/domains/projects/validators'
-import {  } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { withErrorHandler } from '@/lib/api/error-handler';
 
@@ -31,6 +31,8 @@ export const GET = withErrorHandler(async (request: NextRequest,
       )
     }
     
+    await requireProjectAccess(user, projetoId, 'canRead')
+
     // Buscar projeto
     const service = new ProjectService()
     const projeto = await service.buscarPorId(projetoId)
@@ -53,20 +55,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
     // Mascarar dados financeiros se necessário (Fase 0 — USUARIO não vê dados financeiros)
     const maskFinancials = shouldMaskFinancials(user.role)
     if (maskFinancials) {
-      return NextResponse.json({
-        data: {
-          ...projeto,
-          orcamento: undefined,
-          custoTotal: undefined,
-          custoPrevisto: undefined,
-          custoReal: undefined,
-          margemPrevista: undefined,
-          margemReal: undefined,
-          lucroPrevisto: undefined,
-          lucroReal: undefined,
-        },
-        success: true,
-      })
+      return NextResponse.json({ data: maskProjectFinancials(projeto as unknown as Record<string, unknown>), success: true })
     }
     
     return NextResponse.json({ data: projeto, success: true })
@@ -89,25 +78,9 @@ export const PUT = withErrorHandler(async (request: NextRequest,
       )
     }
     
-    // Buscar projeto para verificar responsável
-    const projetoAtual = await prisma.projeto.findUnique({
-      where: { id: projetoId },
-      select: { responsavelId: true }
-    })
-    
-    if (!projetoAtual) {
-      return NextResponse.json(
-        { error: 'Projeto não encontrado' },
-        { status: 404 }
-      )
-    }
-    
-    // Verificar permissão com ownership
-    const user = await requireProjectOwnershipPermission(
-      request,
-      'canUpdate',
-      projetoAtual.responsavelId
-    )
+    const user = await requireProjectPermission(request, 'canUpdate')
+
+    await requireProjectAccess(user, projetoId, 'canUpdate')
     
     // Parsear body
     const body = await request.json()
@@ -122,20 +95,7 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     // Mascarar dados financeiros se necessário (Fase 0 — USUARIO não vê dados financeiros)
     const maskFinancials = shouldMaskFinancials(user.role)
     if (maskFinancials) {
-      return NextResponse.json({
-        data: {
-          ...projeto,
-          orcamento: undefined,
-          custoTotal: undefined,
-          custoPrevisto: undefined,
-          custoReal: undefined,
-          margemPrevista: undefined,
-          margemReal: undefined,
-          lucroPrevisto: undefined,
-          lucroReal: undefined,
-        },
-        success: true,
-      })
+      return NextResponse.json({ data: maskProjectFinancials(projeto as unknown as Record<string, unknown>), success: true })
     }
     
     return NextResponse.json({ data: projeto, success: true })

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ProjectService } from '@/domains/projects/services/ProjectService'
-import { requireProjectPermission, shouldMaskFinancials } from '@/shared/lib/rbac-projects'
+import {
+  getProjectListScopeForUser,
+  maskProjectFinancials,
+  requireProjectPermission,
+  shouldMaskFinancials,
+} from '@/shared/lib/rbac-projects'
 import { createProjetoSchema, listarProjetosSchema } from '@/domains/projects/validators'
-import {  } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { prisma } from '@/lib/prisma'
 import { apiRateLimit } from '@/shared/lib/rate-limit'
@@ -53,10 +57,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     // Validar filtros
     const filters = listarProjetosSchema.parse(queryParams)
     
-    // Se for USUARIO, filtrar apenas projetos onde é responsável
-    if (user.role === 'USUARIO') {
-      filters.responsavelId = Number(user.id)
-    }
+    Object.assign(filters, await getProjectListScopeForUser(user))
     
     // Buscar projetos
     const service = new ProjectService()
@@ -65,11 +66,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     // Mascarar dados financeiros se necessário
     const maskFinancials = shouldMaskFinancials(user.role)
     if (maskFinancials) {
-      resultado.data = resultado.data.map(projeto => ({
-        ...projeto,
-        orcamento: undefined,
-        custoTotal: undefined,
-      }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      resultado.data = resultado.data.map(projeto => maskProjectFinancials(projeto as any) as any)
     }
     
     // ✅ CORREÇÃO: Transformar paginacao → pagination para match com frontend
@@ -80,7 +78,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         pageSize: resultado.paginacao.porPagina,
         totalRecords: resultado.paginacao.totalItens,
         totalPages: resultado.paginacao.totalPaginas,
-      }
+      },
+      success: true,
     })
     
   });
@@ -127,11 +126,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const maskFinancials = shouldMaskFinancials(user.role)
     if (maskFinancials) {
       return NextResponse.json({
-        data: {
-          ...projeto,
-          orcamento: undefined,
-          custoTotal: undefined,
-        },
+        data: maskProjectFinancials(projeto as unknown as Record<string, unknown>),
         success: true,
       }, { status: 201 })
     }

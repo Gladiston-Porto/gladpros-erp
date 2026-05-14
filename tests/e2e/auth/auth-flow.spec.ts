@@ -5,23 +5,43 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { resetAuthTestState } from '../helpers/auth';
+
+/**
+ * Fill a React-controlled email input reliably in production builds.
+ * page.fill() can silently lose focus before React hydrates; using selectText()
+ * + pressSequentially() fires per-character key events that React always handles.
+ */
+async function fillEmailInput(page: import('@playwright/test').Page, value: string) {
+  const input = page.locator('input[name="email"]');
+  await input.waitFor({ state: 'visible' });
+  await input.selectText();
+  await input.pressSequentially(value, { delay: 0 });
+}
 
 /** Helper: perform a complete login */
 async function loginAs(page: import('@playwright/test').Page, email: string, senha: string) {
-  await page.fill('input[name="email"]', email);
+  await fillEmailInput(page, email);
   await page.fill('input[name="senha"]', senha);
   // Wait for the button to become enabled (client validates email + 6 chars min)
   const submitBtn = page.locator('button:has-text("Entrar")');
-  await expect(submitBtn).toBeEnabled({ timeout: 3000 });
+  await expect(submitBtn).toBeEnabled({ timeout: 5000 });
   await submitBtn.click();
 }
 
 const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
 const QA_ADMIN_PASSWORD = 'Admin123!@#';
 
+// File-level: reset QA user DB state before every test to prevent account lock bleed-over
+test.beforeEach(async ({ page }) => {
+  await resetAuthTestState(page.request, QA_ADMIN_EMAIL);
+});
+
 test.describe('Authentication Flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
+    // Wait for React to fully hydrate before interacting with controlled inputs
+    await page.waitForLoadState('networkidle');
   });
 
   test('should complete full login flow successfully', async ({ page }) => {
@@ -56,7 +76,7 @@ test.describe('Authentication Flow', () => {
     await expect(submitBtn).toBeDisabled();
 
     // Fill only email — button still disabled (senha empty)
-    await page.fill('input[name="email"]', 'test@test.com');
+    await fillEmailInput(page, 'test@test.com');
     await expect(submitBtn).toBeDisabled();
 
     // Fill short senha — button still disabled (less than 6 chars)
@@ -71,10 +91,12 @@ test.describe('Authentication Flow', () => {
   test('should handle rate limiting after multiple failed attempts', async ({ page }) => {
     // Attempt login multiple times with wrong credentials
     for (let i = 0; i < 6; i++) {
-      await page.fill('input[name="email"]', QA_ADMIN_EMAIL);
+      // selectText() + pressSequentially reliably updates React state;
+      // also clears any previous value before re-typing
+      await fillEmailInput(page, QA_ADMIN_EMAIL);
       await page.fill('input[name="senha"]', 'wrongpassword123');
       const btn = page.locator('button:has-text("Entrar")');
-      await expect(btn).toBeEnabled({ timeout: 3000 });
+      await expect(btn).toBeEnabled({ timeout: 5000 });
       await btn.click();
       // Wait for the response
       await page.waitForTimeout(1000);
@@ -82,7 +104,7 @@ test.describe('Authentication Flow', () => {
 
     // Should see either a rate-limit message or a blocked-account message
     await expect(
-      page.getByText(/bloqueada/i).first()
+      page.getByText(/bloqueada|muitas tentativas/i).first()
     ).toBeVisible({ timeout: 5000 });
   });
 
