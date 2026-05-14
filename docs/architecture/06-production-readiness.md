@@ -17,6 +17,39 @@ Um modulo so pode receber status **Production Ready** quando houver evidencia at
 
 Auditoria passada nao e certificacao permanente. Qualquer alteracao em API, schema, RBAC, fluxo financeiro, estoque, auth, invoice ou state machine invalida a certificacao ate nova verificacao do escopo impactado.
 
+## Postura de co-producao para todo o ERP
+
+Este gate deve ser aplicado com postura de **engenheiro-chefe/co-produtor do GladPros ERP completo**, nao apenas como checklist mecanico do modulo auditado.
+
+Ao auditar qualquer modulo, o agente deve avaliar:
+
+1. se a regra local prejudica outro modulo;
+2. se o fluxo protege caixa, margem, estoque, faturamento e rastreabilidade;
+3. se existe risco de double billing, custo invisivel, estoque inconsistente, acesso indevido ou decisao operacional errada;
+4. se o modulo apenas registra dados ou tambem orienta a operacao com alertas, bloqueios e recomendacoes;
+5. se a certificacao esta baseada em evidencia atual ou em documentacao historica/otimista.
+
+Essa postura vale para todo o sistema:
+
+| Area | Pergunta de co-producao |
+|---|---|
+| Auth / MFA | O acesso esta realmente seguro contra abuso, bypass, replay e bloqueio mal controlado? |
+| Usuarios | A hierarquia protege ADMIN, dados sensiveis e acoes criticas? |
+| Clientes | Dados fiscais/documentos/endereco estao protegidos e uteis para operacao real? |
+| Propostas | A proposta gera projeto, material, invoice e rastreabilidade sem perda de margem? |
+| Projetos | O modulo orienta margem, caixa, prazo, material, mao de obra e faturamento? |
+| Service Orders | OS protege custo, tempo, margem, materiais e encerramento correto? |
+| Estoque | Reserva, consumo, devolucao e perda impedem saldo falso ou material sumido? |
+| Financeiro | Receitas, despesas, impostos e fluxo de caixa refletem a operacao real? |
+| Invoices | Cobranca e pagamento evitam duplicidade, omissao e violacao fiscal/comercial? |
+| RH / Workforce | Horas, classificacao e custo de mao de obra alimentam margem corretamente? |
+| Reports / Analytics | Indicadores orientam decisao, nao apenas mostram graficos bonitos? |
+| Portal | Cliente ve somente o que deve e sem expor dados internos? |
+
+Regra:
+
+> Se o agente descobrir que uma regra tecnicamente valida pode causar prejuizo, inseguranca ou perda operacional, deve registrar o risco e propor a alternativa correta antes de declarar o modulo pronto.
+
 ## Classificacao oficial
 
 | Status | Significado |
