@@ -6,6 +6,35 @@
 
 Este documento nao declara o modulo Projetos como production-ready. Ele define como a auditoria deve ser feita para evitar nova falsa certificacao.
 
+## 0. Postura obrigatoria de co-producao
+
+O agente responsavel por Projetos deve atuar como **co-produtor tecnico e engenheiro-chefe do modulo**, nao apenas como executor de correcao.
+
+Isso significa:
+
+1. questionar regras que funcionam tecnicamente, mas prejudicam caixa, margem, operacao, seguranca ou confiabilidade;
+2. impedir certificacao "production-ready" se o modulo ainda nao protege a empresa contra prejuizo;
+3. propor melhorias estruturais quando o sistema estiver apenas registrando dados, mas nao orientando decisao;
+4. tratar Projetos como centro de comando da obra, nao como cadastro com abas;
+5. trazer para discussao qualquer decisao de negocio que possa travar operacao, duplicar cobranca, esconder risco financeiro ou permitir perda de margem.
+
+Principio de produto:
+
+> Projetos deve proteger a GladPros contra prejuizo, orientar a equipe sobre a proxima acao e dar confianca operacional como uma engrenagem de relogio suico.
+
+O modulo deve responder diariamente:
+
+- estamos ganhando ou perdendo dinheiro neste projeto?
+- o custo real esta coerente com o progresso real?
+- a mao de obra esta lenta, cara ou mal alocada?
+- materiais estao planejados, reservados, usados, devolvidos e cobrados corretamente?
+- precisamos cobrar o cliente agora para nao financiar a obra com caixa da empresa?
+- alguma OS esta destruindo a margem do projeto?
+- o prazo esta em risco antes do atraso oficial?
+- qual acao o gerente deve tomar hoje?
+
+Se a resposta para essas perguntas nao estiver suportada por dados reais, alertas e recomendacoes, o modulo ainda nao esta production-ready.
+
 ## 1. Por que Projetos vem primeiro
 
 Projetos e o ponto onde o ERP deixa de ser comercial e passa a ser execucao operacional.
@@ -174,12 +203,29 @@ Validar:
 
 Validar:
 
-1. invoice so e gerada conforme gatilho de faturamento;
-2. invoice nao duplica cobranca de OS vinculada;
-3. valores incluem proposta, materiais, change orders e descontos corretamente;
-4. permissao minima para gerar invoice respeita `invoices:create`/financeiro atual;
-5. status inicial e contrato seguem modulo Invoices;
-6. ledger/financeiro e integrado pelo fluxo correto, nao por atalho.
+1. invoice e gerada conforme tipo de faturamento, nao apenas por status final do projeto;
+2. invoice final (`FINAL`) so e permitida quando o projeto estiver concluido ou formalmente aprovado para encerramento;
+3. invoices parciais sao permitidas antes da conclusao para proteger caixa e operacao;
+4. invoice nao duplica cobranca de OS vinculada, marco, material ou deposito ja faturado;
+5. valores incluem proposta, materiais, change orders, descontos, invoices anteriores e pagamentos corretamente;
+6. permissao minima para gerar invoice respeita `invoices:create`/financeiro atual;
+7. status inicial e contrato seguem modulo Invoices;
+8. ledger/financeiro e integrado pelo fluxo correto, nao por atalho.
+
+Tipos obrigatorios de billing para Projetos:
+
+| Tipo | Quando usar | Regra central |
+|---|---|---|
+| `DEPOSIT` | Entrada / down payment | Pode ocorrer apos proposta aprovada ou projeto criado |
+| `PROGRESS` | Cobranca por avanco percentual | Pode ocorrer durante execucao, com descricao e base de calculo |
+| `MILESTONE` | Cobranca por marco/etapa | Exige marco identificado para evitar duplicidade |
+| `MATERIALS` | Reembolso/cobranca de materiais | Deve marcar ou referenciar materiais ja cobrados |
+| `SERVICE_ORDER` | OS especifica | Deve bloquear segunda invoice ativa para a mesma OS |
+| `FINAL` | Fechamento do projeto | Exige projeto concluido e deve abater/considerar valores ja faturados |
+
+Regra de produto:
+
+> Bloquear double billing e correto; bloquear todo faturamento antes do projeto concluido e incorreto para obras grandes, pois pode forcar a empresa a financiar operacao com caixa proprio.
 
 ### 5.5 Projeto -> Financeiro
 
@@ -191,6 +237,70 @@ Validar:
 - resumo financeiro mascarado por role;
 - queries sem dados excessivos;
 - exports seguros.
+
+### 5.7 Project Health Engine
+
+Projetos precisa de um motor central de saude operacional/financeira no backend. Calculos soltos em UI nao sao suficientes para production readiness.
+
+O motor deve consolidar:
+
+1. dados do Projeto;
+2. OS vinculadas;
+3. horas de `TimesheetEntry` e `WorkEntry`;
+4. materiais planejados, reservados, emitidos, consumidos, devolvidos, perdidos e comprados;
+5. despesas (`Expense`);
+6. purchase orders/solicitacoes de compra;
+7. invoices emitidas;
+8. pagamentos recebidos;
+9. progresso de etapas;
+10. datas previstas/reais.
+
+Metricas obrigatorias:
+
+| Metrica | Objetivo |
+|---|---|
+| `budgetUsedPct` | Quanto do custo previsto ja foi consumido |
+| `actualCost` | Custo real consolidado |
+| `estimatedAtCompletion` | Custo projetado no final se continuar no ritmo atual |
+| `projectedMarginPct` | Margem esperada no final |
+| `laborPlannedHours` / `laborActualHours` | Controle de mao de obra |
+| `laborBurnRate` | Velocidade/custo de consumo de horas |
+| `materialPlannedCost` / `materialActualCost` | Controle de material |
+| `materialVariance` | Desvio de material planejado vs usado/comprado |
+| `scheduleVariance` | Risco de prazo |
+| `billingCoverage` | Percentual do custo atual coberto por invoices/pagamentos |
+| `cashGap` | Valor que a empresa esta financiando do proprio caixa |
+| `riskScore` | `OK`, `WARNING`, `ALERT`, `CRITICAL`, `LOSS` |
+
+Alertas obrigatorios:
+
+| Alerta | Condicao |
+|---|---|
+| `BUDGET_WARNING` | custo atual >= 80% do custo previsto |
+| `BUDGET_LIMIT` | custo atual >= 100% |
+| `PROJECTED_LOSS` | margem projetada <= 0 |
+| `LABOR_SLOWDOWN` | horas consumidas acima do esperado para o progresso |
+| `MATERIAL_OVERRUN` | material usado/comprado acima do planejado |
+| `CASH_GAP` | custo atual > valor recebido |
+| `INVOICE_NEEDED` | billing coverage insuficiente para cobrir operacao |
+| `SCHEDULE_RISK` | progresso abaixo do esperado pela data |
+| `OS_MARGIN_RISK` | OS vinculada em `ALERT`, `CRITICAL` ou `LOSS` |
+
+O retorno do motor deve incluir nao so numeros, mas tambem recomendacoes:
+
+```ts
+{
+  riskScore: "ALERT",
+  alerts: [...],
+  recommendations: [
+    "Emitir progress invoice para cobrir cash gap atual",
+    "Revisar horas da etapa Rough-in",
+    "Verificar material acima do planejado em OS-123"
+  ]
+}
+```
+
+Sem esse motor, Projetos ainda e apenas controle administrativo parcial, nao centro de comando operacional.
 
 ### 5.6 Projeto -> Portal
 
@@ -225,9 +335,14 @@ Validar:
 5. Classificar achados P1/P2/P3.
 6. Corrigir P1 primeiro.
 7. Corrigir P2 de integridade/RBAC/performance.
-8. Criar regressao para cada P1/P2 corrigido.
-9. Atualizar documentacao de status do modulo.
-10. So entao decidir se Projetos pode ser certificado.
+8. Corrigir billing parcial antes da padronizacao final de APIs.
+9. Criar Project Health Engine antes da certificacao final.
+10. Criar alertas e recomendacoes acionaveis.
+11. Atualizar UI para mostrar saude, riscos e proxima acao.
+12. Padronizar APIs somente depois dos contratos de negocio corretos.
+13. Criar regressao para cada P1/P2 corrigido.
+14. Atualizar documentacao de status do modulo.
+15. So entao decidir se Projetos pode ser certificado.
 
 ## 8. Criterio de saida
 
@@ -236,11 +351,14 @@ Projetos so pode ser marcado como Production Ready quando:
 1. nenhum P1/P2 estiver aberto;
 2. Proposta -> Projeto estiver coberto;
 3. Projeto -> Estoque estiver coberto;
-4. Projeto -> Invoice/Financeiro estiver coberto;
-5. Portal/cliente estiver protegido;
-6. state machine estiver testada;
-7. regressao existir para todo bug corrigido;
-8. `npm run check` ou validação equivalente passar sem falhas do escopo.
+4. billing parcial e invoice final estiverem separados por tipo, com anti-duplicidade;
+5. Project Health Engine consolidar custo, mao de obra, material, prazo, billing e risco com dados reais;
+6. alertas e recomendacoes acionaveis estiverem implementados;
+7. Projeto -> Invoice/Financeiro estiver coberto;
+8. Portal/cliente estiver protegido;
+9. state machine estiver testada;
+10. regressao existir para todo bug corrigido;
+11. `npm run check` ou validacao equivalente passar sem falhas do escopo.
 
 ## 9. Proximo passo
 
