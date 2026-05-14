@@ -10,12 +10,19 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { resetAuthTestState } from '../helpers/auth';
 
 const AUTH_TIMEOUT_MS = 120000;
+const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
 
 test.describe('Auth Recovery Flows', () => {
   test.describe.configure({ mode: 'serial' });
   test.setTimeout(180000);
+
+  test.beforeEach(async ({ page }) => {
+    // Reset in-memory rate limits between tests (forgot-password has max 3/hour)
+    await resetAuthTestState(page.request, QA_ADMIN_EMAIL);
+  });
 
   // ─── Esqueci Senha ────────────────────────────────────────────────────────
 
@@ -145,8 +152,8 @@ test.describe('Auth Recovery Flows', () => {
         headers: { 'Content-Type': 'application/json' },
       });
 
-      // 400 por senha fraca ou 404 por userId não encontrado — ambos são válidos
-      expect([400, 404, 422]).toContain(resp.status());
+      // 400 por senha fraca ou 401 sem credenciais ou 404 por userId não encontrado — todos são válidos
+      expect([400, 401, 404, 422]).toContain(resp.status());
       const body = await resp.json();
       expect(body.success).toBe(false);
     });

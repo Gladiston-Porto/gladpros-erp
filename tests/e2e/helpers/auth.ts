@@ -134,7 +134,8 @@ export async function resetAuthTestState(request: APIRequestContext, email: stri
     30000
   );
 
-  if (!response.ok()) {
+  // 404 = user not found — nothing to reset, that's fine
+  if (!response.ok() && response.status() !== 404) {
     throw new Error(`Falha ao resetar estado auth de ${email}: ${response.status()} ${text}`);
   }
 }

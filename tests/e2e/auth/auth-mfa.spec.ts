@@ -94,7 +94,7 @@ test.describe('Auth MFA Flow', () => {
 
     // Verify with the real code
     const verifyResp = await page.request.post('/api/auth/mfa/verify', {
-      data: { userId: QA_ADMIN_ID, code, tipoAcao: 'LOGIN' },
+      data: { userId: QA_ADMIN_ID, code, tipoAcao: 'LOGIN', mfaChallenge },
       headers: { 'Content-Type': 'application/json' },
     });
 

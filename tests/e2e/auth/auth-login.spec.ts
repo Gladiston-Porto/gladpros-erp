@@ -23,7 +23,7 @@ test.describe('Login Flow', () => {
 
   test.beforeEach(async ({ page }) => {
     await resetAuthTestState(page.request, QA_ADMIN_EMAIL);
-    await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
+    await page.goto('/login', { waitUntil: 'networkidle', timeout: AUTH_TIMEOUT_MS });
   });
 
   test('botão Entrar desabilitado quando formulário vazio', async ({ page }) => {
@@ -32,20 +32,29 @@ test.describe('Login Flow', () => {
   });
 
   test('botão Entrar desabilitado com apenas email preenchido', async ({ page }) => {
-    await page.fill('input[name="email"]', QA_ADMIN_EMAIL);
+    const emailInput = page.locator('input[name="email"]');
+    await emailInput.waitFor({ state: 'visible' });
+    await emailInput.selectText();
+    await emailInput.pressSequentially(QA_ADMIN_EMAIL, { delay: 0 });
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeDisabled();
   });
 
   test('botão Entrar desabilitado com senha muito curta (< 6 chars)', async ({ page }) => {
-    await page.fill('input[name="email"]', QA_ADMIN_EMAIL);
+    const emailInput = page.locator('input[name="email"]');
+    await emailInput.waitFor({ state: 'visible' });
+    await emailInput.selectText();
+    await emailInput.pressSequentially(QA_ADMIN_EMAIL, { delay: 0 });
     await page.fill('input[name="senha"]', '12345');
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeDisabled();
   });
 
   test('botão Entrar habilitado com email válido + senha ≥ 6 chars', async ({ page }) => {
-    await page.fill('input[name="email"]', QA_ADMIN_EMAIL);
+    const emailInput = page.locator('input[name="email"]');
+    await emailInput.waitFor({ state: 'visible' });
+    await emailInput.selectText();
+    await emailInput.pressSequentially(QA_ADMIN_EMAIL, { delay: 0 });
     await page.fill('input[name="senha"]', '123456');
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeEnabled();
@@ -53,7 +62,9 @@ test.describe('Login Flow', () => {
 
   test('email inválido é rejeitado pelo browser (type=email)', async ({ page }) => {
     const emailInput = page.locator('input[name="email"]');
-    await emailInput.fill('nao-e-email');
+    await emailInput.waitFor({ state: 'visible' });
+    await emailInput.selectText();
+    await emailInput.pressSequentially('nao-e-email', { delay: 0 });
     await page.fill('input[name="senha"]', '123456');
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     // O botão deve continuar desabilitado pois email inválido
@@ -61,7 +72,10 @@ test.describe('Login Flow', () => {
   });
 
   test('credenciais incorretas exibem mensagem de erro na página', async ({ page }) => {
-    await page.fill('input[name="email"]', 'invalido@teste.com');
+    const emailInput = page.locator('input[name="email"]');
+    await emailInput.waitFor({ state: 'visible' });
+    await emailInput.selectText();
+    await emailInput.pressSequentially('invalido@teste.com', { delay: 0 });
     await page.fill('input[name="senha"]', 'SenhaErrada123!');
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeEnabled();
@@ -139,13 +153,13 @@ test.describe('Login Flow', () => {
     expect(resp.status()).toBe(200);
     const body = await resp.json();
     expect(body.success).toBe(true);
-    expect(body.data).toBeDefined();
-    expect(body.data.email).toBe(QA_ADMIN_EMAIL);
-    expect(body.data.id).toBeDefined();
-    expect(body.data.nivel).toBeDefined();
+    // /api/auth/me returns a flat object (no .data wrapper)
+    expect(body.email).toBe(QA_ADMIN_EMAIL);
+    expect(body.id).toBeDefined();
+    expect(body.role).toBeDefined();
     // Nunca deve retornar a senha
-    expect(body.data.senha).toBeUndefined();
-    expect(body.data.senhaHash).toBeUndefined();
+    expect(body.senha).toBeUndefined();
+    expect(body.senhaHash).toBeUndefined();
   });
 
   test('/api/auth/me retorna 401 sem autenticação', async ({ page }) => {
