@@ -5,6 +5,7 @@
  */
 import { prisma } from '@/lib/prisma';
 import { Prisma, type InvoiceBillingType } from '@prisma/client';
+import { aggregateProjectCosts } from '@/shared/lib/services/project-finance';
 import type {
   IFinanceGateway,
   GerarInvoiceDTO,
@@ -559,7 +560,7 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       select: { numeroProjeto: true, valorEstimado: true },
     });
 
-    const [invoiceAgg, invoicesByStatus, materialAgg, laborAgg, expenseAgg] = await Promise.all([
+    const [invoiceAgg, invoicesByStatus, materialAgg, expenseAgg, costBreakdown] = await Promise.all([
       prisma.invoice.aggregate({
         where: { projetoId, empresaId: 1, status: { not: 'CANCELLED' } },
         _sum: { valorTotal: true, valorPago: true },
@@ -574,11 +575,6 @@ export class PrismaFinanceGateway implements IFinanceGateway {
         where: { projetoId },
         _sum: { custoTotal: true },
       }),
-      // Labor cost from service orders linked to this project (non-cancelled)
-      prisma.serviceOrder.aggregate({
-        where: { projetoId, status: { not: 'CANCELLED' } },
-        _sum: { laborTotal: true },
-      }),
       // Direct project expenses (paid, not linked to a service order to avoid double counting)
       prisma.expense.aggregate({
         where: {
@@ -588,13 +584,17 @@ export class PrismaFinanceGateway implements IFinanceGateway {
         },
         _sum: { valor: true },
       }),
+      // Real labor cost from TimesheetEntry hours × worker rates (more accurate than ServiceOrder.laborTotal)
+      aggregateProjectCosts(projetoId),
     ]);
 
     const invoiceCountByStatus = new Map(invoicesByStatus.map((item) => [item.status, item._count._all]));
 
     const valorOrcado = Number(projeto?.valorEstimado ?? 0);
     const valorMateriais = Number(materialAgg._sum.custoTotal ?? 0);
-    const valorMaoDeObra = Number(laborAgg._sum.laborTotal ?? 0);
+    // Use real labor cost from TimesheetEntry × worker rates (aggregateProjectCosts)
+    // This is more accurate than ServiceOrder.laborTotal which requires manual input
+    const valorMaoDeObra = costBreakdown.totalLabor;
     const valorDespesas = Number(expenseAgg._sum.valor ?? 0);
     const custoRealTotal = valorMateriais + valorMaoDeObra + valorDespesas;
     const valorFaturado = Number(invoiceAgg._sum.valorTotal ?? 0);
