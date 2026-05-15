@@ -3,8 +3,21 @@
  * Provides utility functions for testing API endpoints with different user roles
  */
 
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, type APIRequestContext } from '@playwright/test';
 import { signAuthJWT } from '../../../src/shared/lib/jwt';
+
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
+
+/**
+ * Clears all in-memory rate limits on the test server.
+ * Must be called in beforeEach to prevent 429 bleed-over between test runs.
+ * Uses the QA admin email — DB operations are harmless, rate-limit clear is global.
+ */
+export async function resetRateLimits(request: APIRequestContext): Promise<void> {
+  await request.post(`${BASE}/api/test-helpers/auth-state`, {
+    data: { email: 'qa.admin.clientes@teste.local' },
+  });
+}
 
 export interface AuthUser {
   id: string;

@@ -7,11 +7,12 @@
  * Cada teste deve ser rápido e independente.
  */
 
-import { test, expect, mockUsers, getAuthHeaders } from '../fixtures/auth';
+import { test, expect, mockUsers, getAuthHeaders, resetRateLimits } from '../fixtures/auth';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe('Smoke — Módulo Usuários', () => {
+  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
   // ── Autenticação: rotas protegidas retornam 401 sem token ──
 
   test('GET /api/usuarios sem auth → 401', async ({ request }) => {

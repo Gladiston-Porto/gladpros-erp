@@ -6,7 +6,7 @@
  * paginação nos extremos, filtros combinados e idempotência.
  */
 
-import { test, expect, getAuthHeaders, mockUsers } from '../fixtures/auth';
+import { test, expect, getAuthHeaders, mockUsers, resetRateLimits } from '../fixtures/auth';
 import { seedUsuarios, cleanupUsuarios } from '../fixtures/usuarios-seed';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
@@ -14,6 +14,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 test.describe.serial('Edge Cases — Módulo Usuários', () => {
   test.beforeAll(async () => { await seedUsuarios(); });
   test.afterAll(async () => { await cleanupUsuarios(); });
+  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
 
   // ── Strings extremas ──
 

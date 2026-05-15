@@ -5,7 +5,7 @@
  * Usa seed users (ids 1–7) para garantir que endpoints façam DB lookup.
  */
 
-import { test, expect, mockUsers, getAuthHeaders } from '../fixtures/auth';
+import { test, expect, mockUsers, getAuthHeaders, resetRateLimits } from '../fixtures/auth';
 import { seedUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
@@ -13,6 +13,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 test.describe.serial('02 — Matriz RBAC por role', () => {
   test.beforeAll(async () => { await seedUsuarios(); });
   test.afterAll(async () => { await teardownUsuarios(); });
+  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
 
   // ─── GET list ───
   test('ADMIN GET /api/usuarios → 200', async ({ request, adminHeaders }) => {

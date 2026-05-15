@@ -2,7 +2,7 @@
  * 07 — Auditoria: verificar que mutações geram registros de auditoria.
  */
 
-import { test, expect, mockUsers, getAuthHeaders } from '../fixtures/auth';
+import { test, expect, mockUsers, getAuthHeaders, resetRateLimits } from '../fixtures/auth';
 import { seedUsuarios, cleanupUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
@@ -12,6 +12,7 @@ test.describe.serial('07 — Auditoria de Usuários', () => {
 
   test.beforeAll(async () => { await seedUsuarios(); });
   test.afterAll(async () => { await teardownUsuarios(); });
+  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
 
   // ─── POST gera auditoria de criação ───
   test('POST /api/usuarios gera registro de auditoria', async ({ request, adminHeaders }) => {

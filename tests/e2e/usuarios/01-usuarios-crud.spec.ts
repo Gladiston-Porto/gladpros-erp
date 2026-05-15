@@ -5,7 +5,7 @@
  * → DELETE (soft) → filtros + paginação + cache invalidation.
  */
 
-import { test, expect, mockUsers, getAuthHeaders } from '../fixtures/auth';
+import { test, expect, mockUsers, getAuthHeaders, resetRateLimits } from '../fixtures/auth';
 import { seedUsuarios, cleanupUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
@@ -16,6 +16,7 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
 
   test.beforeAll(async () => { await seedUsuarios(); });
   test.afterAll(async () => { await teardownUsuarios(); });
+  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
 
   // ── POST: criar usuário ──
   test('POST /api/usuarios cria usuário com senha provisória', async ({ request, adminHeaders }) => {

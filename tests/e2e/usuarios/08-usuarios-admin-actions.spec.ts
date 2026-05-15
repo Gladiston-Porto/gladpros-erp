@@ -6,7 +6,7 @@
  * PATCH /status com body explícito, dead-man edge cases.
  */
 
-import { test, expect, mockUsers, getAuthHeaders } from '../fixtures/auth';
+import { test, expect, mockUsers, getAuthHeaders, resetRateLimits } from '../fixtures/auth';
 import { seedUsuarios, cleanupUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
@@ -14,6 +14,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 test.describe.serial('08 — Ações Admin & Edge Cases', () => {
   test.beforeAll(async () => { await seedUsuarios(); });
   test.afterAll(async () => { await teardownUsuarios(); });
+  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
 
   // ─── GET /security ───
   test.describe('Security Info', () => {

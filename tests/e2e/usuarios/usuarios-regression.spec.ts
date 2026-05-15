@@ -8,7 +8,7 @@
  * Referência de problemas: docs/modules/usuarios/01-audit.md
  */
 
-import { test, expect, getAuthHeaders, mockUsers } from '../fixtures/auth';
+import { test, expect, getAuthHeaders, mockUsers, resetRateLimits } from '../fixtures/auth';
 import { seedUsuarios, cleanupUsuarios } from '../fixtures/usuarios-seed';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
@@ -16,6 +16,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 test.describe.serial('Regressão — Guards de P1/P2 (Usuários)', () => {
   test.beforeAll(async () => { await seedUsuarios(); });
   test.afterAll(async () => { await cleanupUsuarios(); });
+  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
 
   // ── P1-01: senhaHash nunca exposta no response ──
   // Bug original: campos sensíveis podiam vazar via response

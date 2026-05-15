@@ -5,7 +5,7 @@
  * validação e as mensagens de erro funcionam end-to-end.
  */
 
-import { test, expect } from '../fixtures/auth';
+import { test, expect, resetRateLimits } from '../fixtures/auth';
 import { seedUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
@@ -13,6 +13,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 test.describe.serial('04 — Validação E2E', () => {
   test.beforeAll(async () => { await seedUsuarios(); });
   test.afterAll(async () => { await teardownUsuarios(); });
+  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
 
   // ─── Telefone ───
   test.describe('Telefone', () => {

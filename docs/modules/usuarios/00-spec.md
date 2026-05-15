@@ -1,7 +1,7 @@
 # Módulo Usuários — Documentação Técnica
 
 **Status:** ✅ Produção  
-**Última atualização:** 2026-05-05  
+**Última atualização:** 2026-07-01  
 
 ---
 
@@ -34,6 +34,9 @@ src/app/api/usuarios/
 │   └── pdf/route.ts                  # GET — exportar PDF
 ├── sessions/
 │   └── [sessionId]/route.ts          # DELETE — revogar sessão específica
+├── delegacoes/
+│   ├── route.ts                      # POST — criar delegação temporária
+│   └── minhas/route.ts               # GET — delegações do usuário atual
 └── [id]/
     ├── route.ts                      # GET / PATCH / DELETE
     ├── status/route.ts               # PATCH — ativar/inativar
@@ -182,7 +185,43 @@ Dados sensíveis **nunca** retornados pela API:
 
 ---
 
-## 10. Roadmap Futuro
+## 10. Cobertura de Testes (estado atual)
+
+| Tipo | Contagem | Estado |
+|------|----------|--------|
+| Unit (Jest) | **80 testes** em 13 suites | ✅ 80/80 passando |
+| E2E (Playwright) | **178 testes** em 11 specs | ✅ 178/178 passando |
+
+### Specs E2E
+
+```
+tests/e2e/usuarios/
+├── 01-usuarios-crud.spec.ts       # CRUD happy-path (ADMIN)
+├── 02-usuarios-rbac.spec.ts       # Matriz RBAC 6 roles × 5 ações
+├── 03-usuarios-security.spec.ts   # Escalação, self-edit, dead-man
+├── 04-usuarios-validation.spec.ts # Validação Zod E2E (telefone, CEP, email)
+├── 05-usuarios-sessions.spec.ts   # Listagem e revogação de sessões
+├── 06-usuarios-export.spec.ts     # Export CSV/PDF + filtro hierárquico
+├── 07-usuarios-audit.spec.ts      # Auditoria: mutações geram AuditLog
+├── 08-usuarios-admin-actions.spec.ts # Security info, self-edit, status toggle
+├── usuarios-edge-cases.spec.ts    # Strings extremas, unicode, injeção, paginação
+├── usuarios-regression.spec.ts    # Guards P1/P2 (bugs corrigidos)
+└── usuarios-smoke.spec.ts         # Smoke: endpoints vivos + auth
+```
+
+### Padrão de isolamento de rate limit
+
+Todos os specs usam `resetRateLimits` em `beforeEach` (via `tests/e2e/fixtures/auth.ts`)
+para garantir que o bucket IP não sangre entre runs do servidor de longa duração.
+
+```typescript
+import { test, resetRateLimits } from '../fixtures/auth';
+test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
+```
+
+---
+
+## 11. Roadmap Futuro
 
 - [x] Campo `nivel` migrado para enum Prisma (`Usuario_nivel`) — maio 2026
 - [x] Expiração de conta (`expiresAt`) com bloqueio no login — maio 2026

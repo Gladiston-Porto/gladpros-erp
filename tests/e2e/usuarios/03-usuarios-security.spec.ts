@@ -5,7 +5,7 @@
  * adicionais que dependem de seed (BD populado).
  */
 
-import { test, expect, mockUsers, getAuthHeaders } from '../fixtures/auth';
+import { test, expect, mockUsers, getAuthHeaders, resetRateLimits } from '../fixtures/auth';
 import { seedUsuarios, cleanupUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
@@ -13,6 +13,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 test.describe.serial('03 — Segurança Expandida', () => {
   test.beforeAll(async () => { await seedUsuarios(); });
   test.afterAll(async () => { await cleanupUsuarios(); });
+  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
 
   // ── Escalação de privilégio ──
   test('USUARIO PATCH próprio role=ADMIN → role permanece USUARIO', async ({ request, usuarioHeaders }) => {
