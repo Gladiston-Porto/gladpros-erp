@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         worker: {
           select: {
             id: true,
-            nome: true,
+            name: true,
             status: true,
             empresaId: true,
             usuarioId: true,
@@ -87,19 +87,19 @@ export async function POST(request: NextRequest) {
 
     // ── /clockin ────────────────────────────────────────────────────────
     if (text === "/clockin") {
-      await handleClockInRequest(chatId, link.worker.nome)
+      await handleClockInRequest(chatId, link.worker.name)
       return NextResponse.json({ ok: true })
     }
 
     // ── /clockout ───────────────────────────────────────────────────────
     if (text === "/clockout") {
-      await handleClockOut(chatId, link.workerId, link.worker.nome)
+      await handleClockOut(chatId, link.workerId, link.worker.name)
       return NextResponse.json({ ok: true })
     }
 
     // ── /status ─────────────────────────────────────────────────────────
     if (text === "/status") {
-      await handleStatus(chatId, link.workerId, link.worker.nome)
+      await handleStatus(chatId, link.workerId, link.worker.name)
       return NextResponse.json({ ok: true })
     }
 
@@ -140,7 +140,7 @@ async function handleStart(
       used: true,
       expiresAt: true,
       empresaId: true,
-      worker: { select: { nome: true } },
+      worker: { select: { name: true } },
     },
   })
 
@@ -175,7 +175,7 @@ async function handleStart(
 
   await sendMessage(
     chatId,
-    `✅ *Conta vinculada com sucesso!*\n\nOlá, ${record.worker.nome}! 👋\n\nAgora você pode usar o bot para registrar seu ponto:\n\n📍 */clockin* — Iniciar turno\n🏁 */clockout* — Encerrar turno\n📊 */status* — Ver turno atual\n\nUse /help para mais informações.`,
+    `✅ *Conta vinculada com sucesso!*\n\nOlá, ${record.worker.name}! 👋\n\nAgora você pode usar o bot para registrar seu ponto:\n\n📍 */clockin* — Iniciar turno\n🏁 */clockout* — Encerrar turno\n📊 */status* — Ver turno atual\n\nUse /help para mais informações.`,
     "Markdown"
   )
 }
@@ -196,7 +196,7 @@ async function handleClockInRequest(chatId: number, nome: string) {
 async function handleLocation(
   chatId: number,
   workerId: number,
-  worker: { id: number; nome: string; empresaId: number; usuarioId: number | null },
+  worker: { id: number; name: string; empresaId: number; usuarioId: number | null },
   location: { latitude: number; longitude: number; horizontal_accuracy?: number }
 ) {
   // Verifica se já há turno aberto
@@ -236,7 +236,7 @@ async function handleLocation(
   })
 
   const timeStr = formatTime(entry.clockInAt)
-  await removeKeyboard(chatId, `✅ *Turno iniciado!*\n\n👤 ${worker.nome}\n⏰ ${timeStr} (CST)\n📍 Localização registrada\n\nUse */clockout* quando terminar.`, "Markdown")
+  await removeKeyboard(chatId, `✅ *Turno iniciado!*\n\n👤 ${worker.name}\n⏰ ${timeStr} (CST)\n📍 Localização registrada\n\nUse */clockout* quando terminar.`, "Markdown")
 }
 
 async function handleClockOut(chatId: number, workerId: number, nome: string) {

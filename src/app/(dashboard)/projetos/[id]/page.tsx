@@ -32,6 +32,7 @@ export default async function ProjetoDetailPage({
         canReadStock: can(role, 'estoque', 'read'),
         canManageStock: can(role, 'projetos', 'update') && can(role, 'estoque', 'update'),
         canViewFinancials: can(role, 'financeiro', 'read'),
+        userRole: user.role,
       }}
     />
   );

@@ -82,6 +82,7 @@ type ProjetoDetailPermissions = {
   canReadStock: boolean;
   canManageStock: boolean;
   canViewFinancials: boolean;
+  userRole: string;
 };
 
 export default function ProjetoDetailClient({ permissions }: { permissions: ProjetoDetailPermissions }) {

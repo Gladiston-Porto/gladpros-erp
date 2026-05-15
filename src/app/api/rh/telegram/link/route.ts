@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     const worker = await prisma.worker.findFirst({
       where: { id: workerId, empresaId: user.empresaId, deletadoEm: null },
-      select: { id: true, nome: true, telegramLink: { select: { telegramId: true, username: true } } },
+      select: { id: true, name: true, telegramLink: { select: { telegramId: true, username: true } } },
     })
 
     if (!worker) {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       data: {
         workerId,
-        workerNome: worker.nome,
+        workerNome: worker.name,
         alreadyLinked: !!worker.telegramLink,
         currentTelegramUsername: worker.telegramLink?.username ?? null,
         deepLink,
