@@ -4,6 +4,7 @@ import { createProposalApprovedSteps, ProposalApprovedContext } from '@/server/p
 import { createProjectCreatedSteps, ProjectCreatedContext } from '@/server/playbooks/project-created';
 import { createServiceOrderCompletedSteps, ServiceOrderCompletedContext } from '@/server/playbooks/service-order-completed';
 import { createInvoiceOverdueSteps, InvoiceOverdueContext } from '@/server/playbooks/invoice-overdue';
+import { prisma } from '@/lib/prisma';
 
 const runner = new PlaybookRunner();
 
@@ -105,6 +106,51 @@ export function registerEventHandlers() {
     }
   });
 
+  // ── project.statusChanged → AuditLog ──────────────────────────
+  eventBus.on('project.statusChanged', async (event) => {
+    const payload = event.payload as {
+      projetoId: number;
+      oldStatus: string;
+      newStatus: string;
+      changedBy: number;
+    };
+
+    try {
+      await prisma.auditLog.create({
+        data: {
+          id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          userId: payload.changedBy,
+          entidade: 'Projeto',
+          entidadeId: String(payload.projetoId),
+          acao: 'STATUS_ALTERADO',
+          diff: JSON.stringify({ oldStatus: payload.oldStatus, newStatus: payload.newStatus }),
+        },
+      });
+    } catch (err) {
+      console.error('[EventBus] Failed to write AuditLog for project.statusChanged:', err);
+    }
+  });
+
+  // ── project.completed → AuditLog ──────────────────────────────
+  eventBus.on('project.completed', async (event) => {
+    const payload = event.payload as { projetoId: number; completedBy: number };
+
+    try {
+      await prisma.auditLog.create({
+        data: {
+          id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          userId: payload.completedBy,
+          entidade: 'Projeto',
+          entidadeId: String(payload.projetoId),
+          acao: 'PROJETO_CONCLUIDO',
+          diff: JSON.stringify({ completedAt: new Date().toISOString() }),
+        },
+      });
+    } catch (err) {
+      console.error('[EventBus] Failed to write AuditLog for project.completed:', err);
+    }
+  });
+
   // eslint-disable-next-line no-console
-  console.log('[EventBus] All handlers registered: proposal.approved, project.created, serviceOrder.completed, invoice.overdue');
+  console.log('[EventBus] All handlers registered: proposal.approved, project.created, project.statusChanged, project.completed, serviceOrder.completed, invoice.overdue');
 }

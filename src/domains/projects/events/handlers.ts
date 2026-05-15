@@ -1,9 +1,16 @@
 /**
- * Project Event Handlers
+ * Project Event Handlers — DEPRECATED (not connected to production)
  *
- * No-op stubs for project domain events.
- * Each handler documents the intended integration (queue, notifications, email, etc.)
- * and will be wired to real services when those are implemented.
+ * @deprecated This module was built in Fase 8 using a domain-specific ProjectEventEmitter
+ * that is NOT connected to the production EventBus (src/server/events/event-bus.ts).
+ *
+ * Production audit trail is handled in src/server/events/register-handlers.ts:
+ * - project.statusChanged → writes AuditLog (STATUS_ALTERADO)
+ * - project.completed    → writes AuditLog (PROJETO_CONCLUIDO)
+ *
+ * The handlers below are no-op stubs. They exist for potential future integration
+ * (queues, external notifications, analytics) and should NOT be used in production
+ * until connected to the real EventBus.
  */
 
 import {
