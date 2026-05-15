@@ -248,24 +248,63 @@ Operações críticas geram `AuditLog`:
 | `despesas.test.ts` | GET/POST despesas, filtros |
 | `despesas-aprovar.test.ts` | POST aprovar, fluxo de status |
 | `despesas-pagar.test.ts` | POST pagar, atualização de status |
-| `owner-compensation.test.ts` | GET/POST compensação, validação S-Corp |
+| `owner-compensation.test.ts` | GET/POST compensação, validação S-Corp (rota) |
+| `owner-compensation-scorp.test.ts` | 13 testes unitários S-Corp IRS rules (service) |
 | `tax-regime.test.ts` | GET/PUT regime fiscal, auditlog |
+| `invoices/payments.route.test.ts` | 16 testes incl. Invoice→Revenue integration |
+| `estimated-tax.test.ts` | GET/POST estimated-tax (em geração) |
+| `transferencias.test.ts` | GET/POST transferências (em geração) |
+| `fluxo-caixa.test.ts` | GET fluxo-caixa (em geração) |
 
-**Total**: 7 suites · 40 testes · 0 falhas
+**Total**: 9+ suites · 60+ testes (estimado após geração)
 
-### Rotas sem cobertura (P2.4 — backlog)
-`fluxo-caixa`, `dashboard`, `transferencias`, `contas/[id]/transacao`, `contas/[id]/extrato`, `receitas/[id]`, `despesas/[id]/rejeitar`, `tax/dashboard`, `estimated-tax`
+### Rotas sem cobertura (P3 — backlog)
+`dashboard`, `contas/[id]/extrato`, `receitas/[id]`, `despesas/[id]/rejeitar`, `tax/dashboard`
 
 ---
 
 ## 11. Integração com Outros Módulos
 
-| Módulo | Tipo de Integração |
-|--------|--------------------|
-| **Invoices** | Receita gerada ao marcar invoice como PAID |
-| **Projetos** | `custoReal`, `lucroReal` calculados de despesas vinculadas |
-| **Estoque** | Despesas de compra vinculadas a `projetoId` |
-| **OS (Service Orders)** | Despesas de mão-de-obra e materiais |
+| Módulo | Tipo de Integração | Detalhes |
+|--------|--------------------|---------|
+| **Invoices** | Revenue auto-criada ao marcar invoice como PAID | `invoices/[id]/payments` → upsert categoria → create Revenue |
+| **Projetos** | `custoReal` calculado de despesas com `projetoId` | `project-finance.service` → `aggregateProjectCosts` |
+| **OS (ServiceOrders)** | Despesas de reembolso criadas via RECEIPT attachment | `request-reimbursement` propaga `projetoId` do OS para Expense |
+| **Workers** | OwnerCompensation vinculado a `OWNER_OPERATOR` | IRS rules validados na service layer |
+
+### Fluxo de Integração Completo
+
+```
+Invoice PAID → InvoicePayment → Revenue (auto, não bloqueia)
+     ↑
+  Projeto ─► BillingType ─► Invoice parcial ou final
+
+OS + RECEIPT ─► request-reimbursement ─► Expense(serviceOrderId, projetoId)
+     ↑                                       │
+  Worker/Técnico                       projetoId ─► aggregateProjectCosts
+
+Worker (OWNER_OPERATOR) ─► OwnerCompensation ─► EstimatedTax
+     └── LLC: OWNER_DRAW only
+     └── S-Corp: SALARY then DISTRIBUTION (IRS blocking)
+```
+
+### Detalhes Técnicos por Fluxo
+
+**Invoice → Revenue:**
+- Arquivo: `src/app/api/invoices/[id]/payments/route.ts` (linhas 176–218)
+- Falha na criação de Revenue NÃO bloqueia pagamento — é logada via `logger.error`
+- `RevenueCategory` é criada automaticamente por upsert se não existir
+
+**OS → Expense → Projeto:**
+- Arquivo: `src/app/api/service-orders/[id]/request-reimbursement/route.ts`
+- `projetoId` é propagado do OS para a Expense (corrigido v1.1.0)
+- `empresaId` vem do JWT, nunca hardcoded (corrigido v1.1.0)
+- Filtros `projetoId` e `serviceOrderId` disponíveis em `GET /api/financeiro/despesas`
+
+**Projeto custoReal:**
+- `Projeto.custoReal` é um cache snapshot — atualizado via `POST /api/projetos/[id]/financeiro/costs`
+- O motor de saúde do projeto (`/health`) computa real-time de `Expense.projetoId`
+- Portanto: saldo real sempre disponível via health endpoint, mesmo antes do sync
 
 ---
 
@@ -286,6 +325,7 @@ Operações críticas geram `AuditLog`:
 
 | Versão | Data | Descrição |
 |--------|------|-----------|
+| v1.1.0 | mai/2025 | Cross-module fixes: Invoice→Revenue upsert+log, OS→Expense projetoId, despesas filtros projetoId/serviceOrderId, S-Corp 13 unit tests |
 | v1.0.0 | mai/2025 | Certificação inicial — P1 security fixes, AuditLog, dashboard page, docs unificadas |
 
 ---
