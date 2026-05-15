@@ -8,6 +8,8 @@ import { withErrorHandler } from "@/lib/api/error-handler";
 import { requireUser } from "@/shared/lib/rbac";
 
 export const GET = withErrorHandler(async (req: Request) => {
+  // Endpoint de auto-consulta: retorna delegações do próprio usuário logado.
+  // Não requer can() de módulo pois qualquer usuário autenticado pode ver suas próprias delegações.
   const authUser = await requireUser(req);
   const userId = Number(authUser.id);
   const agora = new Date();

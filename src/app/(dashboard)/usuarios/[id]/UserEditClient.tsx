@@ -118,7 +118,7 @@ const ROLE_BADGE: Record<UserRole, { label: string; className: string }> = {
   GERENTE:    { label: "Gerente",       className: "bg-teal-500/20 text-teal-100 border border-teal-400/30" },
   FINANCEIRO: { label: "Financeiro",    className: "bg-blue-500/20 text-blue-100 border border-blue-400/30" },
   ESTOQUE:    { label: "Estoque",       className: "bg-orange-500/20 text-orange-100 border border-orange-400/30" },
-  USUARIO:    { label: "Usuário",       className: "bg-white/20 text-white border border-white/30" },
+  USUARIO:    { label: "Usuário",       className: "bg-slate-500/20 text-slate-100 border border-slate-400/30" },
   CLIENTE:    { label: "Cliente",       className: "bg-purple-500/20 text-purple-100 border border-purple-400/30" },
 };
 

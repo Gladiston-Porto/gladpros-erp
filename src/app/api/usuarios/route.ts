@@ -389,8 +389,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     // Verificar autenticação
     const user = await requireUser(req);
     
-    // Verificar se usuário tem permissão de criação (apenas ADMIN cria usuários - regra de negócio)
-    if (!can(user.role as Role, 'usuarios', 'create') || user.role !== 'ADMIN') {
+    // Verificar se usuário tem permissão de criação — apenas ADMIN (conforme rbac-core)
+    if (!can(user.role as Role, 'usuarios', 'create')) {
       return NextResponse.json(
         { error: 'Acesso negado. Apenas administradores podem criar usuários.' },
         { status: 403 }

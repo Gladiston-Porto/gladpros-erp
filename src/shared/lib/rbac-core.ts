@@ -28,7 +28,7 @@ const NONE: Action[] = []
 
 export const policy: Record<ModuleKey, Partial<Record<Role, Action[]>>> = {
   // ----- Original modules -----
-  usuarios:      { ADMIN: ALL, GERENTE: ALL, USUARIO: RO },
+  usuarios:      { ADMIN: ALL },
   financeiro:    { ADMIN: ALL, FINANCEIRO: ALL, GERENTE: RO },
   clientes:      { ADMIN: ALL, GERENTE: RW, USUARIO: RW, FINANCEIRO: RO, ESTOQUE: RO },
   projetos:      { ADMIN: ALL, GERENTE: ALL, USUARIO: ALL, FINANCEIRO: ALL, ESTOQUE: ALL, CLIENTE: RO },

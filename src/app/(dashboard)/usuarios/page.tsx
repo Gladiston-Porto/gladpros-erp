@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useConfirm } from "@gladpros/ui/confirm-dialog";
 import { useToast } from "@gladpros/ui/toast";
 import { AdvancedPagination } from "@gladpros/ui/advanced-pagination";
+import { TableSkeleton } from "@gladpros/ui/loading";
 import { ChevronDown, Download, FileText, Plus, Shield, Users, UserCheck, UserX } from "lucide-react";
 import { Button } from '@gladpros/ui/button';
 import { ModulePageHeader } from "@gladpros/ui/module-page-header";
@@ -448,7 +449,9 @@ export default function UsersPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 text-sm opacity-60">Carregando…</div>
+            <div className="p-6">
+              <TableSkeleton rows={8} columns={7} />
+            </div>
           ) : (
             <UsersTable
               data={data}

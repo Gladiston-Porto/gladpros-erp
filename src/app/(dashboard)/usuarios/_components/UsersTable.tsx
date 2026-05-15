@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { ArrowUpDown, Eye, Pencil, UserCheck, UserX } from "lucide-react";
+import { ArrowUpDown, Eye, Pencil, UserCheck, UserX, Users } from "lucide-react";
 
 import type { SortKey, UserRole, UsersList } from "./types";
 import { unwrapUsers } from "./types";
@@ -294,8 +294,12 @@ export function UsersTable({
           })}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-3 py-12 text-center text-sm text-muted-foreground">
-                Nenhum usuário encontrado.
+              <td colSpan={7} className="px-3 py-12 text-center">
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <Users className="h-10 w-10 opacity-30" />
+                  <p className="text-sm font-medium">Nenhum usuário encontrado</p>
+                  <p className="text-xs opacity-60">Tente ajustar os filtros ou criar um novo usuário.</p>
+                </div>
               </td>
             </tr>
           )}
