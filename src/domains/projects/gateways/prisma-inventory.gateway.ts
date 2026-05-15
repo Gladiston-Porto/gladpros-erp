@@ -136,11 +136,12 @@ export class PrismaInventoryGateway implements IInventoryGateway {
             criadoPor: dados.usuarioId,
           },
         });
-        movimentacaoIds.push(movimentacao.id);
+        movimentacaoIds.push(Number(movimentacao.id));
       }
 
       return {
         sucesso: true,
+        mensagem: 'Material liberado com sucesso',
         estoqueExternoId: movimentacaoIds.join(','),
         movimentacaoIds,
       };
@@ -232,6 +233,7 @@ export class PrismaInventoryGateway implements IInventoryGateway {
 
       return {
         sucesso: true,
+        mensagem: `Material devolvido com sucesso`,
         estoqueExternoId: String(movimentacao.id),
       };
     });

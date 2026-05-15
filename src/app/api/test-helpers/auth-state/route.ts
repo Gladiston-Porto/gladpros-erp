@@ -83,25 +83,20 @@ export async function POST(req: NextRequest) {
 
     const globalState = global as unknown as {
       __lastMFA?: { usuarioId: number }
+      __lastMFAByUser?: Record<number, { code: string; iat: number; usuarioId: number }>
     }
     if (globalState.__lastMFA?.usuarioId === resolvedUserId) {
       delete globalState.__lastMFA
     }
+    if (globalState.__lastMFAByUser?.[resolvedUserId]) {
+      delete globalState.__lastMFAByUser[resolvedUserId]
+    }
   }
 
-  // Clear in-memory rate limits only for this user — keeps other tests' buckets intact
-  const targetEmail = parsed.data.email;
-  if (targetEmail) {
-    const escaped = targetEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    clearRateLimitsByPattern(new RegExp(`^(login|forgotPwd|mfa):${escaped}$`));
-  } else {
-    // userId-only reset: fall back to global clear (no email to scope)
-    clearRateLimitsByPattern();
-  }
-  // Also clear mfa:resend:{userId}:* keys (keyed by userId+IP, not email)
-  if (resolvedUserId) {
-    clearRateLimitsByPattern(new RegExp(`^mfa:resend:${resolvedUserId}:`));
-  }
+  // This endpoint is test-only — clear ALL in-memory rate limits for a fully clean state.
+  // Targeted clearing was incomplete: mfa:user:{userId} and IP-keyed resetPasswordRateLimit
+  // (key "unknown" in test environments) were never cleared, causing cascading 429s.
+  clearRateLimitsByPattern();
 
   return NextResponse.json({
     data: { userId: resolvedUserId ?? null },
