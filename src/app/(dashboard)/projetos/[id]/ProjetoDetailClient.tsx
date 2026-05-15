@@ -34,6 +34,7 @@ import { MateriaisLista } from '@/components/projetos/materiais/MateriaisLista';
 import { MateriaisEstoqueTab } from '@/components/projetos/materiais/MateriaisEstoqueTab';
 import { FinanceiroDashboard } from '@/components/projetos/financeiro/FinanceiroDashboard';
 import { BillingScheduleWidget } from '@/components/projetos/financeiro/BillingScheduleWidget';
+import { ChangeOrdersWidget } from '@/components/projetos/ChangeOrdersWidget';
 import { EquipeManager } from '@/components/projetos/equipe/EquipeManager';
 import { ProjetoJobsList } from '@/components/projetos/jobs/ProjetoJobsList';
 import { ProjetoHistorico } from '@/components/projetos/historico/ProjetoHistorico';
@@ -336,6 +337,7 @@ export default function ProjetoDetailClient({ permissions }: { permissions: Proj
             <TabsTrigger value="materiais">Materiais</TabsTrigger>
             {permissions.canReadStock && <TabsTrigger value="estoque">Estoque</TabsTrigger>}
             {permissions.canViewFinancials && <TabsTrigger value="financeiro">Financeiro</TabsTrigger>}
+            {permissions.canUpdate && <TabsTrigger value="change-orders">Change Orders</TabsTrigger>}
             <TabsTrigger value="equipe">Equipe</TabsTrigger>
             <TabsTrigger value="historico">Histórico</TabsTrigger>
           </TabsList>
@@ -535,6 +537,12 @@ export default function ProjetoDetailClient({ permissions }: { permissions: Proj
               <ProjectDecisionPanel projetoId={projeto.id} userRole={permissions.userRole} />
               <BillingScheduleWidget projetoId={projeto.id} />
               <FinanceiroDashboard projeto={projeto} />
+            </TabsContent>
+          )}
+
+          {permissions.canUpdate && (
+            <TabsContent value="change-orders">
+              <ChangeOrdersWidget projetoId={projeto.id} canManage={permissions.canUpdate} />
             </TabsContent>
           )}
 
