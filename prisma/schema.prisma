@@ -3137,6 +3137,10 @@ model Worker {
   // Time & Attendance
   timeEntries TimeEntry[] @relation("WorkerTimeEntries")
 
+  // Telegram Integration
+  telegramLink       TelegramLink?
+  telegramLinkTokens TelegramLinkToken[]
+
   @@index([status])
   @@index([type])
   @@index([compensationModel])
@@ -5145,4 +5149,42 @@ model TimeEntryActivity {
   @@index([projetoId])
   @@index([serviceOrderId])
   @@map("time_entry_activities")
+}
+
+// ─── Telegram Integration ──────────────────────────────────────────────────
+
+model TelegramLink {
+  id          Int      @id @default(autoincrement())
+  empresaId   Int      @map("empresa_id")
+  workerId    Int      @unique @map("worker_id")
+  telegramId  BigInt   @unique @map("telegram_id")
+  username    String?  @db.VarChar(100)
+  firstName   String?  @db.VarChar(100) @map("first_name")
+  linkedAt    DateTime @default(now()) @map("linked_at")
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+  @@index([telegramId])
+  @@map("telegram_links")
+}
+
+model TelegramLinkToken {
+  id        Int      @id @default(autoincrement())
+  empresaId Int      @map("empresa_id")
+  workerId  Int      @map("worker_id")
+  token     String   @unique @db.VarChar(64)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  criadoEm  DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+  @@index([token])
+  @@index([workerId])
+  @@map("telegram_link_tokens")
 }

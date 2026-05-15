@@ -14,7 +14,8 @@ jest.mock('@/lib/prisma', () => ({
   prisma: {
     projeto: { findUnique: jest.fn() },
     serviceOrder: { findFirst: jest.fn(), aggregate: jest.fn() },
-    expense: { aggregate: jest.fn() },
+    expense: { aggregate: jest.fn(), findMany: jest.fn() },
+    timesheetEntry: { findMany: jest.fn() },
     invoice: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
@@ -35,7 +36,8 @@ import { PrismaFinanceGateway } from '@/domains/projects/gateways/prisma-finance
 const mockPrisma = prisma as {
   projeto: { findUnique: jest.Mock };
   serviceOrder: { findFirst: jest.Mock; aggregate: jest.Mock };
-  expense: { aggregate: jest.Mock };
+  expense: { aggregate: jest.Mock; findMany: jest.Mock };
+  timesheetEntry: { findMany: jest.Mock };
   invoice: { findFirst: jest.Mock; findMany: jest.Mock; aggregate: jest.Mock; groupBy: jest.Mock; count: jest.Mock };
   projetoMaterialEstoque: { findMany: jest.Mock; aggregate: jest.Mock };
   $transaction: jest.Mock;
@@ -372,7 +374,9 @@ describe('PrismaFinanceGateway — fluxo projeto → invoice', () => {
       ]);
       mockPrisma.projetoMaterialEstoque.aggregate.mockResolvedValue({ _sum: { custoTotal: 0 } });
       mockPrisma.serviceOrder.aggregate.mockResolvedValue({ _sum: { laborTotal: 0 } });
-      mockPrisma.expense.aggregate.mockResolvedValue({ _sum: { valor: 0 } });
+      mockPrisma.expense.aggregate.mockResolvedValue({ _sum: { valor: 0 }, _count: 0 });
+      mockPrisma.expense.findMany.mockResolvedValue([]);
+      mockPrisma.timesheetEntry.findMany.mockResolvedValue([]);
     });
 
     it('deve calcular totalInvoices corretamente', async () => {

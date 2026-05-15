@@ -118,7 +118,9 @@ function statusLabel(status: AlertStatus) {
   return 'Aberto';
 }
 
-export function ProjectDecisionPanel({ projetoId }: { projetoId: number }) {
+export function ProjectDecisionPanel({ projetoId, userRole }: { projetoId: number; userRole?: string }) {
+  // GERENTE sees operational data only — no financial figures (cash gap, margins, coverage)
+  const showFinancials = userRole !== 'GERENTE';
   const [snapshot, setSnapshot] = useState<HealthSnapshot | null>(null);
   const [alerts, setAlerts] = useState<HealthAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -292,9 +294,15 @@ export function ProjectDecisionPanel({ projetoId }: { projetoId: number }) {
           )}
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <DecisionMetric icon={<DollarSign className="h-4 w-4" />} label="Cash gap" value={formatCurrency(snapshot.cashGap)} />
-            <DecisionMetric icon={<TrendingDown className="h-4 w-4" />} label="Margem projetada" value={formatPercent(snapshot.projectedMarginPct)} />
-            <DecisionMetric icon={<ShieldAlert className="h-4 w-4" />} label="Cobertura faturada" value={formatPercent(snapshot.invoiceCoveragePct)} />
+            {showFinancials && (
+              <DecisionMetric icon={<DollarSign className="h-4 w-4" />} label="Cash gap" value={formatCurrency(snapshot.cashGap)} />
+            )}
+            {showFinancials && (
+              <DecisionMetric icon={<TrendingDown className="h-4 w-4" />} label="Margem projetada" value={formatPercent(snapshot.projectedMarginPct)} />
+            )}
+            {showFinancials && (
+              <DecisionMetric icon={<ShieldAlert className="h-4 w-4" />} label="Cobertura faturada" value={formatPercent(snapshot.invoiceCoveragePct)} />
+            )}
             <DecisionMetric icon={<Activity className="h-4 w-4" />} label="Orçamento usado" value={formatPercent(snapshot.budgetUsedPct)} />
           </div>
         </CardContent>
