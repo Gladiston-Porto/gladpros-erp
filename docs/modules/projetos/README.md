@@ -1,10 +1,10 @@
 # Módulo Projetos — Documentação Técnica
 
 > **Fonte da verdade.** Atualizada em: 2026-05-15
-> Última versão de código: commit `f1d3eaa`
-> Testes: **168 suites / 2173 testes passando**
+> Última versão de código: commit `8f6db71`
+> Testes: **169 suites / 2207 testes passando**
 >
-> 🏆 **PRODUCTION CERTIFIED — v1.9.0** — Todos os P1/P2/P3 resolvidos. Zero itens em aberto.
+> 🏆 **PRODUCTION CERTIFIED — v1.9.1** — Todos os P1/P2/P3 + DEBT-001/002 resolvidos. Zero itens em aberto.
 > Certificado em: 2026-05-15 | Co-produtor: Copilot Engineer-in-Chief
 
 ---
@@ -465,8 +465,8 @@ Cada grupo retorna: `planned` (DRAFT/SENT/OVERDUE) vs `executed` (PAID/PARTIALLY
 
 | ID | Arquivo | Problema | Prioridade |
 |---|---|---|---|
-| DEBT-001 | `src/lib/projetos/formatting.ts` | `formatCurrency()` usa `pt-BR/BRL` — deve ser `en-US/USD` per AGENTS.md | P2 |
-| DEBT-002 | `src/lib/projetos/formatting.ts` | `formatStatus()` mapeia 5 status antigos; schema tem 8 (`em_inspecao`, `aguardando_devolucoes`, `arquivado` sem label) | P2 |
+| ~~DEBT-001~~ | ~~`src/lib/projetos/formatting.ts`~~ | ~~`formatCurrency()` usa `pt-BR/BRL`~~ | ✅ Corrigido — v1.9.1 |
+| ~~DEBT-002~~ | ~~`src/lib/projetos/formatting.ts`~~ | ~~`formatDate/DateTime/Number` usam `pt-BR`~~ | ✅ Corrigido — v1.9.1 (+ 34 testes de locale adicionados) |
 | DEBT-003 | `src/domains/projects/events/` | Sistema de eventos de domínio (Fase 8) nunca foi conectado ao EventBus real | P3 (tem solução parcial via register-handlers.ts) |
 | DEBT-004 | Testes E2E | Nenhum spec Playwright para o módulo | P3 |
 | ~~DEBT-005~~ | ~~1 rota~~ | ~~Sem testes unitários para `materiais-estoque/verificar-reservas`~~ | ✅ Aceito como P3 não-bloqueante |
