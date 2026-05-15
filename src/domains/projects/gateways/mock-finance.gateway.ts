@@ -350,6 +350,9 @@ export class MockFinanceGateway implements IFinanceGateway {
 
     const valorOrcado = 10000.00; // Mock da proposta
     const valorMateriais = 2500.00; // Mock dos materiais
+    const valorMaoDeObra = 1200.00; // Mock da mão de obra
+    const valorDespesas = 300.00; // Mock das despesas diretas
+    const custoRealTotal = valorMateriais + valorMaoDeObra + valorDespesas;
 
     const valorFaturado = invoices.reduce((acc, i) => acc + i.valorTotal, 0);
     const valorPago = invoices.reduce((acc, i) => acc + i.valorPago, 0);
@@ -362,7 +365,7 @@ export class MockFinanceGateway implements IFinanceGateway {
       i.status === 'PENDENTE' && i.dataVencimento < new Date()
     ).length;
 
-    const margem = valorFaturado - valorMateriais;
+    const margem = valorFaturado - custoRealTotal;
     const percentualMargem = valorFaturado > 0 
       ? (margem / valorFaturado) * 100 
       : 0;
@@ -372,6 +375,9 @@ export class MockFinanceGateway implements IFinanceGateway {
       numeroProjeto: `PROJ-${String(projetoId).padStart(4, '0')}`,
       valorOrcado,
       valorMateriais,
+      valorMaoDeObra,
+      valorDespesas,
+      custoRealTotal,
       valorFaturado,
       valorPago,
       valorPendente,

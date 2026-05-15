@@ -3,6 +3,7 @@ jest.mock("@/lib/prisma", () => ({
     projeto: { findUnique: jest.fn() },
     projectCloseout: { upsert: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     closeoutTemplate: { findMany: jest.fn(), findFirst: jest.fn() },
+    invoice: { findMany: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -69,6 +70,7 @@ describe("ProjectCloseoutService", () => {
     (mockPrisma.closeoutTemplate.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.closeoutTemplate.findFirst as jest.Mock).mockResolvedValue(null);
     (mockPrisma.projectCloseout.findUnique as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.invoice.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.projectCloseout.update as jest.Mock).mockImplementation(async (args: any) => ({
       id: 1,
       projectId: args.where.projectId,

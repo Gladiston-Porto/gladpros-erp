@@ -579,6 +579,7 @@ export class ProjectService {
     await this.assertInspectionRequirementsForFinalStatus(projeto, novoStatus);
     await this.assertPunchListRequirementsForFinalStatus(projeto, novoStatus);
     await this.assertMaterialRequirementsForFinalStatus(projeto, novoStatus);
+    await this.assertInvoiceRequirementsForFinalStatus(id, novoStatus);
 
     // FASE 6: Bloqueio por triagens pendentes
     if (novoStatus === PROJETO_STATUS.CONCLUIDO) {
@@ -1201,6 +1202,67 @@ export class ProjectService {
           wasteQty: item.wasteQty.toFixed(4),
           damagedQty: item.damagedQty.toFixed(4),
           lostQty: item.lostQty.toFixed(4),
+        })),
+      }
+    );
+  }
+
+  /**
+   * Bloqueia conclusão/arquivamento quando existem invoices não quitadas.
+   * Statuses bloqueantes: DRAFT, SENT, VIEWED, PARTIAL_PAID, OVERDUE.
+   * PAID e CANCELLED não bloqueiam.
+   */
+  private async assertInvoiceRequirementsForFinalStatus(
+    projetoId: number,
+    novoStatus: Projeto_status
+  ): Promise<void> {
+    const statusFinal =
+      novoStatus === PROJETO_STATUS.CONCLUIDO || novoStatus === PROJETO_STATUS.ARQUIVADO;
+
+    if (!statusFinal) return;
+
+    const BLOCKING_STATUSES = ['DRAFT', 'SENT', 'VIEWED', 'PARTIAL_PAID', 'OVERDUE'];
+
+    const invoicesAbertas = await this.prisma.invoice.findMany({
+      where: {
+        projetoId,
+        status: { in: BLOCKING_STATUSES as any },
+      },
+      select: {
+        id: true,
+        numeroInvoice: true,
+        status: true,
+        valorTotal: true,
+        valorPago: true,
+        dataVencimento: true,
+      },
+      take: 10,
+      orderBy: { dataVencimento: 'asc' },
+    });
+
+    if (invoicesAbertas.length === 0) return;
+
+    const totalPendente = invoicesAbertas.reduce(
+      (sum, inv) => sum + (Number(inv.valorTotal) - Number(inv.valorPago ?? 0)),
+      0
+    );
+
+    throw new ProjectServiceError(
+      `Projeto não pode ser encerrado: ${invoicesAbertas.length} invoice(s) com saldo pendente ($${totalPendente.toFixed(2)}).`,
+      'INVOICE_CLOSEOUT_BLOCKED',
+      409,
+      {
+        reason: 'OPEN_INVOICES',
+        count: invoicesAbertas.length,
+        totalPendente: totalPendente.toFixed(2),
+        invoices: invoicesAbertas.map((inv) => ({
+          id: inv.id,
+          numeroInvoice: inv.numeroInvoice,
+          status: inv.status,
+          valorTotal: Number(inv.valorTotal),
+          valorPago: Number(inv.valorPago ?? 0),
+          saldoPendente: Number(inv.valorTotal) - Number(inv.valorPago ?? 0),
+          dataVencimento: inv.dataVencimento,
         })),
       }
     );

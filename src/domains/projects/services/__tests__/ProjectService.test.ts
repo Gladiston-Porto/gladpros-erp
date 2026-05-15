@@ -12,6 +12,7 @@ jest.mock("@/lib/prisma", () => ({
       delete: jest.fn(),
       count: jest.fn(),
     },
+    invoice: { findMany: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -69,6 +70,9 @@ describe("ProjectService", () => {
       },
       totalsPendingQty: new Prisma.Decimal(0),
     });
+
+    // Default: no open invoices (safe for conclusion)
+    (mockPrisma.invoice.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   describe("criar", () => {
@@ -895,6 +899,69 @@ describe("ProjectService", () => {
       });
 
       expect(mockPrisma.projeto.update).not.toHaveBeenCalled();
+    });
+
+    it("deve bloquear conclusão quando existem invoices em aberto", async () => {
+      (mockPrisma.projeto.findUnique as jest.Mock).mockResolvedValue({
+        id: 1,
+        clienteId: 1,
+        titulo: "Projeto com invoice aberta",
+        status: "em_inspecao",
+        Proposta: { permite: "NAO" },
+        projectPermits: [],
+        projectInspections: [],
+        projectPunchItems: [],
+      } as any);
+
+      (mockPrisma.invoice.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 101,
+          numeroInvoice: "INV-2025-0001",
+          status: "SENT",
+          valorTotal: new (require("@prisma/client").Prisma.Decimal)(5000),
+          valorPago: new (require("@prisma/client").Prisma.Decimal)(0),
+          dataVencimento: new Date("2026-03-01"),
+        },
+      ]);
+
+      const mockTriageGateway = { verificarBloqueio: jest.fn().mockResolvedValue(false) };
+      (service as any).triageGateway = mockTriageGateway;
+
+      await expect(service.alterarStatus(1, { novoStatus: "concluido" }, 1)).rejects.toMatchObject({
+        code: "INVOICE_CLOSEOUT_BLOCKED",
+        statusCode: 409,
+      });
+
+      expect(mockPrisma.projeto.update).not.toHaveBeenCalled();
+    });
+
+    it("deve permitir conclusão quando todas as invoices estão pagas ou canceladas", async () => {
+      (mockPrisma.projeto.findUnique as jest.Mock).mockResolvedValue({
+        id: 1,
+        clienteId: 1,
+        titulo: "Projeto com invoices quitadas",
+        status: "em_inspecao",
+        Proposta: { permite: "NAO" },
+        projectPermits: [],
+        projectInspections: [],
+        projectPunchItems: [],
+      } as any);
+
+      // invoice.findMany returns empty (no open invoices)
+      (mockPrisma.invoice.findMany as jest.Mock).mockResolvedValue([]);
+
+      (mockPrisma.projeto.update as jest.Mock).mockResolvedValue({
+        id: 1,
+        status: "concluido",
+        cliente: { id: 1, nome: "Cliente" },
+      } as any);
+
+      const mockTriageGateway = { verificarBloqueio: jest.fn().mockResolvedValue(false) };
+      (service as any).triageGateway = mockTriageGateway;
+
+      await service.alterarStatus(1, { novoStatus: "concluido" }, 1);
+
+      expect(mockPrisma.projeto.update).toHaveBeenCalled();
     });
   });
 

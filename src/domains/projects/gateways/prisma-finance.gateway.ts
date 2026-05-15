@@ -559,7 +559,7 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       select: { numeroProjeto: true, valorEstimado: true },
     });
 
-    const [invoiceAgg, invoicesByStatus, materialAgg] = await Promise.all([
+    const [invoiceAgg, invoicesByStatus, materialAgg, laborAgg, expenseAgg] = await Promise.all([
       prisma.invoice.aggregate({
         where: { projetoId, empresaId: 1, status: { not: 'CANCELLED' } },
         _sum: { valorTotal: true, valorPago: true },
@@ -574,15 +574,33 @@ export class PrismaFinanceGateway implements IFinanceGateway {
         where: { projetoId },
         _sum: { custoTotal: true },
       }),
+      // Labor cost from service orders linked to this project (non-cancelled)
+      prisma.serviceOrder.aggregate({
+        where: { projetoId, status: { not: 'CANCELLED' } },
+        _sum: { laborTotal: true },
+      }),
+      // Direct project expenses (paid, not linked to a service order to avoid double counting)
+      prisma.expense.aggregate({
+        where: {
+          projetoId,
+          serviceOrderId: null,
+          status: { in: ['PAGA', 'APROVADA'] },
+        },
+        _sum: { valor: true },
+      }),
     ]);
+
     const invoiceCountByStatus = new Map(invoicesByStatus.map((item) => [item.status, item._count._all]));
 
     const valorOrcado = Number(projeto?.valorEstimado ?? 0);
     const valorMateriais = Number(materialAgg._sum.custoTotal ?? 0);
+    const valorMaoDeObra = Number(laborAgg._sum.laborTotal ?? 0);
+    const valorDespesas = Number(expenseAgg._sum.valor ?? 0);
+    const custoRealTotal = valorMateriais + valorMaoDeObra + valorDespesas;
     const valorFaturado = Number(invoiceAgg._sum.valorTotal ?? 0);
     const valorPago = Number(invoiceAgg._sum.valorPago ?? 0);
     const valorPendente = valorFaturado - valorPago;
-    const margem = valorFaturado - valorMateriais;
+    const margem = valorFaturado - custoRealTotal;
     const invoicesPagos = invoiceCountByStatus.get('PAID') ?? 0;
 
     return {
@@ -590,6 +608,9 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       numeroProjeto: projeto?.numeroProjeto ?? '',
       valorOrcado,
       valorMateriais,
+      valorMaoDeObra,
+      valorDespesas,
+      custoRealTotal,
       valorFaturado,
       valorPago,
       valorPendente,

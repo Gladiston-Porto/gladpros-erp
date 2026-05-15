@@ -164,6 +164,12 @@ export interface ResumoFinanceiroProjeto {
   valorOrcado: number;
   /** Valor total de materiais alocados */
   valorMateriais: number;
+  /** Custo total de mão de obra (service orders + timesheets) */
+  valorMaoDeObra: number;
+  /** Despesas diretas do projeto (excl. materiais e mão de obra) */
+  valorDespesas: number;
+  /** Custo real total (materiais + mão de obra + despesas) */
+  custoRealTotal: number;
   /** Valor total faturado (invoices) */
   valorFaturado: number;
   /** Valor total pago */
@@ -178,9 +184,9 @@ export interface ResumoFinanceiroProjeto {
   invoicesPagos: number;
   /** Invoices vencidos */
   invoicesVencidos: number;
-  /** Margem (valor faturado - custos materiais) */
+  /** Margem real (valorFaturado - custoRealTotal) */
   margem: number;
-  /** Percentual da margem */
+  /** Percentual da margem real */
   percentualMargem: number;
   /** Última atualização */
   atualizadoEm: Date;

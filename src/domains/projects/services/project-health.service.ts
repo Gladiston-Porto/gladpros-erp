@@ -14,6 +14,25 @@ export type ProjectHealthAlertType =
   | 'SCHEDULE_RISK'
   | 'OS_MARGIN_RISK';
 
+/**
+ * Operational alerts: visible to GERENTE (schedule, labor, materials — no financial figures).
+ * Financial alerts: ADMIN and FINANCEIRO only (margins, cash, billing coverage).
+ */
+export const OPERATIONAL_ALERT_TYPES = new Set<ProjectHealthAlertType>([
+  'LABOR_SLOWDOWN',
+  'MATERIAL_OVERRUN',
+  'SCHEDULE_RISK',
+]);
+
+export const FINANCIAL_ALERT_TYPES = new Set<ProjectHealthAlertType>([
+  'BUDGET_WARNING',
+  'BUDGET_LIMIT',
+  'PROJECTED_LOSS',
+  'CASH_GAP',
+  'INVOICE_NEEDED',
+  'OS_MARGIN_RISK',
+]);
+
 export interface ProjectHealthAlert {
   type: ProjectHealthAlertType;
   severity: Exclude<ProjectRiskScore, 'OK'>;

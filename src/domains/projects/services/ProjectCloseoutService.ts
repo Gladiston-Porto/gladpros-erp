@@ -615,6 +615,52 @@ export class ProjectCloseoutService {
     });
   }
 
+  private async buildInvoicesGate(projectId: number): Promise<CloseoutGateResult> {
+    const BLOCKING_STATUSES = ['DRAFT', 'SENT', 'VIEWED', 'PARTIAL_PAID', 'OVERDUE'];
+
+    const openInvoices = await this.prisma.invoice.findMany({
+      where: { projetoId: projectId, status: { in: BLOCKING_STATUSES as any } },
+      select: {
+        id: true,
+        numeroInvoice: true,
+        status: true,
+        valorTotal: true,
+        valorPago: true,
+        dataVencimento: true,
+      },
+      take: 10,
+      orderBy: { dataVencimento: 'asc' },
+    });
+
+    if (openInvoices.length === 0) {
+      return {
+        key: 'invoices',
+        label: 'Invoices',
+        required: true,
+        state: 'PASS',
+        reason: 'ALL_INVOICES_SETTLED',
+        blockingCount: 0,
+        blockingItems: [],
+      };
+    }
+
+    return {
+      key: 'invoices',
+      label: 'Invoices',
+      required: true,
+      state: 'FAIL',
+      reason: 'OPEN_INVOICES_PENDING',
+      blockingCount: openInvoices.length,
+      blockingItems: openInvoices.map((inv) => ({
+        id: inv.id,
+        numeroInvoice: inv.numeroInvoice,
+        status: inv.status,
+        saldoPendente: Number(inv.valorTotal) - Number(inv.valorPago ?? 0),
+        dataVencimento: inv.dataVencimento,
+      })),
+    };
+  }
+
   private buildSkippedGate(key: CloseoutGateKey, label: string): CloseoutGateResult {
     return {
       key,
@@ -891,7 +937,7 @@ export class ProjectCloseoutService {
     );
     gates.push(this.buildSkippedGate("timesheets", "Timesheets"));
     gates.push(this.buildSkippedGate("subcontractors", "Subcontractors"));
-    gates.push(this.buildSkippedGate("invoices", "Invoices"));
+    gates.push(await this.buildInvoicesGate(project.id));
     gates.push(this.buildSkippedGate("lien_waivers", "Lien Waivers"));
 
     const hasBlockingRequiredGate = gates.some((gate) => gate.required && gate.state === "FAIL");
