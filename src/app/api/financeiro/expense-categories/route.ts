@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
      
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where = { empresaId: (user as any).empresaId ?? 1 }
+    const where = { empresaId: user.empresaId }
 
     const [total, categories] = await Promise.all([
       prisma.expenseCategory.count({ where }),

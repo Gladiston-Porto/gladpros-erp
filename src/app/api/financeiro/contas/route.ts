@@ -27,8 +27,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     
     // Parse e valida filtros
+    // empresaId always comes from JWT — never from query params
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filters = {
-      empresaId: searchParams.get("empresaId") ? Number(searchParams.get("empresaId")) : undefined,
+      empresaId: user.empresaId,
       tipo: searchParams.get("tipo") || undefined,
       ativo: searchParams.get("ativo") === "true" ? true : searchParams.get("ativo") === "false" ? false : undefined,
       principal: searchParams.get("principal") === "true" ? true : searchParams.get("principal") === "false" ? false : undefined,
@@ -43,9 +45,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     
-    if (validatedFilters.empresaId) {
-      where.empresaId = validatedFilters.empresaId;
-    }
+    // empresaId is always set from JWT above — always include it in the query
+    where.empresaId = validatedFilters.empresaId;
     
     if (validatedFilters.tipo) {
       where.tipo = validatedFilters.tipo;

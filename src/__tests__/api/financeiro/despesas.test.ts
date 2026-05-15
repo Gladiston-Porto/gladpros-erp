@@ -61,7 +61,7 @@ describe('GET /api/financeiro/despesas', () => {
   })
 
   it('returns 403 when user lacks financeiro.read permission', async () => {
-    mockRequireUser.mockResolvedValue({ id: '1', role: 'USUARIO', status: 'ATIVO' } as any)
+    mockRequireUser.mockResolvedValue({ id: '1', role: 'USUARIO', status: 'ATIVO', empresaId: 1 } as any)
     mockCan.mockReturnValue(false)
     const req = new NextRequest('http://localhost/api/financeiro/despesas?empresaId=1')
     const res = await GET(req)
@@ -69,7 +69,7 @@ describe('GET /api/financeiro/despesas', () => {
   })
 
   it('returns 200 with data for authorized user', async () => {
-    mockRequireUser.mockResolvedValue({ id: '1', role: 'FINANCEIRO', status: 'ATIVO' } as any)
+    mockRequireUser.mockResolvedValue({ id: '1', role: 'FINANCEIRO', status: 'ATIVO', empresaId: 1 } as any)
     mockCan.mockReturnValue(true)
     const req = new NextRequest('http://localhost/api/financeiro/despesas?empresaId=1')
     const res = await GET(req)
@@ -94,7 +94,7 @@ describe('POST /api/financeiro/despesas', () => {
   })
 
   it('returns 403 when user lacks financeiro.create permission', async () => {
-    mockRequireUser.mockResolvedValue({ id: '1', role: 'USUARIO', status: 'ATIVO' } as any)
+    mockRequireUser.mockResolvedValue({ id: '1', role: 'USUARIO', status: 'ATIVO', empresaId: 1 } as any)
     mockCan.mockReturnValue(false)
     const req = new NextRequest('http://localhost/api/financeiro/despesas', {
       method: 'POST',

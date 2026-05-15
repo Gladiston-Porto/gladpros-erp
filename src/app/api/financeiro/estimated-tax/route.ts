@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
      
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const estimates = await getQuarterlyEstimates((user as any).empresaId ?? 1, year)
+    const estimates = await getQuarterlyEstimates(user.empresaId, year)
 
     return NextResponse.json({ data: estimates, success: true })
   } catch (error) {
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
      
     const result = await recordPayment({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      empresaId: (user as any).empresaId ?? 1,
+      empresaId: user.empresaId,
       taxYear: body.data.taxYear,
       quarter: body.data.quarter,
       paidAmount: body.data.paidAmount,

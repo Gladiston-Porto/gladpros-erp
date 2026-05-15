@@ -61,6 +61,7 @@ export async function requireUser(req?: NextRequest | Request) {
     status: claims.status ?? "ATIVO",
     email: (claims as unknown as { email?: string } | undefined)?.email,
     nome: (claims as unknown as { nome?: string } | undefined)?.nome,
+    empresaId: 1 as const,
   }
 
   if (trustJwtOnly) {
@@ -112,6 +113,7 @@ export async function requireUser(req?: NextRequest | Request) {
     status: dbStatus ?? tokenUser.status,
     email: tokenUser.email,
     nome: tokenUser.nome,
+    empresaId: 1 as const,
   }
 }
 

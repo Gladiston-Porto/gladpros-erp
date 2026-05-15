@@ -24,9 +24,13 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const body = await request.json();
     const validatedData = createRevenueSchema.parse(body);
 
+    // empresaId always comes from JWT — never from request body
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const empresaId = user.empresaId;
+
     // 3. Verificar se empresa existe
     const empresa = await prisma.empresa.findUnique({
-      where: { id: validatedData.empresaId }
+      where: { id: empresaId }
     });
 
     if (!empresa) {
@@ -67,7 +71,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       // Criar receita principal
       const newRevenue = await tx.revenue.create({
         data: {
-          empresaId: validatedData.empresaId,
+          empresaId,
           categoriaId: validatedData.categoriaId,
           clienteId: validatedData.clienteId || null,
           descricao: validatedData.descricao,
@@ -114,6 +118,17 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       return newRevenue;
     });
 
+    await prisma.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: Number(user.id),
+        entidade: 'Revenue',
+        entidadeId: String(revenue.id),
+        acao: 'RECEITA_CRIADA',
+        diff: JSON.stringify({ valor: revenue.valor, descricao: revenue.descricao, status: revenue.status }),
+      },
+    });
+
     return NextResponse.json({
       success: true,
       data: revenue,
@@ -137,8 +152,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
     // 2. Parse query params
     const searchParams = request.nextUrl.searchParams;
+    // empresaId always comes from JWT — never from query params
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filters = {
-      empresaId: parseInt(searchParams.get('empresaId') || '0'),
+      empresaId: user.empresaId,
       status: searchParams.get('status') || undefined,
       categoriaId: searchParams.get('categoriaId') ? parseInt(searchParams.get('categoriaId')!) : undefined,
       clienteId: searchParams.get('clienteId') ? parseInt(searchParams.get('clienteId')!) : undefined,

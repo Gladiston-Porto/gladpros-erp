@@ -23,20 +23,14 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
     }
     const { searchParams } = new URL(request.url);
-    const empresaId = searchParams.get('empresaId');
+    // empresaId always comes from JWT — never from query params
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const empresaId = user.empresaId;
     const ativo = searchParams.get('ativo');
 
-    if (!empresaId) {
-      return NextResponse.json({
-        success: false,
-        error: 'empresaId é obrigatório'
-      }, { status: 400 });
-    }
-
-     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
-      empresaId: parseInt(empresaId)
+      empresaId
     };
 
     if (ativo !== null) {
@@ -120,11 +114,15 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const body = await request.json();
     const validatedData = createExpenseCategorySchema.parse(body);
 
+    // empresaId always comes from JWT — never from request body
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const empresaId = user.empresaId;
+
     // Verificar se categoria já existe
     const existingCategory = await prisma.expenseCategory.findUnique({
       where: {
         empresaId_nome: {
-          empresaId: validatedData.empresaId,
+          empresaId,
           nome: validatedData.nome
         }
       }
@@ -139,7 +137,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
     // Criar categoria
     const categoria = await prisma.expenseCategory.create({
-      data: validatedData,
+      data: { ...validatedData, empresaId },
       include: {
         _count: {
           select: {

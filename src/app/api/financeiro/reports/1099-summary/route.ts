@@ -25,13 +25,13 @@ export async function GET(request: NextRequest) {
 
      
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const summary = await getContractor1099Summary((user as any).empresaId ?? 1, year)
+    const summary = await getContractor1099Summary(user.empresaId, year)
 
     if (format === "excel") {
        
       const empresa = await prisma.empresa.findUniqueOrThrow({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        where: { id: (user as any).empresaId ?? 1 },
+        where: { id: user.empresaId },
         select: { nome: true, razaoSocial: true },
       })
       const buffer = await generate1099Excel(

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const endOfYear = new Date(year, 11, 31, 23, 59, 59)
      
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const empresaId = (user as any).empresaId ?? 1
+    const empresaId = user.empresaId
 
     const [compensations, empresa] = await Promise.all([
       prisma.ownerCompensation.findMany({

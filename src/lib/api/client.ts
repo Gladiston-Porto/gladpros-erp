@@ -192,8 +192,8 @@ export const generalProjectsApi = {
  * API client para financeiro
  */
 export const financeiroApi = {
-  async getReceitasCategories(empresaId: number = 1) {
-    const res = await authenticatedFetch(`/api/financeiro/receitas/categorias?empresaId=${empresaId}`);
+  async getReceitasCategories() {
+    const res = await authenticatedFetch(`/api/financeiro/receitas/categorias`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
       throw new Error(errorData.error || 'Erro ao carregar categorias de receitas');
@@ -220,8 +220,8 @@ export const financeiroApi = {
     return res.json();
   },
 
-  async getDespesasCategories(empresaId: number = 1) {
-    const res = await authenticatedFetch(`/api/financeiro/despesas/categorias?empresaId=${empresaId}`);
+  async getDespesasCategories() {
+    const res = await authenticatedFetch(`/api/financeiro/despesas/categorias`);
     if (!res.ok) {
        
       const errorData = await res.json().catch(() => ({ error: 'Erro desconhecido' }));

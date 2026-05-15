@@ -29,8 +29,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     
     // Parse filtros
+    // empresaId always comes from JWT — never from query params
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filters = {
-      empresaId: searchParams.get("empresaId") ? Number(searchParams.get("empresaId")) : undefined,
+      empresaId: user.empresaId,
       fromAccountId: searchParams.get("fromAccountId") ? Number(searchParams.get("fromAccountId")) : undefined,
       toAccountId: searchParams.get("toAccountId") ? Number(searchParams.get("toAccountId")) : undefined,
       status: searchParams.get("status") || undefined,
@@ -47,9 +49,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     
-    if (validatedFilters.empresaId) {
-      where.empresaId = validatedFilters.empresaId;
-    }
+    // empresaId is always set from JWT above — always include it in the query
+    where.empresaId = validatedFilters.empresaId;
     
     if (validatedFilters.fromAccountId) {
       where.fromAccountId = validatedFilters.fromAccountId;
@@ -355,7 +356,18 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       
       return transferenciaFinal;
     });
-    
+
+    await prisma.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: Number(user.id),
+        entidade: 'BankTransfer',
+        entidadeId: String(resultado.id),
+        acao: 'TRANSFERENCIA_REALIZADA',
+        diff: JSON.stringify({ valor: resultado.valor, fromAccountId: resultado.fromAccountId, toAccountId: resultado.toAccountId }),
+      },
+    });
+
     return NextResponse.json({
       success: true,
       message: "Transferência realizada com sucesso",

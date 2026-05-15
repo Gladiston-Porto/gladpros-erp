@@ -22,7 +22,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     
      
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const empresaId = (user as any).empresaId ?? 1;
+    const empresaId = user.empresaId;
     
     // Define período (padrão: últimos 30 dias)
     const dataFim = new Date();

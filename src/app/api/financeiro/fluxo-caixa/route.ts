@@ -6,7 +6,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {  } from "@prisma/client";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
@@ -30,7 +29,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     
      
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const empresaId = (user as any).empresaId ?? 1;
+    const empresaId = user.empresaId;
     const incluirProjecao = searchParams.get("incluirProjecao") !== "false";
     const diasProjecao = searchParams.get("diasProjecao") ? Number(searchParams.get("diasProjecao")) : 30;
     
@@ -49,6 +48,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     // Valida período
     if (dataInicio > dataFim) {
       return NextResponse.json({
+        error: "Invalid date range",
         success: false,
         message: "Data inicial não pode ser maior que data final"
       }, { status: 400 });
@@ -58,6 +58,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     
     if (diasDiferenca > 365) {
       return NextResponse.json({
+        error: "Period too large",
         success: false,
         message: "Período máximo permitido é de 365 dias"
       }, { status: 400 });
@@ -89,6 +90,11 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const saldoDisponivelTotal = saldoAtualTotal + limiteTotal;
     
     // ===== 2. RECEITAS E DESPESAS DO PERÍODO =====
+    // Limit to 1000 records per type to prevent OOM on large datasets.
+    // The 365-day window cap already restricts period, but a single active
+    // tenant can accumulate thousands of records per month.
+    const FLUXO_CAIXA_RECORD_LIMIT = 1000;
+
     const [receitas, despesas] = await Promise.all([
       prisma.revenue.findMany({
         where: {
@@ -109,7 +115,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         },
         orderBy: {
           dataVencimento: 'asc'
-        }
+        },
+        take: FLUXO_CAIXA_RECORD_LIMIT,
       }),
       prisma.expense.findMany({
         where: {
@@ -130,7 +137,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         },
         orderBy: {
           dataVencimento: 'asc'
-        }
+        },
+        take: FLUXO_CAIXA_RECORD_LIMIT,
       })
     ]);
     
@@ -515,6 +523,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           contas: contasAtivas.length,
           receitas: receitas.length,
           despesas: despesas.length,
+          truncated: receitas.length >= FLUXO_CAIXA_RECORD_LIMIT || despesas.length >= FLUXO_CAIXA_RECORD_LIMIT,
           geradoEm: new Date().toISOString()
         }
       }

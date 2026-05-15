@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const result = await listCompensations({
        
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      empresaId: (user as any).empresaId ?? 1,
+      empresaId: user.empresaId,
       year,
       tipo: tipo || undefined,
       page,
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
      
     const result = await createCompensation({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      empresaId: (user as any).empresaId ?? 1,
+      empresaId: user.empresaId,
       workerId: body.data.workerId,
       tipo: body.data.tipo,
       valor: body.data.valor,

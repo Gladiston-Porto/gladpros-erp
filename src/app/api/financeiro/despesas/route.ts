@@ -31,9 +31,13 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
     const { searchParams } = new URL(request.url);
 
+    // empresaId always comes from JWT — never from query params
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const empresaIdFromJwt = user.empresaId;
+
     // Parse query params
     const rawFilters = {
-      empresaId: Number(searchParams.get('empresaId')),
+      empresaId: empresaIdFromJwt,
       status: searchParams.get('status') || undefined,
       tipo: searchParams.get('tipo') || undefined,
       formaPagamento: searchParams.get('formaPagamento') || undefined,
@@ -240,12 +244,16 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     // Validar dados
     const validatedData = createExpenseSchema.parse(body);
 
+    // empresaId always comes from JWT — never from request body
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const empresaId = user.empresaId;
+
     // Iniciar transação
     const result = await prisma.$transaction(async (tx) => {
       // Criar despesa
       const expense = await tx.expense.create({
         data: {
-          empresaId: validatedData.empresaId,
+          empresaId,
           categoriaId: validatedData.categoriaId,
           fornecedorId: validatedData.fornecedorId,
           descricao: validatedData.descricao,
@@ -316,6 +324,17 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       }
 
       return expense;
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: Number(user.id),
+        entidade: 'Expense',
+        entidadeId: String(result.id),
+        acao: 'DESPESA_CRIADA',
+        diff: JSON.stringify({ valor: result.valor, descricao: result.descricao, status: result.status }),
+      },
     });
 
     return NextResponse.json({

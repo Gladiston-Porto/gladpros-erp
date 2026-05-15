@@ -19,14 +19,9 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const empresaId = parseInt(searchParams.get('empresaId') || '0');
-
-    if (!empresaId || isNaN(empresaId)) {
-      return NextResponse.json(
-        { error: 'empresaId é obrigatório' },
-        { status: 400 }
-      );
-    }
+    // empresaId always comes from JWT — never from query params
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const empresaId = user.empresaId;
 
     // Buscar categorias ativas
     const categories = await prisma.revenueCategory.findMany({

@@ -1,6 +1,11 @@
+> 📁 **Documento histórico** — registro de um bug específico corrigido em out/2025.
+> Mantido como referência de diagnóstico. Fonte da verdade do módulo: [README.md](./README.md)
+
+---
+
 # 🐛 BUG CRÍTICO CORRIGIDO - LOOP INFINITO EM /projetos
 
-**Data:** 05/10/2025  
+**Data:** 05/10/2025
 **Status:** ✅ RESOLVIDO  
 **Criticidade:** 🔴 ALTA
 

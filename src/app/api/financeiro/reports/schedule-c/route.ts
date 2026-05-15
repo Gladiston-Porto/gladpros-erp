@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
      
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const report = await generateScheduleCReport({ empresaId: (user as any).empresaId ?? 1, taxYear: year })
+    const report = await generateScheduleCReport({ empresaId: user.empresaId, taxYear: year })
 
     if (format === "excel") {
       const buffer = await generateScheduleCExcel(report)

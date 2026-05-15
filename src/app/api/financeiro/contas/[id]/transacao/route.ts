@@ -42,7 +42,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
     // Single-tenant: force empresaId from user context for security
      
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    body.empresaId = (user as any).empresaId ?? 1;
+    body.empresaId = user.empresaId;
     
     // Valida dados
     const validated = createBankTransactionSchema.parse(body) as CreateBankTransactionInput;
@@ -216,7 +216,18 @@ export const POST = withErrorHandler(async (request: NextRequest,
       
       return transacao;
     });
-    
+
+    await prisma.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: Number(user.id),
+        entidade: 'BankTransaction',
+        entidadeId: String(resultado.id),
+        acao: 'TRANSACAO_CRIADA',
+        diff: JSON.stringify({ valor: resultado.valor, tipo: resultado.tipo, contaId: resultado.contaId }),
+      },
+    });
+
     return NextResponse.json({
       success: true,
       message: "Transação criada com sucesso",

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
      
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const summary = await getCompensationSummary((user as any).empresaId ?? 1, year)
+    const summary = await getCompensationSummary(user.empresaId, year)
 
     return NextResponse.json({ data: summary, success: true })
   } catch (error) {

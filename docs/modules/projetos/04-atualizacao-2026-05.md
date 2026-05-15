@@ -1,3 +1,8 @@
+> 📁 **Documento histórico** — log de atualizações realizadas em mai/2026 (ciclos de Health Score e auditoria 15 pontos).
+> Mantido como referência de decisões e correções feitas nesse ciclo. Fonte da verdade: [README.md](./README.md)
+
+---
+
 # Módulo Projetos — Log de Atualização: 2026-05
 
 > Registro das melhorias realizadas neste ciclo de desenvolvimento.
