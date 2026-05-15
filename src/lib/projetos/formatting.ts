@@ -35,9 +35,9 @@ export function formatDate(date: string | Date | null | undefined): string {
   
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
+  return new Intl.DateTimeFormat('en-US', {
     month: '2-digit',
+    day: '2-digit',
     year: 'numeric',
     timeZone: 'America/Chicago',
   }).format(dateObj);
@@ -51,9 +51,9 @@ export function formatDateTime(date: string | Date | null | undefined): string {
   
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
+  return new Intl.DateTimeFormat('en-US', {
     month: '2-digit',
+    day: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
@@ -203,7 +203,7 @@ export function truncate(text: string, maxLength: number = 50): string {
 export function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined) return '0';
   
-  return new Intl.NumberFormat('pt-BR').format(value);
+  return new Intl.NumberFormat('en-US').format(value);
 }
 
 /**
