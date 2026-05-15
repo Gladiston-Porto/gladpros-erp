@@ -68,12 +68,12 @@ export async function POST(request: NextRequest) {
       where: { telegramId },
       select: {
         workerId: true,
+        empresaId: true,
         worker: {
           select: {
             id: true,
             name: true,
             status: true,
-            empresaId: true,
             usuarioId: true,
           },
         },
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 
     // ── Mensagem de localização (resposta ao /clockin) ──────────────────
     if (message.location) {
-      await handleLocation(chatId, link.workerId, link.worker, message.location)
+      await handleLocation(chatId, link.workerId, { ...link.worker, empresaId: link.empresaId }, message.location)
       return NextResponse.json({ ok: true })
     }
 
@@ -201,12 +201,12 @@ async function handleLocation(
 ) {
   // Verifica se já há turno aberto
   const openEntry = await prisma.timeEntry.findFirst({
-    where: { workerId, clockOutAt: null },
-    select: { id: true, clockInAt: true },
+    where: { workerId, clockOut: null },
+    select: { id: true, clockIn: true },
   })
 
   if (openEntry) {
-    const elapsed = formatElapsed(openEntry.clockInAt)
+    const elapsed = formatElapsed(openEntry.clockIn)
     await sendMessage(
       chatId,
       `⚠️ Você já tem um turno aberto há ${elapsed}.\n\nUse */clockout* para encerrar antes de iniciar um novo.`,
@@ -215,16 +215,15 @@ async function handleLocation(
     return
   }
 
-  // Cria o TimeEntry
+  const now = new Date()
+  // Cria o TimeEntry com campos corretos do schema
   const entry = await prisma.timeEntry.create({
     data: {
-      empresaId: worker.empresaId,
       workerId,
-      clockInAt: new Date(),
-      clockInLat: location.latitude,
-      clockInLng: location.longitude,
-      status: "OPEN",
+      clockIn: now,
+      workDate: now,
       workLocation: "FIELD",
+      status: "OPEN",
       activities: {
         create: {
           activityType: "FIELD_WORK",
@@ -232,17 +231,17 @@ async function handleLocation(
         },
       },
     },
-    select: { id: true, clockInAt: true },
+    select: { id: true, clockIn: true },
   })
 
-  const timeStr = formatTime(entry.clockInAt)
+  const timeStr = formatTime(entry.clockIn)
   await removeKeyboard(chatId, `✅ *Turno iniciado!*\n\n👤 ${worker.name}\n⏰ ${timeStr} (CST)\n📍 Localização registrada\n\nUse */clockout* quando terminar.`, "Markdown")
 }
 
 async function handleClockOut(chatId: number, workerId: number, nome: string) {
   const openEntry = await prisma.timeEntry.findFirst({
-    where: { workerId, clockOutAt: null },
-    select: { id: true, clockInAt: true },
+    where: { workerId, clockOut: null },
+    select: { id: true, clockIn: true },
   })
 
   if (!openEntry) {
@@ -251,7 +250,7 @@ async function handleClockOut(chatId: number, workerId: number, nome: string) {
   }
 
   const now = new Date()
-  const totalMinutes = Math.round((now.getTime() - openEntry.clockInAt.getTime()) / 60000)
+  const totalMinutes = Math.round((now.getTime() - openEntry.clockIn.getTime()) / 60000)
   const regularMinutes = Math.min(totalMinutes, 480)
   const overtimeMinutes = Math.max(0, totalMinutes - 480)
 
@@ -259,7 +258,7 @@ async function handleClockOut(chatId: number, workerId: number, nome: string) {
     prisma.timeEntry.update({
       where: { id: openEntry.id },
       data: {
-        clockOutAt: now,
+        clockOut: now,
         totalMinutes,
         regularMinutes,
         overtimeMinutes,
@@ -274,7 +273,7 @@ async function handleClockOut(chatId: number, workerId: number, nome: string) {
 
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
-  const clockInStr = formatTime(openEntry.clockInAt)
+  const clockInStr = formatTime(openEntry.clockIn)
   const clockOutStr = formatTime(now)
 
   let summary = `✅ *Turno encerrado!*\n\n👤 ${nome}\n🕐 Entrada: ${clockInStr}\n🕑 Saída: ${clockOutStr}\n⏱ Total: ${hours}h ${minutes}min`
@@ -292,8 +291,8 @@ async function handleClockOut(chatId: number, workerId: number, nome: string) {
 
 async function handleStatus(chatId: number, workerId: number, nome: string) {
   const openEntry = await prisma.timeEntry.findFirst({
-    where: { workerId, clockOutAt: null },
-    select: { id: true, clockInAt: true },
+    where: { workerId, clockOut: null },
+    select: { id: true, clockIn: true },
   })
 
   if (!openEntry) {
@@ -301,13 +300,13 @@ async function handleStatus(chatId: number, workerId: number, nome: string) {
     return
   }
 
-  const elapsed = formatElapsed(openEntry.clockInAt)
-  const totalMinutes = Math.round((Date.now() - openEntry.clockInAt.getTime()) / 60000)
+  const elapsed = formatElapsed(openEntry.clockIn)
+  const totalMinutes = Math.round((Date.now() - openEntry.clockIn.getTime()) / 60000)
   const overtimeFlag = totalMinutes > 480 ? "\n\n⚡ *Atenção: você está em horas extras!*" : ""
 
   await sendMessage(
     chatId,
-    `📊 *Turno em andamento*\n\n👤 ${nome}\n🕐 Entrada: ${formatTime(openEntry.clockInAt)}\n⏱ Decorrido: ${elapsed}${overtimeFlag}`,
+    `📊 *Turno em andamento*\n\n👤 ${nome}\n🕐 Entrada: ${formatTime(openEntry.clockIn)}\n⏱ Decorrido: ${elapsed}${overtimeFlag}`,
     "Markdown"
   )
 }

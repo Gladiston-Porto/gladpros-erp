@@ -340,7 +340,7 @@ export default function ProjetoDetailClient({ permissions }: { permissions: Proj
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            {permissions.canViewFinancials && <ProjectDecisionPanel projetoId={projeto.id} />}
+            {permissions.canViewFinancials && <ProjectDecisionPanel projetoId={projeto.id} userRole={permissions.userRole} />}
 
             {projeto.descricao && (
               <Card className="border-none shadow-sm">
@@ -531,7 +531,7 @@ export default function ProjetoDetailClient({ permissions }: { permissions: Proj
 
           {permissions.canViewFinancials && (
             <TabsContent value="financeiro" className="space-y-6">
-              <ProjectDecisionPanel projetoId={projeto.id} />
+              <ProjectDecisionPanel projetoId={projeto.id} userRole={permissions.userRole} />
               <FinanceiroDashboard projeto={projeto} />
             </TabsContent>
           )}
