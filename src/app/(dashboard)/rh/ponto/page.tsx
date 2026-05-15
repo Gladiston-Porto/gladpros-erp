@@ -1,7 +1,7 @@
 // src/app/(dashboard)/rh/ponto/page.tsx
 // Página de Ponto Eletrônico
-// Worker: clock-in / clock-out com GPS
-// ADMIN/GERENTE: dashboard de todos os turnos ativos
+// Todos os roles: clock-in / clock-out pessoal
+// ADMIN/GERENTE: também veem dashboard de todos os turnos ativos
 
 import { Suspense } from "react"
 import { requireServerUser } from "@/shared/lib/requireServerUser"
@@ -24,11 +24,11 @@ export default async function PontoPage() {
 
   return (
     <Suspense fallback={<PontoSkeleton isManager={isManager} />}>
-      {isManager ? (
-        <PontoDashboard user={user} />
-      ) : (
-        <PontoWorkerView user={user} />
-      )}
+      {/* Todos registram o próprio ponto */}
+      <PontoWorkerView user={user} />
+
+      {/* ADMIN/GERENTE também veem o painel gerencial */}
+      {isManager && <PontoDashboard user={user} />}
     </Suspense>
   )
 }

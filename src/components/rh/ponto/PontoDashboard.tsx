@@ -4,7 +4,7 @@
 // Mostra todos os turnos ativos, quem está em overtime, quem não bateu ponto
 
 import { useState, useEffect, useCallback } from "react"
-import { Users, Clock, AlertTriangle, UserX, RefreshCw, CheckCircle } from "lucide-react"
+import { Users, AlertTriangle, UserX, RefreshCw, CheckCircle } from "lucide-react"
 
 interface User {
   id: number
@@ -80,28 +80,23 @@ export default function PontoDashboard({ user }: { user: User }) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-hero-gradient px-6 pt-8 pb-6">
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-3">
-            <Clock className="w-6 h-6 text-white" />
-            <h1 className="font-title text-xl text-white font-bold">Ponto Eletrônico</h1>
-          </div>
-          <button
-            onClick={fetchActive}
-            aria-label="Atualizar"
-            className="text-white/70 hover:text-white transition-colors"
-          >
-            <RefreshCw className="w-5 h-5" />
-          </button>
+    <div className="bg-background border-t border-border">
+      {/* Separador com título da seção gerencial */}
+      <div className="px-6 py-4 bg-card border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-brand-primary" />
+          <h2 className="font-semibold text-sm text-foreground">Painel da Equipe</h2>
         </div>
-        <p className="text-white/70 text-xs">
-          Atualizado: {formatTime(lastUpdate.toISOString())}
-        </p>
+        <button
+          onClick={fetchActive}
+          aria-label="Atualizar"
+          className="text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
       </div>
 
-      <div className="px-4 py-6 max-w-2xl mx-auto space-y-4">
+      <div className="px-4 py-4 max-w-2xl mx-auto space-y-4">
 
         {/* Stats cards */}
         <div className="grid grid-cols-3 gap-3">
