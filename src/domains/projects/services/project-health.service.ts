@@ -12,7 +12,8 @@ export type ProjectHealthAlertType =
   | 'CASH_GAP'
   | 'INVOICE_NEEDED'
   | 'SCHEDULE_RISK'
-  | 'OS_MARGIN_RISK';
+  | 'OS_MARGIN_RISK'
+  | 'DATA_TRUNCATED';
 
 /**
  * Operational alerts: visible to GERENTE (schedule, labor, materials — no financial figures).
@@ -22,6 +23,7 @@ export const OPERATIONAL_ALERT_TYPES = new Set<ProjectHealthAlertType>([
   'LABOR_SLOWDOWN',
   'MATERIAL_OVERRUN',
   'SCHEDULE_RISK',
+  'DATA_TRUNCATED',
 ]);
 
 export const FINANCIAL_ALERT_TYPES = new Set<ProjectHealthAlertType>([
@@ -74,6 +76,8 @@ export interface ProjectHealthSnapshot {
   cashGap: number;
   openBudgetAlerts: number;
   osMarginRiskCount: number;
+  /** True if material data was truncated by PROJECT_HEALTH_ROW_LIMIT — health data may be incomplete */
+  dataRowLimitReached: boolean;
   riskScore: ProjectRiskScore;
   alerts: ProjectHealthAlert[];
   recommendations: ProjectHealthRecommendation[];
@@ -86,7 +90,7 @@ const ACTIVE_PURCHASE_STATUSES = ['SUBMITTED', 'APPROVED', 'PARTIALLY_RECEIVED',
 const APPROVED_CHANGE_ORDER_STATUSES = ['APPROVED', 'APPLIED'] as const;
 const COUNTED_TIMESHEET_STATUSES = ['APPROVED', 'LOCKED'] as const;
 const RISKY_OS_MARGIN_STATUSES = new Set(['ALERT', 'CRITICAL', 'LOSS']);
-const PROJECT_HEALTH_ROW_LIMIT = 1000;
+export const PROJECT_HEALTH_ROW_LIMIT = 1000;
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -279,6 +283,8 @@ export async function getProjectHealthSnapshot(projetoId: number, now = new Date
     }),
   ]);
 
+  const dataRowLimitReached = projectMaterials.length === PROJECT_HEALTH_ROW_LIMIT;
+
   const progressPct = calculateProgress(projeto.status, projeto.Etapas);
   const expectedProgressPct = calculateExpectedProgress(
     projeto.dataInicioPrevista,
@@ -388,6 +394,11 @@ export async function getProjectHealthSnapshot(projetoId: number, now = new Date
     addRecommendation(recommendations, osMarginRiskCount > 1 ? 'ALERT' : 'WARNING', 'Abrir as OS com margem em risco e revisar custo/preço.', 'OS vinculadas podem estar pressionando a margem do projeto.');
   }
 
+  if (dataRowLimitReached) {
+    addAlert(alerts, 'DATA_TRUNCATED', 'WARNING', `Projeto muito grande: análise de materiais limitada a ${PROJECT_HEALTH_ROW_LIMIT} registros. Dados de custo podem estar incompletos.`, PROJECT_HEALTH_ROW_LIMIT);
+    addRecommendation(recommendations, 'WARNING', 'Dividir o projeto em sub-projetos ou consolidar materiais para manter a análise precisa.', `O limite de ${PROJECT_HEALTH_ROW_LIMIT} materiais por projeto foi atingido — os dados de saúde podem estar incompletos.`);
+  }
+
   const riskScore = resolveRiskScore(alerts);
   const sortedRecommendations = recommendations.sort((a, b) => rankRisk(b.priority) - rankRisk(a.priority));
 
@@ -419,6 +430,7 @@ export async function getProjectHealthSnapshot(projetoId: number, now = new Date
     cashGap: round2(cashGap),
     openBudgetAlerts,
     osMarginRiskCount,
+    dataRowLimitReached,
     riskScore,
     alerts,
     recommendations: sortedRecommendations,
