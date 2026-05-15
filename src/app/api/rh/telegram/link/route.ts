@@ -1,6 +1,7 @@
 // POST /api/rh/telegram/link
 // ADMIN/GERENTE gera token de vinculação para um worker
 // O token é enviado ao worker como deep link: https://t.me/GladProsBot?start={token}
+// Se o worker tiver email cadastrado, o link é enviado por email automaticamente
 
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
@@ -8,6 +9,7 @@ import { randomBytes } from "crypto"
 import { prisma } from "@/lib/prisma"
 import { requireUser } from "@/shared/lib/rbac"
 import { can, type Role } from "@/shared/lib/rbac-core"
+import { sendMail } from "@/shared/lib/mailer"
 
 const schema = z.object({
   workerId: z.number().int().positive(),
@@ -35,8 +37,14 @@ export async function POST(request: NextRequest) {
     const { workerId } = body.data
 
     const worker = await prisma.worker.findFirst({
-      where: { id: workerId, empresaId: user.empresaId, deletadoEm: null },
-      select: { id: true, name: true, telegramLink: { select: { telegramId: true, username: true } } },
+      where: { id: workerId, deletadoEm: null },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        telegramLink: { select: { telegramId: true, username: true } },
+        usuario: { select: { email: true } },
+      },
     })
 
     if (!worker) {
@@ -69,6 +77,52 @@ export async function POST(request: NextRequest) {
     const deepLink = `https://t.me/${botUsername}?start=${token}`
     const webLink = `${appUrl}/api/rh/telegram/link/${token}`
 
+    // Envia email automaticamente se tiver endereço disponível
+    const workerEmail = worker.email ?? worker.usuario?.email ?? null
+    let emailSent = false
+
+    if (workerEmail) {
+      try {
+        await sendMail(
+          workerEmail,
+          "GladPros — Vincule seu Telegram ao Ponto Eletrônico",
+          `
+          <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px;">
+            <div style="background: linear-gradient(135deg, #0098DA, #006899); border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 24px;">
+              <h1 style="color: white; font-size: 22px; margin: 0 0 8px;">GladPros Bot</h1>
+              <p style="color: rgba(255,255,255,0.8); margin: 0; font-size: 14px;">Ponto Eletrônico via Telegram</p>
+            </div>
+
+            <p style="color: #333; font-size: 16px;">Olá, <strong>${worker.name}</strong>!</p>
+            <p style="color: #555; font-size: 14px; line-height: 1.6;">
+              Você foi convidado para usar o <strong>Ponto Eletrônico</strong> da GladPros pelo Telegram.
+              Com ele você registra entrada e saída com um toque — sem precisar abrir o sistema.
+            </p>
+
+            <div style="background: #f5f5f5; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
+              <p style="color: #555; font-size: 13px; margin: 0 0 16px;">Clique no botão abaixo para vincular sua conta:</p>
+              <a href="${deepLink}"
+                style="display: inline-block; background: #0098DA; color: white; text-decoration: none;
+                       padding: 14px 32px; border-radius: 10px; font-weight: bold; font-size: 15px;">
+                ✈️ Vincular ao Telegram
+              </a>
+              <p style="color: #999; font-size: 12px; margin: 16px 0 0;">
+                Este link expira em 24 horas
+              </p>
+            </div>
+
+            <p style="color: #888; font-size: 12px;">
+              Se não conseguir abrir o link, acesse: <a href="${webLink}" style="color: #0098DA;">${webLink}</a>
+            </p>
+          </div>
+          `
+        )
+        emailSent = true
+      } catch (err) {
+        console.error("[Telegram link] Falha ao enviar email:", err)
+      }
+    }
+
     return NextResponse.json({
       data: {
         workerId,
@@ -78,9 +132,13 @@ export async function POST(request: NextRequest) {
         deepLink,
         webLink,
         expiresAt,
+        emailSent,
+        emailTo: workerEmail,
         message: worker.telegramLink
           ? "Worker já possui Telegram vinculado. Novo link irá substituir."
-          : "Link gerado com sucesso. Envie ao worker para vinculação.",
+          : emailSent
+          ? `Link enviado por email para ${workerEmail}.`
+          : "Link gerado. Envie manualmente ao worker.",
       },
       success: true,
     })
