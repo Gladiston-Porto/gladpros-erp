@@ -8,9 +8,9 @@ import { withErrorHandler } from "@/lib/api/error-handler";
 export const runtime = "nodejs";
 
 const ClockInSchema = z.object({
-  workerId: z.number().int().positive(),
-  workLocation: z.enum(["OFFICE", "REMOTE", "PROJECT_SITE", "CLIENT_SITE", "IN_TRANSIT"]),
-  // Pelo menos uma atividade inicial obrigatória
+  // workerId opcional — se omitido, resolve pelo usuário logado
+  workerId: z.number().int().positive().optional(),
+  workLocation: z.enum(["OFFICE", "REMOTE", "PROJECT_SITE", "CLIENT_SITE", "IN_TRANSIT"]).default("PROJECT_SITE"),
   activityType: z.enum([
     "PROJECT_MANAGEMENT",
     "FIELD_WORK",
@@ -22,7 +22,7 @@ const ClockInSchema = z.object({
     "TRAVEL",
     "SUPERVISION",
     "OTHER",
-  ]),
+  ]).default("FIELD_WORK"),
   projetoId: z.number().int().positive().optional(),
   serviceOrderId: z.number().int().positive().optional(),
   description: z.string().max(500).optional(),
@@ -47,7 +47,25 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     );
   }
 
-  const { workerId, workLocation, activityType, projetoId, serviceOrderId, description, notes } = body.data;
+  const { workerId: workerIdParam, workLocation, activityType, projetoId, serviceOrderId, description, notes } = body.data;
+
+  // Resolver workerId: se não informado, busca o worker vinculado ao usuário logado
+  let workerId: number;
+  if (workerIdParam) {
+    workerId = workerIdParam;
+  } else {
+    const ownWorker = await prisma.worker.findUnique({
+      where: { usuarioId: Number(user.id) },
+      select: { id: true },
+    });
+    if (!ownWorker) {
+      return NextResponse.json(
+        { error: "Not found", message: "Usuário não possui um Worker vinculado. Contate o administrador.", success: false },
+        { status: 404 }
+      );
+    }
+    workerId = ownWorker.id;
+  }
 
   // Verificar se o worker existe
   const worker = await prisma.worker.findUnique({
