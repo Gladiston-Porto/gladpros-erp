@@ -43,6 +43,7 @@ type HealthSnapshot = {
   materialVariance: number;
   laborActualHours: number;
   scheduleVariancePct: number | null;
+  dataRowLimitReached: boolean;
   recommendations: Array<{
     priority: Exclude<RiskScore, 'OK'>;
     action: string;
@@ -99,6 +100,7 @@ const alertLabels: Record<string, string> = {
   INVOICE_NEEDED: 'Invoice necessária',
   SCHEDULE_RISK: 'Risco de prazo',
   OS_MARGIN_RISK: 'Risco de margem em OS',
+  DATA_TRUNCATED: 'Limite de dados atingido',
 };
 
 const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -305,6 +307,18 @@ export function ProjectDecisionPanel({ projetoId, userRole }: { projetoId: numbe
             )}
             <DecisionMetric icon={<Activity className="h-4 w-4" />} label="Orçamento usado" value={formatPercent(snapshot.budgetUsedPct)} />
           </div>
+
+          {snapshot.dataRowLimitReached && (
+            <div className="flex items-start gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-yellow-600" role="alert">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+              <div>
+                <p className="font-semibold text-sm">Limite de dados de materiais atingido</p>
+                <p className="text-xs">
+                  A análise de materiais foi limitada a 1.000 registros. Dados de custo e saúde podem estar incompletos. Considere dividir o projeto em sub-projetos ou consolidar itens de material.
+                </p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

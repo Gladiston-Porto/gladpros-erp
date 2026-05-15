@@ -222,7 +222,7 @@ async function handleLocation(
       workerId,
       clockIn: now,
       workDate: now,
-      workLocation: "FIELD",
+      workLocation: "PROJECT_SITE",
       status: "OPEN",
       activities: {
         create: {
