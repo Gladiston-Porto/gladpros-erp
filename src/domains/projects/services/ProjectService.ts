@@ -94,6 +94,12 @@ export class ProjectService {
     if (data.propostaId) {
       const proposta = await this.prisma.proposta.findUnique({
         where: { id: data.propostaId },
+        select: {
+          id: true,
+          clienteId: true,
+          projetoId: true,
+          status: true,
+        },
       });
 
       if (!proposta) {
@@ -103,42 +109,132 @@ export class ProjectService {
           404
         );
       }
+
+      if (proposta.status !== "APROVADA") {
+        throw new ProjectServiceError(
+          "Apenas propostas aprovadas podem ser vinculadas a projetos",
+          "PROPOSTA_NAO_APROVADA",
+          409
+        );
+      }
+
+      if (proposta.clienteId !== data.clienteId) {
+        throw new ProjectServiceError(
+          "A proposta informada pertence a outro cliente",
+          "PROPOSTA_CLIENTE_INCOMPATIVEL",
+          409
+        );
+      }
+
+      if (proposta.projetoId) {
+        throw new ProjectServiceError(
+          "Esta proposta já está vinculada a um projeto",
+          "PROPOSTA_JA_CONVERTIDA",
+          409
+        );
+      }
+
+      const projetoExistente = await this.prisma.projeto.findFirst({
+        where: { propostaId: data.propostaId },
+        select: { id: true },
+      });
+
+      if (projetoExistente) {
+        throw new ProjectServiceError(
+          "Esta proposta já está vinculada a outro projeto",
+          "PROPOSTA_JA_VINCULADA",
+          409
+        );
+      }
     }
 
-    // Cria o projeto
-    const projeto = await this.prisma.projeto.create({
-      data: {
-        numeroProjeto,
-        titulo: data.titulo,
-        descricao: data.descricao,
-        clienteId: data.clienteId,
-        propostaId: data.propostaId,
-        responsavelId: data.responsavelId,
-        dataInicioPrevista: data.dataInicio ? new Date(data.dataInicio) : null,
-        dataConclusaoPrevista: data.dataPrevisao ? new Date(data.dataPrevisao) : null,
-        valorEstimado: data.valorOrcado,
-        status: PROJETO_STATUS.PLANEJADO,
-        prioridade: data.prioridade || "media",
-        criadoPor: usuarioId,
-      },
-      include: {
-        Cliente: true,
-        Proposta: true,
-        Responsavel: {
+    const projeto = await this.prisma.$transaction(async (tx) => {
+      if (data.propostaId) {
+        const propostaAtual = await tx.proposta.findUnique({
+          where: { id: data.propostaId },
           select: {
             id: true,
-            nomeCompleto: true,
-            email: true,
+            clienteId: true,
+            projetoId: true,
+            status: true,
+          },
+        });
+
+        if (
+          !propostaAtual ||
+          propostaAtual.status !== "APROVADA" ||
+          propostaAtual.clienteId !== data.clienteId ||
+          propostaAtual.projetoId
+        ) {
+          throw new ProjectServiceError(
+            "Proposta inválida ou já vinculada a projeto",
+            "PROPOSTA_INVALIDA",
+            409
+          );
+        }
+
+        const projetoExistente = await tx.projeto.findFirst({
+          where: { propostaId: data.propostaId },
+          select: { id: true },
+        });
+
+        if (projetoExistente) {
+          throw new ProjectServiceError(
+            "Esta proposta já está vinculada a outro projeto",
+            "PROPOSTA_JA_VINCULADA",
+            409
+          );
+        }
+      }
+
+      const novoProjeto = await tx.projeto.create({
+        data: {
+          numeroProjeto,
+          titulo: data.titulo,
+          descricao: data.descricao,
+          clienteId: data.clienteId,
+          propostaId: data.propostaId,
+          responsavelId: data.responsavelId,
+          dataInicioPrevista: data.dataInicio ? new Date(data.dataInicio) : null,
+          dataConclusaoPrevista: data.dataPrevisao ? new Date(data.dataPrevisao) : null,
+          valorEstimado: data.valorOrcado,
+          status: PROJETO_STATUS.PLANEJADO,
+          prioridade: data.prioridade || "media",
+          criadoPor: usuarioId,
+        },
+        include: {
+          Cliente: true,
+          Proposta: true,
+          Responsavel: {
+            select: {
+              id: true,
+              nomeCompleto: true,
+              email: true,
+            },
+          },
+          CriadoPor: {
+            select: {
+              id: true,
+              nomeCompleto: true,
+              email: true,
+            },
           },
         },
-        CriadoPor: {
-          select: {
-            id: true,
-            nomeCompleto: true,
-            email: true,
+      });
+
+      if (data.propostaId) {
+        await tx.proposta.update({
+          where: { id: data.propostaId },
+          data: {
+            projetoId: novoProjeto.id,
+            dataConversao: new Date(),
+            responsavelConversao: usuarioId,
+            atualizadoPor: usuarioId,
           },
-        },
-      },
+        });
+      }
+
+      return novoProjeto;
     });
 
     // Registra no histórico
@@ -594,15 +690,17 @@ export class ProjectService {
   /**
    * Obtém dados do dashboard de projetos
    */
-  async obterDashboard(): Promise<DashboardProjetosDTO> {
+  async obterDashboard(scope: Prisma.ProjetoWhereInput = {}): Promise<DashboardProjetosDTO> {
     const [totalProjetos, projetosPorStatus, projetosPorPrioridade] = await Promise.all([
-      this.prisma.projeto.count(),
+      this.prisma.projeto.count({ where: scope }),
       this.prisma.projeto.groupBy({
         by: ['status'],
+        where: scope,
         _count: true,
       }),
       this.prisma.projeto.groupBy({
         by: ['prioridade'],
+        where: scope,
         _count: true,
       }),
     ]);
@@ -638,6 +736,7 @@ export class ProjectService {
     const hoje = new Date();
     const projetosAtrasados = await this.prisma.projeto.count({
       where: {
+        ...scope,
         dataConclusaoPrevista: {
           lt: hoje,
         },
@@ -650,6 +749,7 @@ export class ProjectService {
     // Tarefas pendentes
     const tarefasPendentes = await this.prisma.projetoTarefa.count({
       where: {
+        Projeto: scope,
         status: {
           in: ['aberta', 'em_andamento'],
         },
@@ -659,6 +759,7 @@ export class ProjectService {
     // Materiais pendentes (em uso ou devolução pendente)
     const materiaisPendentes = await this.prisma.projetoMaterial.count({
       where: {
+        Projeto: scope,
         status: {
           in: ['em_uso', 'devolucao_pendente'],
         },
@@ -671,6 +772,7 @@ export class ProjectService {
 
     const projetosProximosVencimento = await this.prisma.projeto.findMany({
       where: {
+        ...scope,
         dataConclusaoPrevista: {
           gte: hoje,
           lte: proximoVencimento,

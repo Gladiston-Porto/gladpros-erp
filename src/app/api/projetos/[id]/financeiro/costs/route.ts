@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireProjectPermission } from '@/shared/lib/rbac-projects';
-import { prisma } from '@/lib/prisma';
+import { requireProjectAccess, requireProjectPermission } from '@/shared/lib/rbac-projects';
+import { can, type Role } from '@/shared/lib/rbac-core';
 import {
   getProjectFinanceSummary,
   syncProjectCosts,
@@ -15,7 +15,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 
 export const GET = withErrorHandler(async (req: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
-    await requireProjectPermission(req, 'canViewFinancials');
+    const user = await requireProjectPermission(req, 'canViewFinancials');
 
     const { id } = await params;
     const projetoId = parseInt(id, 10);
@@ -27,26 +27,22 @@ export const GET = withErrorHandler(async (req: NextRequest,
       );
     }
 
-    const exists = await prisma.projeto.findUnique({
-      where: { id: projetoId },
-      select: { id: true },
-    });
+    await requireProjectAccess(user, projetoId, 'canViewFinancials');
 
-    if (!exists) {
+    const summary = await getProjectFinanceSummary(projetoId);
+    if (!summary) {
       return NextResponse.json(
-        { error: 'Projeto não encontrado', message: 'Nenhum projeto com este ID', success: false },
+        { error: 'Not found', message: 'Projeto não encontrado', success: false },
         { status: 404 }
       );
     }
-
-    const summary = await getProjectFinanceSummary(projetoId);
 
     return NextResponse.json({ data: summary, success: true });
 });
 
 export const POST = withErrorHandler(async (req: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
-    await requireProjectPermission(req, 'canViewFinancials');
+    const user = await requireProjectPermission(req, 'canViewFinancials');
 
     const { id } = await params;
     const projetoId = parseInt(id, 10);
@@ -58,19 +54,22 @@ export const POST = withErrorHandler(async (req: NextRequest,
       );
     }
 
-    const exists = await prisma.projeto.findUnique({
-      where: { id: projetoId },
-      select: { id: true },
-    });
+    await requireProjectAccess(user, projetoId, 'canViewFinancials');
 
-    if (!exists) {
+    if (!can(user.role as Role, 'financeiro', 'update')) {
       return NextResponse.json(
-        { error: 'Projeto não encontrado', message: 'Nenhum projeto com este ID', success: false },
-        { status: 404 }
+        { error: 'Forbidden', message: 'Sem permissão para recalcular e persistir custos', success: false },
+        { status: 403 }
       );
     }
 
     const summary = await syncProjectCosts(projetoId);
+    if (!summary) {
+      return NextResponse.json(
+        { error: 'Not found', message: 'Projeto não encontrado', success: false },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       data: summary,

@@ -7,18 +7,33 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireProjectPermission } from '@/shared/lib/rbac-projects';
+import { requireProjectAccess, requireProjectPermission } from '@/shared/lib/rbac-projects';
+import { can, type Role } from '@/shared/lib/rbac-core';
 import { getPrismaFinanceGateway } from '@/domains/projects/gateways/prisma-finance.gateway';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
-import type { ItemInvoice } from '@/domains/projects/interfaces/finance-gateway.interface';
+import type { ItemInvoice, TipoFaturamentoProjeto } from '@/domains/projects/interfaces/finance-gateway.interface';
+
+const itemInvoiceSchema = z.object({
+  descricao: z.string().trim().min(1, 'Descrição do item é obrigatória').max(500),
+  tipo: z.enum(['MATERIAL', 'SERVICE']),
+  quantidade: z.number().positive('Quantidade deve ser maior que 0'),
+  valorUnitario: z.number().nonnegative('Valor unitário não pode ser negativo'),
+  valorTotal: z.number().nonnegative('Valor total não pode ser negativo'),
+}).refine(
+  (item) => Math.abs(item.quantidade * item.valorUnitario - item.valorTotal) < 0.01,
+  { message: 'valorTotal deve bater com quantidade * valorUnitario' }
+);
 
 const bodySchema = z.object({
   descricao: z.string().min(1, 'Descrição é obrigatória'),
   dataVencimento: z.string().refine((v) => !isNaN(Date.parse(v)), { message: 'Data de vencimento inválida' }),
+  billingType: z.enum(['DEPOSIT', 'PROGRESS', 'MILESTONE', 'MATERIALS', 'SERVICE_ORDER', 'FINAL']).default('PROGRESS'),
+  billingReference: z.string().trim().min(1).max(100).optional(),
+  serviceOrderId: z.number().int().positive().optional(),
   incluirProposta: z.boolean().default(true),
   incluirMateriais: z.boolean().default(true),
-  itensAdicionais: z.array(z.unknown()).default([]),
+  itensAdicionais: z.array(itemInvoiceSchema).max(100).default([]),
   desconto: z.number().min(0).max(100).optional(),
   descontoFixo: z.number().min(0).optional(),
   formaPagamento: z.string().optional(),
@@ -27,6 +42,14 @@ const bodySchema = z.object({
 
 export const POST = withErrorHandler(async (req: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+  const user = await requireProjectPermission(req, 'canViewFinancials');
+  if (!can(user.role as Role, 'invoices', 'create')) {
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Sem permissão para gerar invoice', success: false },
+      { status: 403 },
+    );
+  }
+
   const { allowed, resetTime } = await apiRateLimit.isAllowed(req);
   if (!allowed) {
     return NextResponse.json(
@@ -34,8 +57,6 @@ export const POST = withErrorHandler(async (req: NextRequest,
       { status: 429, headers: { 'Retry-After': String(Math.ceil((resetTime - Date.now()) / 1000)) } }
     );
   }
-
-  const user = await requireProjectPermission(req, 'canViewFinancials');
 
   const { id } = await context.params;
   const projetoId = parseInt(id, 10);
@@ -45,6 +66,7 @@ export const POST = withErrorHandler(async (req: NextRequest,
       { status: 400 },
     );
   }
+  await requireProjectAccess(user, projetoId, 'canViewFinancials');
 
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -54,12 +76,28 @@ export const POST = withErrorHandler(async (req: NextRequest,
     );
   }
 
-  const { descricao, dataVencimento, incluirProposta, incluirMateriais, itensAdicionais, desconto, descontoFixo, formaPagamento, observacoes } = parsed.data;
+  const {
+    descricao,
+    dataVencimento,
+    billingType,
+    billingReference,
+    serviceOrderId,
+    incluirProposta,
+    incluirMateriais,
+    itensAdicionais,
+    desconto,
+    descontoFixo,
+    formaPagamento,
+    observacoes,
+  } = parsed.data;
 
   const gateway = getPrismaFinanceGateway();
   const resultado = await gateway.gerarInvoice({
     projetoId,
     usuarioId: parseInt(user.id, 10),
+    billingType: billingType as TipoFaturamentoProjeto,
+    billingReference,
+    serviceOrderId,
     descricao,
     dataVencimento: new Date(dataVencimento),
     incluirProposta,

@@ -8,9 +8,14 @@
 import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
+const mockRequireProjectAccess = jest.fn();
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
+  requireProjectAccess: (...args: unknown[]) => mockRequireProjectAccess(...args),
+  ProjectPermissions: {
+    canViewFinancials: (role: string) => ['ADMIN', 'GERENTE', 'FINANCEIRO'].includes(role),
+  },
 }));
 
 const mockProjetoFindUnique = jest.fn();
@@ -97,14 +102,11 @@ describe('GET /api/projetos/[id]/service-orders', () => {
   });
 
   it('returns 404 when project not found', async () => {
-    mockProjetoFindUnique.mockResolvedValue(null);
+    mockRequireProjectAccess.mockRejectedValue(new Error('FORBIDDEN'));
 
     const req = makeRequest(BASE);
-    const res = await GET(req, makeCtx('1'));
-    const json = await res.json();
 
-    expect(res.status).toBe(404);
-    expect(json.success).toBe(false);
+    await expect(GET(req, makeCtx('1'))).rejects.toThrow('FORBIDDEN');
   });
 
   it('returns 429 when rate limit is exceeded', async () => {

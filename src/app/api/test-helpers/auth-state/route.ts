@@ -89,8 +89,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Clear all in-memory rate limits so subsequent tests start with a clean slate
-  clearRateLimitsByPattern();
+  // Clear in-memory rate limits only for this user — keeps other tests' buckets intact
+  const targetEmail = parsed.data.email;
+  if (targetEmail) {
+    const escaped = targetEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    clearRateLimitsByPattern(new RegExp(`^(login|forgotPwd|mfa):${escaped}$`));
+  } else {
+    // userId-only reset: fall back to global clear (no email to scope)
+    clearRateLimitsByPattern();
+  }
+  // Also clear mfa:resend:{userId}:* keys (keyed by userId+IP, not email)
+  if (resolvedUserId) {
+    clearRateLimitsByPattern(new RegExp(`^mfa:resend:${resolvedUserId}:`));
+  }
 
   return NextResponse.json({
     data: { userId: resolvedUserId ?? null },

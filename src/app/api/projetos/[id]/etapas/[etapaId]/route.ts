@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ProjectStageService } from '@/domains/projects/services/ProjectStageService'
-import { requireProjectPermission } from '@/shared/lib/rbac-projects'
+import { requireProjectChildAccess, requireProjectPermission } from '@/shared/lib/rbac-projects'
 import { updateProjetoEtapaSchema, alterarStatusEtapaSchema } from '@/domains/projects/validators'
-import {  } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
 
 export const runtime = "nodejs"
@@ -12,17 +11,19 @@ export const runtime = "nodejs"
  */
 export const GET = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string; etapaId: string }> }) => {
-    await requireProjectPermission(request, 'canRead')
+    const user = await requireProjectPermission(request, 'canRead')
     
-    const { etapaId } = await context.params
+    const { id: projectParam, etapaId } = await context.params
+    const projetoId = Number(projectParam)
     const id = Number(etapaId)
     
-    if (isNaN(id)) {
+    if (isNaN(projetoId) || isNaN(id)) {
       return NextResponse.json(
         { error: 'ID inválido' },
         { status: 400 }
       )
     }
+    await requireProjectChildAccess(user, projetoId, 'etapa', id, 'canRead')
     
     const service = new ProjectStageService()
     const etapa = await service.buscarPorId(id)
@@ -34,7 +35,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
       )
     }
     
-    return NextResponse.json({ etapa, success: true })
+    return NextResponse.json({ data: etapa, success: true })
     
   });
 
@@ -45,12 +46,14 @@ export const PUT = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string; etapaId: string }> }) => {
     const user = await requireProjectPermission(request, 'canManageStages')
     
-    const { etapaId } = await context.params
+    const { id: projectParam, etapaId } = await context.params
+    const projetoId = Number(projectParam)
     const id = Number(etapaId)
     
-    if (isNaN(id)) {
+    if (isNaN(projetoId) || isNaN(id)) {
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     }
+    await requireProjectChildAccess(user, projetoId, 'etapa', id, 'canManageStages')
     
     const body = await request.json()
     const data = updateProjetoEtapaSchema.parse(body)
@@ -58,7 +61,7 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     const service = new ProjectStageService()
     const etapa = await service.atualizar(id, data, Number(user.id))
     
-    return NextResponse.json({ etapa, success: true })
+    return NextResponse.json({ data: etapa, success: true })
     
   });
 
@@ -69,12 +72,14 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string; etapaId: string }> }) => {
     const user = await requireProjectPermission(request, 'canManageStages')
     
-    const { etapaId } = await context.params
+    const { id: projectParam, etapaId } = await context.params
+    const projetoId = Number(projectParam)
     const id = Number(etapaId)
     
-    if (isNaN(id)) {
+    if (isNaN(projetoId) || isNaN(id)) {
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     }
+    await requireProjectChildAccess(user, projetoId, 'etapa', id, 'canManageStages')
     
     const service = new ProjectStageService()
     await service.excluir(id, Number(user.id))
@@ -90,12 +95,14 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string; etapaId: string }> }) => {
     const user = await requireProjectPermission(request, 'canManageStages')
     
-    const { etapaId } = await context.params
+    const { id: projectParam, etapaId } = await context.params
+    const projetoId = Number(projectParam)
     const id = Number(etapaId)
     
-    if (isNaN(id)) {
+    if (isNaN(projetoId) || isNaN(id)) {
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     }
+    await requireProjectChildAccess(user, projetoId, 'etapa', id, 'canManageStages')
     
     const body = await request.json()
     const data = alterarStatusEtapaSchema.parse(body)
@@ -103,6 +110,6 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
     const service = new ProjectStageService()
     const etapa = await service.alterarStatus(id, data, Number(user.id))
     
-    return NextResponse.json({ etapa, success: true })
+    return NextResponse.json({ data: etapa, success: true })
     
   });

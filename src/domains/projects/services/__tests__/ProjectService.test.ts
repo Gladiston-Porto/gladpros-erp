@@ -2,15 +2,17 @@ jest.mock("@/lib/prisma", () => ({
   prisma: {
     cliente: { findUnique: jest.fn() },
     usuario: { findUnique: jest.fn() },
-    proposta: { findUnique: jest.fn() },
+    proposta: { findUnique: jest.fn(), update: jest.fn() },
     projeto: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
     },
+    $transaction: jest.fn(),
   },
 }));
 
@@ -43,6 +45,9 @@ describe("ProjectService", () => {
     (ProjectNumberService.prototype.gerarNumeroProjeto as jest.Mock) = jest
       .fn()
       .mockResolvedValue("PRJ-2025-0001");
+    mockPrisma.$transaction.mockImplementation((callback: (tx: typeof mockPrisma) => unknown) =>
+      callback(mockPrisma)
+    );
 
     mockRecomputeProject.mockResolvedValue({
       updatedCount: 0,
@@ -120,6 +125,86 @@ describe("ProjectService", () => {
       await expect(service.criar(dtoComProposta, 1)).rejects.toThrow(
         "Proposta não encontrada"
       );
+    });
+
+    it("deve rejeitar proposta não aprovada", async () => {
+      const dtoComProposta = { ...createDTO, propostaId: 10 };
+
+      (mockPrisma.cliente.findUnique as jest.Mock).mockResolvedValue({ id: 1 } as any);
+      (mockPrisma.proposta.findUnique as jest.Mock).mockResolvedValue({
+        id: 10,
+        clienteId: 1,
+        projetoId: null,
+        status: "ENVIADA",
+      } as any);
+
+      await expect(service.criar(dtoComProposta, 1)).rejects.toThrow(
+        "Apenas propostas aprovadas podem ser vinculadas a projetos"
+      );
+    });
+
+    it("deve rejeitar proposta vinculada a outro projeto", async () => {
+      const dtoComProposta = { ...createDTO, propostaId: 10 };
+
+      (mockPrisma.cliente.findUnique as jest.Mock).mockResolvedValue({ id: 1 } as any);
+      (mockPrisma.proposta.findUnique as jest.Mock).mockResolvedValue({
+        id: 10,
+        clienteId: 1,
+        projetoId: 99,
+        status: "APROVADA",
+      } as any);
+
+      await expect(service.criar(dtoComProposta, 1)).rejects.toThrow(
+        "Esta proposta já está vinculada a um projeto"
+      );
+    });
+
+    it("deve rejeitar proposta de outro cliente", async () => {
+      const dtoComProposta = { ...createDTO, propostaId: 10 };
+
+      (mockPrisma.cliente.findUnique as jest.Mock).mockResolvedValue({ id: 1 } as any);
+      (mockPrisma.proposta.findUnique as jest.Mock).mockResolvedValue({
+        id: 10,
+        clienteId: 2,
+        projetoId: null,
+        status: "APROVADA",
+      } as any);
+
+      await expect(service.criar(dtoComProposta, 1)).rejects.toThrow(
+        "A proposta informada pertence a outro cliente"
+      );
+    });
+
+    it("deve criar projeto e atualizar proposta com vínculo bidirecional", async () => {
+      const dtoComProposta = { ...createDTO, propostaId: 10 };
+
+      (mockPrisma.cliente.findUnique as jest.Mock).mockResolvedValue({ id: 1 } as any);
+      (mockPrisma.proposta.findUnique as jest.Mock).mockResolvedValue({
+        id: 10,
+        clienteId: 1,
+        projetoId: null,
+        status: "APROVADA",
+      } as any);
+      (mockPrisma.projeto.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.projeto.create as jest.Mock).mockResolvedValue({
+        id: 77,
+        numeroProjeto: "PRJ-2025-0001",
+        ...createDTO,
+        propostaId: 10,
+        status: "planejado",
+      } as any);
+      (mockPrisma.proposta.update as jest.Mock).mockResolvedValue({ id: 10, projetoId: 77 } as any);
+
+      await service.criar(dtoComProposta, 1);
+
+      expect(mockPrisma.proposta.update).toHaveBeenCalledWith({
+        where: { id: 10 },
+        data: expect.objectContaining({
+          projetoId: 77,
+          responsavelConversao: 1,
+          atualizadoPor: 1,
+        }),
+      });
     });
   });
 

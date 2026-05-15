@@ -8,9 +8,11 @@
 import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
+const mockRequireProjectAccess = jest.fn();
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
+  requireProjectAccess: (...args: unknown[]) => mockRequireProjectAccess(...args),
 }));
 
 const mockListar = jest.fn();
@@ -36,13 +38,16 @@ function makeRequest(url: string): NextRequest {
 const makeCtx = (id: string) => ({ params: Promise.resolve({ id }) });
 
 const defaultMovimentacoes = {
-  items: [
+  data: [
     { id: 1, tipo: 'LIBERACAO', status: 'CONCLUIDA', quantidade: 5 },
     { id: 2, tipo: 'DEVOLUCAO', status: 'PENDENTE', quantidade: 2 },
   ],
-  total: 2,
-  pagina: 1,
-  limite: 20,
+  paginacao: {
+    paginaAtual: 1,
+    totalPaginas: 1,
+    totalItens: 2,
+    itensPorPagina: 20,
+  },
 };
 
 describe('GET /api/projetos/[id]/movimentacoes', () => {
@@ -58,8 +63,8 @@ describe('GET /api/projetos/[id]/movimentacoes', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.items).toHaveLength(2);
-    expect(json.total).toBe(2);
+    expect(json.data).toHaveLength(2);
+    expect(json.pagination.total).toBe(2);
   });
 
   it('returns 400 for invalid project ID', async () => {
@@ -116,15 +121,13 @@ describe('GET /api/projetos/[id]/movimentacoes', () => {
     );
   });
 
-  it('caps limite at 100', async () => {
+  it('returns 400 when limite is above 100', async () => {
     const req = makeRequest(
       'http://localhost:3000/api/projetos/1/movimentacoes?limite=500',
     );
-    await GET(req, makeCtx('1'));
+    const res = await GET(req, makeCtx('1'));
 
-    expect(mockListar).toHaveBeenCalledWith(
-      expect.objectContaining({ limite: 100 }),
-    );
+    expect(res.status).toBe(400);
   });
 
   it('returns 400 for invalid materialId param', async () => {
@@ -138,7 +141,7 @@ describe('GET /api/projetos/[id]/movimentacoes', () => {
 
   it('filters by date range', async () => {
     const req = makeRequest(
-      'http://localhost:3000/api/projetos/1/movimentacoes?dataInicio=2024-01-01&dataFim=2024-12-31',
+      'http://localhost:3000/api/projetos/1/movimentacoes?dataInicio=2024-01-01T00:00:00.000Z&dataFim=2024-12-31T00:00:00.000Z',
     );
     await GET(req, makeCtx('1'));
 

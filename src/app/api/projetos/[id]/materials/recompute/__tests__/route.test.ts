@@ -8,6 +8,7 @@ const mockRecomputeProject = jest.fn();
 jest.mock("@/shared/lib/rbac-projects", () => ({
   requireProjectPermission: (...args: unknown[]) =>
     mockRequireProjectPermission(...args),
+  requireProjectAccess: jest.fn().mockResolvedValue({ id: 10, clienteId: 1, responsavelId: null }),
 }));
 
 jest.mock("@/domains/projects/services/ProjectMaterialMetricsService", () => ({
@@ -74,10 +75,13 @@ describe("POST /api/projetos/[id]/materials/recompute", () => {
     });
     expect(json).toEqual(
       expect.objectContaining({
-        updatedCount: 2,
+        data: expect.objectContaining({
+          updatedCount: 2,
+        }),
+        success: true,
       })
     );
-    expect(json).not.toHaveProperty("diagnostics");
+    expect(json.data).not.toHaveProperty("diagnostics");
   });
 
   it("dryRun é repassado sem persistir no service", async () => {
@@ -160,10 +164,13 @@ describe("POST /api/projetos/[id]/materials/recompute", () => {
     });
     expect(json).toEqual(
       expect.objectContaining({
-        diagnostics: expect.objectContaining({
-          materials: expect.any(Array),
-          aggregates: expect.any(Object),
+        data: expect.objectContaining({
+          diagnostics: expect.objectContaining({
+            materials: expect.any(Array),
+            aggregates: expect.any(Object),
+          }),
         }),
+        success: true,
       })
     );
   });

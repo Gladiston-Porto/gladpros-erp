@@ -115,10 +115,17 @@ export class ProjectMaterialService {
   /**
    * Lista materiais de um projeto
    */
-  async listarPorProjeto(projetoId: number): Promise<ProjetoMaterialResponseDTO[]> {
+  async listarPorProjeto(
+    projetoId: number,
+    options: { page?: number; pageSize?: number } = {}
+  ): Promise<ProjetoMaterialResponseDTO[]> {
+    const page = options.page ?? 1;
+    const pageSize = options.pageSize ?? 100;
     const materiais = await this.prisma.projetoMaterial.findMany({
       where: { projetoId },
       orderBy: { criadoEm: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       include: {
         Projeto: {
           select: {

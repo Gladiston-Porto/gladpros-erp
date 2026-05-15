@@ -13,13 +13,15 @@
 jest.mock('@/lib/prisma', () => ({
   prisma: {
     projeto: { findUnique: jest.fn() },
+    serviceOrder: { findFirst: jest.fn() },
     invoice: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       aggregate: jest.fn(),
+      groupBy: jest.fn(),
       count: jest.fn(),
     },
-    projetoMaterialEstoque: { findMany: jest.fn() },
+    projetoMaterialEstoque: { findMany: jest.fn(), aggregate: jest.fn() },
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
   },
@@ -31,8 +33,9 @@ import { PrismaFinanceGateway } from '@/domains/projects/gateways/prisma-finance
 // Typed alias for convenience
 const mockPrisma = prisma as {
   projeto: { findUnique: jest.Mock };
-  invoice: { findFirst: jest.Mock; findMany: jest.Mock; aggregate: jest.Mock; count: jest.Mock };
-  projetoMaterialEstoque: { findMany: jest.Mock };
+  serviceOrder: { findFirst: jest.Mock };
+  invoice: { findFirst: jest.Mock; findMany: jest.Mock; aggregate: jest.Mock; groupBy: jest.Mock; count: jest.Mock };
+  projetoMaterialEstoque: { findMany: jest.Mock; aggregate: jest.Mock };
   $transaction: jest.Mock;
 };
 
@@ -44,6 +47,7 @@ const mockProjeto = {
   numeroProjeto: 'P-2026-001',
   titulo: 'Reforma Elétrica',
   clienteId: 10,
+  status: 'concluido',
   valorEstimado: 5000,
   Cliente: { nomeCompleto: 'Test Client' },
   Proposta: { numeroProposta: 'PR-001', valorEstimado: 1000 },
@@ -72,7 +76,11 @@ const _mockProjetoNoMateriais = {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 describe('PrismaFinanceGateway — fluxo projeto → invoice', () => {
   let gateway: PrismaFinanceGateway;
-  let capturedTx: { invoice: { create: jest.Mock }; auditLog: { create: jest.Mock } };
+  let capturedTx: {
+    invoice: { create: jest.Mock; findFirst: jest.Mock; aggregate: jest.Mock };
+    serviceOrder: { findFirst: jest.Mock };
+    auditLog: { create: jest.Mock };
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -86,12 +94,15 @@ describe('PrismaFinanceGateway — fluxo projeto → invoice', () => {
       async (cb: (tx: typeof capturedTx) => Promise<unknown>) => {
         capturedTx = {
           invoice: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            aggregate: jest.fn().mockResolvedValue({ _sum: { valorTotal: null } }),
             create: jest.fn().mockResolvedValue({
               id: 99,
               numeroInvoice: `INV-${new Date().getFullYear()}-000001`,
               valorTotal: 1082.5,
             }),
           },
+          serviceOrder: { findFirst: jest.fn().mockResolvedValue(null) },
           auditLog: { create: jest.fn().mockResolvedValue({}) },
         };
         return cb(capturedTx);
@@ -166,6 +177,165 @@ describe('PrismaFinanceGateway — fluxo projeto → invoice', () => {
       expect(result.sucesso).toBe(false);
     });
 
+    it('deve bloquear invoice FINAL antes do projeto estar concluído', async () => {
+      mockPrisma.projeto.findUnique.mockResolvedValue({
+        ...mockProjeto,
+        status: 'em_execucao',
+      });
+
+      const result = await gateway.gerarInvoice(baseArgs);
+
+      expect(result.sucesso).toBe(false);
+      expect(result.mensagem).toContain('FINAL');
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('deve permitir invoice PROGRESS antes do projeto estar concluído', async () => {
+      mockPrisma.projeto.findUnique.mockResolvedValue({
+        ...mockProjeto,
+        status: 'em_execucao',
+      });
+
+      const result = await gateway.gerarInvoice({
+        ...baseArgs,
+        billingType: 'PROGRESS',
+        billingReference: 'payapp-001',
+      });
+
+      expect(result.sucesso).toBe(true);
+      const createCall = capturedTx.invoice.create.mock.calls[0][0];
+      expect(createCall.data.billingType).toBe('PROGRESS');
+      expect(createCall.data.billingReference).toBe('payapp-001');
+      expect(createCall.data.activeBillingKey).toBe('PROJECT:1:PROGRESS:payapp-001');
+    });
+
+    it('deve bloquear invoice de projeto se alguma OS vinculada já foi faturada', async () => {
+      mockPrisma.projeto.findUnique.mockResolvedValue(mockProjeto);
+      mockPrisma.$transaction.mockImplementationOnce(
+        async (cb: (tx: typeof capturedTx) => Promise<unknown>) => {
+          capturedTx = {
+            invoice: {
+              findFirst: jest.fn().mockResolvedValue(null),
+              aggregate: jest.fn().mockResolvedValue({ _sum: { valorTotal: null } }),
+              create: jest.fn(),
+            },
+            serviceOrder: {
+              findFirst: jest.fn().mockResolvedValue({
+                id: 8,
+                ticketNumber: 'OS-0008',
+                invoiceId: 77,
+              }),
+            },
+            auditLog: { create: jest.fn() },
+          };
+          return cb(capturedTx);
+        },
+      );
+
+      const result = await gateway.gerarInvoice(baseArgs);
+
+      expect(result.sucesso).toBe(false);
+      expect(result.mensagem).toContain('OS já faturada');
+      expect(capturedTx.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('deve bloquear invoice duplicada ativa para o mesmo projeto', async () => {
+      mockPrisma.projeto.findUnique.mockResolvedValue(mockProjeto);
+      mockPrisma.$transaction.mockImplementationOnce(
+        async (cb: (tx: typeof capturedTx) => Promise<unknown>) => {
+          capturedTx = {
+            invoice: {
+              findFirst: jest.fn().mockResolvedValue({
+                id: 55,
+                numeroInvoice: 'INV-2026-00055',
+              }),
+              aggregate: jest.fn().mockResolvedValue({ _sum: { valorTotal: null } }),
+              create: jest.fn(),
+            },
+            serviceOrder: { findFirst: jest.fn().mockResolvedValue(null) },
+            auditLog: { create: jest.fn() },
+          };
+          return cb(capturedTx);
+        },
+      );
+
+      const result = await gateway.gerarInvoice(baseArgs);
+
+      expect(result.sucesso).toBe(false);
+      expect(result.mensagem).toContain('Já existe uma invoice ativa');
+      expect(capturedTx.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('deve bloquear invoice MATERIALS sem billingReference', async () => {
+      mockPrisma.projeto.findUnique.mockResolvedValue(mockProjeto);
+
+      const result = await gateway.gerarInvoice({
+        ...baseArgs,
+        billingType: 'MATERIALS',
+      });
+
+      expect(result.sucesso).toBe(false);
+      expect(result.mensagem).toContain('billingReference');
+      expect(mockPrisma.projeto.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('deve bloquear billing SERVICE_ORDER se a OS já possui invoice ativa', async () => {
+      mockPrisma.projeto.findUnique.mockResolvedValue(mockProjeto);
+      mockPrisma.$transaction.mockImplementationOnce(
+        async (cb: (tx: typeof capturedTx) => Promise<unknown>) => {
+          capturedTx = {
+            invoice: {
+              findFirst: jest.fn().mockResolvedValue(null),
+              aggregate: jest.fn().mockResolvedValue({ _sum: { valorTotal: null } }),
+              create: jest.fn(),
+            },
+            serviceOrder: {
+              findFirst: jest.fn().mockResolvedValue({
+                id: 8,
+                ticketNumber: 'OS-0008',
+                invoiceId: 77,
+                Invoice: { status: 'SENT', numeroInvoice: 'INV-2026-00077' },
+              }),
+            },
+            auditLog: { create: jest.fn() },
+          };
+          return cb(capturedTx);
+        },
+      );
+
+      const result = await gateway.gerarInvoice({
+        ...baseArgs,
+        billingType: 'SERVICE_ORDER',
+        serviceOrderId: 8,
+        incluirProposta: false,
+        incluirMateriais: false,
+        itensAdicionais: [{ descricao: 'OS', tipo: 'SERVICO', quantidade: 1, valorUnitario: 100, valorTotal: 100 }],
+      });
+
+      expect(result.sucesso).toBe(false);
+      expect(result.mensagem).toContain('já possui invoice ativa');
+      expect(capturedTx.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('deve bloquear invoice sem itens faturáveis', async () => {
+      mockPrisma.projeto.findUnique.mockResolvedValue({
+        ...mockProjeto,
+        Proposta: null,
+        Materiais: [],
+      });
+
+      const result = await gateway.gerarInvoice({
+        ...baseArgs,
+        incluirProposta: false,
+        incluirMateriais: false,
+        itensAdicionais: [],
+      });
+
+      expect(result.sucesso).toBe(false);
+      expect(result.mensagem).toContain('ao menos um item');
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
     it('deve retornar sucesso=true e numeroInvoice ao criar com sucesso', async () => {
       mockPrisma.projeto.findUnique.mockResolvedValue(mockProjeto);
 
@@ -189,7 +359,16 @@ describe('PrismaFinanceGateway — fluxo projeto → invoice', () => {
         numeroProjeto: 'P-2026-001',
         valorEstimado: 5000,
       });
-      mockPrisma.invoice.findMany.mockResolvedValue(mockInvoices);
+      mockPrisma.invoice.aggregate.mockResolvedValue({
+        _sum: { valorTotal: 4300, valorPago: 2000 },
+        _count: { _all: mockInvoices.length },
+      });
+      mockPrisma.invoice.groupBy.mockResolvedValue([
+        { status: 'PAID', _count: { _all: 1 } },
+        { status: 'SENT', _count: { _all: 1 } },
+        { status: 'OVERDUE', _count: { _all: 1 } },
+      ]);
+      mockPrisma.projetoMaterialEstoque.aggregate.mockResolvedValue({ _sum: { custoTotal: 0 } });
     });
 
     it('deve calcular totalInvoices corretamente', async () => {

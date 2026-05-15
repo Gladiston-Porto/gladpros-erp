@@ -20,7 +20,12 @@ export async function cancelProposal(
     return { success: false, error: 'Proposta não encontrada ou não pode ser cancelada' };
   }
 
-  if (proposta.projetoId) {
+  const projetoVinculado = await prisma.projeto.findFirst({
+    where: { propostaId },
+    select: { id: true },
+  });
+
+  if (proposta.projetoId || projetoVinculado) {
     return {
       success: false,
       error: 'Proposta já vinculada a projeto. Cancele ou reverta o projeto antes de cancelar a proposta.',

@@ -144,10 +144,17 @@ export class ProjectStageService {
   /**
    * Lista etapas de um projeto
    */
-  async listarPorProjeto(projetoId: number): Promise<ProjetoEtapaResponseDTO[]> {
+  async listarPorProjeto(
+    projetoId: number,
+    options: { page?: number; pageSize?: number } = {}
+  ): Promise<ProjetoEtapaResponseDTO[]> {
+    const page = options.page ?? 1;
+    const pageSize = options.pageSize ?? 100;
     const etapas = await this.prisma.projetoEtapa.findMany({
       where: { projetoId },
       orderBy: { ordem: 'asc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       select: {
         id: true,
         projetoId: true,

@@ -9,18 +9,22 @@
 import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
+const mockRequireProjectChildAccess = jest.fn();
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
+  requireProjectChildAccess: (...args: unknown[]) => mockRequireProjectChildAccess(...args),
 }));
 
 const mockProjetoEtapaFindUnique = jest.fn();
+const mockProjetoEtapaFindFirst = jest.fn();
 const mockProjetoEtapaUpdate = jest.fn();
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
     projetoEtapa: {
       findUnique: (...args: unknown[]) => mockProjetoEtapaFindUnique(...args),
+      findFirst: (...args: unknown[]) => mockProjetoEtapaFindFirst(...args),
       update: (...args: unknown[]) => mockProjetoEtapaUpdate(...args),
     },
   },
@@ -62,7 +66,7 @@ describe('GET /api/projetos/[id]/etapas/[etapaId]/checklist', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRequireProjectPermission.mockResolvedValue(adminUser);
-    mockProjetoEtapaFindUnique.mockResolvedValue({ id: 5, checklistItens: sampleItens });
+    mockProjetoEtapaFindFirst.mockResolvedValue({ id: 5, checklistItens: sampleItens });
   });
 
   it('returns 200 with checklist items', async () => {
@@ -77,7 +81,7 @@ describe('GET /api/projetos/[id]/etapas/[etapaId]/checklist', () => {
   });
 
   it('returns empty array when checklist has no items', async () => {
-    mockProjetoEtapaFindUnique.mockResolvedValue({ id: 5, checklistItens: [] });
+    mockProjetoEtapaFindFirst.mockResolvedValue({ id: 5, checklistItens: [] });
     const req = makeRequest(BASE);
     const res = await GET(req, makeCtx('1', '5'));
     const json = await res.json();
@@ -87,7 +91,7 @@ describe('GET /api/projetos/[id]/etapas/[etapaId]/checklist', () => {
   });
 
   it('returns 404 when etapa not found', async () => {
-    mockProjetoEtapaFindUnique.mockResolvedValue(null);
+    mockProjetoEtapaFindFirst.mockResolvedValue(null);
     const req = makeRequest(BASE);
     const res = await GET(req, makeCtx('1', '5'));
     const json = await res.json();
@@ -126,7 +130,7 @@ describe('PUT /api/projetos/[id]/etapas/[etapaId]/checklist', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRequireProjectPermission.mockResolvedValue(adminUser);
-    mockProjetoEtapaFindUnique.mockResolvedValue({ id: 5 });
+    mockProjetoEtapaFindFirst.mockResolvedValue({ id: 5 });
     mockProjetoEtapaUpdate.mockResolvedValue({ id: 5, checklistItens: sampleItens });
   });
 
@@ -182,7 +186,7 @@ describe('PUT /api/projetos/[id]/etapas/[etapaId]/checklist', () => {
   });
 
   it('returns 404 when etapa not found', async () => {
-    mockProjetoEtapaFindUnique.mockResolvedValue(null);
+    mockProjetoEtapaFindFirst.mockResolvedValue(null);
 
     const req = makeRequest(BASE, 'PUT', { itens: sampleItens });
     const res = await PUT(req, makeCtx('1', '5'));

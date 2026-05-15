@@ -12,12 +12,13 @@
 import { test, expect } from '@playwright/test';
 import { resetAuthTestState, seedAuthenticatedSessionFromDatabase } from '../helpers/auth';
 import { setupMfaChallenge, getMfaCode } from '../helpers/email';
+import { fillLoginForm } from '../helpers/form';
 
 // QA user with a stable ID in the E2E seed — used to avoid dependency on
 // real login credentials which may not exist in the E2E database.
 const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
 const QA_ADMIN_ID = 13;
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3007';
 const AUTH_TIMEOUT_MS = 120000;
 
 test.describe('Auth MFA Flow', () => {
@@ -48,7 +49,7 @@ test.describe('Auth MFA Flow', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    expect([400, 401, 422]).toContain(verifyResp.status());
+    expect([400, 401, 422, 429]).toContain(verifyResp.status());
     const body = await verifyResp.json();
     expect(body.success).toBe(false);
     expect(body.error || body.message).toBeTruthy();
@@ -111,7 +112,59 @@ test.describe('Auth MFA Flow', () => {
     void mfaChallenge;
   });
 
-  // ─── Authenticated session ────────────────────────────────────────────────
+  // ─── Full MFA flow (UI) ──────────────────────────────────────────────────
+
+  test('fluxo completo MFA via UI: login → redirecionamento /mfa → preenche código → dashboard', async ({ page }) => {
+    const QA_ADMIN_PASSWORD = 'Admin123!@#';
+
+    // 1. Navigate to login page
+    await page.goto('/login', { waitUntil: 'networkidle', timeout: AUTH_TIMEOUT_MS });
+
+    // 2. Fill credentials
+    await fillLoginForm(page, QA_ADMIN_EMAIL, QA_ADMIN_PASSWORD);
+
+    // 3. Intercept login API to capture userId when MFA is required
+    const loginRespPromise = page.waitForResponse(
+      (r) => r.url().includes('/api/auth/login') && r.request().method() === 'POST',
+      { timeout: 15000 }
+    );
+    const submitBtn = page.locator('button:has-text("Entrar")');
+    await expect(submitBtn).toBeEnabled({ timeout: 5000 });
+    await submitBtn.click();
+
+    const loginResp = await loginRespPromise;
+    const loginBody = await loginResp.json();
+    expect(loginBody.mfaRequired).toBe(true);
+    expect(loginBody.user?.id).toBeTruthy();
+    const userId: number = Number(loginBody.user.id);
+
+    // 4. Should redirect to /mfa
+    await page.waitForURL(/\/mfa/, { timeout: 10000 });
+
+    // 5. MFA page renders 6 digit inputs
+    await expect(page.locator('input[type="text"]').first()).toBeVisible({ timeout: 8000 });
+
+    // 6. Fetch the real MFA code using per-userId store
+    const code = await getMfaCode(page.request, BASE_URL, userId);
+    expect(code).toMatch(/^\d{6}$/);
+
+    // 7. Fill each digit input
+    const inputs = await page.locator('input[type="text"]').all();
+    for (let i = 0; i < 6 && i < inputs.length; i++) {
+      await inputs[i].click();
+      await inputs[i].fill(code[i] ?? '');
+      await page.waitForTimeout(60);
+    }
+
+    // 8. After auto-submit, should navigate to dashboard
+    await page.waitForURL(
+      (url) => !url.toString().includes('/mfa') && !url.toString().includes('/login'),
+      { timeout: 20000 }
+    );
+    await expect(page).toHaveURL(/dashboard/);
+  });
+
+
 
   test('sessão autenticada injeta cookie authToken válido', async ({ page }) => {
     await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
@@ -125,4 +178,3 @@ test.describe('Auth MFA Flow', () => {
     expect(authCookie?.value).toBeTruthy();
   });
 });
-

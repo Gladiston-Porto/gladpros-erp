@@ -7,9 +7,11 @@
 import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
+const mockRequireProjectAccess = jest.fn();
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
+  requireProjectAccess: (...args: unknown[]) => mockRequireProjectAccess(...args),
 }));
 
 const mockGetProjectFinanceSummary = jest.fn();
@@ -73,7 +75,7 @@ describe('GET /api/projetos/[id]/financeiro/costs', () => {
   });
 
   it('returns 404 when project not found', async () => {
-    mockFindUnique.mockResolvedValue(null);
+    mockGetProjectFinanceSummary.mockResolvedValue(null);
     const req = makeRequest('http://localhost:3000/api/projetos/999/financeiro/costs');
     const res = await GET(req, makeContext('999'));
 
@@ -110,7 +112,7 @@ describe('POST /api/projetos/[id]/financeiro/costs', () => {
   });
 
   it('returns 404 for non-existent project', async () => {
-    mockFindUnique.mockResolvedValue(null);
+    mockSyncProjectCosts.mockResolvedValue(null);
     const req = makeRequest('http://localhost:3000/api/projetos/999/financeiro/costs', 'POST');
     const res = await POST(req, makeContext('999'));
 

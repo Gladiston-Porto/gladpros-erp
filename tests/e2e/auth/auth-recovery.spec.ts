@@ -4,6 +4,7 @@
  * Testa os fluxos de recuperação de conta:
  * - Esqueci Senha: form carrega, email válido retorna 200, email inexistente não revela user
  * - Esqueci Senha: resposta não indica se email existe (anti-enumeration)
+ * - Reset Senha (fluxo completo): request → captura link via email → nova senha → login
  * - Desbloqueio: página carrega, formulário funciona
  * - Primeiro Acesso: wizard carrega corretamente quando navegado com parâmetros
  * - Primeiro Acesso: validação de senha forte
@@ -11,9 +12,17 @@
 
 import { test, expect } from '@playwright/test';
 import { resetAuthTestState } from '../helpers/auth';
+import { withEmailCapture, extractLink, getMfaCode } from '../helpers/email';
+import { fillControlledInput, fillLoginForm } from '../helpers/form';
+
+const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 const AUTH_TIMEOUT_MS = 120000;
 const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
+// qa.usuario is used exclusively by the reset-password test — no other beforeEach touches it,
+// so the password won't be restored by a concurrent worker mid-test.
+const QA_USUARIO_EMAIL = 'qa.usuario@teste.local';
+const QA_USUARIO_ID = 17;
 
 test.describe('Auth Recovery Flows', () => {
   test.describe.configure({ mode: 'serial' });
@@ -86,6 +95,90 @@ test.describe('Auth Recovery Flows', () => {
       expect(resp.status()).toBe(422);
       const body = await resp.json();
       expect(body.success).toBe(false);
+    });
+  });
+
+  // ─── Reset Senha — Fluxo Completo ────────────────────────────────────────
+
+  test.describe('Reset Senha — Fluxo Completo', () => {
+    // Reset qa.usuario state before the test so it always starts with the known password
+    test.beforeEach(async ({ page }) => {
+      await resetAuthTestState(page.request, QA_USUARIO_EMAIL);
+    });
+
+    test('fluxo completo: solicitar reset → capturar link por email → nova senha → login com sucesso', async ({ page }) => {
+      // Unique password per run — prevents password-reuse-history block on repeated runs
+      const NEW_PASSWORD = `NewPass${Date.now()}!`;
+
+      // 1. Trigger forgot-password and capture the email atomically
+      const [, mail] = await withEmailCapture(
+        page.request,
+        BASE_URL,
+        async () => {
+          const resp = await page.request.post('/api/auth/forgot-password', {
+            data: { email: QA_USUARIO_EMAIL },
+            headers: { 'Content-Type': 'application/json' },
+          });
+          expect(resp.status()).toBe(200);
+        },
+        { timeoutMs: 10_000, to: QA_USUARIO_EMAIL },
+      );
+
+      // 2. Validate email metadata
+      expect(mail.to.toLowerCase()).toContain(QA_USUARIO_EMAIL.toLowerCase());
+      expect(mail.subject).toMatch(/senha/i);
+
+      // 3. Extract reset link — use path only to avoid port mismatch (APP_URL may differ from test server)
+      const fullLink = extractLink(mail.html, /reset-senha\//);
+      const resetPath = new URL(fullLink).pathname; // "/reset-senha/<token>"
+
+      await page.goto(resetPath, { waitUntil: 'networkidle', timeout: AUTH_TIMEOUT_MS });
+
+      // 4. Fill in and confirm new password — click first to ensure React is hydrated
+      await fillControlledInput(page.locator('input[name="senha"]'), NEW_PASSWORD);
+      await fillControlledInput(page.locator('input[name="confirm"]'), NEW_PASSWORD);
+
+      // 5. Wait for button to become enabled, then submit
+      await page.getByRole('button', { name: /Confirmar Nova Senha/i })
+        .waitFor({ state: 'visible' });
+      await expect(
+        page.getByRole('button', { name: /Confirmar Nova Senha/i })
+      ).toBeEnabled({ timeout: 5000 });
+      await page.getByRole('button', { name: /Confirmar Nova Senha/i }).click();
+
+      // 6. Verify success feedback
+      await expect(page.getByText(/Senha alterada com sucesso/i)).toBeVisible({ timeout: 15_000 });
+
+      // 7. Login with the new password — real MFA flow (no longer bypassed)
+      await page.goto('/login', { waitUntil: 'networkidle', timeout: AUTH_TIMEOUT_MS });
+      const loginRespPromise = page.waitForResponse(
+        (r) => r.url().includes('/api/auth/login') && r.request().method() === 'POST',
+        { timeout: 15000 }
+      );
+      await fillLoginForm(page, QA_USUARIO_EMAIL, NEW_PASSWORD);
+      await page.getByRole('button', { name: /Entrar/i }).click();
+
+      // Wait for login response; if MFA is triggered complete it
+      try {
+        const loginResp = await loginRespPromise;
+        const loginBody = await loginResp.json().catch(() => null);
+        if (loginBody?.mfaRequired) {
+          await page.waitForURL(/\/mfa/, { timeout: 10000 });
+          await page.locator('input[type="text"]').first().waitFor({ state: 'visible', timeout: 8000 });
+          const code = await getMfaCode(page.request, BASE_URL, QA_USUARIO_ID);
+          const inputs = await page.locator('input[type="text"]').all();
+          for (let i = 0; i < 6 && i < inputs.length; i++) {
+            await inputs[i].click();
+            await inputs[i].fill(code[i] ?? '');
+            await page.waitForTimeout(60);
+          }
+        }
+      } catch {
+        // If interception fails, the page may have navigated directly — proceed
+      }
+
+      // 8. Dashboard confirms authentication succeeded
+      await expect(page).toHaveURL(/dashboard/, { timeout: 30_000 });
     });
   });
 

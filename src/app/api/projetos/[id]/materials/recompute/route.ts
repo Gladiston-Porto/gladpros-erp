@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireProjectPermission } from "@/shared/lib/rbac-projects";
+import { requireProjectAccess, requireProjectPermission } from "@/shared/lib/rbac-projects";
+import { can, type Role } from "@/shared/lib/rbac-core";
 import { ProjectMaterialMetricsService } from "@/domains/projects/services/ProjectMaterialMetricsService";
 import { withErrorHandler } from '@/lib/api/error-handler';
 
@@ -70,7 +71,7 @@ function normalizeIncludeDiagnostics(value: boolean | undefined): boolean {
 
 export const POST = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
-    await requireProjectPermission(request, "canViewFinancials");
+    const user = await requireProjectPermission(request, "canViewFinancials");
 
     const { id } = await context.params;
     const projectId = Number(id);
@@ -85,10 +86,18 @@ export const POST = withErrorHandler(async (request: NextRequest,
         { status: 422 }
       );
     }
+    await requireProjectAccess(user, projectId, "canViewFinancials");
 
     const body = bodySchema.parse(await request.json().catch(() => ({})));
     const query = readQuery(request);
     const merged = mergeOptions(body, query);
+    if (merged.dryRun !== true && !can(user.role as Role, "financeiro", "update")) {
+      return NextResponse.json(
+        { error: "Forbidden", message: "Sem permissão para persistir recálculo", success: false },
+        { status: 403 }
+      );
+    }
+
     const includeDiagnostics = normalizeIncludeDiagnostics(merged.includeDiagnostics);
 
     const service = new ProjectMaterialMetricsService();
@@ -103,5 +112,5 @@ export const POST = withErrorHandler(async (request: NextRequest,
       maxWarnings: merged.maxWarnings,
     });
 
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json({ data: result, success: true }, { status: 200 });
   });

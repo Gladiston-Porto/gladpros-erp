@@ -16,16 +16,17 @@ function getAppUrl() {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
-  // Rate limiting — 3 req/hora por IP
-  const rl = await resetPasswordRateLimit.isAllowed(req);
-  if (!rl.allowed) {
-    return NextResponse.json({ error: rl.message, success: false }, { status: 429 });
-  }
-
+  // Parse email first so we can use it as a per-user rate-limit key
   const body = await req.json().catch(() => ({}))
   const parsed = forgotPasswordSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "E-mail inválido", success: false }, { status: 422 })
   const email = parsed.data.email
+
+  // Per-email rate limiting — 3 req/hora por email
+  const rl = await resetPasswordRateLimit.isAllowed(req, `forgotPwd:${email}`);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: rl.message, success: false }, { status: 429 });
+  }
   const genericMessage = "Se o e-mail existir, você receberá instruções para redefinir a senha."
 
   const rows: Array<{ id: number; email: string }> = await prisma.$queryRaw`

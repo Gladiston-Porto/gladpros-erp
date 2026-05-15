@@ -28,27 +28,38 @@ interface LastMailResponse {
 
 /**
  * Clears the captured mail store before starting an action that sends an email.
- * Call this immediately before triggering any email-sending API.
+ * Pass `to` to only clear that specific recipient's slot (prevents cross-worker interference).
  */
-export async function clearLastEmail(request: APIRequestContext, baseURL: string): Promise<void> {
-  await request.delete(`${baseURL}/api/dev/last-mail`);
+export async function clearLastEmail(
+  request: APIRequestContext,
+  baseURL: string,
+  to?: string
+): Promise<void> {
+  const url = to
+    ? `${baseURL}/api/dev/last-mail?to=${encodeURIComponent(to)}`
+    : `${baseURL}/api/dev/last-mail`;
+  await request.delete(url);
 }
 
 /**
  * Polls /api/dev/last-mail until an email arrives (or timeout).
  * Pass `afterTime` (Date.now() before triggering the email action) to ensure
  * you don't accidentally pick up a stale email from a previous test.
+ * Pass `to` to use per-recipient store (prevents cross-worker interference).
  */
 export async function waitForEmail(
   request: APIRequestContext,
   baseURL: string,
-  opts: { afterTime?: number; timeoutMs?: number } = {}
+  opts: { afterTime?: number; timeoutMs?: number; to?: string } = {}
 ): Promise<CapturedMail> {
-  const { afterTime, timeoutMs = DEFAULT_TIMEOUT_MS } = opts;
+  const { afterTime, timeoutMs = DEFAULT_TIMEOUT_MS, to } = opts;
   const deadline = Date.now() + timeoutMs;
+  const url = to
+    ? `${baseURL}/api/dev/last-mail?to=${encodeURIComponent(to)}`
+    : `${baseURL}/api/dev/last-mail`;
 
   while (Date.now() < deadline) {
-    const resp = await request.get(`${baseURL}/api/dev/last-mail`);
+    const resp = await request.get(url);
 
     if (resp.ok()) {
       const body: LastMailResponse = await resp.json();
@@ -67,6 +78,7 @@ export async function waitForEmail(
 
   throw new Error(
     `waitForEmail: no email arrived within ${timeoutMs}ms` +
+    (to ? ` (for ${to})` : '') +
     (afterTime ? ` (after ${new Date(afterTime).toISOString()})` : '')
   );
 }
@@ -157,46 +169,57 @@ interface MfaCodeResponse {
 /**
  * Retrieves the last generated MFA code from server memory.
  * Works when TEST_MODE=true, E2E_MODE=1, or NODE_ENV=development.
+ *
+ * Pass `userId` to use the per-userId store — prevents cross-worker interference
+ * when multiple test workers generate codes for different users concurrently.
+ * The function polls until the code is available (useful right after login trigger).
  */
 export async function getMfaCode(
   request: APIRequestContext,
-  baseURL: string
+  baseURL: string,
+  userId?: number
 ): Promise<string> {
-  const resp = await request.get(`${baseURL}/api/test-helpers/get-last-mfa`);
+  const url = userId
+    ? `${baseURL}/api/test-helpers/get-last-mfa?userId=${userId}`
+    : `${baseURL}/api/test-helpers/get-last-mfa`;
 
-  if (!resp.ok()) {
-    throw new Error(`getMfaCode failed (${resp.status()}): ${await resp.text()}`);
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const resp = await request.get(url);
+    if (resp.ok()) {
+      const body: MfaCodeResponse = await resp.json();
+      const code = body.mfa?.code;
+      if (code) return code;
+    }
+    await new Promise((r) => setTimeout(r, 200));
   }
 
-  const body: MfaCodeResponse = await resp.json();
-  const code = body.mfa?.code;
-  if (!code) {
-    throw new Error(`getMfaCode: no code available — ${JSON.stringify(body)}`);
-  }
-
-  return code;
+  throw new Error(
+    `getMfaCode: timeout waiting for code${userId ? ` for userId ${userId}` : ''}`
+  );
 }
 
 // ─── Email convenience ────────────────────────────────────────────────────────
 
 /**
  * Convenience: clear + wait in one call.
- * Use when you want to trigger one action and capture the resulting email.
+ * Pass `to` to use per-recipient isolation (recommended in parallel tests).
  *
  * @example
  *   const [, mail] = await withEmailCapture(request, BASE_URL, async () => {
  *     await page.request.post('/api/auth/forgot-password', { data: { email } });
- *   });
+ *   }, { to: email });
  */
 export async function withEmailCapture(
   request: APIRequestContext,
   baseURL: string,
   action: () => Promise<void>,
-  opts: { timeoutMs?: number } = {}
+  opts: { timeoutMs?: number; to?: string } = {}
 ): Promise<[void, CapturedMail]> {
-  await clearLastEmail(request, baseURL);
+  const { to, ...waitOpts } = opts;
+  await clearLastEmail(request, baseURL, to);
   const before = Date.now();
   const result = await action();
-  const mail = await waitForEmail(request, baseURL, { afterTime: before, ...opts });
+  const mail = await waitForEmail(request, baseURL, { afterTime: before, to, ...waitOpts });
   return [result, mail];
 }

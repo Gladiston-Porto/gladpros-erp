@@ -31,7 +31,10 @@ type LastMail = SendMailOptionsLite & {
   info?: SentInfo;
 };
 
-const globalForMail = global as unknown as { __lastMail?: LastMail };
+const globalForMail = global as unknown as {
+  __lastMail?: LastMail;
+  __mailByRecipient?: Record<string, LastMail>;
+};
 
 export async function sendMail(to: string, subject: string, html: string) {
   // Prefer explicit SMTP_FROM, then MAIL_FROM, else fall back to the authenticated SMTP user
@@ -62,6 +65,8 @@ export async function sendMail(to: string, subject: string, html: string) {
       const info = await transporter.sendMail(payload);
       // guardar último envio para debug em dev
       globalForMail.__lastMail = { ...payload, info };
+      if (!globalForMail.__mailByRecipient) globalForMail.__mailByRecipient = {};
+      globalForMail.__mailByRecipient[to.toLowerCase()] = { ...payload, info };
       if (process.env.NODE_ENV === "development") {
          
         // eslint-disable-next-line no-console
@@ -77,6 +82,8 @@ export async function sendMail(to: string, subject: string, html: string) {
   // Fallback: modo dev sem SMTP → apenas registra
    
   globalForMail.__lastMail = payload;
+  if (!globalForMail.__mailByRecipient) globalForMail.__mailByRecipient = {};
+  globalForMail.__mailByRecipient[to.toLowerCase()] = payload;
   // eslint-disable-next-line no-console
   console.log("[DEV MAILER] (no SMTP configured)", payload);
   return payload;

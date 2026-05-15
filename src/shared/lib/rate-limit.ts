@@ -57,6 +57,18 @@ if (shouldUseRedis()) {
 // Cache em memória como fallback
 const memoryCache = new Map<string, { count: number; resetTime: number }>();
 
+/** Limpa entradas do cache em memória que correspondam ao padrão (ou todas, se omitido). Uso exclusivo em testes. */
+export function clearRateLimitsByPattern(pattern?: string | RegExp): void {
+  if (!pattern) {
+    memoryCache.clear();
+    return;
+  }
+  const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
+  for (const key of memoryCache.keys()) {
+    if (regex.test(key)) memoryCache.delete(key);
+  }
+}
+
 interface RateLimitOptions {
   windowMs: number;  // Janela de tempo em ms
   max: number;       // Máximo de requests
@@ -257,4 +269,10 @@ export const apiRateLimit = new RateLimiter({
   windowMs: 60 * 1000, // 1 minuto
   max: 100, // 100 requests por minuto
   message: 'Muitas requisições à API. Aguarde um momento.'
+});
+
+export const exportRateLimit = new RateLimiter({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 5, // exportações financeiras são mais sensíveis e custosas
+  message: 'Muitas exportações. Aguarde 1 minuto.'
 });

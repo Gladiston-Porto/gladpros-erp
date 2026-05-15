@@ -116,6 +116,10 @@ export function createServiceOrderCompletedSteps(ctx: ServiceOrderCompletedConte
         const financeGateway = getFinanceGateway();
         const result = await financeGateway.gerarInvoice({
           projetoId: so.projetoId,
+          billingType: 'SERVICE_ORDER',
+          serviceOrderId: so.id,
+          incluirProposta: false,
+          incluirMateriais: false,
           descricao: `Ordem de Serviço ${so.ticketNumber}`,
           itensAdicionais: [
             ...(materialTotal > 0 ? [{

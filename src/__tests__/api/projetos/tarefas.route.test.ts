@@ -9,9 +9,13 @@
 import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
+const mockRequireProjectAccess = jest.fn();
+const mockRequireProjectChildAccess = jest.fn();
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
+  requireProjectAccess: (...args: unknown[]) => mockRequireProjectAccess(...args),
+  requireProjectChildAccess: (...args: unknown[]) => mockRequireProjectChildAccess(...args),
 }));
 
 const mockListarPorProjeto = jest.fn();
@@ -20,6 +24,7 @@ const mockBuscarPorId = jest.fn();
 const mockAtualizar = jest.fn();
 const mockExcluir = jest.fn();
 const mockAlterarStatus = jest.fn();
+const mockProjetoTarefaCount = jest.fn().mockResolvedValue(1);
 
 jest.mock('@/domains/projects/services/ProjectTaskService', () => ({
   ProjectTaskService: jest.fn().mockImplementation(() => ({
@@ -40,6 +45,14 @@ jest.mock('@/domains/projects/validators', () => ({
 
 jest.mock('@/lib/api/error-handler', () => ({
   withErrorHandler: (fn: Function) => fn,
+}));
+
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
+    projetoTarefa: {
+      count: (...args: unknown[]) => mockProjetoTarefaCount(...args),
+    },
+  },
 }));
 
 import {
@@ -155,7 +168,7 @@ describe('GET /api/projetos/[id]/tarefas/[tarefaId]', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.titulo).toBe('Tarefa A');
+    expect(json.data.titulo).toBe('Tarefa A');
   });
 
   it('returns 404 when tarefa not found', async () => {
@@ -189,7 +202,7 @@ describe('PUT /api/projetos/[id]/tarefas/[tarefaId]', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.titulo).toBe('Tarefa Atualizada');
+    expect(json.data.titulo).toBe('Tarefa Atualizada');
   });
 
   it('returns 400 for invalid tarefaId', async () => {
@@ -253,7 +266,7 @@ describe('PATCH /api/projetos/[id]/tarefas/[tarefaId] (status)', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.status).toBe('concluida');
+    expect(json.data.status).toBe('concluida');
   });
 
   it('returns 400 for invalid tarefaId', async () => {

@@ -4,7 +4,7 @@
  * Substitui o MockFinanceGateway em produção — dados persistidos no banco MySQL.
  */
 import { prisma } from '@/lib/prisma';
-import type { Prisma } from '@prisma/client';
+import { Prisma, type InvoiceBillingType } from '@prisma/client';
 import type {
   IFinanceGateway,
   GerarInvoiceDTO,
@@ -27,6 +27,35 @@ const METODO_MAP: Record<string, string> = {
   DINHEIRO: 'CASH',
   CHEQUE: 'CHECK',
 };
+
+const PROJECT_FINAL_INVOICE_READY_STATUS = 'concluido';
+
+class ProjectInvoiceRuleError extends Error {}
+
+function resolveBillingType(dados: GerarInvoiceDTO): InvoiceBillingType {
+  if (dados.serviceOrderId) return 'SERVICE_ORDER';
+  return (dados.billingType ?? 'FINAL') as InvoiceBillingType;
+}
+
+function resolveBillingReference(dados: GerarInvoiceDTO, billingType: InvoiceBillingType): string | null {
+  if (billingType === 'SERVICE_ORDER') {
+    if (!dados.serviceOrderId) {
+      throw new ProjectInvoiceRuleError('Invoice de OS exige serviceOrderId');
+    }
+    return `so-${dados.serviceOrderId}`;
+  }
+
+  const reference = dados.billingReference?.trim();
+  if ((billingType === 'MILESTONE' || billingType === 'MATERIALS') && !reference) {
+    throw new ProjectInvoiceRuleError(`Invoice ${billingType} exige billingReference`);
+  }
+
+  return reference || null;
+}
+
+function buildActiveBillingKey(projetoId: number, billingType: InvoiceBillingType, billingReference: string | null): string {
+  return `PROJECT:${projetoId}:${billingType}:${billingReference ?? 'NONE'}`;
+}
 
 async function generateInvoiceNumber(): Promise<string> {
   const year = new Date().getFullYear();
@@ -100,6 +129,19 @@ function mapItem(item: any): ItemInvoice {
 
 export class PrismaFinanceGateway implements IFinanceGateway {
   async gerarInvoice(dados: GerarInvoiceDTO): Promise<RespostaFinanceira> {
+    let billingType: InvoiceBillingType;
+    let billingReference: string | null;
+    try {
+      billingType = resolveBillingType(dados);
+      billingReference = resolveBillingReference(dados, billingType);
+    } catch (error) {
+      if (error instanceof ProjectInvoiceRuleError) {
+        return { sucesso: false, mensagem: error.message };
+      }
+      throw error;
+    }
+    const activeBillingKey = buildActiveBillingKey(dados.projetoId, billingType, billingReference);
+
     const projeto = await prisma.projeto.findUnique({
       where: { id: dados.projetoId },
       include: {
@@ -116,19 +158,17 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       return { sucesso: false, mensagem: `Projeto ${dados.projetoId} não encontrado` };
     }
 
-    // Guard: evitar duplicação de invoice para o mesmo projeto
-    const invoiceExistente = await prisma.invoice.findFirst({
-      where: {
-        projetoId: dados.projetoId,
-        status: { not: 'CANCELLED' },
-      },
-      select: { id: true, numeroInvoice: true },
-    });
-
-    if (invoiceExistente) {
+    if (billingType === 'FINAL' && projeto.status !== PROJECT_FINAL_INVOICE_READY_STATUS) {
       return {
         sucesso: false,
-        mensagem: `Já existe uma invoice ativa para este projeto (${invoiceExistente.numeroInvoice})`,
+        mensagem: 'Invoice FINAL de projeto só pode ser gerada após o projeto estar concluído',
+      };
+    }
+
+    if (dados.dataVencimento <= new Date()) {
+      return {
+        sucesso: false,
+        mensagem: 'Data de vencimento da invoice deve ser futura',
       };
     }
 
@@ -203,14 +243,97 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       }
     }
 
-    const descontoValor = dados.descontoFixo ?? (dados.desconto ? (subtotal * dados.desconto) / 100 : 0);
-    const descontoPercentual = dados.desconto ?? 0;
-    const taxableBase = subtotal - descontoValor;
-    const taxRate = 0.0825;
-    const taxAmount = taxableBase * taxRate;
-    const valorTotal = taxableBase + taxAmount;
+    if (itens.length === 0) {
+      return {
+        sucesso: false,
+        mensagem: 'Invoice precisa ter ao menos um item faturável',
+      };
+    }
 
-    const invoice = await prisma.$transaction(async (tx) => {
+    let invoice: { id: number; numeroInvoice: string; valorTotal: Prisma.Decimal };
+    try {
+      invoice = await prisma.$transaction(async (tx) => {
+      const [
+        invoiceExistente,
+        serviceOrderFaturada,
+        serviceOrderDoProjeto,
+        totalFaturadoAntes,
+      ] = await Promise.all([
+        tx.invoice.findFirst({
+          where: {
+            activeBillingKey,
+          },
+          select: { id: true, numeroInvoice: true },
+        }),
+        billingType === 'FINAL'
+          ? tx.serviceOrder.findFirst({
+              where: {
+                projetoId: dados.projetoId,
+                invoiceId: { not: null },
+                Invoice: { status: { not: 'CANCELLED' } },
+              },
+              select: { id: true, ticketNumber: true, invoiceId: true },
+            })
+          : null,
+        billingType === 'SERVICE_ORDER'
+          ? tx.serviceOrder.findFirst({
+              where: {
+                id: dados.serviceOrderId!,
+                projetoId: dados.projetoId,
+              },
+              select: {
+                id: true,
+                ticketNumber: true,
+                invoiceId: true,
+                Invoice: { select: { status: true, numeroInvoice: true } },
+              },
+            })
+          : null,
+        billingType === 'FINAL'
+          ? tx.invoice.aggregate({
+              where: {
+                projetoId: dados.projetoId,
+                status: { not: 'CANCELLED' },
+              },
+              _sum: { valorTotal: true },
+            })
+          : null,
+      ]);
+
+      if (invoiceExistente) {
+        throw new ProjectInvoiceRuleError(`Já existe uma invoice ativa para este faturamento (${invoiceExistente.numeroInvoice})`);
+      }
+
+      if (serviceOrderFaturada) {
+        throw new ProjectInvoiceRuleError(
+          `Projeto possui OS já faturada (${serviceOrderFaturada.ticketNumber}). Gere a invoice FINAL somente após conciliar ou cancelar a invoice da OS.`
+        );
+      }
+
+      if (billingType === 'SERVICE_ORDER') {
+        if (!serviceOrderDoProjeto) {
+          throw new ProjectInvoiceRuleError('Service Order não pertence ao projeto informado');
+        }
+
+        if (serviceOrderDoProjeto.invoiceId && serviceOrderDoProjeto.Invoice?.status !== 'CANCELLED') {
+          throw new ProjectInvoiceRuleError(
+            `OS ${serviceOrderDoProjeto.ticketNumber} já possui invoice ativa (${serviceOrderDoProjeto.Invoice?.numeroInvoice})`
+          );
+        }
+      }
+
+      const totalFaturadoAnterior = Number(totalFaturadoAntes?._sum.valorTotal ?? 0);
+      const descontoBase = dados.descontoFixo ?? (dados.desconto ? (subtotal * dados.desconto) / 100 : 0);
+      const descontoValor = billingType === 'FINAL' ? descontoBase + totalFaturadoAnterior : descontoBase;
+      const descontoPercentual = dados.desconto ?? 0;
+      const taxableBase = subtotal - descontoValor;
+      if (taxableBase <= 0) {
+        throw new ProjectInvoiceRuleError('Invoice FINAL não possui saldo faturável após considerar invoices anteriores');
+      }
+      const taxRate = 0.0825;
+      const taxAmount = taxableBase * taxRate;
+      const valorTotal = taxableBase + taxAmount;
+
       const created = await tx.invoice.create({
         data: {
           numeroInvoice,
@@ -219,12 +342,15 @@ export class PrismaFinanceGateway implements IFinanceGateway {
           dataVencimento: dados.dataVencimento,
           subtotal,
           descontoValor,
-          descontoPercentual: dados.desconto ?? 0,
+          descontoPercentual,
           taxRate,
           taxAmount,
           valorTotal,
           saldo: valorTotal,
           status: 'DRAFT',
+          billingType,
+          billingReference,
+          activeBillingKey,
           notas: dados.descricao,
           termos: dados.observacoes,
           criadoPor: dados.usuarioId,
@@ -241,12 +367,29 @@ export class PrismaFinanceGateway implements IFinanceGateway {
           entidade: 'Invoice',
           entidadeId: String(created.id),
           acao: 'CREATE',
-          diff: JSON.stringify({ trigger: 'projetos-gerar-invoice', projetoId: dados.projetoId, numeroInvoice, valorTotal }),
+          diff: JSON.stringify({
+            trigger: 'projetos-gerar-invoice',
+            projetoId: dados.projetoId,
+            billingType,
+            billingReference,
+            activeBillingKey,
+            numeroInvoice,
+            valorTotal,
+          }),
         },
       });
 
       return created;
-    });
+      });
+    } catch (error) {
+      if (error instanceof ProjectInvoiceRuleError) {
+        return { sucesso: false, mensagem: error.message };
+      }
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return { sucesso: false, mensagem: 'Já existe uma invoice ativa para este faturamento' };
+      }
+      throw error;
+    }
 
     return {
       sucesso: true,
@@ -395,11 +538,12 @@ export class PrismaFinanceGateway implements IFinanceGateway {
 
     await prisma.invoice.update({
       where: { id },
-      data: {
-        status: 'CANCELLED',
-        notas: invoice.notas ? `${invoice.notas}\n\nCancelado: ${motivo}` : `Cancelado: ${motivo}`,
-        atualizadoPor: usuarioId,
-      },
+        data: {
+          status: 'CANCELLED',
+          activeBillingKey: null,
+          notas: invoice.notas ? `${invoice.notas}\n\nCancelado: ${motivo}` : `Cancelado: ${motivo}`,
+          atualizadoPor: usuarioId,
+        },
     });
 
     return {
@@ -415,22 +559,31 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       select: { numeroProjeto: true, valorEstimado: true },
     });
 
-    const invoices = await prisma.invoice.findMany({
-      where: { projetoId, empresaId: 1, status: { not: 'CANCELLED' } },
-      select: { status: true, valorTotal: true, valorPago: true },
-    });
-
-    const materiais = await prisma.projetoMaterialEstoque.findMany({
-      where: { projetoId },
-      select: { custoTotal: true },
-    });
+    const [invoiceAgg, invoicesByStatus, materialAgg] = await Promise.all([
+      prisma.invoice.aggregate({
+        where: { projetoId, empresaId: 1, status: { not: 'CANCELLED' } },
+        _sum: { valorTotal: true, valorPago: true },
+        _count: { _all: true },
+      }),
+      prisma.invoice.groupBy({
+        by: ['status'],
+        where: { projetoId, empresaId: 1, status: { not: 'CANCELLED' } },
+        _count: { _all: true },
+      }),
+      prisma.projetoMaterialEstoque.aggregate({
+        where: { projetoId },
+        _sum: { custoTotal: true },
+      }),
+    ]);
+    const invoiceCountByStatus = new Map(invoicesByStatus.map((item) => [item.status, item._count._all]));
 
     const valorOrcado = Number(projeto?.valorEstimado ?? 0);
-    const valorMateriais = materiais.reduce((s, m) => s + Number(m.custoTotal ?? 0), 0);
-    const valorFaturado = invoices.reduce((s, i) => s + Number(i.valorTotal), 0);
-    const valorPago = invoices.reduce((s, i) => s + Number(i.valorPago), 0);
+    const valorMateriais = Number(materialAgg._sum.custoTotal ?? 0);
+    const valorFaturado = Number(invoiceAgg._sum.valorTotal ?? 0);
+    const valorPago = Number(invoiceAgg._sum.valorPago ?? 0);
     const valorPendente = valorFaturado - valorPago;
     const margem = valorFaturado - valorMateriais;
+    const invoicesPagos = invoiceCountByStatus.get('PAID') ?? 0;
 
     return {
       projetoId,
@@ -440,10 +593,10 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       valorFaturado,
       valorPago,
       valorPendente,
-      totalInvoices: invoices.length,
-      invoicesPendentes: invoices.filter((i) => i.status !== 'PAID').length,
-      invoicesPagos: invoices.filter((i) => i.status === 'PAID').length,
-      invoicesVencidos: invoices.filter((i) => i.status === 'OVERDUE').length,
+      totalInvoices: invoiceAgg._count._all,
+      invoicesPendentes: invoiceAgg._count._all - invoicesPagos,
+      invoicesPagos,
+      invoicesVencidos: invoiceCountByStatus.get('OVERDUE') ?? 0,
       margem,
       percentualMargem: valorFaturado > 0 ? (margem / valorFaturado) * 100 : 0,
       atualizadoEm: new Date(),
@@ -469,4 +622,3 @@ export function getPrismaFinanceGateway(): PrismaFinanceGateway {
   }
   return _gateway;
 }
-

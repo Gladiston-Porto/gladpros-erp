@@ -7,6 +7,7 @@
 
 import type { NextRequest } from "next/server"
 import { requireUser, hasRole } from "./rbac"
+import { prisma } from "@/lib/prisma"
 
 /**
  * Matriz de Permissões - Módulo Projects
@@ -176,6 +177,131 @@ export const ProjectOwnershipChecks = {
   },
 }
 
+export type ProjectAuthUser = {
+  id: string | number
+  role: string
+  email?: string
+}
+
+type ProjectScopedAction =
+  | keyof typeof ProjectPermissions
+  | "canDownloadAttachments"
+  | "canDeleteAttachments"
+
+type ProjectChildType = "etapa" | "tarefa" | "material" | "anexo"
+
+async function resolveClientIdForUser(user: ProjectAuthUser): Promise<number> {
+  const email =
+    user.email ??
+    (
+      await prisma.usuario.findUnique({
+        where: { id: Number(user.id) },
+        select: { email: true },
+      })
+    )?.email
+
+  if (!email) {
+    throw new Error("FORBIDDEN")
+  }
+
+  const cliente = await prisma.cliente.findUnique({
+    where: { email },
+    select: { id: true },
+  })
+
+  if (!cliente) {
+    throw new Error("FORBIDDEN")
+  }
+
+  return cliente.id
+}
+
+export async function getProjectListScopeForUser(user: ProjectAuthUser) {
+  if (user.role === "CLIENTE") {
+    return { clienteId: await resolveClientIdForUser(user) }
+  }
+
+  if (user.role === "USUARIO") {
+    return { responsavelId: Number(user.id) }
+  }
+
+  return {}
+}
+
+export async function requireProjectAccess(
+  user: ProjectAuthUser,
+  projectId: number,
+  action: ProjectScopedAction = "canRead"
+) {
+  const scope = await getProjectListScopeForUser(user)
+  const projeto = await prisma.projeto.findFirst({
+    where: { id: projectId, ...scope },
+    select: {
+      id: true,
+      clienteId: true,
+      responsavelId: true,
+    },
+  })
+
+  if (!projeto) {
+    console.warn(
+      `[RBAC-Projects] Project access denied: action="${action}" role="${user.role}" userId=${user.id} projectId=${projectId}`
+    )
+    throw new Error("FORBIDDEN")
+  }
+
+  return projeto
+}
+
+export async function requireProjectChildAccess(
+  user: ProjectAuthUser,
+  projectId: number,
+  childType: ProjectChildType,
+  childId: number,
+  action: ProjectScopedAction = "canRead"
+) {
+  await requireProjectAccess(user, projectId, action)
+
+  const child = await findProjectChild(childType, projectId, childId)
+  if (!child) {
+    console.warn(
+      `[RBAC-Projects] Child access denied: action="${action}" role="${user.role}" userId=${user.id} projectId=${projectId} ${childType}Id=${childId}`
+    )
+    throw new Error("FORBIDDEN")
+  }
+
+  return child
+}
+
+async function findProjectChild(
+  childType: ProjectChildType,
+  projectId: number,
+  childId: number
+): Promise<{ id: number; projetoId: number } | null> {
+  switch (childType) {
+    case "etapa":
+      return prisma.projetoEtapa.findFirst({
+        where: { id: childId, projetoId: projectId },
+        select: { id: true, projetoId: true },
+      })
+    case "tarefa":
+      return prisma.projetoTarefa.findFirst({
+        where: { id: childId, projetoId: projectId },
+        select: { id: true, projetoId: true },
+      })
+    case "material":
+      return prisma.projetoMaterial.findFirst({
+        where: { id: childId, projetoId: projectId },
+        select: { id: true, projetoId: true },
+      })
+    case "anexo":
+      return prisma.projetoAnexo.findFirst({
+        where: { id: childId, projetoId: projectId },
+        select: { id: true, projetoId: true },
+      })
+  }
+}
+
 /**
  * Middleware para verificar permissões de Projects
  * 
@@ -243,4 +369,21 @@ export async function requireProjectOwnershipPermission(
  */
 export function shouldMaskFinancials(userRole: string): boolean {
   return !ProjectPermissions.canViewFinancials(userRole)
+}
+
+export function maskProjectFinancials<T extends Record<string, unknown>>(projeto: T): T {
+  return {
+    ...projeto,
+    orcamento: undefined,
+    custoTotal: undefined,
+    valorOrcado: undefined,
+    valorRealizado: undefined,
+    valorEstimado: undefined,
+    custoPrevisto: undefined,
+    custoReal: undefined,
+    margemPrevista: undefined,
+    margemReal: undefined,
+    lucroPrevisto: undefined,
+    lucroReal: undefined,
+  }
 }

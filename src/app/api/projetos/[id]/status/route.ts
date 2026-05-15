@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ProjectService } from '@/domains/projects/services/ProjectService'
-import { requireProjectOwnershipPermission } from '@/shared/lib/rbac-projects'
+import { requireProjectAccess, requireProjectPermission } from '@/shared/lib/rbac-projects'
 import { alterarStatusProjetoSchema } from '@/domains/projects/validators'
-import {  } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { withErrorHandler } from '@/lib/api/error-handler'
 import { apiRateLimit } from '@/shared/lib/rate-limit'
@@ -14,6 +13,8 @@ export const runtime = "nodejs"
  */
 export const PATCH = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
+    const user = await requireProjectPermission(request, 'canChangeStatus')
+
     const rateCheck = await apiRateLimit.isAllowed(request)
     if (!rateCheck.allowed) {
       return NextResponse.json(
@@ -32,6 +33,8 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
       )
     }
     
+    await requireProjectAccess(user, projetoId, 'canChangeStatus')
+
     const projetoAtual = await prisma.projeto.findUnique({
       where: { id: projetoId },
       select: { responsavelId: true, status: true }
@@ -43,12 +46,6 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
         { status: 404 }
       )
     }
-    
-    const user = await requireProjectOwnershipPermission(
-      request,
-      'canChangeStatus',
-      projetoAtual.responsavelId
-    )
     
     const body = await request.json()
     const data = alterarStatusProjetoSchema.parse(body)
@@ -69,4 +66,3 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
     
     return NextResponse.json({ data: projeto, success: true })
   })
-

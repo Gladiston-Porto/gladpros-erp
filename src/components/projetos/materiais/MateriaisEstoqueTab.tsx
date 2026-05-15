@@ -73,6 +73,7 @@ type VerificarResult = {
 
 type Props = {
   projetoId: number;
+  canManageMaterials: boolean;
 };
 
 const STATUS_CONFIG: Record<AlocacaoStatus, { label: string; className: string; icon: React.ReactNode }> = {
@@ -98,7 +99,7 @@ const STATUS_CONFIG: Record<AlocacaoStatus, { label: string; className: string; 
   },
 };
 
-export function MateriaisEstoqueTab({ projetoId }: Props) {
+export function MateriaisEstoqueTab({ projetoId, canManageMaterials }: Props) {
   const { toast } = useToast();
   const [alocacoes, setAlocacoes] = useState<Alocacao[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -296,31 +297,35 @@ export function MateriaisEstoqueTab({ projetoId }: Props) {
           />
         </div>
         <div className="flex gap-2">
-          <Button
-            onClick={handleVerificar}
-            disabled={loadingVerificar || pendentes === 0}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            aria-label="Verificar disponibilidade de materiais pendentes"
-            title={pendentes === 0 ? 'Nenhum material aguardando compra' : 'Verificar se há estoque disponível para os itens pendentes'}
-          >
-            {loadingVerificar ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCcw className="h-4 w-4" />
-            )}
-            Verificar Disponibilidade
-          </Button>
-          <Button
-            onClick={() => setAdicionarOpen(true)}
-            size="sm"
-            className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
-            aria-label="Adicionar material ao estoque do projeto"
-          >
-            <Plus className="h-4 w-4" />
-            Adicionar Material
-          </Button>
+          {canManageMaterials && (
+            <>
+              <Button
+                onClick={handleVerificar}
+                disabled={loadingVerificar || pendentes === 0}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                aria-label="Verificar disponibilidade de materiais pendentes"
+                title={pendentes === 0 ? 'Nenhum material aguardando compra' : 'Verificar se há estoque disponível para os itens pendentes'}
+              >
+                {loadingVerificar ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCcw className="h-4 w-4" />
+                )}
+                Verificar Disponibilidade
+              </Button>
+              <Button
+                onClick={() => setAdicionarOpen(true)}
+                size="sm"
+                className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
+                aria-label="Adicionar material ao estoque do projeto"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar Material
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -369,22 +374,25 @@ export function MateriaisEstoqueTab({ projetoId }: Props) {
               <div>
                 <h3 className="font-medium text-foreground">Nenhum material de estoque alocado</h3>
                 <p className="text-sm text-muted-foreground">
-                  Adicione materiais para reservar ou criar SCs automaticamente
+                  {canManageMaterials
+                    ? 'Adicione materiais para reservar ou criar SCs automaticamente'
+                    : 'Nenhum material de estoque foi reservado para este projeto'}
                 </p>
               </div>
-              <Button
-                onClick={() => setAdicionarOpen(true)}
-                size="sm"
-                className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
-              >
-                <Plus className="h-4 w-4" />
-                Adicionar Primeiro Material
-              </Button>
+              {canManageMaterials && (
+                <Button
+                  onClick={() => setAdicionarOpen(true)}
+                  size="sm"
+                  className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
+                >
+                  <Plus className="h-4 w-4" />
+                  Adicionar Primeiro Material
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
       )}
-
       {/* Lista de alocações */}
       {alocacoes.length > 0 && (
         <Card className="border-border bg-card">

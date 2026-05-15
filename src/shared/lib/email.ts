@@ -256,9 +256,13 @@ export class EmailService {
         // Captura o e-mail em memória para que /api/dev/last-mail possa devolvê-lo
         // nos testes E2E. Em produção esta branch nunca é atingida.
         const globalForMail = global as unknown as {
-          __lastMail?: { to: string; subject: string; html: string; sentAt: string }
+          __lastMail?: { to: string; subject: string; html: string; sentAt: string };
+          __mailByRecipient?: Record<string, { to: string; subject: string; html: string; sentAt: string }>;
         };
-        globalForMail.__lastMail = { to, subject, html, sentAt: new Date().toISOString() };
+        const mailEntry = { to, subject, html, sentAt: new Date().toISOString() };
+        globalForMail.__lastMail = mailEntry; // backward compat — single-slot
+        if (!globalForMail.__mailByRecipient) globalForMail.__mailByRecipient = {};
+        globalForMail.__mailByRecipient[to.toLowerCase()] = mailEntry; // per-recipient — prevents cross-worker interference
 
         if (shouldDebugEmail()) {
           // eslint-disable-next-line no-console

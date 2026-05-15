@@ -23,6 +23,7 @@ import {
   Receipt,
   HandCoins,
   Wallet,
+  RefreshCw,
   Calculator,
   ShieldCheck,
   Activity,

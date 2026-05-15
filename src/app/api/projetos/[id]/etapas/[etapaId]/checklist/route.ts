@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireProjectPermission } from '@/shared/lib/rbac-projects'
+import { requireProjectChildAccess, requireProjectPermission } from '@/shared/lib/rbac-projects'
 import { withErrorHandler } from '@/lib/api/error-handler'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
@@ -24,16 +24,18 @@ export const GET = withErrorHandler(async (
   request: NextRequest,
   context: { params: Promise<{ id: string; etapaId: string }> }
 ) => {
-  await requireProjectPermission(request, 'canRead')
+  const user = await requireProjectPermission(request, 'canRead')
 
-  const { etapaId } = await context.params
+  const { id: projectParam, etapaId } = await context.params
+  const projetoId = Number(projectParam)
   const id = Number(etapaId)
-  if (isNaN(id)) {
+  if (isNaN(projetoId) || isNaN(id)) {
     return NextResponse.json({ error: 'ID inválido', success: false }, { status: 400 })
   }
+  await requireProjectChildAccess(user, projetoId, 'etapa', id, 'canRead')
 
-  const etapa = await prisma.projetoEtapa.findUnique({
-    where: { id },
+  const etapa = await prisma.projetoEtapa.findFirst({
+    where: { id, projetoId },
     select: { id: true, checklistItens: true },
   })
 
@@ -53,13 +55,15 @@ export const PUT = withErrorHandler(async (
   request: NextRequest,
   context: { params: Promise<{ id: string; etapaId: string }> }
 ) => {
-  await requireProjectPermission(request, 'canManageStages')
+  const user = await requireProjectPermission(request, 'canManageStages')
 
-  const { etapaId } = await context.params
+  const { id: projectParam, etapaId } = await context.params
+  const projetoId = Number(projectParam)
   const id = Number(etapaId)
-  if (isNaN(id)) {
+  if (isNaN(projetoId) || isNaN(id)) {
     return NextResponse.json({ error: 'ID inválido', success: false }, { status: 400 })
   }
+  await requireProjectChildAccess(user, projetoId, 'etapa', id, 'canManageStages')
 
   const body = await request.json()
   const parsed = putChecklistSchema.safeParse(body)
@@ -70,7 +74,7 @@ export const PUT = withErrorHandler(async (
     )
   }
 
-  const etapa = await prisma.projetoEtapa.findUnique({ where: { id } })
+  const etapa = await prisma.projetoEtapa.findFirst({ where: { id, projetoId } })
   if (!etapa) {
     return NextResponse.json({ error: 'Etapa não encontrada', success: false }, { status: 404 })
   }

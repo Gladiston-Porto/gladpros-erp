@@ -8,12 +8,20 @@ import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
 const mockRequireProjectOwnershipPermission = jest.fn();
+const mockRequireProjectAccess = jest.fn();
 const mockShouldMaskFinancials = jest.fn();
+const mockMaskProjectFinancials = jest.fn((projeto: Record<string, unknown>) => ({
+  ...projeto,
+  orcamento: undefined,
+  custoTotal: undefined,
+}));
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
   requireProjectOwnershipPermission: (...args: unknown[]) => mockRequireProjectOwnershipPermission(...args),
+  requireProjectAccess: (...args: unknown[]) => mockRequireProjectAccess(...args),
   shouldMaskFinancials: (...args: unknown[]) => mockShouldMaskFinancials(...args),
+  maskProjectFinancials: (...args: unknown[]) => mockMaskProjectFinancials(...args),
 }));
 
 const mockBuscarPorId = jest.fn();
@@ -150,11 +158,10 @@ describe('PUT /api/projetos/[id]', () => {
   });
 
   it('returns 404 when project not found', async () => {
-    mockPrismaFindUnique.mockResolvedValue(null);
+    mockAtualizar.mockRejectedValue(new Error('Projeto não encontrado'));
     const req = makeRequest('http://localhost:3000/api/projetos/999', 'PUT', {});
-    const res = await PUT(req, makeContext('999'));
 
-    expect(res.status).toBe(404);
+    await expect(PUT(req, makeContext('999'))).rejects.toThrow('Projeto não encontrado');
   });
 });
 

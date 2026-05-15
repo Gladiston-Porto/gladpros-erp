@@ -73,6 +73,7 @@ function createProposalApprovedSteps(ctx: ProposalApprovedContext): PlaybookStep
         const notas = percentual < 100
               ? `Sinal de ${percentual}% - Proposta ${ctx.propostaId}`
               : `Faturamento integral - Proposta ${ctx.propostaId}`;
+        const billingReference = `proposta-${ctx.propostaId}`;
 
         const invoice = await prisma.invoice.create({
           data: {
@@ -82,6 +83,9 @@ function createProposalApprovedSteps(ctx: ProposalApprovedContext): PlaybookStep
             subtotal: valorInvoice,
             saldo: valorInvoice,
             status: 'SENT',
+            billingType: 'DEPOSIT',
+            billingReference,
+            activeBillingKey: `PROJECT:${ctx.projetoId}:DEPOSIT:${billingReference}`,
             notas,
             numeroInvoice: `INV-${Date.now()}`,
             dataEmissao: new Date(),

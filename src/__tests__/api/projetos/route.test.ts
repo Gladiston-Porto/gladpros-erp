@@ -8,10 +8,20 @@ import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
 const mockShouldMaskFinancials = jest.fn();
+const mockGetProjectListScopeForUser = jest.fn((user: { id: string | number; role: string }) =>
+  user.role === 'USUARIO' ? { responsavelId: Number(user.id) } : {}
+);
+const mockMaskProjectFinancials = jest.fn((projeto: Record<string, unknown>) => ({
+  ...projeto,
+  orcamento: undefined,
+  custoTotal: undefined,
+}));
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
   shouldMaskFinancials: (...args: unknown[]) => mockShouldMaskFinancials(...args),
+  getProjectListScopeForUser: (...args: unknown[]) => mockGetProjectListScopeForUser(...args),
+  maskProjectFinancials: (...args: unknown[]) => mockMaskProjectFinancials(...args),
 }));
 
 const mockListar = jest.fn();

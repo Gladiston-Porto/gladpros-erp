@@ -9,9 +9,13 @@
 import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
+const mockRequireProjectAccess = jest.fn();
+const mockRequireProjectChildAccess = jest.fn();
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
+  requireProjectAccess: (...args: unknown[]) => mockRequireProjectAccess(...args),
+  requireProjectChildAccess: (...args: unknown[]) => mockRequireProjectChildAccess(...args),
 }));
 
 const mockListarPorProjeto = jest.fn();
@@ -20,6 +24,7 @@ const mockBuscarPorId = jest.fn();
 const mockAtualizar = jest.fn();
 const mockExcluir = jest.fn();
 const mockAlterarStatus = jest.fn();
+const mockProjetoMaterialCount = jest.fn().mockResolvedValue(1);
 
 jest.mock('@/domains/projects/services/ProjectMaterialService', () => ({
   ProjectMaterialService: jest.fn().mockImplementation(() => ({
@@ -40,6 +45,14 @@ jest.mock('@/domains/projects/validators', () => ({
 
 jest.mock('@/lib/api/error-handler', () => ({
   withErrorHandler: (fn: Function) => fn,
+}));
+
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
+    projetoMaterial: {
+      count: (...args: unknown[]) => mockProjetoMaterialCount(...args),
+    },
+  },
 }));
 
 import {
@@ -80,7 +93,7 @@ describe('GET /api/projetos/[id]/materiais', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.materiais).toHaveLength(1);
+    expect(json.data).toHaveLength(1);
   });
 
   it('returns 400 for invalid project ID', async () => {
@@ -121,7 +134,7 @@ describe('POST /api/projetos/[id]/materiais', () => {
     const json = await res.json();
 
     expect(res.status).toBe(201);
-    expect(json.material.nome).toBe('Novo Material');
+    expect(json.data.nome).toBe('Novo Material');
   });
 
   it('returns 400 for invalid project ID', async () => {
@@ -156,7 +169,7 @@ describe('GET /api/projetos/[id]/materiais/[materialId]', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.material.nome).toBe('Material A');
+    expect(json.data.nome).toBe('Material A');
   });
 
   it('returns 404 when material not found', async () => {
@@ -190,7 +203,7 @@ describe('PUT /api/projetos/[id]/materiais/[materialId]', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.material.nome).toBe('Material Atualizado');
+    expect(json.data.nome).toBe('Material Atualizado');
   });
 
   it('returns 400 for invalid materialId', async () => {
@@ -254,7 +267,7 @@ describe('PATCH /api/projetos/[id]/materiais/[materialId] (status/liberação/de
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.material.status).toBe('liberado');
+    expect(json.data.status).toBe('liberado');
   });
 
   it('returns 200 with updated status (devolução)', async () => {
@@ -266,7 +279,7 @@ describe('PATCH /api/projetos/[id]/materiais/[materialId] (status/liberação/de
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.material.status).toBe('devolvido');
+    expect(json.data.status).toBe('devolvido');
   });
 
   it('returns 400 for invalid materialId', async () => {

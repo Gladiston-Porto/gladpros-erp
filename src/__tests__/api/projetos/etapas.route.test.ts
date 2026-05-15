@@ -9,9 +9,13 @@
 import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
+const mockRequireProjectAccess = jest.fn();
+const mockRequireProjectChildAccess = jest.fn();
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
+  requireProjectAccess: (...args: unknown[]) => mockRequireProjectAccess(...args),
+  requireProjectChildAccess: (...args: unknown[]) => mockRequireProjectChildAccess(...args),
 }));
 
 const mockListarPorProjeto = jest.fn();
@@ -20,6 +24,7 @@ const mockBuscarPorId = jest.fn();
 const mockAtualizar = jest.fn();
 const mockExcluir = jest.fn();
 const mockAlterarStatus = jest.fn();
+const mockProjetoEtapaCount = jest.fn().mockResolvedValue(1);
 
 jest.mock('@/domains/projects/services/ProjectStageService', () => ({
   ProjectStageService: jest.fn().mockImplementation(() => ({
@@ -40,6 +45,14 @@ jest.mock('@/domains/projects/validators', () => ({
 
 jest.mock('@/lib/api/error-handler', () => ({
   withErrorHandler: (fn: Function) => fn,
+}));
+
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
+    projetoEtapa: {
+      count: (...args: unknown[]) => mockProjetoEtapaCount(...args),
+    },
+  },
 }));
 
 import {
@@ -80,7 +93,7 @@ describe('GET /api/projetos/[id]/etapas', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.etapas).toHaveLength(1);
+    expect(json.data).toHaveLength(1);
   });
 
   it('returns 400 for invalid project ID', async () => {
@@ -120,7 +133,7 @@ describe('POST /api/projetos/[id]/etapas', () => {
     const json = await res.json();
 
     expect(res.status).toBe(201);
-    expect(json.etapa.nome).toBe('Nova Etapa');
+    expect(json.data.nome).toBe('Nova Etapa');
   });
 
   it('returns 400 for invalid project ID', async () => {
@@ -155,7 +168,7 @@ describe('GET /api/projetos/[id]/etapas/[etapaId]', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.etapa.nome).toBe('Etapa A');
+    expect(json.data.nome).toBe('Etapa A');
   });
 
   it('returns 404 when etapa not found', async () => {
@@ -189,7 +202,7 @@ describe('PUT /api/projetos/[id]/etapas/[etapaId]', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.etapa.nome).toBe('Etapa Atualizada');
+    expect(json.data.nome).toBe('Etapa Atualizada');
   });
 
   it('returns 400 for invalid etapaId', async () => {
@@ -253,7 +266,7 @@ describe('PATCH /api/projetos/[id]/etapas/[etapaId] (status)', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.etapa.status).toBe('concluida');
+    expect(json.data.status).toBe('concluida');
   });
 
   it('returns 400 for invalid etapaId', async () => {

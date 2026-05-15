@@ -7,9 +7,13 @@
 import { NextRequest } from 'next/server';
 
 const mockRequireProjectOwnershipPermission = jest.fn();
+const mockRequireProjectPermission = jest.fn();
+const mockRequireProjectAccess = jest.fn();
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectOwnershipPermission: (...args: unknown[]) => mockRequireProjectOwnershipPermission(...args),
+  requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
+  requireProjectAccess: (...args: unknown[]) => mockRequireProjectAccess(...args),
 }));
 
 const mockAlterarStatus = jest.fn();
@@ -63,6 +67,7 @@ describe('PATCH /api/projetos/[id]/status', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRequireProjectOwnershipPermission.mockResolvedValue(adminUser);
+    mockRequireProjectPermission.mockResolvedValue(adminUser);
     mockFindUnique.mockResolvedValue({ id: 1, status: 'planejado', responsavelId: 1 });
   });
 
@@ -97,7 +102,7 @@ describe('PATCH /api/projetos/[id]/status', () => {
   });
 
   it('throws FORBIDDEN for unauthorized role', async () => {
-    mockRequireProjectOwnershipPermission.mockRejectedValue(new Error('FORBIDDEN'));
+    mockRequireProjectPermission.mockRejectedValue(new Error('FORBIDDEN'));
     const req = makeRequest('http://localhost:3000/api/projetos/1/status', {
       novoStatus: 'em_execucao',
     });

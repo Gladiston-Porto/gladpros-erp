@@ -7,8 +7,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUser } from '@/shared/lib/rbac'
 import { can, type Role } from '@/shared/lib/rbac-core'
+import { getProjectListScopeForUser } from '@/shared/lib/rbac-projects'
 import { withErrorHandler } from '@/lib/api/error-handler'
-import { apiRateLimit } from '@/shared/lib/rate-limit'
+import { exportRateLimit } from '@/shared/lib/rate-limit'
 
 export const runtime = 'nodejs'
 
@@ -43,7 +44,16 @@ function formatDate(date: Date | null | undefined): string {
 }
 
 export const GET = withErrorHandler(async (request: NextRequest) => {
-  const rateCheck = await apiRateLimit.isAllowed(request)
+  const user = await requireUser(request)
+  const role = user.role as Role
+  if (!can(role, 'projetos', 'read') || !can(role, 'reports', 'read') || !can(role, 'financeiro', 'read')) {
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Sem permissão para exportar dados financeiros de projetos', success: false },
+      { status: 403 }
+    )
+  }
+
+  const rateCheck = await exportRateLimit.isAllowed(request)
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: 'Too Many Requests', message: rateCheck.message, success: false },
@@ -51,15 +61,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     )
   }
 
-  const user = await requireUser(request)
-  if (!can(user.role as Role, 'projetos', 'read')) {
-    return NextResponse.json(
-      { error: 'Forbidden', message: 'Sem permissão', success: false },
-      { status: 403 }
-    )
-  }
+  const scope = await getProjectListScopeForUser(user)
 
   const projetos = await prisma.projeto.findMany({
+    where: scope,
     select: {
       numeroProjeto: true,
       titulo: true,

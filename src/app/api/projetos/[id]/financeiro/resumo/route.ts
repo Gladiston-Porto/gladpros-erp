@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireProjectPermission, shouldMaskFinancials } from '@/shared/lib/rbac-projects';
+import { requireProjectAccess, requireProjectPermission, shouldMaskFinancials } from '@/shared/lib/rbac-projects';
 import { getFinanceGateway } from '@/domains/projects/gateways';
 import { withErrorHandler } from '@/lib/api/error-handler';
 
@@ -23,6 +23,7 @@ export const GET = withErrorHandler(async (req: NextRequest,
       { status: 400 },
     );
   }
+  await requireProjectAccess(user, projetoId, 'canViewFinancials');
 
   const gateway = getFinanceGateway();
   const resumo = await gateway.obterResumoFinanceiro(projetoId);

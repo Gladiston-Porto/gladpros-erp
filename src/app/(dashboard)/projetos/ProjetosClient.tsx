@@ -46,7 +46,13 @@ import {
   type BadgeVariant,
 } from '@/lib/projetos/ui';
 
-export default function ProjetosClient() {
+type ProjetosClientPermissions = {
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+};
+
+export default function ProjetosClient({ permissions }: { permissions: ProjetosClientPermissions }) {
   const router = useRouter();
    
   const { fetchProjetos, deleteProjeto, loading: _loading, fetching } = useProjetoOperations({
@@ -285,10 +291,12 @@ export default function ProjetosClient() {
           <Card className="border-none text-center shadow-sm">
             <CardContent className="flex flex-col items-center gap-4 py-16">
               <p className="text-lg text-muted-foreground">Nenhum projeto encontrado</p>
-              <Button className="gap-2" onClick={() => router.push('/projetos/novo')}>
-                <Plus size={18} />
-                Criar primeiro projeto
-              </Button>
+              {permissions.canCreate && (
+                <Button className="gap-2" onClick={() => router.push('/projetos/novo')}>
+                  <Plus size={18} />
+                  Criar primeiro projeto
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -299,8 +307,8 @@ export default function ProjetosClient() {
                   key={projeto.id}
                   projeto={projeto}
                   onView={() => router.push(`/projetos/${projeto.id}`)}
-                  onEdit={() => router.push(`/projetos/${projeto.id}/editar`)}
-                  onDelete={() => handleDelete(projeto.id)}
+                  onEdit={permissions.canUpdate ? () => router.push(`/projetos/${projeto.id}/editar`) : undefined}
+                  onDelete={permissions.canDelete ? () => handleDelete(projeto.id) : undefined}
                 />
               ))}
             </div>
@@ -355,8 +363,8 @@ export default function ProjetosClient() {
 interface ProjetoCardProps {
   projeto: Projeto;
   onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 function ProjetoCard({ projeto, onView, onEdit, onDelete }: ProjetoCardProps) {
@@ -466,12 +474,16 @@ function ProjetoCard({ projeto, onView, onEdit, onDelete }: ProjetoCardProps) {
           <Button variant="ghost" size="sm" onClick={onView}>
             Visualizar
           </Button>
-          <Button variant="outline" size="sm" onClick={onEdit}>
-            Editar
-          </Button>
-          <Button variant="destructive" size="sm" onClick={onDelete}>
-            Excluir
-          </Button>
+          {onEdit && (
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              Editar
+            </Button>
+          )}
+          {onDelete && (
+            <Button variant="destructive" size="sm" onClick={onDelete}>
+              Excluir
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

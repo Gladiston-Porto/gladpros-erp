@@ -8,6 +8,9 @@ jest.mock('@/lib/prisma', () => ({
     propostaLog: {
       create: jest.fn(),
     },
+    projeto: {
+      findFirst: jest.fn(),
+    },
     usuario: {
       findMany: jest.fn(),
     },
@@ -61,6 +64,7 @@ function request(path: string, headers?: HeadersInit) {
 
 describe('Propostas P1 flow regressions', () => {
   const propostaFindFirstMock = prisma.proposta.findFirst as jest.Mock;
+  const projetoFindFirstMock = prisma.projeto.findFirst as jest.Mock;
   const requireUserMock = requireUser as jest.Mock;
 
   const originalCronSecret = process.env.CRON_SECRET;
@@ -69,6 +73,7 @@ describe('Propostas P1 flow regressions', () => {
     jest.clearAllMocks();
     process.env.CRON_SECRET = originalCronSecret;
     requireUserMock.mockResolvedValue({ id: '1', role: 'ADMIN', empresaId: 1 });
+    projetoFindFirstMock.mockResolvedValue(null);
   });
 
   afterAll(() => {
@@ -82,6 +87,28 @@ describe('Propostas P1 flow regressions', () => {
       projetoId: 77,
       deletedAt: null,
     });
+
+    const result = await cancelProposal(10, 'Cliente pediu cancelamento', {
+      actorId: '1',
+      ip: '127.0.0.1',
+      userAgent: 'jest',
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Proposta já vinculada a projeto. Cancele ou reverta o projeto antes de cancelar a proposta.',
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('blocks cancellation when a project points to the proposal even if proposta.projetoId is empty', async () => {
+    propostaFindFirstMock.mockResolvedValue({
+      id: 10,
+      status: 'ASSINADA',
+      projetoId: null,
+      deletedAt: null,
+    });
+    projetoFindFirstMock.mockResolvedValue({ id: 77 });
 
     const result = await cancelProposal(10, 'Cliente pediu cancelamento', {
       actorId: '1',

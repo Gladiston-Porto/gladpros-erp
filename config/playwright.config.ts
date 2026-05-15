@@ -66,6 +66,13 @@ if (!process.env.DATABASE_URL) {
 const E2E_BUILD_PORT = 3007;
 
 const baseURL = process.env.BASE_URL || `http://127.0.0.1:${E2E_BUILD_PORT}`;
+
+// Ensure helpers (helpers/auth.ts, helpers/email.ts) always use the same URL as the
+// Playwright browser — they read process.env.BASE_URL directly.
+if (!process.env.BASE_URL) {
+  process.env.BASE_URL = baseURL;
+}
+
 const shouldStartServer = process.env.PLAYWRIGHT_START_SERVER === '1'
   ? true
   : process.env.PLAYWRIGHT_SKIP_SERVER === '1'

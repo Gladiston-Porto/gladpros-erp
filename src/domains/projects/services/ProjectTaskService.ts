@@ -181,7 +181,13 @@ export class ProjectTaskService {
   /**
    * Lista tarefas de um projeto
    */
-  async listarPorProjeto(projetoId: number, etapaId?: number): Promise<ProjetoTarefaResponseDTO[]> {
+  async listarPorProjeto(
+    projetoId: number,
+    etapaId?: number,
+    options: { page?: number; pageSize?: number } = {}
+  ): Promise<ProjetoTarefaResponseDTO[]> {
+    const page = options.page ?? 1;
+    const pageSize = options.pageSize ?? 100;
     const where: Prisma.ProjetoTarefaWhereInput = { projetoId };
     if (etapaId) {
       where.etapaId = etapaId;
@@ -190,6 +196,8 @@ export class ProjectTaskService {
     const tarefas = await this.prisma.projetoTarefa.findMany({
       where,
       orderBy: { criadoEm: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       select: {
         id: true,
         projetoId: true,

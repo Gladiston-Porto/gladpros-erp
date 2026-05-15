@@ -13,9 +13,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
+import { ProjectPermissions, requireProjectAccess } from '@/shared/lib/rbac-projects';
 import {
   successResponse,
   validationErrorResponse,
@@ -43,6 +45,77 @@ const addMaterialSchema = z.object({
   embalagemUnitAtTime: z.string().optional(),
 });
 
+const listQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+function maskAlocacaoFinancials<T extends Record<string, unknown>>(alocacao: T, canSeeFinancials: boolean) {
+  if (canSeeFinancials) return alocacao;
+  const {
+    custoUnitario: _custoUnitario,
+    custoTotal: _custoTotal,
+    cobrarCliente: _cobrarCliente,
+    embalagemPrecoAtTime: _embalagemPrecoAtTime,
+    ...safe
+  } = alocacao;
+  return safe;
+}
+
+function maskScFinancials<T extends Record<string, unknown> | null>(sc: T, canSeeFinancials: boolean) {
+  if (!sc || canSeeFinancials) return sc;
+  const source = sc as Record<string, unknown>;
+  return {
+    id: source.id,
+    status: source.status,
+    origemTipo: source.origemTipo,
+    origemId: source.origemId,
+  };
+}
+
+async function reservarSaldoDisponivel(
+  tx: Prisma.TransactionClient,
+  materialId: number,
+  quantidade: number,
+  localizacaoId?: number
+): Promise<number> {
+  const saldos = await tx.materialSaldo.findMany({
+    where: { materialId },
+    select: { id: true, quantidade: true, reservado: true, localizacaoId: true },
+  });
+
+  const saldosOrdenados = localizacaoId
+    ? [...saldos].sort((a, b) =>
+        a.localizacaoId === localizacaoId ? -1 : b.localizacaoId === localizacaoId ? 1 : 0
+      )
+    : saldos;
+
+  let restante = quantidade;
+  let reservado = 0;
+
+  for (const saldo of saldosOrdenados) {
+    if (restante <= 0) break;
+    const disponivel = Number(saldo.quantidade) - Number(saldo.reservado);
+    if (disponivel <= 0) continue;
+
+    const reservarAqui = Math.min(restante, disponivel);
+    const updatedRows = await tx.$executeRaw`
+      UPDATE materiais_saldo
+      SET reservado = reservado + ${reservarAqui}, atualizado_em = NOW()
+      WHERE id = ${saldo.id} AND (quantidade - reservado) >= ${reservarAqui}
+    `;
+
+    if (updatedRows !== 1) {
+      throw new Error('Saldo de estoque foi alterado por outra operação. Tente reservar novamente.');
+    }
+
+    reservado += reservarAqui;
+    restante -= reservarAqui;
+  }
+
+  return reservado;
+}
+
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
 async function getHandler(
@@ -50,27 +123,72 @@ async function getHandler(
   context: { params: Promise<{ id: string }> }
 ) {
   const user = await requireUser(request);
-  if (!can(user.role as Role, 'projetos', 'read')) {
+  const role = user.role as Role;
+  if (!can(role, 'projetos', 'read') || !can(role, 'estoque', 'read')) {
     return forbiddenResponse('Sem permissão para visualizar materiais do projeto');
   }
 
   const { id } = await context.params;
   const projetoId = Number(id);
   if (isNaN(projetoId)) {
-    return NextResponse.json({ error: 'ID inválido', success: false }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Validation failed', message: 'ID inválido', success: false },
+      { status: 400 }
+    );
+  }
+  await requireProjectAccess(user, projetoId, 'canRead');
+  const query = listQuerySchema.safeParse({
+    page: request.nextUrl.searchParams.get('page') ?? undefined,
+    pageSize: request.nextUrl.searchParams.get('pageSize') ?? undefined,
+  });
+  if (!query.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', message: query.error.issues[0]?.message ?? 'Parâmetros inválidos', success: false },
+      { status: 400 }
+    );
   }
 
-  const alocacoes = await prisma.projetoMaterialEstoque.findMany({
-    where: { projetoId },
-    orderBy: { criadoEm: 'desc' },
-    include: {
-      material: {
-        select: { id: true, codigo: true, nome: true, unidade: { select: { codigo: true, nome: true } } }
-      },
-    }
-  });
+  const { page, pageSize } = query.data;
+  const canSeeFinancials = ProjectPermissions.canViewFinancials(user.role);
 
-  return successResponse({ alocacoes });
+  const [total, alocacoes] = await Promise.all([
+    prisma.projetoMaterialEstoque.count({ where: { projetoId } }),
+    prisma.projetoMaterialEstoque.findMany({
+      where: { projetoId },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { criadoEm: 'desc' },
+      select: {
+        id: true,
+        projetoId: true,
+        materialId: true,
+        quantidadeReservada: true,
+        quantidadeUsada: true,
+        status: true,
+        dataReserva: true,
+        dataUso: true,
+        observacoes: true,
+        criadoEm: true,
+        atualizadoEm: true,
+        material: {
+          select: { id: true, codigo: true, nome: true, unidade: { select: { codigo: true, nome: true } } }
+        },
+        ...(canSeeFinancials
+          ? {
+              custoUnitario: true,
+              custoTotal: true,
+              cobrarCliente: true,
+              embalagemPrecoAtTime: true,
+            }
+          : {}),
+      },
+    }),
+  ]);
+
+  return successResponse({
+    alocacoes,
+    pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+  });
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -80,15 +198,20 @@ async function postHandler(
   context: { params: Promise<{ id: string }> }
 ) {
   const user = await requireUser(request);
-  if (!can(user.role as Role, 'projetos', 'create')) {
+  const role = user.role as Role;
+  if (!can(role, 'projetos', 'update') || !can(role, 'estoque', 'update')) {
     return forbiddenResponse('Sem permissão para adicionar materiais ao projeto');
   }
 
   const { id } = await context.params;
   const projetoId = Number(id);
   if (isNaN(projetoId)) {
-    return NextResponse.json({ error: 'ID inválido', success: false }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Validation failed', message: 'ID inválido', success: false },
+      { status: 400 }
+    );
   }
+  await requireProjectAccess(user, projetoId, 'canManageMaterials');
 
   const body = await request.json();
   const validation = addMaterialSchema.safeParse(body);
@@ -98,9 +221,19 @@ async function postHandler(
     );
   }
   const dados = validation.data;
+  const canUpdateFinancials = can(role, 'financeiro', 'update');
+  const canSeeFinancials = ProjectPermissions.canViewFinancials(user.role);
+  const touchesFinancialFields =
+    Object.prototype.hasOwnProperty.call(body, 'custoUnitario') ||
+    Object.prototype.hasOwnProperty.call(body, 'cobrarCliente') ||
+    Object.prototype.hasOwnProperty.call(body, 'embalagemPrecoAtTime');
 
-  // Verificar projeto existe
-  const projeto = await prisma.projeto.findUnique({
+  if (touchesFinancialFields && !canUpdateFinancials) {
+    return forbiddenResponse('Sem permissão para alterar custo/cobrança de materiais');
+  }
+
+  // Verificar projeto existe dentro do escopo autorizado.
+  const projeto = await prisma.projeto.findFirst({
     where: { id: projetoId },
     select: { id: true, numeroProjeto: true, titulo: true, status: true }
   });
@@ -117,36 +250,33 @@ async function postHandler(
   const custoUnitarioResolvido = dados.custoUnitario
     ?? (material.custoMedio !== null ? Number(material.custoMedio) : null)
     ?? (material.ultimoCusto !== null ? Number(material.ultimoCusto) : null);
-
-  // Verificar saldo disponível total (todas as localizações)
-  const saldos = await prisma.materialSaldo.findMany({
-    where: { materialId: dados.materialId },
-    select: { id: true, quantidade: true, reservado: true, localizacaoId: true }
-  });
-  const totalDisponivel = saldos.reduce(
-    (acc, s) => acc + Number(s.quantidade) - Number(s.reservado),
-    0
-  );
+  const cobrarClienteResolvido = canUpdateFinancials ? dados.cobrarCliente : false;
 
   logger.info('Adicionando material ao projeto', createLogContext(request, user), {
     projetoId,
     materialId: dados.materialId,
     quantidade: dados.quantidade,
-    totalDisponivel
+    localizacaoId: dados.localizacaoId ?? null
   });
 
   const empresaId = 1; // single-tenant
 
-  if (totalDisponivel >= dados.quantidade - 0.001) {
-    // ── CAMINHO 1: Saldo suficiente → RESERVADA ──────────────────────────────
-    const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
+    const quantidadeReservada = await reservarSaldoDisponivel(
+      tx,
+      dados.materialId,
+      dados.quantidade,
+      dados.localizacaoId
+    );
+
+    if (quantidadeReservada >= dados.quantidade - 0.001) {
       const alocacao = await tx.projetoMaterialEstoque.create({
         data: {
           projetoId,
           materialId: dados.materialId,
           quantidadeReservada: dados.quantidade,
           custoUnitario: custoUnitarioResolvido,
-          cobrarCliente: dados.cobrarCliente,
+          cobrarCliente: cobrarClienteResolvido,
           status: 'RESERVADA',
           dataReserva: new Date(),
           observacoes: dados.observacoes,
@@ -161,122 +291,88 @@ async function postHandler(
         }
       });
 
-      // Reservar o saldo — incrementa `reservado` na localização preferida
-      // (preferência: localizacaoId informado, ou primeira com saldo disponível)
-      let qtdAReservar = dados.quantidade;
-      const saldosOrdenados = dados.localizacaoId
-        ? [...saldos].sort((a, b) =>
-            a.localizacaoId === dados.localizacaoId ? -1 :
-            b.localizacaoId === dados.localizacaoId ? 1 : 0
-          )
-        : saldos;
+      return { alocacao, sc: null, acao: 'RESERVADA' as const, qtdParaComprar: 0 };
+    }
 
-      for (const saldo of saldosOrdenados) {
-        if (qtdAReservar <= 0) break;
-        const disponivel = Number(saldo.quantidade) - Number(saldo.reservado);
-        if (disponivel <= 0) continue;
-        const reservarAqui = Math.min(qtdAReservar, disponivel);
-        await tx.materialSaldo.update({
-          where: { id: saldo.id },
-          data: { reservado: { increment: reservarAqui } }
-        });
-        qtdAReservar -= reservarAqui;
-      }
-
-      return alocacao;
-    });
-
-    logger.info('Material reservado para projeto', createLogContext(request, user), {
-      projetoId, materialId: dados.materialId, alocacaoId: result.id
-    });
-
-    return successResponse(
-      { alocacao: result, acao: 'RESERVADA' },
-      `Material "${material.nome}" reservado com sucesso para o projeto.`
-    );
-
-  } else {
-    // ── CAMINHO 2: Saldo insuficiente → PENDENTE_SC + SC automática ───────────
     const qtdNecessaria = dados.quantidade;
-    const qtdSuficiente = Math.max(0, totalDisponivel);
+    const qtdSuficiente = Math.max(0, quantidadeReservada);
     const qtdParaComprar = qtdNecessaria - qtdSuficiente;
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Criar alocação com PENDENTE_SC
-      const alocacao = await tx.projetoMaterialEstoque.create({
-        data: {
-          projetoId,
-          materialId: dados.materialId,
-          quantidadeReservada: qtdSuficiente, // reserva o que tem disponível agora
-          custoUnitario: custoUnitarioResolvido,
-          cobrarCliente: dados.cobrarCliente,
-          status: 'PENDENTE_SC',
-          dataReserva: qtdSuficiente > 0 ? new Date() : null,
-          observacoes: dados.observacoes,
-          criadoPor: Number(user.id),
-          ...(dados.embalagemBaseQtyAtTime && {
-            embalagemId: dados.embalagemId ?? null,
-            qtdEmbalagens: dados.qtdEmbalagens,
-            embalagemBaseQtyAtTime: dados.embalagemBaseQtyAtTime,
-            embalagemPrecoAtTime: dados.embalagemPrecoAtTime,
-            embalagemUnitAtTime: dados.embalagemUnitAtTime,
-          }),
-        }
-      });
-
-      // Se há algum saldo disponível, reservar o que tem
-      if (qtdSuficiente > 0) {
-        let qtdAReservar = qtdSuficiente;
-        for (const saldo of saldos) {
-          if (qtdAReservar <= 0) break;
-          const disponivel = Number(saldo.quantidade) - Number(saldo.reservado);
-          if (disponivel <= 0) continue;
-          const reservarAqui = Math.min(qtdAReservar, disponivel);
-          await tx.materialSaldo.update({
-            where: { id: saldo.id },
-            data: { reservado: { increment: reservarAqui } }
-          });
-          qtdAReservar -= reservarAqui;
-        }
+    const alocacao = await tx.projetoMaterialEstoque.create({
+      data: {
+        projetoId,
+        materialId: dados.materialId,
+        quantidadeReservada: qtdSuficiente,
+        custoUnitario: custoUnitarioResolvido,
+        cobrarCliente: cobrarClienteResolvido,
+        status: 'PENDENTE_SC',
+        dataReserva: qtdSuficiente > 0 ? new Date() : null,
+        observacoes: dados.observacoes,
+        criadoPor: Number(user.id),
+        ...(dados.embalagemBaseQtyAtTime && {
+          embalagemId: dados.embalagemId ?? null,
+          qtdEmbalagens: dados.qtdEmbalagens,
+          embalagemBaseQtyAtTime: dados.embalagemBaseQtyAtTime,
+          embalagemPrecoAtTime: dados.embalagemPrecoAtTime,
+          embalagemUnitAtTime: dados.embalagemUnitAtTime,
+        }),
       }
-
-      // Criar SC automática para a quantidade faltante
-      const sc = await tx.solicitacaoCompra.create({
-        data: {
-          empresaId,
-          origemTipo: 'PROJETO',
-          origemId: projetoId,
-          status: 'RASCUNHO',
-          solicitanteId: Number(user.id),
-          valorEstimado: custoUnitarioResolvido
-            ? custoUnitarioResolvido * qtdParaComprar
-            : 0,
-          observacoes: `SC gerada automaticamente pelo sistema.\nProjeto: ${projeto.numeroProjeto} — ${projeto.titulo}.\nMaterial: ${material.codigo} — ${material.nome}.\nSaldo disponível: ${qtdSuficiente}, Necessário: ${qtdNecessaria}, Para comprar: ${qtdParaComprar}.`,
-          itens: {
-            create: [{
-              materialId: dados.materialId,
-              descricao: `${material.codigo} — ${material.nome}`,
-              quantidadeSolicitada: qtdParaComprar,
-              custoEstimado: custoUnitarioResolvido ?? null,
-              status: 'PENDENTE',
-            }]
-          }
-        }
-      });
-
-      return { alocacao, sc };
     });
 
-    logger.info('SC automática gerada por insuficiência de estoque', createLogContext(request, user), {
-      projetoId, materialId: dados.materialId, scId: result.sc.id, qtdParaComprar
+    // Criar SC automática para a quantidade faltante
+    const sc = await tx.solicitacaoCompra.create({
+      data: {
+        empresaId,
+        origemTipo: 'PROJETO',
+        origemId: projetoId,
+        status: 'RASCUNHO',
+        solicitanteId: Number(user.id),
+        valorEstimado: custoUnitarioResolvido
+          ? custoUnitarioResolvido * qtdParaComprar
+          : 0,
+        observacoes: `SC gerada automaticamente pelo sistema.\nProjeto: ${projeto.numeroProjeto} — ${projeto.titulo}.\nMaterial: ${material.codigo} — ${material.nome}.\nSaldo disponível: ${qtdSuficiente}, Necessário: ${qtdNecessaria}, Para comprar: ${qtdParaComprar}.`,
+        itens: {
+          create: [{
+            materialId: dados.materialId,
+            descricao: `${material.codigo} — ${material.nome}`,
+            quantidadeSolicitada: qtdParaComprar,
+            custoEstimado: custoUnitarioResolvido ?? null,
+            status: 'PENDENTE',
+          }]
+        }
+      }
+    });
+
+    return { alocacao, sc, acao: 'PENDENTE_SC' as const, qtdParaComprar };
+  });
+
+  if (result.acao === 'RESERVADA') {
+    logger.info('Material reservado para projeto', createLogContext(request, user), {
+      projetoId, materialId: dados.materialId, alocacaoId: result.alocacao.id
     });
 
     return successResponse(
-      { alocacao: result.alocacao, sc: result.sc, acao: 'PENDENTE_SC' },
-      `Estoque insuficiente para "${material.nome}". Solicitação de compra (SC #${result.sc.id}) criada automaticamente para ${qtdParaComprar} unidades. Aguardando aprovação do financeiro.`,
-      201
+      {
+        alocacao: maskAlocacaoFinancials(result.alocacao as unknown as Record<string, unknown>, canSeeFinancials),
+        acao: result.acao,
+      },
+      `Material "${material.nome}" reservado com sucesso para o projeto.`
     );
   }
+
+  logger.info('SC automática gerada por insuficiência de estoque', createLogContext(request, user), {
+    projetoId, materialId: dados.materialId, scId: result.sc?.id, qtdParaComprar: result.qtdParaComprar
+  });
+
+  return successResponse(
+    {
+      alocacao: maskAlocacaoFinancials(result.alocacao as unknown as Record<string, unknown>, canSeeFinancials),
+      sc: maskScFinancials(result.sc as unknown as Record<string, unknown> | null, canSeeFinancials),
+      acao: result.acao,
+    },
+    `Estoque insuficiente para "${material.nome}". Solicitação de compra (SC #${result.sc?.id}) criada automaticamente para ${result.qtdParaComprar} unidades. Aguardando aprovação do financeiro.`,
+    201
+  );
 }
 
 export const GET = withErrorHandler(getHandler);

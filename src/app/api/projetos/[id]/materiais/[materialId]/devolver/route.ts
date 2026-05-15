@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { InventoryMovementService } from '@/domains/projects/services/inventory-movement.service'
-import { requireProjectPermission } from '@/shared/lib/rbac-projects'
+import { requireProjectChildAccess, requireProjectPermission } from '@/shared/lib/rbac-projects'
 import { z } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
 
@@ -29,10 +29,11 @@ export const POST = withErrorHandler(async (request: NextRequest,
     
     if (isNaN(projetoId) || isNaN(materialId)) {
       return NextResponse.json(
-        { error: 'IDs inválidos' },
+        { error: 'Validation failed', message: 'IDs inválidos', success: false },
         { status: 400 }
       )
     }
+    await requireProjectChildAccess(user, projetoId, 'material', materialId, 'canManageMaterials')
     
     // Valida corpo da requisição
     const body = await request.json()

@@ -38,6 +38,14 @@ export type FormaPagamento =
   | 'DINHEIRO'
   | 'CHEQUE';
 
+export type TipoFaturamentoProjeto =
+  | 'DEPOSIT'
+  | 'PROGRESS'
+  | 'MILESTONE'
+  | 'MATERIALS'
+  | 'SERVICE_ORDER'
+  | 'FINAL';
+
 /**
  * Item individual de um invoice
  */
@@ -66,6 +74,12 @@ export interface ItemInvoice {
 export interface GerarInvoiceDTO {
   /** ID do projeto */
   projetoId: number;
+  /** Tipo de faturamento do projeto */
+  billingType?: TipoFaturamentoProjeto;
+  /** Referência do faturamento (etapa, pay app, material, OS, etc.) */
+  billingReference?: string;
+  /** ID da OS quando billingType=SERVICE_ORDER */
+  serviceOrderId?: number;
   /** Descrição do invoice */
   descricao: string;
   /** Data de vencimento */

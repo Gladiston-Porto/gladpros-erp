@@ -16,7 +16,7 @@ import {
   ListarMovimentacoesResponse,
   IInventoryGateway,
 } from '../interfaces/inventory-gateway.interface';
-import { getInventoryGateway } from '../gateways/mock-inventory.gateway';
+import { getInventoryGateway } from '../gateways';
 
 // Tipo do retorno do Prisma com includes
 type MovimentacaoComRelacoes = Awaited<ReturnType<typeof prisma.projetoMovimentacaoEstoque.findMany>>[0];

@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireProjectPermission } from '@/shared/lib/rbac-projects';
+import { ProjectPermissions, requireProjectAccess, requireProjectPermission } from '@/shared/lib/rbac-projects';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
 
@@ -14,6 +14,8 @@ export const GET = withErrorHandler(async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) => {
+  const user = await requireProjectPermission(req, 'canRead');
+
   const { allowed, resetTime } = await apiRateLimit.isAllowed(req);
   if (!allowed) {
     return NextResponse.json(
@@ -21,8 +23,6 @@ export const GET = withErrorHandler(async (
       { status: 429, headers: { 'Retry-After': String(Math.ceil((resetTime - Date.now()) / 1000)) } }
     );
   }
-
-  await requireProjectPermission(req, 'canRead');
 
   const { id } = await params;
   const projetoId = parseInt(id, 10);
@@ -34,17 +34,8 @@ export const GET = withErrorHandler(async (
     );
   }
 
-  const exists = await prisma.projeto.findUnique({
-    where: { id: projetoId },
-    select: { id: true },
-  });
-
-  if (!exists) {
-    return NextResponse.json(
-      { error: 'Projeto não encontrado', message: 'Nenhum projeto com este ID', success: false },
-      { status: 404 }
-    );
-  }
+  await requireProjectAccess(user, projetoId, 'canRead');
+  const canSeeFinancials = ProjectPermissions.canViewFinancials(user.role);
 
   const serviceOrders = await prisma.serviceOrder.findMany({
     where: { projetoId },
@@ -58,7 +49,7 @@ export const GET = withErrorHandler(async (
       scheduledDate: true,
       scheduleDateStart: true,
       scheduleDateEnd: true,
-      total: true,
+      ...(canSeeFinancials ? { total: true } : {}),
       createdAt: true,
       Cliente: {
         select: { id: true, nomeCompleto: true, nomeFantasia: true },

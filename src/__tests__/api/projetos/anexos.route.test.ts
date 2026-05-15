@@ -8,13 +8,16 @@
 import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
+const mockRequireProjectAccess = jest.fn();
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
+  requireProjectAccess: (...args: unknown[]) => mockRequireProjectAccess(...args),
 }));
 
 const mockListarPorProjeto = jest.fn();
 const mockCriar = jest.fn();
+const mockProjetoAnexoCount = jest.fn().mockResolvedValue(1);
 
 jest.mock('@/domains/projects/services/ProjectAttachmentService', () => ({
   ProjectAttachmentService: jest.fn().mockImplementation(() => ({
@@ -29,6 +32,14 @@ jest.mock('@/domains/projects/validators', () => ({
 
 jest.mock('@/lib/api/error-handler', () => ({
   withErrorHandler: (fn: Function) => fn,
+}));
+
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
+    projetoAnexo: {
+      count: (...args: unknown[]) => mockProjetoAnexoCount(...args),
+    },
+  },
 }));
 
 import {
@@ -62,9 +73,9 @@ describe('GET /api/projetos/[id]/anexos', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(json)).toBe(true);
-    expect(json).toHaveLength(1);
-    expect(json[0].nome).toBe('planta.pdf');
+    expect(Array.isArray(json.data)).toBe(true);
+    expect(json.data).toHaveLength(1);
+    expect(json.data[0].nome).toBe('planta.pdf');
   });
 
   it('returns 400 for invalid project ID', async () => {
@@ -95,7 +106,7 @@ describe('GET /api/projetos/[id]/anexos', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json).toHaveLength(0);
+    expect(json.data).toHaveLength(0);
   });
 });
 
@@ -122,7 +133,7 @@ describe('POST /api/projetos/[id]/anexos', () => {
     const json = await res.json();
 
     expect(res.status).toBe(201);
-    expect(json.nome).toBe('foto.jpg');
+    expect(json.data.nome).toBe('foto.jpg');
   });
 
   it('returns 400 for invalid project ID', async () => {

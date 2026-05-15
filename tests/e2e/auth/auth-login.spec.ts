@@ -13,6 +13,7 @@
 
 import { test, expect } from '@playwright/test';
 import { resetAuthTestState, seedAuthenticatedSessionFromDatabase } from '../helpers/auth';
+import { fillControlledInput, fillLoginForm } from '../helpers/form';
 
 const QA_ADMIN_EMAIL = 'qa.admin.clientes@teste.local';
 const AUTH_TIMEOUT_MS = 120000;
@@ -32,51 +33,32 @@ test.describe('Login Flow', () => {
   });
 
   test('botão Entrar desabilitado com apenas email preenchido', async ({ page }) => {
-    const emailInput = page.locator('input[name="email"]');
-    await emailInput.waitFor({ state: 'visible' });
-    await emailInput.selectText();
-    await emailInput.pressSequentially(QA_ADMIN_EMAIL, { delay: 0 });
+    await fillControlledInput(page.locator('input[name="email"]'), QA_ADMIN_EMAIL);
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeDisabled();
   });
 
   test('botão Entrar desabilitado com senha muito curta (< 6 chars)', async ({ page }) => {
-    const emailInput = page.locator('input[name="email"]');
-    await emailInput.waitFor({ state: 'visible' });
-    await emailInput.selectText();
-    await emailInput.pressSequentially(QA_ADMIN_EMAIL, { delay: 0 });
-    await page.fill('input[name="senha"]', '12345');
+    await fillLoginForm(page, QA_ADMIN_EMAIL, '12345');
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeDisabled();
   });
 
   test('botão Entrar habilitado com email válido + senha ≥ 6 chars', async ({ page }) => {
-    const emailInput = page.locator('input[name="email"]');
-    await emailInput.waitFor({ state: 'visible' });
-    await emailInput.selectText();
-    await emailInput.pressSequentially(QA_ADMIN_EMAIL, { delay: 0 });
-    await page.fill('input[name="senha"]', '123456');
+    await fillLoginForm(page, QA_ADMIN_EMAIL, '123456');
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeEnabled();
   });
 
   test('email inválido é rejeitado pelo browser (type=email)', async ({ page }) => {
-    const emailInput = page.locator('input[name="email"]');
-    await emailInput.waitFor({ state: 'visible' });
-    await emailInput.selectText();
-    await emailInput.pressSequentially('nao-e-email', { delay: 0 });
-    await page.fill('input[name="senha"]', '123456');
+    await fillLoginForm(page, 'nao-e-email', '123456');
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     // O botão deve continuar desabilitado pois email inválido
     await expect(submitBtn).toBeDisabled();
   });
 
   test('credenciais incorretas exibem mensagem de erro na página', async ({ page }) => {
-    const emailInput = page.locator('input[name="email"]');
-    await emailInput.waitFor({ state: 'visible' });
-    await emailInput.selectText();
-    await emailInput.pressSequentially('invalido@teste.com', { delay: 0 });
-    await page.fill('input[name="senha"]', 'SenhaErrada123!');
+    await fillLoginForm(page, 'invalido@teste.com', 'SenhaErrada123!');
     const submitBtn = page.getByRole('button', { name: /Entrar/i });
     await expect(submitBtn).toBeEnabled();
     await submitBtn.click();

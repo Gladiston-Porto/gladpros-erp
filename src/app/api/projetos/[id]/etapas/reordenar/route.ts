@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ProjectStageService } from '@/domains/projects/services/ProjectStageService'
-import { requireProjectPermission } from '@/shared/lib/rbac-projects'
+import { requireProjectAccess, requireProjectPermission } from '@/shared/lib/rbac-projects'
 import { z } from 'zod'
 import { withErrorHandler } from '@/lib/api/error-handler';
 
@@ -20,27 +20,28 @@ const reordenarEtapasSchema = z.object({
 export const POST = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
     const user = await requireProjectPermission(request, 'canManageStages')
-    
+
     const { id } = await context.params
     const projetoId = Number(id)
-    
+
     if (isNaN(projetoId)) {
       return NextResponse.json(
         { error: 'ID inválido', message: 'O ID do projeto deve ser um número válido', success: false },
         { status: 400 }
       )
     }
-    
+
     const body = await request.json()
     const { novaOrdem } = reordenarEtapasSchema.parse(body)
-    
+    await requireProjectAccess(user, projetoId, 'canManageStages')
+
     const service = new ProjectStageService()
     await service.reordenar(projetoId, novaOrdem, Number(user.id))
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
+      data: { count: novaOrdem.length },
       message: 'Etapas reordenadas com sucesso',
-      count: novaOrdem.length,
       success: true
     })
-    
+
   });

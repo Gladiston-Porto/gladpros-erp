@@ -17,16 +17,31 @@ function getClientIP(req: NextRequest): string {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
-  // Aplicar rate limiting
-  const rateLimitResult = await loginRateLimit.isAllowed(req);
+  const ip = getClientIP(req);
+  const userAgent = req.headers.get("user-agent") || undefined;
+
+  // Parse body first so we can use the email as a per-user rate-limit key
+  const body = await req.json().catch(() => ({}));
+  const parsed = loginSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Email e senha são obrigatórios", success: false },
+      { status: 400 }
+    );
+  }
+  const { email, password } = parsed.data;
+
+  // Per-email rate limiting — prevents tests / different users from sharing one bucket
+  const rateLimitKey = `login:${email}`;
+  const rateLimitResult = await loginRateLimit.isAllowed(req, rateLimitKey);
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
-      { 
+      {
         error: rateLimitResult.message,
         success: false,
         retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)
       },
-      { 
+      {
         status: 429,
         headers: {
           'X-RateLimit-Limit': '5',
@@ -37,19 +52,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       }
     );
   }
-
-  const ip = getClientIP(req);
-  const userAgent = req.headers.get("user-agent") || undefined;
-  
-  const body = await req.json().catch(() => ({}));
-  const parsed = loginSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Email e senha são obrigatórios", success: false }, 
-      { status: 400 }
-    );
-  }
-  const { email, password } = parsed.data;
 
   // Buscar usuário
   const rows: Array<{
@@ -211,7 +213,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 
   // Verificar se MFA deve ser desabilitado para testes
-  const disableMFA = (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') && process.env.DISABLE_MFA_FOR_TESTS === 'true';
+  const disableMFA = (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || process.env.E2E_MODE === '1') && process.env.DISABLE_MFA_FOR_TESTS === 'true';
 
   if (disableMFA) {
     const userRole = ((user.nivel ?? "USUARIO").toUpperCase() as "ADMIN" | "GERENTE" | "USUARIO" | "FINANCEIRO" | "ESTOQUE" | "CLIENTE");

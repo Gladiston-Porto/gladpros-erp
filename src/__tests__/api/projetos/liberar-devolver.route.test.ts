@@ -9,9 +9,11 @@
 import { NextRequest } from 'next/server';
 
 const mockRequireProjectPermission = jest.fn();
+const mockRequireProjectChildAccess = jest.fn();
 
 jest.mock('@/shared/lib/rbac-projects', () => ({
   requireProjectPermission: (...args: unknown[]) => mockRequireProjectPermission(...args),
+  requireProjectChildAccess: (...args: unknown[]) => mockRequireProjectChildAccess(...args),
 }));
 
 const mockLiberarMaterial = jest.fn();

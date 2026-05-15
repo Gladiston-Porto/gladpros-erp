@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireServerUser } from "@/shared/lib/requireServerUser";
 import { can, type Role } from "@/shared/lib/rbac-core";
+import { getProjectListScopeForUser } from "@/shared/lib/rbac-projects";
 import { redirect } from "next/navigation";
 import { Button } from "@gladpros/ui/button"
 import { ModulePageHeader } from "@gladpros/ui/module-page-header"
@@ -11,19 +12,27 @@ import ProjetosClient from "./ProjetosClient";
 
 export default async function ProjetosPage() {
   const user = await requireServerUser();
-  if (!can(user.role as Role, "projetos", "read")) redirect("/403");
+  const role = user.role as Role;
+  if (!can(role, "projetos", "read")) redirect("/403");
+  const projectScope = await getProjectListScopeForUser(user);
+  const canCreateProject = can(role, "projetos", "create");
+  const canUpdateProject = can(role, "projetos", "update");
+  const canDeleteProject = can(role, "projetos", "delete");
+  const canViewReports = can(role, "reports", "read");
+
   // Fetch real-time stats em paralelo — 1 round-trip ao banco em vez de 5 sequenciais
   const [totalProjetos, emAndamento, concluidos, atrasados, planejados] = await Promise.all([
-    prisma.projeto.count(),
-    prisma.projeto.count({ where: { status: 'em_execucao' } }),
-    prisma.projeto.count({ where: { status: 'concluido' } }),
+    prisma.projeto.count({ where: projectScope }),
+    prisma.projeto.count({ where: { ...projectScope, status: 'em_execucao' } }),
+    prisma.projeto.count({ where: { ...projectScope, status: 'concluido' } }),
     prisma.projeto.count({
       where: {
+        ...projectScope,
         dataConclusaoPrevista: { lt: new Date() },
         status: { not: 'concluido' }
       }
     }),
-    prisma.projeto.count({ where: { status: 'planejado' } })
+    prisma.projeto.count({ where: { ...projectScope, status: 'planejado' } })
   ]);
 
   // Calculate percentage of completed projects
@@ -44,17 +53,21 @@ export default async function ProjetosPage() {
         ]}
         actions={
           <div className="flex gap-2">
-            <Link href="/projetos/relatorios">
-              <Button variant="outline" size="default">
-                Relatórios
-              </Button>
-            </Link>
-            <Link href="/projetos/novo">
-              <Button size="default">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Projeto
-              </Button>
-            </Link>
+            {canViewReports && (
+              <Link href="/projetos/relatorios">
+                <Button variant="outline" size="default">
+                  Relatórios
+                </Button>
+              </Link>
+            )}
+            {canCreateProject && (
+              <Link href="/projetos/novo">
+                <Button size="default">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Projeto
+                </Button>
+              </Link>
+            )}
           </div>
         }
       />
@@ -66,7 +79,13 @@ export default async function ProjetosPage() {
         <StatCard title="Planejados" value={planejados} icon={<Clock />} variant="warning" description="Próximos inícios" />
       </div>
 
-      <ProjetosClient />
+      <ProjetosClient
+        permissions={{
+          canCreate: canCreateProject,
+          canUpdate: canUpdateProject,
+          canDelete: canDeleteProject,
+        }}
+      />
     </div>
   );
 }

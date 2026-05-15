@@ -95,8 +95,14 @@ export class MFAService {
       });
       // In development or explicit test mode, also keep last code in-memory for E2E helper routes
       if (process.env.NODE_ENV === 'development' || process.env.TEST_MODE === 'true' || process.env.E2E_MODE === '1') {
-        const g = global as unknown as { __lastMFA?: { usuarioId: number; code: string; id: number; tipoAcao: string } };
-        g.__lastMFA = { usuarioId, code, id: created.id, tipoAcao };
+        const g = global as unknown as {
+          __lastMFA?: { usuarioId: number; code: string; id: number; tipoAcao: string };
+          __lastMFAByUser?: Record<number, { usuarioId: number; code: string; id: number; tipoAcao: string }>;
+        };
+        const entry = { usuarioId, code, id: created.id, tipoAcao };
+        g.__lastMFA = entry; // backward compat — single-slot
+        if (!g.__lastMFAByUser) g.__lastMFAByUser = {};
+        g.__lastMFAByUser[usuarioId] = entry; // per-userId — prevents cross-worker interference
       }
       return { code, id: created.id };
     } else {

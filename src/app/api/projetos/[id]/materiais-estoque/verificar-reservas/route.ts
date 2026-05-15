@@ -14,9 +14,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
+import { requireProjectAccess } from '@/shared/lib/rbac-projects';
 import {
   successResponse,
   forbiddenResponse,
@@ -28,22 +30,66 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+type MaterialBalance = {
+  id: number;
+  materialId: number;
+  quantidade: number;
+  reservado: number;
+};
+
+async function reservarSaldoDisponivel(
+  tx: Prisma.TransactionClient,
+  saldos: MaterialBalance[],
+  quantidade: number
+): Promise<number> {
+  let restante = quantidade;
+  let reservado = 0;
+
+  for (const saldo of saldos) {
+    if (restante <= 0) break;
+    const disponivel = saldo.quantidade - saldo.reservado;
+    if (disponivel <= 0) continue;
+
+    const reservarAqui = Math.min(restante, disponivel);
+    const updatedRows = await tx.$executeRaw`
+      UPDATE materiais_saldo
+      SET reservado = reservado + ${reservarAqui}, atualizado_em = NOW()
+      WHERE id = ${saldo.id} AND (quantidade - reservado) >= ${reservarAqui}
+    `;
+
+    if (updatedRows !== 1) {
+      throw new Error('Saldo de estoque foi alterado por outra operação. Tente reservar novamente.');
+    }
+
+    reservado += reservarAqui;
+    restante -= reservarAqui;
+    saldo.reservado += reservarAqui;
+  }
+
+  return reservado;
+}
+
 async function postHandler(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const user = await requireUser(request);
-  if (!can(user.role as Role, 'projetos', 'create')) {
+  const role = user.role as Role;
+  if (!can(role, 'projetos', 'update') || !can(role, 'estoque', 'update')) {
     return forbiddenResponse('Sem permissão para gerenciar materiais do projeto');
   }
 
   const { id } = await context.params;
   const projetoId = Number(id);
   if (isNaN(projetoId)) {
-    return NextResponse.json({ error: 'ID inválido', success: false }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Validation failed', message: 'ID inválido', success: false },
+      { status: 400 }
+    );
   }
+  await requireProjectAccess(user, projetoId, 'canManageMaterials');
 
-  const projeto = await prisma.projeto.findUnique({
+  const projeto = await prisma.projeto.findFirst({
     where: { id: projetoId },
     select: {
       id: true,
@@ -71,27 +117,45 @@ async function postHandler(
     projetoId, pendentes: pendentes.length
   });
 
-  // Buscar todos os saldos dos materiais pendentes em uma query
+  // Buscar SCs do projeto para descobrir a quantidade ainda pendente por material.
   const materialIds = [...new Set(pendentes.map(p => p.materialId))];
-  const todosSaldos = await prisma.materialSaldo.findMany({
-    where: { materialId: { in: materialIds } },
-    select: { id: true, materialId: true, quantidade: true, reservado: true }
-  });
+  const [scItensPendentes, saldosDisponiveis] = await Promise.all([
+    prisma.solicitacaoCompraItem.findMany({
+      where: {
+        materialId: { in: materialIds },
+        status: { not: 'CANCELADO' },
+        sc: {
+          origemTipo: 'PROJETO',
+          origemId: projetoId,
+          status: { not: 'CANCELADA' },
+        },
+      },
+      select: { materialId: true, quantidadeSolicitada: true },
+    }),
+    prisma.materialSaldo.findMany({
+      where: { materialId: { in: materialIds } },
+      select: { id: true, materialId: true, quantidade: true, reservado: true },
+    }),
+  ]);
 
-  // Agrupar saldos por materialId
-  const saldosPorMaterial = materialIds.reduce<Record<number, typeof todosSaldos>>((acc, mid) => {
-    acc[mid] = todosSaldos.filter(s => s.materialId === mid);
+  const qtdPendentePorMaterial = scItensPendentes.reduce<Record<number, number>>((acc, item) => {
+    if (!item.materialId) return acc;
+    acc[item.materialId] = (acc[item.materialId] ?? 0) + Number(item.quantidadeSolicitada);
     return acc;
   }, {});
 
-  // Calcular disponível por material
-  const disponivelPorMaterial: Record<number, number> = {};
-  for (const mid of materialIds) {
-    disponivelPorMaterial[mid] = (saldosPorMaterial[mid] ?? []).reduce(
-      (acc, s) => acc + Number(s.quantidade) - Number(s.reservado),
-      0
-    );
-  }
+  const saldosPorMaterial = saldosDisponiveis.reduce<Record<number, MaterialBalance[]>>((acc, saldo) => {
+    acc[saldo.materialId] = [
+      ...(acc[saldo.materialId] ?? []),
+      {
+        id: saldo.id,
+        materialId: saldo.materialId,
+        quantidade: Number(saldo.quantidade),
+        reservado: Number(saldo.reservado),
+      },
+    ];
+    return acc;
+  }, {});
 
   // Verificar se há SC de RASCUNHO para este projeto já existente (reusar)
   const scExistente = await prisma.solicitacaoCompra.findFirst({
@@ -104,47 +168,32 @@ async function postHandler(
     const itensParaSC: { materialId: number; descricao: string; qtdParaComprar: number; custoEstimado: number | null }[] = [];
 
     for (const item of pendentes) {
-      const disponivel = disponivelPorMaterial[item.materialId] ?? 0;
-      const necessario = Number(item.quantidadeReservada); // quanto o projeto quer
-      // Saldo que ainda precisa ser reservado (o quantidadeReservada atual pode ser parcial)
-      // Vamos recalcular: quanto o item quer TOTAL vs quanto já tem reservado
-      // Aqui item.quantidadeReservada é quanto JÁ foi reservado (pode ser 0)
-      // Precisamos saber quanto o projeto QUERIA: isso é a qty total originalmente solicitada
-      // Para simplificar: vamos tentar reservar `necessario` (o que ainda falta, já que está PENDENTE)
-      const aReservar = necessario; // tentativa de reservar o total pendente
+      const aReservar = qtdPendentePorMaterial[item.materialId] ?? 0;
 
-      if (disponivel >= aReservar - 0.001) {
-        // Pode reservar!
+      if (aReservar <= 0) {
+        continue;
+      }
+
+      const reservadoAgora = await reservarSaldoDisponivel(tx, saldosPorMaterial[item.materialId] ?? [], aReservar);
+
+      if (reservadoAgora > 0) {
         await tx.projetoMaterialEstoque.update({
           where: { id: item.id },
-          data: { status: 'RESERVADA', dataReserva: new Date() }
+          data: {
+            quantidadeReservada: { increment: reservadoAgora },
+            status: reservadoAgora >= aReservar - 0.001 ? 'RESERVADA' : 'PENDENTE_SC',
+            dataReserva: new Date(),
+          }
         });
+      }
 
-        // Reservar saldo
-        let qtdRestante = aReservar;
-        const saldos = saldosPorMaterial[item.materialId] ?? [];
-        for (const saldo of saldos) {
-          if (qtdRestante <= 0) break;
-          const disp = Number(saldo.quantidade) - Number(saldo.reservado);
-          if (disp <= 0) continue;
-          const reservarAqui = Math.min(qtdRestante, disp);
-          await tx.materialSaldo.update({
-            where: { id: saldo.id },
-            data: { reservado: { increment: reservarAqui } }
-          });
-          // Atualizar o saldo local para que próximas iterações sejam precisas
-          saldo.reservado = (Number(saldo.reservado) + reservarAqui) as unknown as typeof saldo.reservado;
-          qtdRestante -= reservarAqui;
-        }
-        // Atualizar disponível para próximos itens
-        disponivelPorMaterial[item.materialId] = Math.max(0, disponivel - aReservar);
+      if (reservadoAgora >= aReservar - 0.001) {
         qtdReservados++;
       } else {
-        // Ainda não tem saldo: manter PENDENTE_SC e agrupar na SC
         itensParaSC.push({
           materialId: item.materialId,
           descricao: `${item.material.codigo} — ${item.material.nome}`,
-          qtdParaComprar: aReservar,
+          qtdParaComprar: aReservar - reservadoAgora,
           custoEstimado: item.custoUnitario ? Number(item.custoUnitario) : null
         });
       }
@@ -161,19 +210,18 @@ async function postHandler(
         });
         const materialIdsExistentes = new Set(itensExistentes.map(i => i.materialId));
 
-        for (const item of itensParaSC) {
-          if (!materialIdsExistentes.has(item.materialId)) {
-            await tx.solicitacaoCompraItem.create({
-              data: {
-                scId: scExistente.id,
-                materialId: item.materialId,
-                descricao: item.descricao,
-                quantidadeSolicitada: item.qtdParaComprar,
-                custoEstimado: item.custoEstimado,
-                status: 'PENDENTE',
-              }
-            });
-          }
+        const novosItens = itensParaSC.filter(item => !materialIdsExistentes.has(item.materialId));
+        if (novosItens.length > 0) {
+          await tx.solicitacaoCompraItem.createMany({
+            data: novosItens.map(item => ({
+              scId: scExistente.id,
+              materialId: item.materialId,
+              descricao: item.descricao,
+              quantidadeSolicitada: item.qtdParaComprar,
+              custoEstimado: item.custoEstimado,
+              status: 'PENDENTE',
+            })),
+          });
         }
         scId = scExistente.id;
       } else {

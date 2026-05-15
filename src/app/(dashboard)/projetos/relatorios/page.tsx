@@ -27,13 +27,19 @@ const fmt = (value: number) =>
 
 export default async function RelatoriosProjetosPage() {
   const user = await requireServerUser();
-  if (!can(user.role as Role, "projetos", "read")) {
+  if (!can(user.role as Role, "projetos", "read") || !can(user.role as Role, "reports", "read")) {
     redirect("/403");
   }
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const monthRanges = Array.from({ length: 6 }, (_, index) => {
+    const monthOffset = 5 - index;
+    const start = new Date(now.getFullYear(), now.getMonth() - monthOffset, 1);
+    const end = new Date(now.getFullYear(), now.getMonth() - monthOffset + 1, 1);
+    const key = start.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "America/Chicago" });
+    return { start, end, key };
+  });
 
   const [
     total,
@@ -65,27 +71,16 @@ export default async function RelatoriosProjetosPage() {
       where: { status: { notIn: ["cancelado", "arquivado"] } },
     }),
     prisma.projeto.count({ where: { criadoEm: { gte: startOfMonth } } }),
-    prisma.projeto.findMany({
-      where: { criadoEm: { gte: sixMonthsAgo } },
-      select: { criadoEm: true },
-      orderBy: { criadoEm: "asc" },
-    }),
+    Promise.all(
+      monthRanges.map(({ start, end }) =>
+        prisma.projeto.count({ where: { criadoEm: { gte: start, lt: end } } })
+      )
+    ),
   ]);
 
   const valorNum = valorEstimadoTotal._sum.valorEstimado?.toNumber() ?? 0;
 
-  // Agrupar por mês — últimos 6 meses
-  const mesesMap: Record<string, number> = {};
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "America/Chicago" });
-    mesesMap[key] = 0;
-  }
-  for (const p of porMes) {
-    const key = p.criadoEm.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "America/Chicago" });
-    if (key in mesesMap) mesesMap[key] = (mesesMap[key] ?? 0) + 1;
-  }
-  const mesesLista = Object.entries(mesesMap);
+  const mesesLista = monthRanges.map(({ key }, index) => [key, porMes[index] ?? 0] as const);
   const maxMes = Math.max(...mesesLista.map(([, v]) => v), 1);
 
   return (

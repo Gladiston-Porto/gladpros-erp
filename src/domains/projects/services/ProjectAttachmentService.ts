@@ -112,10 +112,17 @@ export class ProjectAttachmentService {
   /**
    * Lista anexos de um projeto
    */
-  async listarPorProjeto(projetoId: number): Promise<ProjetoAnexoResponseDTO[]> {
+  async listarPorProjeto(
+    projetoId: number,
+    options: { page?: number; pageSize?: number } = {}
+  ): Promise<ProjetoAnexoResponseDTO[]> {
+    const page = options.page ?? 1;
+    const pageSize = options.pageSize ?? 100;
     const anexos = await this.prisma.projetoAnexo.findMany({
       where: { projetoId },
       orderBy: { criadoEm: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       include: {
         Projeto: {
           select: {
