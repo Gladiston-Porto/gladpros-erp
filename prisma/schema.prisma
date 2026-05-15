@@ -700,6 +700,9 @@ model Projeto {
   warrantyTickets       WarrantyTicket[]
   triagens              Triagem[]
 
+  // Time & Attendance
+  timeEntryActivities TimeEntryActivity[] @relation("TimeEntryActivityProjeto")
+
   @@index([clienteId, status], name: "idx_projetos_cliente_status")
   @@index([responsavelId], name: "idx_projetos_responsavel")
   @@index([status], name: "idx_projetos_status")
@@ -1044,6 +1047,9 @@ model Usuario {
   DelegacoesFeitas     Delegacao[] @relation("DelegacoesFeitas")
   DelegacoesRecebidas  Delegacao[] @relation("DelegacoesRecebidas")
   DelegacoesCanceladas Delegacao[] @relation("DelegacoesCanceladas")
+
+  // Time & Attendance
+  TimeEntriesApproved TimeEntry[] @relation("TimeEntryApprovedBy")
 
   @@index([nivel])
   @@index([status])
@@ -3087,6 +3093,11 @@ model Worker {
   // Taxa padrão (pode ser sobrescrita no Assignment)
   defaultHourlyRate Decimal? @map("default_hourly_rate") @db.Decimal(10, 2)
 
+  // Modelo de compensação (como esse worker é pago)
+  compensationModel CompensationModel @default(HOURLY) @map("compensation_model")
+  // Salário mensal (usado quando compensationModel = SALARY)
+  salarioMensal     Decimal?          @map("salario_mensal") @db.Decimal(10, 2)
+
   // Audit
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -3123,8 +3134,12 @@ model Worker {
   serviceOrderTeam      ServiceOrderTechnician[] @relation("ServiceOrderTechniciansWorker")
   workEntries           WorkEntry[]              @relation("WorkerWorkEntries")
 
+  // Time & Attendance
+  timeEntries TimeEntry[] @relation("WorkerTimeEntries")
+
   @@index([status])
   @@index([type])
+  @@index([compensationModel])
   @@map("workers")
 }
 
@@ -3647,6 +3662,9 @@ model ServiceOrder {
   checklistItems  ServiceOrderChecklistItem[]
   technicians     ServiceOrderTechnician[]
   alertasMargemOS AlertaEstoque[]             @relation("AlertasMargemOS")
+
+  // Time & Attendance
+  timeEntryActivities TimeEntryActivity[] @relation("TimeEntryActivityServiceOrder")
 
   @@index([clienteId])
   @@index([status])
@@ -5012,4 +5030,119 @@ enum TaxMode {
   TAX_EXCLUDED // Tax added on top of price
   TAX_INCLUDED // Tax already embedded in final price (reverse calc)
   MANUAL_REVIEW // Cannot auto-calculate; requires ADMIN/FINANCEIRO review
+}
+
+// ============================================================================
+// MÓDULO: TIME & ATTENDANCE (Ponto Eletrônico)
+// ============================================================================
+
+enum CompensationModel {
+  HOURLY      // Pago por hora trabalhada (usa defaultHourlyRate)
+  SALARY      // Salário fixo mensal (usa salarioMensal)
+  OWNER_DRAW  // Owner draw / distribuição (OWNER_OPERATOR apenas)
+}
+
+enum WorkLocation {
+  OFFICE        // Escritório
+  REMOTE        // Home office / remoto
+  PROJECT_SITE  // Canteiro de obra / projeto
+  CLIENT_SITE   // Local do cliente
+  IN_TRANSIT    // Em deslocamento entre locais
+}
+
+enum TimeEntryStatus {
+  OPEN       // Clock-in feito, ainda trabalhando (sem clockOut)
+  SUBMITTED  // Turno encerrado, enviado para aprovação
+  APPROVED   // Aprovado pelo gerente/ADMIN
+  REJECTED   // Rejeitado (com motivo)
+}
+
+enum ActivityType {
+  PROJECT_MANAGEMENT  // Gerenciando projeto(s)
+  FIELD_WORK          // Trabalho técnico em campo
+  ADMINISTRATIVE      // Trabalho administrativo geral
+  FINANCIAL           // Tarefas financeiras / contabilidade
+  INVENTORY           // Gestão de estoque / armazém
+  MEETING             // Reunião interna ou com cliente
+  TRAINING            // Treinamento / capacitação
+  TRAVEL              // Deslocamento com fins de trabalho
+  SUPERVISION         // Supervisão de equipe / canteiro
+  OTHER               // Outro (descrever em notes)
+}
+
+// TimeEntry: registro de ponto de um dia de trabalho (entrada e saída)
+model TimeEntry {
+  id       Int @id @default(autoincrement())
+  workerId Int @map("worker_id")
+
+  // Turno
+  clockIn  DateTime  @map("clock_in")
+  clockOut DateTime? @map("clock_out")
+
+  // Onde trabalhou
+  workLocation WorkLocation @map("work_location")
+
+  // Tempo calculado (em minutos) — preenchido no clock-out
+  totalMinutes    Int? @map("total_minutes")
+  regularMinutes  Int? @map("regular_minutes")   // ≤ 480 min/dia (8h)
+  overtimeMinutes Int? @map("overtime_minutes")  // > 480 min/dia
+
+  // Referência de data para queries rápidas (date portion de clockIn)
+  workDate DateTime @map("work_date") @db.Date
+
+  // Status de aprovação
+  status            TimeEntryStatus @default(OPEN)
+  rejectionReason   String?         @map("rejection_reason") @db.VarChar(500)
+  approvedById      Int?            @map("approved_by_id")
+  approvedAt        DateTime?       @map("approved_at")
+
+  // Notas gerais do turno
+  notes String? @db.Text
+
+  // Audit
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  worker     Worker              @relation("WorkerTimeEntries", fields: [workerId], references: [id])
+  approvedBy Usuario?            @relation("TimeEntryApprovedBy", fields: [approvedById], references: [id])
+  activities TimeEntryActivity[]
+
+  @@index([workerId])
+  @@index([workDate])
+  @@index([status])
+  @@index([workerId, workDate])
+  @@map("time_entries")
+}
+
+// TimeEntryActivity: o que o worker fez durante um turno (pode ser múltiplas atividades)
+model TimeEntryActivity {
+  id          Int @id @default(autoincrement())
+  timeEntryId Int @map("time_entry_id")
+
+  // Tipo de atividade
+  activityType ActivityType @map("activity_type")
+
+  // Horas dedicadas a essa atividade (em minutos)
+  durationMinutes Int @map("duration_minutes")
+
+  // Vínculo operacional (opcional — para custo de projeto)
+  projetoId      Int? @map("projeto_id")
+  serviceOrderId Int? @map("service_order_id")
+
+  // Descrição do que foi feito
+  description String? @db.VarChar(500)
+
+  // Audit
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  timeEntry    TimeEntry     @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  projeto      Projeto?      @relation("TimeEntryActivityProjeto", fields: [projetoId], references: [id], onDelete: SetNull)
+  serviceOrder ServiceOrder? @relation("TimeEntryActivityServiceOrder", fields: [serviceOrderId], references: [id], onDelete: SetNull)
+
+  @@index([timeEntryId])
+  @@index([projetoId])
+  @@index([serviceOrderId])
+  @@map("time_entry_activities")
 }

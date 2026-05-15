@@ -31,9 +31,15 @@ jest.mock('@/lib/prisma', () => ({
   prisma: {
     invoice: { findUnique: jest.fn(), findFirst: jest.fn() },
     invoicePayment: { findMany: jest.fn(), create: jest.fn() },
+    revenueCategory: { findFirst: jest.fn(), create: jest.fn() },
+    revenue: { create: jest.fn() },
     auditLog: { create: jest.fn() },
     $transaction: jest.fn(),
   },
+}));
+
+jest.mock('@/lib/api/logger', () => ({
+  logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }));
 
 jest.mock('@/shared/lib/rbac', () => ({
@@ -57,10 +63,12 @@ jest.mock('@/lib/api/error-handler', () => ({
 import { NextRequest } from 'next/server';
 import { requireUser, can } from '@/shared/lib/rbac';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/api/logger';
 
 const mockRequireUser = requireUser as jest.MockedFunction<typeof requireUser>;
 const mockCan = can as jest.MockedFunction<typeof can>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+const mockLogger = logger as jest.Mocked<typeof logger>;
 
 const mockUser = {
   id: 'user-1',
@@ -77,6 +85,7 @@ const mockInvoice = {
   valorTotal: 1000,
   valorPago: 0,
   saldo: 1000,
+  clienteId: 5,
 };
 
 const mockPayment = {
@@ -249,5 +258,112 @@ describe('POST /api/invoices/[id]/payments', () => {
     const res = await POST(req, makeContext('1'));
 
     expect(res.status).toBe(500);
+  });
+
+  describe('Invoice→Revenue integration', () => {
+    const fullPaymentBody = {
+      valor: 1000,
+      dataPagamento: new Date().toISOString(),
+      metodoPagamento: 'BANK_TRANSFER',
+    };
+
+    function makeTxMock(overrides: Record<string, jest.Mock> = {}) {
+      const tx = {
+        invoicePayment: { create: jest.fn().mockResolvedValue({ id: 10, invoiceId: 1, valor: 1000 }) },
+        invoice: { update: jest.fn().mockResolvedValue({ id: 1, status: 'PAID', valorPago: 1000, saldo: 0, valorTotal: 1000 }) },
+        auditLog: { create: jest.fn().mockResolvedValue({}) },
+        revenueCategory: { findFirst: jest.fn(), create: jest.fn() },
+        revenue: { create: jest.fn().mockResolvedValue({ id: 99 }) },
+        ...overrides,
+      };
+      (mockPrisma.$transaction as jest.Mock).mockImplementation((cb: (tx: typeof tx) => unknown) => cb(tx));
+      return tx;
+    }
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockRequireUser.mockResolvedValue(mockUser as never);
+      mockCan.mockReturnValue(true);
+      (mockPrisma.invoice.findFirst as jest.Mock).mockResolvedValue({
+        ...mockInvoice,
+        saldo: 1000,
+        valorPago: 0,
+      });
+    });
+
+    it('201 — Revenue is created when invoice becomes PAID (category exists)', async () => {
+      const tx = makeTxMock();
+      (tx.revenueCategory.findFirst as jest.Mock).mockResolvedValue({ id: 7 });
+
+      const { POST } = await import('@/app/api/invoices/[id]/payments/route');
+      const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(fullPaymentBody) });
+      const res = await POST(req, makeContext('1'));
+
+      expect(res.status).toBe(201);
+      expect(tx.revenue.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            empresaId: 1,
+            categoriaId: 7,
+            status: 'RECEBIDA',
+          }),
+        }),
+      );
+    });
+
+    it('201 — Revenue is created with auto-created category when none exists', async () => {
+      const tx = makeTxMock();
+      (tx.revenueCategory.findFirst as jest.Mock).mockResolvedValue(null);
+      (tx.revenueCategory.create as jest.Mock).mockResolvedValue({ id: 42 });
+
+      const { POST } = await import('@/app/api/invoices/[id]/payments/route');
+      const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(fullPaymentBody) });
+      const res = await POST(req, makeContext('1'));
+
+      expect(res.status).toBe(201);
+      expect(tx.revenueCategory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            empresaId: 1,
+            nome: 'Pagamentos de Invoice',
+          }),
+        }),
+      );
+      expect(tx.revenue.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ categoriaId: 42 }),
+        }),
+      );
+    });
+
+    it('201 — payment succeeds even if Revenue creation fails (error is logged)', async () => {
+      const tx = makeTxMock();
+      (tx.revenueCategory.findFirst as jest.Mock).mockResolvedValue({ id: 7 });
+      (tx.revenue.create as jest.Mock).mockRejectedValue(new Error('Decimal overflow'));
+
+      const { POST } = await import('@/app/api/invoices/[id]/payments/route');
+      const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(fullPaymentBody) });
+      const res = await POST(req, makeContext('1'));
+
+      expect(res.status).toBe(201);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '[Invoice→Revenue] Failed to auto-create Revenue for paid invoice',
+        expect.objectContaining({ invoiceId: 1 }),
+        expect.any(Error),
+      );
+    });
+
+    it('Revenue is NOT created for partial payment (PARTIAL_PAID)', async () => {
+      const partialBody = { ...fullPaymentBody, valor: 400 };
+      const tx = makeTxMock();
+      (tx.invoice.update as jest.Mock).mockResolvedValue({ id: 1, status: 'PARTIAL_PAID', valorPago: 400, saldo: 600, valorTotal: 1000 });
+
+      const { POST } = await import('@/app/api/invoices/[id]/payments/route');
+      const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(partialBody) });
+      const res = await POST(req, makeContext('1'));
+
+      expect(res.status).toBe(201);
+      expect(tx.revenue.create).not.toHaveBeenCalled();
+    });
   });
 });

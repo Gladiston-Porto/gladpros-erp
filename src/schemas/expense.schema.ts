@@ -242,6 +242,8 @@ export const expenseFiltersSchema = z.object({
   fornecedorId: z.number().int().positive().optional(),
   compraId: z.number().int().positive().optional(),
   criadoPor: z.number().int().positive().optional(),
+  projetoId: z.number().int().positive().optional(),    // expenses linked to a project
+  serviceOrderId: z.number().int().positive().optional(), // expenses from an OS reimbursement
 
   // Filtros de valor
   valorMin: z.number().positive().optional(),

@@ -45,6 +45,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       fornecedorId: searchParams.get('fornecedorId') ? Number(searchParams.get('fornecedorId')) : undefined,
       compraId: searchParams.get('compraId') ? Number(searchParams.get('compraId')) : undefined,
       criadoPor: searchParams.get('criadoPor') ? Number(searchParams.get('criadoPor')) : undefined,
+      projetoId: searchParams.get('projetoId') ? Number(searchParams.get('projetoId')) : undefined,
+      serviceOrderId: searchParams.get('serviceOrderId') ? Number(searchParams.get('serviceOrderId')) : undefined,
       valorMin: searchParams.get('valorMin') ? Number(searchParams.get('valorMin')) : undefined,
       valorMax: searchParams.get('valorMax') ? Number(searchParams.get('valorMax')) : undefined,
       dataEmissaoInicio: searchParams.get('dataEmissaoInicio') || undefined,
@@ -93,6 +95,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((filters as any).compraId) where.compraId = (filters as any).compraId;
     if (filters.criadoPor) where.criadoPor = filters.criadoPor;
+    if (filters.projetoId) where.projetoId = filters.projetoId;
+    if (filters.serviceOrderId) where.serviceOrderId = filters.serviceOrderId;
 
     // Filtros de valor
     if (filters.valorMin || filters.valorMax) {

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { logger } from '@/lib/api/logger';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ export const POST = withErrorHandler(
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, empresaId: 1 },
-      select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true, clienteId: true },
+      select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true, clienteId: true, empresaId: true },
     });
 
     if (!invoice) {
@@ -176,31 +177,43 @@ export const POST = withErrorHandler(
       // Auto-create Revenue record when invoice is fully paid
       if (novoStatus === 'PAID') {
         try {
-          const defaultCategory = await tx.revenueCategory.findFirst({
-            where: { empresaId: 1 },
+          // Ensure a default revenue category exists for invoice payments
+          let defaultCategory = await tx.revenueCategory.findFirst({
+            where: { empresaId: invoice.empresaId },
             select: { id: true },
           });
-          if (defaultCategory) {
-            await tx.revenue.create({
+          if (!defaultCategory) {
+            defaultCategory = await tx.revenueCategory.create({
               data: {
-                empresaId: 1,
-                categoriaId: defaultCategory.id,
-                clienteId: invoice.clienteId ?? undefined,
-                descricao: `Invoice #${invoiceId} - pagamento recebido`,
-                valor: new Decimal(body.valor),
-                dataEmissao: new Date(body.dataPagamento),
-                dataVencimento: new Date(body.dataPagamento),
-                dataPagamento: new Date(body.dataPagamento),
-                tipo: 'SERVICO',
-                 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
-                status: 'RECEBIDA',
+                empresaId: invoice.empresaId,
+                nome: 'Pagamentos de Invoice',
+                descricao: 'Categoria padrão para receitas geradas por invoices pagas',
+                cor: '#0098DA',
               },
+              select: { id: true },
             });
           }
-        } catch {
+          await tx.revenue.create({
+            data: {
+              empresaId: invoice.empresaId,
+              categoriaId: defaultCategory.id,
+              clienteId: invoice.clienteId ?? undefined,
+              descricao: `Invoice #${invoiceId} - pagamento recebido`,
+              valor: new Decimal(body.valor),
+              dataEmissao: new Date(body.dataPagamento),
+              dataVencimento: new Date(body.dataPagamento),
+              dataPagamento: new Date(body.dataPagamento),
+              tipo: 'SERVICO',
+               
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
+              status: 'RECEBIDA',
+            },
+          });
+        } catch (revErr) {
           // Non-blocking: Revenue creation failure should not abort the payment
+          // Logged so ops team can detect and repair missing Revenue records
+          logger.error('[Invoice→Revenue] Failed to auto-create Revenue for paid invoice', { invoiceId, empresaId: invoice.empresaId }, revErr)
         }
       }
 
