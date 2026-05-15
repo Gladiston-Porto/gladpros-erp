@@ -14,7 +14,7 @@ interface User {
 
 interface TimeEntry {
   id: number
-  clockInAt: string
+  clockIn: string
   totalMinutes?: number
   regularMinutes?: number
   overtimeMinutes?: number
@@ -22,11 +22,9 @@ interface TimeEntry {
 }
 
 interface CurrentEntryResponse {
-  data: {
-    entry: TimeEntry | null
-    elapsedMinutes: number
-    isOvertime: boolean
-  } | null
+  data: (TimeEntry & {
+    elapsed: { minutes: number; hours: string; isOvertime: boolean }
+  }) | null
   success: boolean
 }
 
@@ -44,10 +42,10 @@ export default function PontoWorkerView({ user }: { user: User }) {
     try {
       const res = await fetch("/api/rh/time-entries/current")
       const data: CurrentEntryResponse = await res.json()
-      if (data.success && data.data?.entry) {
-        setCurrentEntry(data.data.entry)
-        setElapsedMinutes(data.data.elapsedMinutes)
-        setIsOvertime(data.data.isOvertime)
+      if (data.success && data.data) {
+        setCurrentEntry(data.data)
+        setElapsedMinutes(data.data.elapsed.minutes)
+        setIsOvertime(data.data.elapsed.isOvertime)
       } else {
         setCurrentEntry(null)
       }
@@ -64,7 +62,7 @@ export default function PontoWorkerView({ user }: { user: User }) {
   useEffect(() => {
     if (!currentEntry) return
     const interval = setInterval(() => {
-      const clockIn = new Date(currentEntry.clockInAt)
+      const clockIn = new Date(currentEntry.clockIn)
       const minutes = Math.round((Date.now() - clockIn.getTime()) / 60000)
       setElapsedMinutes(minutes)
       setIsOvertime(minutes > 480)
@@ -234,7 +232,7 @@ export default function PontoWorkerView({ user }: { user: User }) {
             <div className="text-center mb-6">
               <div className="text-5xl font-bold text-foreground mb-2">{formatElapsed(elapsedMinutes)}</div>
               <div className="text-sm text-muted-foreground">
-                Entrada: {formatTime(currentEntry.clockInAt)}
+                Entrada: {formatTime(currentEntry.clockIn)}
               </div>
               {isOvertime && (
                 <div className="text-xs text-red-500 mt-1">

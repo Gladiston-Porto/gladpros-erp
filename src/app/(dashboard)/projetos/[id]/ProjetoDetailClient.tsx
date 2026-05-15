@@ -33,6 +33,7 @@ import { TarefasKanban } from '@/components/projetos/tarefas/TarefasKanban';
 import { MateriaisLista } from '@/components/projetos/materiais/MateriaisLista';
 import { MateriaisEstoqueTab } from '@/components/projetos/materiais/MateriaisEstoqueTab';
 import { FinanceiroDashboard } from '@/components/projetos/financeiro/FinanceiroDashboard';
+import { BillingScheduleWidget } from '@/components/projetos/financeiro/BillingScheduleWidget';
 import { EquipeManager } from '@/components/projetos/equipe/EquipeManager';
 import { ProjetoJobsList } from '@/components/projetos/jobs/ProjetoJobsList';
 import { ProjetoHistorico } from '@/components/projetos/historico/ProjetoHistorico';
@@ -532,6 +533,7 @@ export default function ProjetoDetailClient({ permissions }: { permissions: Proj
           {permissions.canViewFinancials && (
             <TabsContent value="financeiro" className="space-y-6">
               <ProjectDecisionPanel projetoId={projeto.id} userRole={permissions.userRole} />
+              <BillingScheduleWidget projetoId={projeto.id} />
               <FinanceiroDashboard projeto={projeto} />
             </TabsContent>
           )}

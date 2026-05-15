@@ -15,6 +15,7 @@ import {
   BarChart3,
   ClipboardList,
   UserCog,
+  Clock,
   TrendingUp,
   TrendingDown,
   CreditCard,
@@ -112,6 +113,7 @@ export const DEFAULT_NAV_GROUPS: NavGroup[] = [
     title: "PESSOAS",
     items: [
       { href: "/rh/workers", label: "Workers", icon: UserCog },
+      { href: "/rh/ponto", label: "Ponto Eletrônico", icon: Clock },
     ]
   },
   {

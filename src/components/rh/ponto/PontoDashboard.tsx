@@ -14,13 +14,13 @@ interface User {
 
 interface TimeEntryItem {
   id: number
-  clockInAt: string
+  clockIn: string
   workLocation: string
   status: string
   worker: {
     id: number
-    nome: string
-    tipo: string
+    name: string
+    type: string
     compensationModel: string
   }
 }
@@ -53,8 +53,8 @@ export default function PontoDashboard({ user }: { user: User }) {
     return () => clearInterval(interval)
   }, [fetchActive])
 
-  const getElapsed = (clockInAt: string) => {
-    const minutes = Math.round((Date.now() - new Date(clockInAt).getTime()) / 60000)
+  const getElapsed = (clockIn: string) => {
+    const minutes = Math.round((Date.now() - new Date(clockIn).getTime()) / 60000)
     const h = Math.floor(minutes / 60)
     const m = minutes % 60
     return { minutes, display: h > 0 ? `${h}h ${m}min` : `${m}min` }
@@ -68,7 +68,7 @@ export default function PontoDashboard({ user }: { user: User }) {
       hour12: true,
     })
 
-  const overtimeEntries = activeEntries.filter(e => getElapsed(e.clockInAt).minutes > 480)
+  const overtimeEntries = activeEntries.filter(e => getElapsed(e.clockIn).minutes > 480)
   const total = activeEntries.length
 
   if (loading) {
@@ -143,7 +143,7 @@ export default function PontoDashboard({ user }: { user: User }) {
             </div>
           ) : (
             activeEntries.map((entry) => {
-              const elapsed = getElapsed(entry.clockInAt)
+              const elapsed = getElapsed(entry.clockIn)
               const overtime = elapsed.minutes > 480
 
               return (
@@ -158,9 +158,9 @@ export default function PontoDashboard({ user }: { user: User }) {
                   <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${overtime ? "bg-red-500 animate-pulse" : "bg-green-500 animate-pulse"}`} />
                     <div>
-                      <p className="text-sm font-semibold text-foreground">{entry.worker.nome}</p>
+                      <p className="text-sm font-semibold text-foreground">{entry.worker.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        Entrada: {formatTime(entry.clockInAt)} · {entry.workLocation}
+                        Entrada: {formatTime(entry.clockIn)} · {entry.workLocation}
                       </p>
                     </div>
                   </div>
@@ -170,7 +170,7 @@ export default function PontoDashboard({ user }: { user: User }) {
                     </p>
                     {overtime && (
                       <p className="text-xs text-red-400">
-                        +{getElapsed(new Date(new Date(entry.clockInAt).getTime() + 480 * 60000).toISOString()).display} extra
+                        +{getElapsed(new Date(new Date(entry.clockIn).getTime() + 480 * 60000).toISOString()).display} extra
                       </p>
                     )}
                   </div>
