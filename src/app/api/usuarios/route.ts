@@ -16,6 +16,7 @@ import { withBusinessCache } from "@/shared/lib/cache/business-cache";
 import { AuditoriaService } from "@/shared/lib/audit";
 import { logger } from "@/lib/api/logger";
 import { apiRateLimit } from '@/shared/lib/rate-limit';
+import { signFirstAccessJWT } from "@/shared/lib/jwt";
 
 // Minimal shapes for raw SQL rows (A10: PII fica fora da listagem)
 type UserRow = {
@@ -31,7 +32,8 @@ type UserRow = {
   criadoEm?: Date | null;
   atualizadoEm?: Date | null;
   avatarUrl?: string | null;
-  expiresAt?: Date | string | null
+  expiresAt?: Date | string | null;
+  primeiroAcesso?: boolean | number | null;
 };
 
 type CountRow = { cnt: number };
@@ -226,7 +228,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
             criadoEm,
             atualizadoEm,
             avatarUrl,
-            expiresAt
+            expiresAt,
+            primeiroAcesso
           FROM Usuario
           ${whereSql}
           ORDER BY ${orderKey} ${orderDir}
@@ -254,6 +257,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
             atualizadoEm: it.atualizadoEm ?? null,
             avatarUrl: it.avatarUrl ?? null,
             expiresAt: it.expiresAt ? (it.expiresAt instanceof Date ? it.expiresAt.toISOString() : String(it.expiresAt)) : null,
+            primeiroAcesso: Boolean(it.primeiroAcesso),
           };
         });
 
@@ -508,6 +512,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     const supportEmail: string = process.env.SUPPORT_EMAIL ?? "suporte@gladpros.com";
 
     const displayName = nomeCompleto ?? created.email;
+
+    // Gerar magic link de primeiro acesso (válido 7 dias, single-use via primeiroAcesso flag)
+    let firstAccessUrl: string | undefined;
+    try {
+      const magicToken = await signFirstAccessJWT(created.id, created.email);
+      firstAccessUrl = `${appUrl.replace(/\/$/, "")}/api/auth/first-access/magic?token=${magicToken}`;
+    } catch (err) {
+      logger.warn("[POST usuarios] Falha ao gerar magic link de primeiro acesso", {}, err);
+    }
+
     const { subject, html /*, text*/ } = renderWelcomeEmail({
         name: displayName,
         email: created.email,
@@ -515,6 +529,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         appUrl,
         assetsBaseUrl,
         supportEmail,
+        firstAccessUrl,
       });
 
       // Registrar auditoria da criação (não bloqueia o fluxo se falhar)

@@ -56,7 +56,9 @@ export async function syncProjectHealthAlerts(
     return null;
   }
 
-  const desiredAlerts = snapshot.alerts.map((alert) => ({
+  const desiredAlerts = snapshot.alerts
+    .filter((alert) => alert.type !== 'DATA_TRUNCATED') // informational only — not persisted
+    .map((alert) => ({
     alert,
     activeKey: buildAlertKey(projetoId, alert.type),
     recommendation: recommendationForAlert(alert, snapshot.recommendations),
@@ -103,7 +105,7 @@ export async function syncProjectHealthAlerts(
           data: {
             empresaId: 1,
             projetoId,
-            type: item.alert.type,
+            type: item.alert.type as import('@prisma/client').$Enums.ProjectHealthAlertType,
             activeKey: item.activeKey,
             status: 'OPEN',
             ...data,

@@ -61,7 +61,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       expensesAP,
       expensesVencidas,
       // Cross-module: pipeline projects
-      projetosAtivos,
+      projetosAtivosCount,
+      projetosAtivosSoma,
       // Monthly revenue/expense
       receitasMes,
       despesasMes,
@@ -211,15 +212,17 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         _sum: { valor: true },
         _count: true,
       }),
-      // Pipeline: projetos ativos
+      // Pipeline: projetos ativos (count + soma separados para evitar tipo complexo)
+      prisma.projeto.count({
+        where: {
+          status: { in: ["em_execucao", "planejado", "em_inspecao"] },
+        },
+      }),
       prisma.projeto.aggregate({
         where: {
-          empresaId,
-          status: { in: ["em_andamento", "planejado", "em_inspecao"] },
-          deletadoEm: null,
+          status: { in: ["em_execucao", "planejado", "em_inspecao"] },
         },
-        _sum: { valorContrato: true },
-        _count: true,
+        _sum: { valorEstimado: true },
       }),
       // Receitas do mês (recebidas)
       prisma.revenue.aggregate({
@@ -238,14 +241,15 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
  
     
     // Cross-module computed values
-    const totalAR = Number(invoicesAR._sum.saldo ?? 0) + Number(invoicesOverdue._sum.saldo ?? 0);
-    const totalOverdue = Number(invoicesOverdue._sum.saldo ?? 0);
-    const totalAP = Number(expensesAP._sum.valor ?? 0);
-    const totalAPVencidas = Number(expensesVencidas._sum.valor ?? 0);
-    const cashPosition = saldoTotal + totalAR;
+    const saldoTotalContas = Number(totalContas._sum?.saldoAtual) || 0;
+    const totalAR = Number(invoicesAR._sum?.saldo ?? 0) + Number(invoicesOverdue._sum?.saldo ?? 0);
+    const totalOverdue = Number(invoicesOverdue._sum?.saldo ?? 0);
+    const totalAP = Number(expensesAP._sum?.valor ?? 0);
+    const totalAPVencidas = Number(expensesVencidas._sum?.valor ?? 0);
+    const cashPosition = saldoTotalContas + totalAR;
     const cashflowGap = totalAP - cashPosition;
     const cashflowNegativo = cashPosition < totalAP;
-    const totalPipeline = Number(projetosAtivos._sum.valorContrato ?? 0);
+    const totalPipeline = Number(projetosAtivosSoma._sum?.valorEstimado ?? 0);
 
     // Processa resumo por tipo
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -377,7 +381,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         },
         pipeline: {
           valorTotal: totalPipeline,
-          projetosAtivos: projetosAtivos._count,
+          projetosAtivos: projetosAtivosCount,
         },
         resultadoMes: {
           receitas: Number(receitasMes._sum.valor ?? 0),

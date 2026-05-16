@@ -61,7 +61,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const gastosPorCategoria = await prisma.expense.groupBy({
       by: ['categoriaId'],
       where: {
-        empresaId: parseInt(empresaId),
+        empresaId,
         dataEmissao: {
           gte: inicioMes,
           lte: fimMes

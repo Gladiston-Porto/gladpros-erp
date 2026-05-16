@@ -41,3 +41,27 @@ export async function verifyAuthJWT(token: string) {
   const { payload } = await jwtVerify(token, secret, { issuer: "gladpros", audience: "gladpros-app" })
   return payload as AuthClaims
 }
+
+// ── First-access magic link ──────────────────────────────────────────────────
+
+export async function signFirstAccessJWT(userId: number, email: string) {
+  const secret = getSecret()
+  return await new SignJWT({ email, purpose: "first-access" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(String(userId))
+    .setIssuer("gladpros")
+    .setAudience("gladpros-first-access")
+    .setExpirationTime("7d")
+    .setIssuedAt()
+    .sign(secret)
+}
+
+export async function verifyFirstAccessJWT(token: string): Promise<{ userId: number; email: string }> {
+  const secret = getSecret()
+  const { payload } = await jwtVerify(token, secret, {
+    issuer: "gladpros",
+    audience: "gladpros-first-access",
+  })
+  if (payload.purpose !== "first-access") throw new Error("Token inválido: purpose incorreto")
+  return { userId: Number(payload.sub), email: payload.email as string }
+}

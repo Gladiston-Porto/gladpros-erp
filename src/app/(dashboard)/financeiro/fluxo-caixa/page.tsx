@@ -73,7 +73,6 @@ async function FluxoCaixaContent({ empresaId }: { empresaId: number }) {
       where: {
         empresaId,
         status: { in: ["SENT", "VIEWED", "PARTIAL_PAID", "OVERDUE"] },
-        deletadoEm: null,
       },
       _sum: { saldo: true },
     }),
@@ -83,7 +82,7 @@ async function FluxoCaixaContent({ empresaId }: { empresaId: number }) {
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
 
   const saldoCash = Number(contas._sum.saldoAtual ?? 0);
-  const totalAR = Number(invoicesAR._sum.saldo ?? 0);
+  const totalAR = Number(invoicesAR._sum?.saldo ?? 0);
   const totalAP = Number(despesasPendentes._sum.valor ?? 0);
   const cashPosition = saldoCash + totalAR;
   const projecao30d = cashPosition + Number(receitasProximas._sum.valor ?? 0) - Number(despesasProximas._sum.valor ?? 0);
@@ -112,7 +111,7 @@ async function FluxoCaixaContent({ empresaId }: { empresaId: number }) {
           value={fmt(saldoCash)}
           icon={<Wallet className="h-5 w-5" />}
           description="Saldo total contas ativas"
-          variant={saldoCash >= 0 ? "default" : "destructive"}
+          variant={saldoCash >= 0 ? "default" : "expense"}
         />
         <StatCard
           title="A/R (Invoices)"
@@ -126,14 +125,14 @@ async function FluxoCaixaContent({ empresaId }: { empresaId: number }) {
           value={fmt(totalAP)}
           icon={<TrendingDown className="h-5 w-5" />}
           description={`${despesasPendentes._count} despesas em aberto`}
-          variant={totalAP > cashPosition ? "destructive" : "default"}
+          variant={totalAP > cashPosition ? "expense" : "default"}
         />
         <StatCard
           title="Resultado do mês"
           value={fmt(resultado)}
           icon={resultado >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
           description="Receitas recebidas - Despesas pagas"
-          variant={resultado >= 0 ? "success" : "destructive"}
+          variant={resultado >= 0 ? "income" : "expense"}
         />
       </div>
 

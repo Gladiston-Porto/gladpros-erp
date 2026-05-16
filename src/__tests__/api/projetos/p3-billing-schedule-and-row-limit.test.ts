@@ -46,18 +46,18 @@ const makeCtx = (id: string) => ({ params: Promise.resolve({ id }) });
 const now = new Date();
 
 function makeInvoice(overrides: Partial<{
-  id: number; billingType: string; status: string; totalAmount: number;
+  id: number; billingType: string; status: string; valorTotal: number;
 }> = {}) {
   return {
     id: 1,
-    invoiceNumber: 'INV-001',
+    numeroInvoice: 'INV-001',
     billingType: 'DEPOSIT',
     billingReference: null,
     status: 'DRAFT',
-    totalAmount: 5000,
-    dueDate: null,
-    paidAt: null,
-    issuedAt: now,
+    valorTotal: 5000,
+    dataVencimento: null,
+    dataPagamento: null,
+    dataEmissao: now,
     ...overrides,
   };
 }
@@ -87,8 +87,8 @@ describe('GET /api/projetos/[id]/financeiro/billing-schedule', () => {
 
   it('separates planned (DRAFT) and executed (PAID) invoices', async () => {
     mockInvoiceFindMany.mockResolvedValue([
-      makeInvoice({ id: 1, billingType: 'DEPOSIT', status: 'DRAFT', totalAmount: 3000 }),
-      makeInvoice({ id: 2, billingType: 'DEPOSIT', status: 'PAID', totalAmount: 2000 }),
+      makeInvoice({ id: 1, billingType: 'DEPOSIT', status: 'DRAFT', valorTotal: 3000 }),
+      makeInvoice({ id: 2, billingType: 'DEPOSIT', status: 'PAID', valorTotal: 2000 }),
     ]);
 
     const req = makeRequest('http://localhost:3000/api/projetos/1/financeiro/billing-schedule');
@@ -106,8 +106,8 @@ describe('GET /api/projetos/[id]/financeiro/billing-schedule', () => {
 
   it('groups multiple billing types in correct order', async () => {
     mockInvoiceFindMany.mockResolvedValue([
-      makeInvoice({ id: 1, billingType: 'FINAL', status: 'DRAFT', totalAmount: 10000 }),
-      makeInvoice({ id: 2, billingType: 'DEPOSIT', status: 'PAID', totalAmount: 5000 }),
+      makeInvoice({ id: 1, billingType: 'FINAL', status: 'DRAFT', valorTotal: 10000 }),
+      makeInvoice({ id: 2, billingType: 'DEPOSIT', status: 'PAID', valorTotal: 5000 }),
     ]);
 
     const req = makeRequest('http://localhost:3000/api/projetos/1/financeiro/billing-schedule');
@@ -119,9 +119,9 @@ describe('GET /api/projetos/[id]/financeiro/billing-schedule', () => {
     expect(types[1]).toBe('FINAL');
   });
 
-  it('PARTIALLY_PAID counts as executed', async () => {
+  it('PARTIAL_PAID counts as executed', async () => {
     mockInvoiceFindMany.mockResolvedValue([
-      makeInvoice({ id: 1, billingType: 'PROGRESS', status: 'PARTIALLY_PAID', totalAmount: 8000 }),
+      makeInvoice({ id: 1, billingType: 'PROGRESS', status: 'PARTIAL_PAID', valorTotal: 8000 }),
     ]);
 
     const req = makeRequest('http://localhost:3000/api/projetos/1/financeiro/billing-schedule');

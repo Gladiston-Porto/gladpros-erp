@@ -77,7 +77,7 @@ async function ReceitasContent({ empresaId }: { empresaId: number }) {
           value={fmt(Number(receitasMes._sum.valor ?? 0))}
           icon={<CheckCircle className="h-5 w-5" />}
           description={`${receitasMes._count} receitas`}
-          variant="success"
+          variant="income"
         />
         <StatCard
           title="A receber (pendente)"
@@ -91,7 +91,7 @@ async function ReceitasContent({ empresaId }: { empresaId: number }) {
           value={fmt(Number(receitasVencidas._sum.valor ?? 0))}
           icon={<AlertCircle className="h-5 w-5" />}
           description={`${receitasVencidas._count} receitas`}
-          variant={receitasVencidas._count > 0 ? "destructive" : "default"}
+          variant={receitasVencidas._count > 0 ? "expense" : "default"}
         />
       </div>
 

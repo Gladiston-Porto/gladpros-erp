@@ -13,14 +13,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAccess, requireProjectPermission } from '@/shared/lib/rbac-projects';
 import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import type { InvoiceBillingType, InvoiceStatus } from '@prisma/client';
+import type { InvoiceBillingType, Invoice_status } from '@prisma/client';
 
 type BillingLineItem = {
   invoiceId: number;
   invoiceNumber: string;
   billingType: InvoiceBillingType;
   billingReference: string | null;
-  status: InvoiceStatus;
+  status: Invoice_status;
   valorTotal: number;
   dueDate: string | null;
   paidAt: string | null;
@@ -31,7 +31,7 @@ type BillingTypeGroup = {
   billingType: InvoiceBillingType;
   label: string;
   planned: number;      // total ainda pendente (DRAFT + SENT)
-  executed: number;     // total recebido (PAID + PARTIALLY_PAID)
+  executed: number;     // total recebido (PAID + PARTIAL_PAID)
   items: BillingLineItem[];
 };
 
@@ -44,7 +44,7 @@ const BILLING_TYPE_LABELS: Record<InvoiceBillingType, string> = {
   FINAL: 'Faturamento Final',
 };
 
-const ACTIVE_STATUSES: InvoiceStatus[] = ['DRAFT', 'SENT', 'OVERDUE', 'PAID', 'PARTIALLY_PAID'];
+const ACTIVE_STATUSES: Invoice_status[] = ['DRAFT', 'SENT', 'OVERDUE', 'PAID', 'PARTIAL_PAID'];
 
 export const GET = withErrorHandler(async (req: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
@@ -66,20 +66,19 @@ export const GET = withErrorHandler(async (req: NextRequest,
     where: {
       projetoId,
       status: { in: ACTIVE_STATUSES },
-      deletadoEm: null,
     },
     select: {
       id: true,
-      invoiceNumber: true,
+      numeroInvoice: true,
       billingType: true,
       billingReference: true,
       status: true,
-      totalAmount: true,
-      dueDate: true,
-      paidAt: true,
-      issuedAt: true,
+      valorTotal: true,
+      dataVencimento: true,
+      dataPagamento: true,
+      dataEmissao: true,
     },
-    orderBy: { issuedAt: 'asc' },
+    orderBy: { dataEmissao: 'asc' },
     take: 200,
   });
 
@@ -99,9 +98,9 @@ export const GET = withErrorHandler(async (req: NextRequest,
     }
 
     const group = groupMap.get(type)!;
-    const valor = Number(inv.totalAmount ?? 0);
+    const valor = Number(inv.valorTotal ?? 0);
 
-    const isPaid = inv.status === 'PAID' || inv.status === 'PARTIALLY_PAID';
+    const isPaid = inv.status === 'PAID' || inv.status === 'PARTIAL_PAID';
     if (isPaid) {
       group.executed += valor;
     } else {
@@ -110,14 +109,14 @@ export const GET = withErrorHandler(async (req: NextRequest,
 
     group.items.push({
       invoiceId: inv.id,
-      invoiceNumber: inv.invoiceNumber ?? `INV-${inv.id}`,
+      invoiceNumber: inv.numeroInvoice ?? `INV-${inv.id}`,
       billingType: type,
       billingReference: inv.billingReference,
       status: inv.status,
       valorTotal: valor,
-      dueDate: inv.dueDate?.toISOString() ?? null,
-      paidAt: inv.paidAt?.toISOString() ?? null,
-      issuedAt: inv.issuedAt?.toISOString() ?? new Date(0).toISOString(),
+      dueDate: inv.dataVencimento?.toISOString() ?? null,
+      paidAt: inv.dataPagamento?.toISOString() ?? null,
+      issuedAt: inv.dataEmissao?.toISOString() ?? new Date(0).toISOString(),
     });
   }
 

@@ -29,11 +29,13 @@ async function TransferenciasContent({ empresaId }: { empresaId: number }) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [totalMes, transferencias] = await Promise.all([
+  const [totalMesCount, totalMesSoma, transferencias] = await Promise.all([
+    prisma.bankTransfer.count({
+      where: { empresaId, status: "CONCLUIDA", dataAgendamento: { gte: startOfMonth } },
+    }),
     prisma.bankTransfer.aggregate({
-      where: { empresaId, status: "EXECUTADA", dataAgendamento: { gte: startOfMonth } },
+      where: { empresaId, status: "CONCLUIDA", dataAgendamento: { gte: startOfMonth } },
       _sum: { valor: true },
-      _count: true,
     }),
     prisma.bankTransfer.findMany({
       where: { empresaId },
@@ -63,9 +65,9 @@ async function TransferenciasContent({ empresaId }: { empresaId: number }) {
         <div>
           <p className="text-muted-foreground text-sm">Transferências este mês</p>
           <p className="text-2xl font-bold font-mono text-foreground">
-            {fmt(Number(totalMes._sum.valor ?? 0))}
+            {fmt(Number(totalMesSoma._sum?.valor ?? 0))}
           </p>
-          <p className="text-xs text-muted-foreground">{totalMes._count} transferências executadas</p>
+          <p className="text-xs text-muted-foreground">{totalMesCount} transferências executadas</p>
         </div>
       </div>
 

@@ -174,6 +174,7 @@ export function UsersTable({
             const checked = selected.has(user.id);
             const isActive = user.ativo ?? (user.status === "ATIVO");
             const isExpired = !isActive && user.expiresAt && new Date(user.expiresAt) < new Date();
+            const aguardandoAcesso = user.primeiroAcesso === true;
             const lastLogin = user.ultimoLoginEm ? new Date(user.ultimoLoginEm) : null;
             const roleConf = ROLE_CONFIG[user.role] ?? ROLE_CONFIG.USUARIO;
             const access = lastLogin ? relativeTime(lastLogin) : null;
@@ -219,7 +220,12 @@ export function UsersTable({
 
                 {/* Último acesso com dot + tempo relativo */}
                 <td className="px-3 py-3">
-                  {access ? (
+                  {aguardandoAcesso ? (
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 shrink-0 rounded-full bg-amber-400 animate-pulse" />
+                      <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Aguardando 1º acesso</span>
+                    </div>
+                  ) : access ? (
                     <div className="flex items-center gap-2">
                       <div className={`h-2 w-2 shrink-0 rounded-full ${access.color}`} />
                       <span className="text-xs text-muted-foreground">{access.text}</span>

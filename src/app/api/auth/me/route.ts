@@ -23,8 +23,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     avatarUrl: string | null;
     dataNascimento: Date | string | null;
     createdAt: Date;
+    ultimoLoginEm: Date | null;
   }>>`
-    SELECT id, email, nomeCompleto, telefone, endereco1, endereco2, cidade, estado, zipcode, avatarUrl, dataNascimento, criadoEm as createdAt
+    SELECT id, email, nomeCompleto, telefone, endereco1, endereco2, cidade, estado, zipcode, avatarUrl, dataNascimento, criadoEm as createdAt, ultimoLoginEm
     FROM Usuario
     WHERE id = ${Number(me.id)}
     LIMIT 1
@@ -64,7 +65,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     zipcode: user.zipcode ?? null,
     avatarUrl: user.avatarUrl ?? null,
     dataNascimento,
-    createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : String(user.createdAt)
+    createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : String(user.createdAt),
+    ultimoLoginEm: user.ultimoLoginEm instanceof Date ? user.ultimoLoginEm.toISOString() : (user.ultimoLoginEm ? String(user.ultimoLoginEm) : null)
   })
   res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
   return res

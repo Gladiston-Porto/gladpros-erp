@@ -74,7 +74,7 @@ async function PayablesContent({ empresaId }: { empresaId: number }) {
         status: true,
         dataVencimento: true,
         categoria: { select: { nome: true } },
-        projeto: { select: { id: true, nome: true } },
+        projeto: { select: { id: true, titulo: true } },
       },
       orderBy: { dataVencimento: "asc" },
       take: 50,
@@ -99,14 +99,14 @@ async function PayablesContent({ empresaId }: { empresaId: number }) {
           value={fmt(Number(vencidas._sum.valor ?? 0))}
           icon={<AlertCircle className="h-5 w-5" />}
           description={`${vencidas._count} despesas vencidas`}
-          variant={vencidas._count > 0 ? "destructive" : "default"}
+          variant={vencidas._count > 0 ? "expense" : "default"}
         />
         <StatCard
           title="Vencendo em 7 dias"
           value={fmt(Number(aVencer7d._sum.valor ?? 0))}
           icon={<Clock className="h-5 w-5" />}
           description={`${aVencer7d._count} despesas próximas`}
-          variant={aVencer7d._count > 0 ? "secondary" : "default"}
+          variant={aVencer7d._count > 0 ? "warning" : "default"}
         />
       </div>
 
@@ -141,11 +141,11 @@ async function PayablesContent({ empresaId }: { empresaId: number }) {
                   return (
                     <tr key={e.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-6 py-3 text-foreground font-medium">{e.descricao}</td>
-                      <td className="px-6 py-3 text-muted-foreground">{e.categoria.nome}</td>
+                      <td className="px-6 py-3 text-muted-foreground">{e.categoria?.nome ?? "—"}</td>
                       <td className="px-6 py-3 text-muted-foreground">
                         {e.projeto ? (
                           <Link href={`/projetos/${e.projeto.id}`} className="text-brand-primary hover:underline">
-                            {e.projeto.nome}
+                            {e.projeto.titulo}
                           </Link>
                         ) : "—"}
                       </td>

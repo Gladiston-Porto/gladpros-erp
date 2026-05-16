@@ -67,7 +67,7 @@ async function DespesasContent({ empresaId }: { empresaId: number }) {
         dataPagamento: true,
         projetoId: true,
         categoria: { select: { id: true, nome: true } },
-        projeto: { select: { id: true, nome: true } },
+        projeto: { select: { id: true, titulo: true } },
       },
       orderBy: { dataVencimento: "desc" },
       take: 50,
@@ -100,7 +100,7 @@ async function DespesasContent({ empresaId }: { empresaId: number }) {
           value={fmt(Number(despesasVencidas._sum.valor ?? 0))}
           icon={<AlertCircle className="h-5 w-5" />}
           description={`${despesasVencidas._count} despesas`}
-          variant={despesasVencidas._count > 0 ? "destructive" : "default"}
+          variant={despesasVencidas._count > 0 ? "expense" : "default"}
         />
       </div>
 
@@ -139,14 +139,14 @@ async function DespesasContent({ empresaId }: { empresaId: number }) {
                 {despesas.map((d) => (
                   <tr key={d.id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-6 py-3 text-foreground font-medium">{d.descricao}</td>
-                    <td className="px-6 py-3 text-muted-foreground">{d.categoria.nome}</td>
+                    <td className="px-6 py-3 text-muted-foreground">{d.categoria?.nome ?? "—"}</td>
                     <td className="px-6 py-3 text-muted-foreground">
                       {d.projeto ? (
                         <Link
                           href={`/projetos/${d.projeto.id}`}
                           className="text-brand-primary hover:underline"
                         >
-                          {d.projeto.nome}
+                          {d.projeto.titulo}
                         </Link>
                       ) : "—"}
                     </td>

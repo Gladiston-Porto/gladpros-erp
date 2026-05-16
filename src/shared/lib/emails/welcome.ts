@@ -5,6 +5,7 @@ export type WelcomeParams = {
   appUrl: string;
   assetsBaseUrl?: string;
   supportEmail?: string;
+  firstAccessUrl?: string; // magic link gerado na criação do usuário
 };
 
 export function renderWelcomeEmail(params: WelcomeParams) {
@@ -15,6 +16,7 @@ export function renderWelcomeEmail(params: WelcomeParams) {
     appUrl,
     assetsBaseUrl,
     supportEmail = "suporte@gladpros.com",
+    firstAccessUrl,
   } = params;
 
   const logoUrl =
@@ -136,13 +138,31 @@ export function renderWelcomeEmail(params: WelcomeParams) {
               </div>
 
               <div style="text-align:center;">
-                <a class="cta" href="${loginUrl}" target="_blank" rel="noopener">Acessar o sistema</a>
+                ${firstAccessUrl
+                  ? `<a class="cta" href="${escapeHtml(firstAccessUrl)}" target="_blank" rel="noopener" style="background:linear-gradient(135deg,#3E4095,#0098DA);font-size:16px;padding:14px 28px;">&#x1F680; Começar agora — clique aqui</a>
+                <p style="font-size:12px;color:#6B7280;margin:8px 0 0 0;">Link válido por 7 dias. Use apenas uma vez.</p>`
+                  : `<a class="cta" href="${loginUrl}" target="_blank" rel="noopener">Acessar o sistema</a>`
+                }
               </div>
 
               <div style="height:16px;"></div>
 
               <div style="font-weight:600; margin-bottom:6px;">Como será o seu primeiro acesso?</div>
 
+              ${firstAccessUrl ? `
+              <div class="step">
+                <div class="badge">1</div>
+                <p>Clique no botão <strong>"Começar agora"</strong> acima. Você será levado direto para a configuração da sua conta.</p>
+              </div>
+              <div class="step">
+                <div class="badge">2</div>
+                <p>Defina sua <strong>nova senha</strong>, um <strong>PIN de segurança</strong> e escolha uma <strong>pergunta de verificação</strong>.</p>
+              </div>
+              <div class="step">
+                <div class="badge">3</div>
+                <p>Pronto! Você será redirecionado para o painel. A senha provisória abaixo serve apenas como backup.</p>
+              </div>
+              ` : `
               <div class="step">
                 <div class="badge">1</div>
                 <p>Entre em <a class="hover-underline" href="${loginUrl}" target="_blank" rel="noopener">${loginUrl}</a> usando seu <strong>e-mail</strong> e a <strong>senha provisória</strong>.</p>
@@ -155,6 +175,7 @@ export function renderWelcomeEmail(params: WelcomeParams) {
                 <div class="badge">3</div>
                 <p>Você será direcionado para <strong>definir uma nova senha</strong>. Após salvar, o acesso será liberado ao painel.</p>
               </div>
+              `}
 
               <div style="height:16px;"></div>
 

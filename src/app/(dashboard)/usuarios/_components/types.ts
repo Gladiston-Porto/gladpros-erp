@@ -20,6 +20,7 @@ export type Usuario = {
   mfaEnabled?: boolean;
   mfaChannel?: "EMAIL" | "TOTP";
   mustResetPassword?: boolean;
+  primeiroAcesso?: boolean;
   ultimoLoginEm?: string | Date;
   criadoEm?: string | Date;
   atualizadoEm?: string | Date;

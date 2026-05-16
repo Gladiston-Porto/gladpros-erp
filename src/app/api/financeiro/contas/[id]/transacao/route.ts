@@ -224,7 +224,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
         entidade: 'BankTransaction',
         entidadeId: String(resultado.id),
         acao: 'TRANSACAO_CRIADA',
-        diff: JSON.stringify({ valor: resultado.valor, tipo: resultado.tipo, contaId: resultado.contaId }),
+        diff: JSON.stringify({ valor: resultado.valor, tipo: resultado.tipo, accountId: resultado.accountId }),
       },
     });
 

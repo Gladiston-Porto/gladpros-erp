@@ -19,7 +19,7 @@ jest.mock('../project-health.service', () => ({
 import { prisma } from '@/lib/prisma';
 import { syncProjectHealthAlerts, updateProjectHealthAlertStatus } from '../project-health-alert.service';
 
-const mockPrisma = prisma as {
+const mockPrisma = prisma as unknown as {
   projectHealthAlert: {
     findMany: jest.Mock;
     create: jest.Mock;

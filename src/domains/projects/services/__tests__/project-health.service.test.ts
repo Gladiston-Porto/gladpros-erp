@@ -18,7 +18,7 @@ jest.mock('@/lib/prisma', () => ({
 import { prisma } from '@/lib/prisma';
 import { getProjectHealthSnapshot } from '../project-health.service';
 
-const mockPrisma = prisma as {
+const mockPrisma = prisma as unknown as {
   projeto: { findUnique: jest.Mock };
   expense: { aggregate: jest.Mock };
   timesheetEntry: { findMany: jest.Mock };

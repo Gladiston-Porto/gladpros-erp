@@ -19,7 +19,7 @@ async function CategoriasContent({ empresaId }: { empresaId: number }) {
         nome: true,
         scheduleCLine: true,
         ativo: true,
-        _count: { select: { expenses: true } },
+        _count: { select: { despesas: true } },
       },
       orderBy: [{ scheduleCLine: "asc" }, { nome: "asc" }],
     }),
@@ -29,7 +29,7 @@ async function CategoriasContent({ empresaId }: { empresaId: number }) {
         id: true,
         nome: true,
         ativo: true,
-        _count: { select: { revenues: true } },
+        _count: { select: { receitas: true } },
       },
       orderBy: { nome: "asc" },
     }),
@@ -75,7 +75,7 @@ async function CategoriasContent({ empresaId }: { empresaId: number }) {
                     <td className="px-6 py-3 text-muted-foreground font-mono text-xs">
                       {c.scheduleCLine ?? "—"}
                     </td>
-                    <td className="px-6 py-3 text-right text-muted-foreground">{c._count.expenses}</td>
+                    <td className="px-6 py-3 text-right text-muted-foreground">{c._count.despesas}</td>
                     <td className="px-6 py-3">
                       <span className={`text-xs ${c.ativo ? "text-green-500" : "text-muted-foreground"}`}>
                         {c.ativo ? "Ativa" : "Inativa"}
@@ -123,7 +123,7 @@ async function CategoriasContent({ empresaId }: { empresaId: number }) {
                 {categoriasReceita.map((c) => (
                   <tr key={c.id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-6 py-3 text-foreground font-medium">{c.nome}</td>
-                    <td className="px-6 py-3 text-right text-muted-foreground">{c._count.revenues}</td>
+                    <td className="px-6 py-3 text-right text-muted-foreground">{c._count.receitas}</td>
                     <td className="px-6 py-3">
                       <span className={`text-xs ${c.ativo ? "text-green-500" : "text-muted-foreground"}`}>
                         {c.ativo ? "Ativa" : "Inativa"}

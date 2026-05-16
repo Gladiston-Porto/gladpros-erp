@@ -41,7 +41,8 @@ async function FinanceiroDashboardContent({ empresaId }: { empresaId: number }) 
     expensesAP,
     expensesVencidas,
     // Pipeline: projetos ativos
-    projetosAtivos,
+    projetosAtivosCount,
+    projetosAtivosSoma,
   ] = await Promise.all([
     // Contas ativas com saldo
     prisma.bankAccount.findMany({
@@ -107,15 +108,18 @@ async function FinanceiroDashboardContent({ empresaId }: { empresaId: number }) 
       _sum: { valor: true },
       _count: true,
     }),
-    // Pipeline: projetos ativos com valor de contrato
+    // Pipeline: count of projetos ativos
+    prisma.projeto.count({
+      where: {
+        status: { in: ["em_execucao", "planejado", "em_inspecao"] },
+      },
+    }),
+    // Pipeline: soma do valor estimado dos projetos ativos
     prisma.projeto.aggregate({
       where: {
-        empresaId,
-        status: { in: ["em_andamento", "planejado", "em_inspecao"] },
-        deletadoEm: null,
+        status: { in: ["em_execucao", "planejado", "em_inspecao"] },
       },
-      _sum: { valorContrato: true },
-      _count: true,
+      _sum: { valorEstimado: true },
     }),
   ]);
 
@@ -138,7 +142,7 @@ async function FinanceiroDashboardContent({ empresaId }: { empresaId: number }) 
   const cashflowGap = totalAP - cashPosition;
 
   // Pipeline
-  const totalPipeline = Number(projetosAtivos._sum.valorContrato ?? 0);
+  const totalPipeline = Number(projetosAtivosSoma._sum?.valorEstimado ?? 0);
 
   const fmt = (v: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
@@ -276,7 +280,7 @@ async function FinanceiroDashboardContent({ empresaId }: { empresaId: number }) 
       </div>
 
       {/* ── PIPELINE DE PROJETOS ── */}
-      {projetosAtivos._count > 0 && (
+      {projetosAtivosCount > 0 && (
         <div className="rounded-2xl bg-card border border-border p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-foreground">Pipeline de Projetos Ativos</h2>
@@ -289,8 +293,8 @@ async function FinanceiroDashboardContent({ empresaId }: { empresaId: number }) 
             </div>
             <div className="h-10 w-px bg-border" />
             <div>
-              <p className="text-2xl font-bold text-foreground">{projetosAtivos._count}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Projeto{projetosAtivos._count !== 1 ? "s" : ""} em andamento</p>
+              <p className="text-2xl font-bold text-foreground">{projetosAtivosCount}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Projeto{projetosAtivosCount !== 1 ? "s" : ""} em andamento</p>
             </div>
           </div>
         </div>
