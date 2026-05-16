@@ -11,6 +11,26 @@
     {
       "path": "/api/cron/propostas/follow-up",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/attendance/shift-reminder",
+      "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/cron/attendance/auto-close",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/attendance/orphan-alert",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/attendance/weekly-summary",
+      "schedule": "0 20 * * 6"
+    },
+    {
+      "path": "/api/cron/attendance/timeoff-alerts",
+      "schedule": "0 13 * * *"
     }
   ]
 }

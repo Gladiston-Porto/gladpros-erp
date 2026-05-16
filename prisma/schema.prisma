@@ -1051,6 +1051,11 @@ model Usuario {
   // Time & Attendance
   TimeEntriesApproved TimeEntry[] @relation("TimeEntryApprovedBy")
 
+  // Sprint 3: Payroll & Attendance
+  PayrollPeriodsClosedBy PayrollPeriod[]    @relation("PayrollPeriodClosedBy")
+  InfractionsWaived      WorkerInfraction[] @relation("InfractionWaivedBy")
+  TimeOffsApproved       WorkerTimeOff[]    @relation("TimeOffApprovedBy")
+
   @@index([nivel])
   @@index([status])
   @@index([bloqueado])
@@ -3137,6 +3142,16 @@ model Worker {
   // Time & Attendance
   timeEntries TimeEntry[] @relation("WorkerTimeEntries")
 
+  // Sprint 3: Payroll & Attendance
+  payrollPeriod  PayrollPeriodType @default(BIWEEKLY) @map("payroll_period")
+  payrollEntries PayrollEntry[]
+  infractions    WorkerInfraction[]
+  timeOffs       WorkerTimeOff[]
+  vacationBalances VacationBalance[]
+
+  // Soft delete
+  deletadoEm DateTime? @map("deletado_em")
+
   // Telegram Integration
   telegramLink       TelegramLink?
   telegramLinkTokens TelegramLinkToken[]
@@ -5055,10 +5070,19 @@ enum WorkLocation {
 }
 
 enum TimeEntryStatus {
-  OPEN       // Clock-in feito, ainda trabalhando (sem clockOut)
-  SUBMITTED  // Turno encerrado, enviado para aprovação
-  APPROVED   // Aprovado pelo gerente/ADMIN
-  REJECTED   // Rejeitado (com motivo)
+  OPEN               // Clock-in feito, ainda trabalhando (sem clockOut)
+  SUBMITTED          // Turno encerrado, enviado para aprovação
+  CORRECTION_PENDING // Worker solicitou correção retroativa — aguarda aprovação
+  AUTO_CLOSED        // Sistema fechou automaticamente (esqueceu de sair)
+  APPROVED           // Aprovado pelo gerente/ADMIN
+  REJECTED           // Rejeitado (com motivo)
+}
+
+enum EntrySource {
+  NORMAL      // clock-in/out normal pelo worker
+  AUTO_CLOSED // sistema fechou por timeout (clockIn + 12h)
+  MANUAL      // ADMIN criou retroativamente
+  CORRECTION  // worker solicitou correção
 }
 
 enum ActivityType {
@@ -5100,6 +5124,10 @@ model TimeEntry {
   approvedById      Int?            @map("approved_by_id")
   approvedAt        DateTime?       @map("approved_at")
 
+  // Origem do registro
+  source          EntrySource @default(NORMAL)
+  correctionReason String?    @map("correction_reason") @db.VarChar(500)
+
   // Notas gerais do turno
   notes String? @db.Text
 
@@ -5108,13 +5136,15 @@ model TimeEntry {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  worker     Worker              @relation("WorkerTimeEntries", fields: [workerId], references: [id])
-  approvedBy Usuario?            @relation("TimeEntryApprovedBy", fields: [approvedById], references: [id])
-  activities TimeEntryActivity[]
+  worker      Worker              @relation("WorkerTimeEntries", fields: [workerId], references: [id])
+  approvedBy  Usuario?            @relation("TimeEntryApprovedBy", fields: [approvedById], references: [id])
+  activities  TimeEntryActivity[]
+  infractions WorkerInfraction[]
 
   @@index([workerId])
   @@index([workDate])
   @@index([status])
+  @@index([source])
   @@index([workerId, workDate])
   @@map("time_entries")
 }
@@ -5187,4 +5217,241 @@ model TelegramLinkToken {
   @@index([token])
   @@index([workerId])
   @@map("telegram_link_tokens")
+}
+
+// ─── Sprint 3: Payroll & Attendance ───────────────────────────────────────
+
+model PayrollPeriod {
+  id         Int                 @id @default(autoincrement())
+  empresaId  Int                 @map("empresa_id")
+  startDate  DateTime            @map("start_date") @db.Date
+  endDate    DateTime            @map("end_date") @db.Date
+  status     PayrollPeriodStatus @default(OPEN)
+  closedAt   DateTime?           @map("closed_at")
+  closedById Int?                @map("closed_by_id")
+  notes      String?             @db.Text
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+
+  entries    PayrollEntry[]
+  closedBy   Usuario?       @relation("PayrollPeriodClosedBy", fields: [closedById], references: [id])
+
+  @@index([empresaId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("payroll_periods")
+}
+
+model PayrollEntry {
+  id              Int                @id @default(autoincrement())
+  periodId        Int                @map("period_id")
+  workerId        Int                @map("worker_id")
+  empresaId       Int                @map("empresa_id")
+
+  hourlyRate      Decimal            @map("hourly_rate") @db.Decimal(10, 2)
+  regularMinutes  Int                @map("regular_minutes")
+  overtimeMinutes Int                @map("overtime_minutes")
+  regularPay      Decimal            @map("regular_pay") @db.Decimal(10, 2)
+  overtimePay     Decimal            @map("overtime_pay") @db.Decimal(10, 2)
+  penaltyDeductions Decimal          @default(0) @map("penalty_deductions") @db.Decimal(10, 2)
+  grossPay        Decimal            @map("gross_pay") @db.Decimal(10, 2)
+
+  status          PayrollEntryStatus @default(PENDING)
+  notes           String?            @db.Text
+
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  period          PayrollPeriod      @relation(fields: [periodId], references: [id])
+  worker          Worker             @relation(fields: [workerId], references: [id])
+
+  @@unique([periodId, workerId])
+  @@index([empresaId])
+  @@index([workerId])
+  @@index([status])
+  @@map("payroll_entries")
+}
+
+model WorkerInfraction {
+  id            Int            @id @default(autoincrement())
+  workerId      Int            @map("worker_id")
+  empresaId     Int            @map("empresa_id")
+  timeEntryId   Int?           @map("time_entry_id")
+
+  type          InfractionType
+  occurredAt    DateTime       @map("occurred_at")
+
+  // Posição no ciclo de escalada (rolling 30 dias)
+  cycleNumber   Int            @default(1) @map("cycle_number")   // qual ciclo do mês
+  cyclePosition Int            @default(1) @map("cycle_position") // 1, 2 ou 3 dentro do ciclo
+
+  penaltyApplied Boolean       @default(false) @map("penalty_applied")
+  penaltyAmount  Decimal?      @map("penalty_amount") @db.Decimal(10, 2)
+
+  // Abono pelo ADMIN
+  waived         Boolean       @default(false)
+  waivedById     Int?          @map("waived_by_id")
+  waivedAt       DateTime?     @map("waived_at")
+  waivedReason   String?       @map("waived_reason") @db.VarChar(500)
+
+  // Controle de alertas enviados (evita duplicatas)
+  alertSentToAdmin Boolean     @default(false) @map("alert_sent_to_admin")
+
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  worker         Worker        @relation(fields: [workerId], references: [id])
+  timeEntry      TimeEntry?    @relation(fields: [timeEntryId], references: [id])
+  waivedBy       Usuario?      @relation("InfractionWaivedBy", fields: [waivedById], references: [id])
+
+  @@index([workerId])
+  @@index([empresaId])
+  @@index([occurredAt])
+  @@index([workerId, occurredAt])
+  @@map("worker_infractions")
+}
+
+model AttendancePenaltyConfig {
+  id                    Int         @id @default(autoincrement())
+  empresaId             Int         @unique @map("empresa_id")
+
+  // Ciclo de infrações (rolling)
+  cycleThreshold        Int         @default(3) @map("cycle_threshold")          // infrações por ciclo
+  periodDays            Int         @default(30) @map("period_days")             // janela rolling em dias
+
+  // Alerta ao gestor quando muitos ciclos no mês
+  monthlyAlertThreshold Int         @default(3) @map("monthly_alert_threshold")  // ciclos/mês → alerta ADMIN
+
+  // Penalidade por ciclo fechado
+  penaltyType           PenaltyType @default(FIXED_AMOUNT) @map("penalty_type")
+  penaltyValue          Decimal     @default(25) @map("penalty_value") @db.Decimal(10, 2)
+
+  // Cancelamento de dia após meses consecutivos
+  dayOffAfterMonths     Int         @default(3) @map("day_off_after_months")
+
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  @@map("attendance_penalty_configs")
+}
+
+model TelegramConversationState {
+  id         Int      @id @default(autoincrement())
+  telegramId BigInt   @unique @map("telegram_id")
+
+  // Etapa atual da conversa guiada
+  step       String   @db.VarChar(50)   // DATE | CLOCK_IN | CLOCK_OUT | REASON
+  tempData   Json     @map("temp_data") // { date, clockIn, clockOut }
+
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([telegramId])
+  @@index([expiresAt])
+  @@map("telegram_conversation_states")
+}
+
+// ─── Time Off & Vacation ──────────────────────────────────────────────────
+
+model WorkerTimeOff {
+  id             Int           @id @default(autoincrement())
+  workerId       Int           @map("worker_id")
+  empresaId      Int           @map("empresa_id")
+
+  type           TimeOffType
+  startDate      DateTime      @map("start_date") @db.Date
+  endDate        DateTime      @map("end_date") @db.Date
+  totalDays      Int           @map("total_days")
+  reason         String?       @db.VarChar(500)
+
+  status         TimeOffStatus @default(REQUESTED)
+  approvedById   Int?          @map("approved_by_id")
+  approvedAt     DateTime?     @map("approved_at")
+  rejectedReason String?       @map("rejected_reason") @db.VarChar(500)
+
+  // Controle de alertas de ausência para gestores
+  alert5dSent    Boolean       @default(false) @map("alert_5d_sent")
+  alert2dSent    Boolean       @default(false) @map("alert_2d_sent")
+  alertDaySent   Boolean       @default(false) @map("alert_day_sent")
+
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  worker         Worker        @relation(fields: [workerId], references: [id])
+  approvedBy     Usuario?      @relation("TimeOffApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([workerId])
+  @@index([empresaId])
+  @@index([startDate, endDate])
+  @@index([status])
+  @@map("worker_time_offs")
+}
+
+model VacationBalance {
+  id        Int      @id @default(autoincrement())
+  workerId  Int      @map("worker_id")
+  empresaId Int      @map("empresa_id")
+  year      Int
+
+  accrued   Decimal  @default(0) @db.Decimal(5, 2) // dias acumulados no ano
+  used      Decimal  @default(0) @db.Decimal(5, 2) // dias utilizados
+  remaining Decimal  @default(0) @db.Decimal(5, 2) // saldo atual
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  worker    Worker   @relation(fields: [workerId], references: [id])
+
+  @@unique([workerId, year])
+  @@index([empresaId])
+  @@map("vacation_balances")
+}
+
+// ─── Sprint 3: Enums ──────────────────────────────────────────────────────
+
+enum PayrollPeriodType {
+  WEEKLY    // pago toda semana
+  BIWEEKLY  // a cada 2 semanas
+  MONTHLY   // mensal
+}
+
+enum PayrollPeriodStatus {
+  OPEN        // aceitando entradas
+  PROCESSING  // calculando
+  CLOSED      // finalizado e pago
+  CANCELLED
+}
+
+enum PayrollEntryStatus {
+  PENDING   // calculado, aguardando aprovação
+  APPROVED  // aprovado pelo ADMIN
+  PAID      // pago
+  CANCELLED
+}
+
+enum InfractionType {
+  FORGOT_CLOCK_OUT // esqueceu de registrar saída
+  FORGOT_CLOCK_IN  // esqueceu de registrar entrada
+}
+
+enum PenaltyType {
+  FIXED_AMOUNT    // valor fixo em $ (ex: $25)
+  HOURS_DEDUCTION // desconto em horas trabalhadas
+  PERCENTAGE      // % do valor do dia
+}
+
+enum TimeOffType {
+  VACATION    // férias (W-2, pagas)
+  SICK        // licença médica (W-2)
+  PERSONAL    // dia pessoal (W-2)
+  LEAVE       // licença especial (W-2)
+  UNAVAILABLE // indisponível para trabalho (1099 — sem impacto no payroll)
+}
+
+enum TimeOffStatus {
+  REQUESTED  // solicitado pelo worker
+  APPROVED   // aprovado pelo ADMIN/GERENTE
+  REJECTED   // rejeitado
+  CANCELLED  // cancelado pelo próprio worker
 }
