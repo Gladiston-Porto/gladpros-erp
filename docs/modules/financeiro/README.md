@@ -1,7 +1,7 @@
 # Módulo Financeiro — GladPros ERP
 
-> **Status:** 🚀 PRODUCTION CERTIFIED v1.0.0  
-> **Certificado em:** <!-- to be filled on final sign-off -->  
+> **Status:** 🚀 PRODUCTION CERTIFIED v1.2.0  
+> **Certificado em:** 2026-05-15  
 > **Co-produtores:** Gladiston Porto · GitHub Copilot  
 
 ---
@@ -271,6 +271,7 @@ Operações críticas geram `AuditLog`:
 | **Projetos** | `custoReal` calculado de despesas com `projetoId` | `project-finance.service` → `aggregateProjectCosts` |
 | **OS (ServiceOrders)** | Despesas de reembolso criadas via RECEIPT attachment | `request-reimbursement` propaga `projetoId` do OS para Expense |
 | **Workers** | OwnerCompensation vinculado a `OWNER_OPERATOR` | IRS rules validados na service layer |
+| **Dashboard** | A/R (Invoices), A/P (Expenses), Pipeline (Projetos) visíveis no painel | `page.tsx` 11 queries paralelas; cashflow alert quando A/P > caixa+A/R |
 
 ### Fluxo de Integração Completo
 
@@ -286,7 +287,24 @@ OS + RECEIPT ─► request-reimbursement ─► Expense(serviceOrderId, projeto
 Worker (OWNER_OPERATOR) ─► OwnerCompensation ─► EstimatedTax
      └── LLC: OWNER_DRAW only
      └── S-Corp: SALARY then DISTRIBUTION (IRS blocking)
+
+Dashboard Financeiro:
+  BankAccount.saldoAtual  ┐
+  Invoice.saldo (A/R)     ├─► cashPosition → alerta se < totalAP
+  Expense.valor (A/P)     ┘
+  Projeto.valorContrato (pipeline)
 ```
+
+### Dashboard Cross-Module
+
+O dashboard (`GET /financeiro` e `GET /api/financeiro/dashboard`) agora exibe:
+
+- **Caixa real**: saldo total das contas bancárias ativas
+- **A/R — Contas a Receber**: invoices SENT + VIEWED + PARTIAL_PAID + OVERDUE (campo `saldo`)
+- **A/P — Contas a Pagar**: despesas PENDENTE + AGUARDANDO_APROVACAO + APROVADA (campo `valor`)
+- **Alerta cashflow negativo**: mostrado quando `saldoTotal + totalAR < totalAP`
+- **Pipeline de Projetos**: valor de contrato somado de projetos em_andamento/planejado/em_inspecao
+- **Resultado do Mês**: receitas recebidas − despesas pagas no mês corrente
 
 ### Detalhes Técnicos por Fluxo
 
@@ -314,7 +332,8 @@ Worker (OWNER_OPERATOR) ─► OwnerCompensation ─► EstimatedTax
 |-----------|------|
 | P2 | Testes para `fluxo-caixa`, `transferencias`, `contas/[id]/transacao` |
 | P2 | AuditLog em `receitas/[id]` PUT/DELETE, `owner-compensation` |
-| P3 | Dashboard financeiro interativo (gráficos, drill-down) |
+| P3 | Worker hours → financial cost (TimesheetEntry has no rate/cost field — systemic gap) |
+| P3 | Dashboard interativo (gráficos, drill-down, período selecionável) |
 | P3 | Projeções avançadas baseadas em dados históricos reais |
 | P3 | Reconciliação automática bancária |
 | P3 | Exportação CSV/PDF de extratos e relatórios |
@@ -325,6 +344,7 @@ Worker (OWNER_OPERATOR) ─► OwnerCompensation ─► EstimatedTax
 
 | Versão | Data | Descrição |
 |--------|------|-----------|
+| v1.2.0 | mai/2025 | Dashboard cross-module: A/R invoices, A/P expenses, cashflow alert, pipeline projetos; API route sincronizada; 15 testes de cashflow |
 | v1.1.0 | mai/2025 | Cross-module fixes: Invoice→Revenue upsert+log, OS→Expense projetoId, despesas filtros projetoId/serviceOrderId, S-Corp 13 unit tests |
 | v1.0.0 | mai/2025 | Certificação inicial — P1 security fixes, AuditLog, dashboard page, docs unificadas |
 
