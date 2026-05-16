@@ -38,6 +38,11 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       dataFim.setTime(new Date(searchParams.get("dataFim")!).getTime());
     }
     
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
     // Busca dados consolidados
     const [
       contas,
@@ -48,7 +53,18 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       transferencias,
       transacoesNaoReconciliadas,
       transacoesPorTipo,
-      transacoesPorCategoria
+      transacoesPorCategoria,
+      // Cross-module: A/R invoices
+      invoicesAR,
+      invoicesOverdue,
+      // Cross-module: A/P expenses
+      expensesAP,
+      expensesVencidas,
+      // Cross-module: pipeline projects
+      projetosAtivos,
+      // Monthly revenue/expense
+      receitasMes,
+      despesasMes,
     ] = await Promise.all([
       // Contas ativas com saldos
       prisma.bankAccount.findMany({
@@ -166,11 +182,71 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           }
         },
         take: 10
-      })
+      }),
+      // A/R: Invoices abertas (SENT + VIEWED + PARTIAL_PAID)
+      prisma.invoice.aggregate({
+        where: { empresaId, status: { in: ["SENT", "VIEWED", "PARTIAL_PAID"] } },
+        _sum: { saldo: true },
+        _count: true,
+      }),
+      // A/R: Invoices OVERDUE
+      prisma.invoice.aggregate({
+        where: { empresaId, status: "OVERDUE" },
+        _sum: { saldo: true },
+        _count: true,
+      }),
+      // A/P: Despesas a pagar
+      prisma.expense.aggregate({
+        where: { empresaId, status: { in: ["PENDENTE", "AGUARDANDO_APROVACAO", "APROVADA"] } },
+        _sum: { valor: true },
+        _count: true,
+      }),
+      // A/P: Despesas já vencidas não pagas
+      prisma.expense.aggregate({
+        where: {
+          empresaId,
+          status: { in: ["PENDENTE", "AGUARDANDO_APROVACAO", "APROVADA"] },
+          dataVencimento: { lt: todayStart },
+        },
+        _sum: { valor: true },
+        _count: true,
+      }),
+      // Pipeline: projetos ativos
+      prisma.projeto.aggregate({
+        where: {
+          empresaId,
+          status: { in: ["em_andamento", "planejado", "em_inspecao"] },
+          deletadoEm: null,
+        },
+        _sum: { valorContrato: true },
+        _count: true,
+      }),
+      // Receitas do mês (recebidas)
+      prisma.revenue.aggregate({
+        where: { empresaId, dataVencimento: { gte: startOfMonth, lte: endOfMonth }, status: "RECEBIDA" },
+        _sum: { valor: true },
+        _count: true,
+      }),
+      // Despesas do mês (pagas)
+      prisma.expense.aggregate({
+        where: { empresaId, dataVencimento: { gte: startOfMonth, lte: endOfMonth }, status: "PAGA" },
+        _sum: { valor: true },
+        _count: true,
+      }),
     ]);
     
  
     
+    // Cross-module computed values
+    const totalAR = Number(invoicesAR._sum.saldo ?? 0) + Number(invoicesOverdue._sum.saldo ?? 0);
+    const totalOverdue = Number(invoicesOverdue._sum.saldo ?? 0);
+    const totalAP = Number(expensesAP._sum.valor ?? 0);
+    const totalAPVencidas = Number(expensesVencidas._sum.valor ?? 0);
+    const cashPosition = saldoTotal + totalAR;
+    const cashflowGap = totalAP - cashPosition;
+    const cashflowNegativo = cashPosition < totalAP;
+    const totalPipeline = Number(projetosAtivos._sum.valorContrato ?? 0);
+
     // Processa resumo por tipo
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const resumoPorTipo = transacoesPorTipo.reduce((acc: any, item) => {
@@ -281,8 +357,35 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         })),
         alertas: {
           contasPendentesConciliacao: contasPendentesConciliacao.length,
-          transacoesNaoReconciliadas: transacoesNaoReconciliadas._count
-        }
+          transacoesNaoReconciliadas: transacoesNaoReconciliadas._count,
+          cashflowNegativo,
+          cashflowGap: cashflowNegativo ? cashflowGap : 0,
+          invoicesOverdue: invoicesOverdue._count,
+        },
+        contasAReceber: {
+          total: totalAR,
+          emAberto: Number(invoicesAR._sum.saldo ?? 0),
+          emAbertoCount: invoicesAR._count,
+          vencidas: totalOverdue,
+          vencidasCount: invoicesOverdue._count,
+        },
+        contasAPagar: {
+          total: totalAP,
+          count: expensesAP._count,
+          vencidas: totalAPVencidas,
+          vencidasCount: expensesVencidas._count,
+        },
+        pipeline: {
+          valorTotal: totalPipeline,
+          projetosAtivos: projetosAtivos._count,
+        },
+        resultadoMes: {
+          receitas: Number(receitasMes._sum.valor ?? 0),
+          receitasCount: receitasMes._count,
+          despesas: Number(despesasMes._sum.valor ?? 0),
+          despesasCount: despesasMes._count,
+          resultado: Number(receitasMes._sum.valor ?? 0) - Number(despesasMes._sum.valor ?? 0),
+        },
       }
     }, { status: 200 });
     
