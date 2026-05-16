@@ -131,6 +131,20 @@ export const PUT = withErrorHandler(async (request: NextRequest,
       }
     });
 
+    await prisma.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: Number(user.id),
+        entidade: "Revenue",
+        entidadeId: String(id),
+        acao: "UPDATE",
+        diff: JSON.stringify({
+          before: { status: existing.status, valor: Number(existing.valor), descricao: existing.descricao },
+          after: { status: updated.status, valor: Number(updated.valor), descricao: updated.descricao },
+        }),
+      },
+    });
+
     return NextResponse.json({
       success: true,
       data: updated,
@@ -188,6 +202,20 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
       data: {
         status: 'CANCELADA'
       }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: Number(user.id),
+        entidade: "Revenue",
+        entidadeId: String(id),
+        acao: "CANCEL",
+        diff: JSON.stringify({
+          before: { status: existing.status, valor: Number(existing.valor) },
+          after: { status: 'CANCELADA' },
+        }),
+      },
     });
 
     return NextResponse.json({

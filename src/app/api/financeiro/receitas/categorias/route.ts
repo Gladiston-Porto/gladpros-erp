@@ -18,9 +18,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
     }
 
-    const searchParams = request.nextUrl.searchParams;
     // empresaId always comes from JWT — never from query params
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const empresaId = user.empresaId;
 
     // Buscar categorias ativas

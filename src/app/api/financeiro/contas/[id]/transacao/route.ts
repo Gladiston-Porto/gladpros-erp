@@ -41,7 +41,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
     body.accountId = accountId;
     // Single-tenant: force empresaId from user context for security
      
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     body.empresaId = user.empresaId;
     
     // Valida dados

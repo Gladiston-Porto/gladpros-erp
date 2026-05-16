@@ -24,13 +24,13 @@ export async function GET(request: NextRequest) {
     const format = searchParams.get("format") || "json"
 
      
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const report = await generateScheduleCReport({ empresaId: user.empresaId, taxYear: year })
 
     if (format === "excel") {
        
       const empresa = await prisma.empresa.findUniqueOrThrow({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         where: { id: user.empresaId },
         select: { nome: true, razaoSocial: true },
       })

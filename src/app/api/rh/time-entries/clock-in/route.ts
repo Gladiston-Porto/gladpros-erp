@@ -94,10 +94,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 
   // Verificar se já tem um turno OPEN para este worker hoje
-  const hoje = new Date();
-  const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  const fimDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
-
   const entradaAberta = await prisma.timeEntry.findFirst({
     where: {
       workerId,

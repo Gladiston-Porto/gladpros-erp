@@ -28,7 +28,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     
     // Parse e valida filtros
     // empresaId always comes from JWT — never from query params
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const filters = {
       empresaId: user.empresaId,
       tipo: searchParams.get("tipo") || undefined,

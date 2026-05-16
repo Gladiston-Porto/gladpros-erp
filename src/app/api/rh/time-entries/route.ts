@@ -82,7 +82,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const where = {
     ...(workerIdFilter !== undefined ? { workerId: workerIdFilter } : {}),
-    ...(statusParam ? { status: statusParam as "OPEN" | "SUBMITTED" | "APPROVED" | "REJECTED" } : {}),
+    ...(statusParam
+      ? statusParam.includes(',')
+        ? { status: { in: statusParam.split(',') as ("OPEN" | "SUBMITTED" | "APPROVED" | "REJECTED" | "AUTO_CLOSED" | "CORRECTION_PENDING")[] } }
+        : { status: statusParam as "OPEN" | "SUBMITTED" | "APPROVED" | "REJECTED" | "AUTO_CLOSED" | "CORRECTION_PENDING" }
+      : {}),
     ...(Object.keys(dateFilter).length ? { workDate: dateFilter } : {}),
   };
 

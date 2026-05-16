@@ -21,7 +21,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     
      
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const empresaId = user.empresaId;
     
     // Define período (padrão: últimos 30 dias)

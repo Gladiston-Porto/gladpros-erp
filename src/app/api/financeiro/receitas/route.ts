@@ -25,7 +25,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const validatedData = createRevenueSchema.parse(body);
 
     // empresaId always comes from JWT — never from request body
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const empresaId = user.empresaId;
 
     // 3. Verificar se empresa existe
@@ -153,7 +153,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     // 2. Parse query params
     const searchParams = request.nextUrl.searchParams;
     // empresaId always comes from JWT — never from query params
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const filters = {
       empresaId: user.empresaId,
       status: searchParams.get('status') || undefined,

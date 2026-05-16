@@ -32,7 +32,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
 
     // empresaId always comes from JWT — never from query params
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const empresaIdFromJwt = user.empresaId;
 
     // Parse query params
@@ -249,7 +249,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const validatedData = createExpenseSchema.parse(body);
 
     // empresaId always comes from JWT — never from request body
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const empresaId = user.empresaId;
 
     // Iniciar transação

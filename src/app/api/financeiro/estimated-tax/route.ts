@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const year = Number(searchParams.get("year")) || new Date().getFullYear()
 
      
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const estimates = await getQuarterlyEstimates(user.empresaId, year)
 
     return NextResponse.json({ data: estimates, success: true })
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
      
     const result = await recordPayment({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       empresaId: user.empresaId,
       taxYear: body.data.taxYear,
       quarter: body.data.quarter,
