@@ -1,7 +1,7 @@
 # Módulo Financeiro — GladPros ERP
 
-> **Status:** 🚀 PRODUCTION CERTIFIED v1.2.0  
-> **Certificado em:** 2026-05-15  
+> **Status:** 🚀 PRODUCTION CERTIFIED v1.3.0  
+> **Certificado em:** 2026-05-22  
 > **Co-produtores:** Gladiston Porto · GitHub Copilot  
 
 ---
@@ -331,12 +331,13 @@ O dashboard (`GET /financeiro` e `GET /api/financeiro/dashboard`) agora exibe:
 | Prioridade | Item |
 |-----------|------|
 | P2 | Testes para `fluxo-caixa`, `transferencias`, `contas/[id]/transacao` |
-| P2 | AuditLog em `receitas/[id]` PUT/DELETE, `owner-compensation` |
 | P3 | Worker hours → financial cost (TimesheetEntry has no rate/cost field — systemic gap) |
 | P3 | Dashboard interativo (gráficos, drill-down, período selecionável) |
 | P3 | Projeções avançadas baseadas em dados históricos reais |
-| P3 | Reconciliação automática bancária |
+| P3 | Reconciliação automática bancária (importação OFX/CSV — conciliacao page é placeholder) |
 | P3 | Exportação CSV/PDF de extratos e relatórios |
+| P3 | Paginação server-side nas páginas de lista (receitas, despesas, transferencias — atualmente take: 50) |
+| P3 | Formulários de criação/edição inline nas páginas (nova receita, nova despesa, etc.) |
 
 ---
 
@@ -344,6 +345,7 @@ O dashboard (`GET /financeiro` e `GET /api/financeiro/dashboard`) agora exibe:
 
 | Versão | Data | Descrição |
 |--------|------|-----------|
+| v1.3.0 | mai/2025 | 13 páginas UI criadas: receitas, despesas, contas, transferencias, fluxo-caixa, relatorios (fix redirect), fiscal hub, impostos-estimados, compensacao, categorias, relatorios fiscais, payables, conciliacao. AuditLog em receitas PUT/DELETE. |
 | v1.2.0 | mai/2025 | Dashboard cross-module: A/R invoices, A/P expenses, cashflow alert, pipeline projetos; API route sincronizada; 15 testes de cashflow |
 | v1.1.0 | mai/2025 | Cross-module fixes: Invoice→Revenue upsert+log, OS→Expense projetoId, despesas filtros projetoId/serviceOrderId, S-Corp 13 unit tests |
 | v1.0.0 | mai/2025 | Certificação inicial — P1 security fixes, AuditLog, dashboard page, docs unificadas |
