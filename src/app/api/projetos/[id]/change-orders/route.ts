@@ -168,7 +168,7 @@ export const POST = withErrorHandler(async (
       priceDelta: coData.priceDelta,
       costDelta: coData.costDelta,
       taxDelta: coData.taxDelta,
-      createdById: user.id,
+      createdById: Number(user.id),
       items: items?.length
         ? {
             create: items.map((item) => ({
@@ -191,7 +191,7 @@ export const POST = withErrorHandler(async (
   await prisma.auditLog.create({
     data: {
       id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      userId: user.id,
+      userId: Number(user.id),
       entidade: 'ChangeOrder',
       entidadeId: String(changeOrder.id),
       acao: 'CREATE',

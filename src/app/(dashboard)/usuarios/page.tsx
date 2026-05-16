@@ -53,6 +53,13 @@ async function toggleUserStatus(id: string | number) {
   return usersApi.toggleUserStatus(id);
 }
 
+async function resendWelcomeEmail(id: number) {
+  const res = await fetch(`/api/usuarios/${id}/resend-welcome`, { method: "POST" });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "Erro ao reenviar email");
+  return json;
+}
+
 export default function UsersPage() {
   const router = useRouter();
   const { confirm, Dialog } = useConfirm();
@@ -150,6 +157,27 @@ export default function UsersPage() {
       load();
     } catch (error) {
       toast.error('Erro', (error as Error).message || 'Erro ao alterar status do usuário');
+    }
+  }
+
+  async function onResendWelcome(id: number) {
+    const targetUser = data.find((u) => u.id === id);
+    const ok = await confirm({
+      title: "Reenviar email de boas-vindas",
+      message: "Isso irá gerar uma nova senha provisória e um novo link de acesso para o usuário. Continuar?",
+      confirmText: "Reenviar",
+      tone: "default",
+      subject: targetUser
+        ? { name: targetUser.nomeCompleto, description: targetUser.email, avatarUrl: targetUser.avatarUrl }
+        : undefined,
+    });
+    if (!ok) return;
+
+    try {
+      await resendWelcomeEmail(id);
+      toast.success("Email enviado", `Email de boas-vindas reenviado para ${targetUser?.email ?? "o usuário"}`);
+    } catch (error) {
+      toast.error("Erro", (error as Error).message || "Erro ao reenviar email");
     }
   }
 
@@ -458,6 +486,7 @@ export default function UsersPage() {
               onEdit={(id) => router.push(`/usuarios/${id}`)}
               onView={(id) => setViewUserId(id)}
               onToggleStatus={onToggleStatus}
+              onResendWelcome={onResendWelcome}
               onSelectedChange={setSelectedIds}
               resetKey={selectionResetKey}
               sortKey={sortKey}

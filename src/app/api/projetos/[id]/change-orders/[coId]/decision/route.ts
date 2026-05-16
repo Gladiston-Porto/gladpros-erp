@@ -90,13 +90,13 @@ export const PATCH = withErrorHandler(async (
         ? {
             status: 'APPROVED',
             approvedAt: now,
-            approvedBy: user.id,
+            approvedBy: Number(user.id),
             approvedByName: user.email,
           }
         : {
             status: 'REJECTED',
             rejectedAt: now,
-            rejectedBy: user.id,
+            rejectedBy: Number(user.id),
             rejectedByName: user.email,
             rejectedReason: body.data.reason,
           },
@@ -109,7 +109,7 @@ export const PATCH = withErrorHandler(async (
   await prisma.auditLog.create({
     data: {
       id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      userId: user.id,
+      userId: Number(user.id),
       entidade: 'ChangeOrder',
       entidadeId: String(changeOrderId),
       acao: action === 'approve' ? 'APPROVE' : 'REJECT',

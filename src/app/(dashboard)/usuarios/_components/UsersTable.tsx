@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { ArrowUpDown, Eye, Pencil, UserCheck, UserX, Users } from "lucide-react";
+import { ArrowUpDown, Eye, Pencil, UserCheck, UserX, Users, Mail } from "lucide-react";
 
 import type { SortKey, UserRole, UsersList } from "./types";
 import { unwrapUsers } from "./types";
@@ -11,6 +11,7 @@ type UsersTableProps = {
   onEdit: (id: number) => void;
   onView: (id: number) => void;
   onToggleStatus: (id: number, currentStatus: boolean) => void;
+  onResendWelcome?: (id: number) => void;
   onSelectedChange?: (ids: number[]) => void;
   resetKey?: number;
   sortKey?: SortKey;
@@ -120,6 +121,7 @@ export function UsersTable({
   onEdit,
   onView,
   onToggleStatus,
+  onResendWelcome,
   onSelectedChange,
   sortKey = "criadoEm",
   sortDir = "desc",
@@ -262,7 +264,7 @@ export function UsersTable({
                     : "—"}
                 </td>
 
-                {/* Ações: 👁 + ✏️ + toggle */}
+                {/* Ações: 👁 + ✏️ + reenviar? + toggle */}
                 <td className="px-3 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <button
@@ -281,6 +283,16 @@ export function UsersTable({
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
+                    {aguardandoAcesso && onResendWelcome && (
+                      <button
+                        onClick={() => onResendWelcome(user.id)}
+                        title="Reenviar email de boas-vindas"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-500 transition hover:bg-amber-500/10 hover:text-amber-600"
+                        aria-label={`Reenviar email de boas-vindas para ${user.nomeCompleto}`}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => onToggleStatus(user.id, isActive)}
                       title={isActive ? "Desativar" : "Ativar"}
