@@ -1,59 +1,88 @@
 // src/app/api/whatsapp/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { withErrorHandler } from '@/lib/api/error-handler';
+import crypto from 'crypto';
 
 // Webhook verification for WhatsApp Business API
-export const GET = withErrorHandler(async (request: NextRequest) => {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('hub.mode');
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-  // Verify webhook token
-  // Em produção, não aceita fallback para evitar configuração insegura.
   const envVerifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
   if (process.env.NODE_ENV === 'production' && !envVerifyToken) {
-    return NextResponse.json(
-      { error: 'Webhook não configurado' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Webhook não configurado' }, { status: 500 });
   }
-  const VERIFY_TOKEN = envVerifyToken || 'your_verify_token';
+  const VERIFY_TOKEN = envVerifyToken ?? 'your_verify_token';
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     return new NextResponse(challenge, { status: 200 });
   }
 
-  return NextResponse.json(
-    { error: 'Webhook verification failed' },
-    { status: 403 }
-  );
-});
+  return NextResponse.json({ error: 'Webhook verification failed' }, { status: 403 });
+}
+
+// Valida assinatura HMAC-SHA256 do Meta
+function verifyWebhookSignature(rawBody: string, signature: string | null, appSecret: string): boolean {
+  if (!signature) return false;
+  const expected = `sha256=${crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')}`;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
 
 // Handle incoming WhatsApp messages
-export const POST = withErrorHandler(async (request: NextRequest) => {
-    const body = await request.json();
+export async function POST(request: NextRequest) {
+  const rawBody = await request.text();
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
 
-    // Process incoming messages
-    if (body.object === 'whatsapp_business_account') {
-      (body.entry as { changes?: unknown[] }[])?.forEach((entry) => {
-        (entry.changes as { field?: string; value?: { messages?: unknown[] } }[])?.forEach((change) => {
-          if (change.field === 'messages') {
-             
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            (change.value?.messages as { from?: string; type?: string; text?: { body?: string }; timestamp?: string }[])?.forEach((message) => {
-              // Log only non-PII metadata (no message text)
-              if (process.env.NODE_ENV === 'development') {
-                // WhatsApp message received — add structured logging here when needed
-              }
-
-              // In production, process the message and respond accordingly
-              // This could trigger notifications, update records, etc.
-            });
-          }
-        });
-      });
+  // Validar assinatura em produção
+  if (process.env.NODE_ENV === 'production') {
+    if (!appSecret) {
+      return NextResponse.json({ error: 'Webhook não configurado' }, { status: 500 });
     }
+    const signature = request.headers.get('x-hub-signature-256');
+    if (!verifyWebhookSignature(rawBody, signature, appSecret)) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+  }
 
-    return NextResponse.json({ status: 'ok' });
-  });
+  let body: unknown;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const payload = body as {
+    object?: string;
+    entry?: Array<{
+      changes?: Array<{
+        field?: string;
+        value?: {
+          messages?: Array<{ from?: string; type?: string; text?: { body?: string }; timestamp?: string }>;
+          statuses?: Array<{ id?: string; status?: string; timestamp?: string }>;
+        };
+      }>;
+    }>;
+  };
+
+  if (payload.object === 'whatsapp_business_account') {
+    payload.entry?.forEach((entry) => {
+      entry.changes?.forEach((change) => {
+        if (change.field === 'messages') {
+          // Mensagens recebidas — processar status de entrega
+          change.value?.statuses?.forEach((status) => {
+            // status.id = messageId, status.status = 'sent' | 'delivered' | 'read' | 'failed'
+            // TODO: atualizar registro de entrega no banco quando implementado
+            void status;
+          });
+        }
+      });
+    });
+  }
+
+  return NextResponse.json({ status: 'ok' });
+}
