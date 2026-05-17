@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const empresaId = 1
+    const empresaId = user.empresaId
 
     const now = new Date()
     const defaultStart = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]

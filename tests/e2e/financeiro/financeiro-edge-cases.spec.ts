@@ -6,7 +6,7 @@ const ADMIN_PASSWORD = 'Admin@123456'
 
 test.describe('Financeiro Edge Cases', () => {
   test.beforeEach(async ({ page }) => {
-    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/dashboard/financeiro')
+    await seedAuthenticatedSessionWithMFA(page, ADMIN_EMAIL, ADMIN_PASSWORD, '/financeiro')
   })
 
   test('[EDGE-01] Body vazio em POST /api/financeiro/despesas retorna 400', async ({ page }) => {
@@ -49,7 +49,7 @@ test.describe('Financeiro Edge Cases', () => {
   })
 
   test('[EDGE-06] Dashboard financeiro não tem undefined/null visível', async ({ page }) => {
-    await page.goto('/dashboard/financeiro')
+    await page.goto('/financeiro')
     const content = await page.content()
     expect(content).not.toMatch(/>\s*undefined\s*<|>\s*\[object Object\]\s*</)
   })

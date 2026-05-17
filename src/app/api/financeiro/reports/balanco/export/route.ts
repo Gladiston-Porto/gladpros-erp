@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const empresaId = 1
+    const empresaId = user.empresaId
 
     const defaultEnd = new Date().toISOString().split('T')[0]
     const endDate = searchParams.get('endDate') ?? defaultEnd

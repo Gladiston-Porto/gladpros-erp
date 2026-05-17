@@ -8,8 +8,11 @@ import { ModulePageHeader } from "@gladpros/ui/module-page-header";
 import { Button } from "@gladpros/ui/button";
 import { Badge } from "@gladpros/ui/badge";
 import { ArrowRightLeft, Plus } from "lucide-react";
+import { ServerPagination } from "@/components/financeiro/shared/ServerPagination";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 20;
 
 const statusLabel: Record<string, string> = {
   PENDENTE: "Agendada",
@@ -25,11 +28,11 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
   FALHOU: "destructive",
 };
 
-async function TransferenciasContent({ empresaId }: { empresaId: number }) {
+async function TransferenciasContent({ empresaId, page }: { empresaId: number; page: number }) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [totalMesCount, totalMesSoma, transferencias] = await Promise.all([
+  const [totalMesCount, totalMesSoma, total, transferencias] = await Promise.all([
     prisma.bankTransfer.count({
       where: { empresaId, status: "CONCLUIDA", dataAgendamento: { gte: startOfMonth } },
     }),
@@ -37,6 +40,7 @@ async function TransferenciasContent({ empresaId }: { empresaId: number }) {
       where: { empresaId, status: "CONCLUIDA", dataAgendamento: { gte: startOfMonth } },
       _sum: { valor: true },
     }),
+    prisma.bankTransfer.count({ where: { empresaId } }),
     prisma.bankTransfer.findMany({
       where: { empresaId },
       select: {
@@ -50,7 +54,8 @@ async function TransferenciasContent({ empresaId }: { empresaId: number }) {
         toAccount: { select: { id: true, nome: true, banco: true } },
       },
       orderBy: { dataAgendamento: "desc" },
-      take: 50,
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
     }),
   ]);
 
@@ -101,9 +106,9 @@ async function TransferenciasContent({ empresaId }: { empresaId: number }) {
                   <th className="text-left px-6 py-3 text-muted-foreground font-medium">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border" data-testid="transferencias-table-body">
                 {transferencias.map((t) => (
-                  <tr key={t.id} className="hover:bg-muted/20 transition-colors">
+                  <tr key={t.id} className="hover:bg-muted/20 transition-colors" data-testid="transferencia-row">
                     <td className="px-6 py-3 text-foreground font-medium">{t.descricao}</td>
                     <td className="px-6 py-3 text-muted-foreground">
                       {t.fromAccount.nome}
@@ -117,7 +122,7 @@ async function TransferenciasContent({ empresaId }: { empresaId: number }) {
                       {fmt(Number(t.valor))}
                     </td>
                     <td className="px-6 py-3 text-muted-foreground">
-                      {new Date(t.dataAgendamento).toLocaleDateString("en-US")}
+                      {new Date(t.dataAgendamento).toLocaleDateString("en-US", { timeZone: "America/Chicago" })}
                     </td>
                     <td className="px-6 py-3">
                       <Badge variant={statusVariant[t.status]}>
@@ -131,15 +136,29 @@ async function TransferenciasContent({ empresaId }: { empresaId: number }) {
           </div>
         )}
       </div>
+
+      <ServerPagination
+        currentPage={page}
+        totalPages={Math.ceil(total / PAGE_SIZE)}
+        total={total}
+        pageSize={PAGE_SIZE}
+        basePath="/financeiro/transferencias"
+      />
     </div>
   );
 }
 
-export default async function TransferenciasPage() {
+export default async function TransferenciasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const user = await requireServerUser();
   if (!can(user.role as Role, "financeiro", "read")) redirect("/403");
 
   const empresaId = (user as unknown as { empresaId?: number }).empresaId ?? 1;
+  const sp = await searchParams;
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
 
   return (
     <div className="space-y-6">
@@ -157,7 +176,7 @@ export default async function TransferenciasPage() {
       </div>
 
       <Suspense fallback={<div className="animate-pulse h-64 rounded-2xl bg-muted" />}>
-        <TransferenciasContent empresaId={empresaId} />
+        <TransferenciasContent empresaId={empresaId} page={page} />
       </Suspense>
     </div>
   );

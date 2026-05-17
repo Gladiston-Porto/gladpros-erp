@@ -9,8 +9,11 @@ import { Button } from "@gladpros/ui/button";
 import { Badge } from "@gladpros/ui/badge";
 import { StatCard } from "@gladpros/ui/stat-card";
 import { TrendingUp, Plus, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { ServerPagination } from "@/components/financeiro/shared/ServerPagination";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 20;
 
 const statusLabel: Record<string, string> = {
   PENDENTE: "Pendente",
@@ -26,12 +29,13 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
   CANCELADA: "outline",
 };
 
-async function ReceitasContent({ empresaId }: { empresaId: number }) {
+async function ReceitasContent({ empresaId, page }: { empresaId: number; page: number }) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const listWhere = { empresaId, status: { not: "CANCELADA" as const } };
 
-  const [receitasMes, receitasPendentes, receitasVencidas, receitas] = await Promise.all([
+  const [receitasMes, receitasPendentes, receitasVencidas, total, receitas] = await Promise.all([
     prisma.revenue.aggregate({
       where: { empresaId, status: "RECEBIDA", dataVencimento: { gte: startOfMonth, lte: endOfMonth } },
       _sum: { valor: true },
@@ -47,8 +51,9 @@ async function ReceitasContent({ empresaId }: { empresaId: number }) {
       _sum: { valor: true },
       _count: true,
     }),
+    prisma.revenue.count({ where: listWhere }),
     prisma.revenue.findMany({
-      where: { empresaId, status: { not: "CANCELADA" } },
+      where: listWhere,
       select: {
         id: true,
         descricao: true,
@@ -61,7 +66,8 @@ async function ReceitasContent({ empresaId }: { empresaId: number }) {
         categoria: { select: { id: true, nome: true } },
       },
       orderBy: { dataVencimento: "desc" },
-      take: 50,
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
     }),
   ]);
 
@@ -126,9 +132,9 @@ async function ReceitasContent({ empresaId }: { empresaId: number }) {
                   <th className="px-6 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border" data-testid="receitas-table-body">
                 {receitas.map((r) => (
-                  <tr key={r.id} className="hover:bg-muted/20 transition-colors">
+                  <tr key={r.id} className="hover:bg-muted/20 transition-colors" data-testid="receita-row">
                     <td className="px-6 py-3 text-foreground font-medium">{r.descricao}</td>
                     <td className="px-6 py-3 text-muted-foreground">
                       {r.cliente?.nomeCompleto ?? r.cliente?.razaoSocial ?? "—"}
@@ -138,7 +144,7 @@ async function ReceitasContent({ empresaId }: { empresaId: number }) {
                       {fmt(Number(r.valor))}
                     </td>
                     <td className="px-6 py-3 text-muted-foreground">
-                      {new Date(r.dataVencimento).toLocaleDateString("en-US")}
+                      {new Date(r.dataVencimento).toLocaleDateString("en-US", { timeZone: "America/Chicago" })}
                     </td>
                     <td className="px-6 py-3">
                       <Badge variant={statusVariant[r.status]}>
@@ -160,15 +166,29 @@ async function ReceitasContent({ empresaId }: { empresaId: number }) {
           </div>
         )}
       </div>
+
+      <ServerPagination
+        currentPage={page}
+        totalPages={Math.ceil(total / PAGE_SIZE)}
+        total={total}
+        pageSize={PAGE_SIZE}
+        basePath="/financeiro/receitas"
+      />
     </div>
   );
 }
 
-export default async function ReceitasPage() {
+export default async function ReceitasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const user = await requireServerUser();
   if (!can(user.role as Role, "financeiro", "read")) redirect("/403");
 
   const empresaId = (user as unknown as { empresaId?: number }).empresaId ?? 1;
+  const sp = await searchParams;
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
 
   return (
     <div className="space-y-6">
@@ -186,7 +206,7 @@ export default async function ReceitasPage() {
       </div>
 
       <Suspense fallback={<div className="animate-pulse h-64 rounded-2xl bg-muted" />}>
-        <ReceitasContent empresaId={empresaId} />
+        <ReceitasContent empresaId={empresaId} page={page} />
       </Suspense>
     </div>
   );
