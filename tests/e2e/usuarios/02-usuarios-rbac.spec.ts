@@ -23,14 +23,11 @@ test.describe.serial('02 — Matriz RBAC por role', () => {
     expect(body.items).toBeDefined();
   });
 
-  test('GERENTE GET /api/usuarios → 200 (somente gerenciáveis)', async ({ request, gerenteHeaders }) => {
+  test('GERENTE GET /api/usuarios → 403 (sem acesso ao módulo)', async ({ request, gerenteHeaders }) => {
+    // GERENTE não tem acesso ao módulo usuarios (apenas ADMIN).
+    // Gerenciamento de workers ocorre via projetos, não pelo módulo de usuários do sistema.
     const res = await request.get(`${BASE}/api/usuarios`, { headers: gerenteHeaders });
-    expect(res.status()).toBe(200);
-    const body = await res.json();
-    // GERENTE vê USUARIO, FINANCEIRO, ESTOQUE — NÃO vê ADMIN, GERENTE, CLIENTE
-    for (const u of body.items) {
-      expect(['USUARIO', 'FINANCEIRO', 'ESTOQUE']).toContain(u.role);
-    }
+    expect(res.status()).toBe(403);
   });
 
   test('USUARIO GET /api/usuarios → 403 (sem roles gerenciáveis)', async ({ request, usuarioHeaders }) => {
@@ -95,35 +92,28 @@ test.describe.serial('02 — Matriz RBAC por role', () => {
     });
   });
 
-  test('GERENTE PATCH USUARIO → 200', async ({ request, gerenteHeaders }) => {
+  test('GERENTE PATCH USUARIO → 403 (sem acesso ao módulo)', async ({ request, gerenteHeaders }) => {
     const res = await request.patch(`${BASE}/api/usuarios/3`, {
       headers: gerenteHeaders,
       data: { nomeCompleto: 'Usuario Editado' },
     });
-    expect(res.status()).toBe(200);
-    // rollback via admin
-    const ah = await getAuthHeaders(mockUsers.admin);
-    await request.patch(`${BASE}/api/usuarios/3`, { headers: ah, data: { nomeCompleto: 'Usuario Test' } });
+    expect(res.status()).toBe(403);
   });
 
-  test('GERENTE PATCH FINANCEIRO → 200', async ({ request, gerenteHeaders }) => {
+  test('GERENTE PATCH FINANCEIRO → 403 (sem acesso ao módulo)', async ({ request, gerenteHeaders }) => {
     const res = await request.patch(`${BASE}/api/usuarios/5`, {
       headers: gerenteHeaders,
       data: { nomeCompleto: 'Financeiro Editado' },
     });
-    expect(res.status()).toBe(200);
-    const ah = await getAuthHeaders(mockUsers.admin);
-    await request.patch(`${BASE}/api/usuarios/5`, { headers: ah, data: { nomeCompleto: 'Financeiro Test' } });
+    expect(res.status()).toBe(403);
   });
 
-  test('GERENTE PATCH ESTOQUE → 200', async ({ request, gerenteHeaders }) => {
+  test('GERENTE PATCH ESTOQUE → 403 (sem acesso ao módulo)', async ({ request, gerenteHeaders }) => {
     const res = await request.patch(`${BASE}/api/usuarios/4`, {
       headers: gerenteHeaders,
       data: { nomeCompleto: 'Estoque Editado' },
     });
-    expect(res.status()).toBe(200);
-    const ah = await getAuthHeaders(mockUsers.admin);
-    await request.patch(`${BASE}/api/usuarios/4`, { headers: ah, data: { nomeCompleto: 'Estoque Test' } });
+    expect(res.status()).toBe(403);
   });
 
   test('GERENTE PATCH ADMIN → 403', async ({ request, gerenteHeaders }) => {
@@ -134,15 +124,17 @@ test.describe.serial('02 — Matriz RBAC por role', () => {
     expect(res.status()).toBe(403);
   });
 
-  test('GERENTE PATCH outro GERENTE → 403', async ({ request }) => {
-    // Não existe outro gerente no seed — testar contra si mesmo via role check
+  test('GERENTE PATCH próprio perfil (id=2) → 200 (self-edit permitido)', async ({ request }) => {
     const gerenteHeaders = await getAuthHeaders(mockUsers.gerente);
     const res = await request.patch(`${BASE}/api/usuarios/2`, {
       headers: gerenteHeaders,
-      data: { nomeCompleto: 'Self but hierarchy check' },
+      data: { nomeCompleto: 'Gerente Self Edit' },
     });
-    // Self-edit is allowed but role change would be blocked
-    expect([200, 403]).toContain(res.status());
+    // Self-edit é permitido mesmo sem 'update' no módulo — isSelfEdit bypass
+    expect(res.status()).toBe(200);
+    // rollback
+    const ah = await getAuthHeaders(mockUsers.admin);
+    await request.patch(`${BASE}/api/usuarios/2`, { headers: ah, data: { nomeCompleto: 'Gerente Test' } });
   });
 
   test('GERENTE PATCH com role=ADMIN → 403', async ({ request, gerenteHeaders }) => {
@@ -170,18 +162,9 @@ test.describe.serial('02 — Matriz RBAC por role', () => {
   });
 
   // ─── DELETE — hierarquia ───
-  test('GERENTE DELETE USUARIO → 200', async ({ request, gerenteHeaders, adminHeaders }) => {
-    // Create temp user to delete
-    const email = `rbac-del-${Date.now()}@e2e-test.com`;
-    const create = await request.post(`${BASE}/api/usuarios`, {
-      headers: adminHeaders,
-      data: { email, role: 'USUARIO' },
-    });
-    const createBody = await create.json();
-    const id = createBody.data?.id;
-
-    const res = await request.delete(`${BASE}/api/usuarios/${id}`, { headers: gerenteHeaders });
-    expect(res.status()).toBe(200);
+  test('GERENTE DELETE USUARIO → 403 (sem acesso ao módulo)', async ({ request, gerenteHeaders }) => {
+    const res = await request.delete(`${BASE}/api/usuarios/3`, { headers: gerenteHeaders });
+    expect(res.status()).toBe(403);
   });
 
   test('GERENTE DELETE ADMIN → 403', async ({ request, gerenteHeaders }) => {
@@ -209,12 +192,12 @@ test.describe.serial('02 — Matriz RBAC por role', () => {
     expect(res.headers()['content-type']).toContain('text/csv');
   });
 
-  test('GERENTE POST /export/csv → 200', async ({ request, gerenteHeaders }) => {
+  test('GERENTE POST /export/csv → 403 (sem acesso ao módulo)', async ({ request, gerenteHeaders }) => {
     const res = await request.post(`${BASE}/api/usuarios/export/csv`, {
       headers: gerenteHeaders,
       data: {},
     });
-    expect(res.status()).toBe(200);
+    expect(res.status()).toBe(403);
   });
 
   test('USUARIO POST /export/csv → 403', async ({ request, usuarioHeaders }) => {
