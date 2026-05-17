@@ -189,6 +189,7 @@ function ClientesToolbar({
               <button
                 type="button"
                 onClick={() => handleExport('csv')}
+                data-testid="clientes-export-csv-btn"
                 className="w-full px-4 py-2.5 text-left text-sm transition hover:bg-muted flex items-center gap-2"
               >
                 <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
@@ -197,6 +198,7 @@ function ClientesToolbar({
               <button
                 type="button"
                 onClick={() => handleExport('pdf')}
+                data-testid="clientes-export-pdf-btn"
                 className="w-full px-4 py-2.5 text-left text-sm transition hover:bg-muted flex items-center gap-2"
               >
                 <FilePdf className="h-4 w-4 text-rose-600" />
@@ -207,7 +209,7 @@ function ClientesToolbar({
         </div>
 
         {showNew && (
-          <Button asChild size="sm">
+          <Button asChild size="sm" data-testid="clientes-novo-btn">
             <Link href="/clientes/novo">
               <Plus className="h-4 w-4" />
               Novo Cliente
@@ -546,7 +548,7 @@ export default function ClientesListPage() {
         ]}
         actions={
           canCreate ? (
-            <Button asChild size="default">
+            <Button asChild size="default" data-testid="clientes-novo-header-btn">
               <Link href="/clientes/novo">
                 <Plus className="h-4 w-4" />
                 Novo Cliente
