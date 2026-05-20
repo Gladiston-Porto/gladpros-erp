@@ -88,12 +88,15 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     } else {
       where = buildWhereFromFilters(filters || {})
     }
+    // Scoped por empresa — proteção contra IDOR em operações de massa
+    where.empresaId = user.empresaId
 
     let count = 0
     if (action === 'activate' || action === 'deactivate') {
       const affected = await prisma.cliente.findMany({
         where,
-        select: { id: true, tipo: true, nomeCompleto: true, razaoSocial: true, nomeFantasia: true, email: true, telefone: true, endereco: true, status: true, docHash: true }
+        select: { id: true, tipo: true, nomeCompleto: true, razaoSocial: true, nomeFantasia: true, email: true, telefone: true, endereco: true, status: true, docHash: true },
+        take: 5000, // limite de segurança para operações em massa
       })
       if (affected.length === 0) {
         return NextResponse.json({ success: true, data: { processed: 0 } })
@@ -162,7 +165,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       // Soft delete — nunca apaga fisicamente. Muda status para INATIVO.
       const affected = await prisma.cliente.findMany({
         where,
-        select: { id: true, tipo: true, nomeCompleto: true, razaoSocial: true, nomeFantasia: true, email: true, status: true }
+        select: { id: true, tipo: true, nomeCompleto: true, razaoSocial: true, nomeFantasia: true, email: true, status: true },
+        take: 5000, // limite de segurança para operações em massa
       })
       if (affected.length === 0) {
         return NextResponse.json({ success: true, data: { processed: 0 } })

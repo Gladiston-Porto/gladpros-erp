@@ -58,7 +58,7 @@ function buildActiveBillingKey(projetoId: number, billingType: InvoiceBillingTyp
   return `PROJECT:${projetoId}:${billingType}:${billingReference ?? 'NONE'}`;
 }
 
-async function generateInvoiceNumber(): Promise<string> {
+async function generateInvoiceNumber(offset = 0): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `INV-${year}-`;
 
@@ -71,7 +71,7 @@ async function generateInvoiceNumber(): Promise<string> {
   let seq = 1;
   if (last) {
     const num = parseInt(last.numeroInvoice.substring(prefix.length), 10);
-    if (!isNaN(num)) seq = num + 1;
+    if (!isNaN(num)) seq = num + 1 + offset;
   }
 
   return `${prefix}${String(seq).padStart(6, '0')}`;
@@ -173,8 +173,6 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       };
     }
 
-    const numeroInvoice = await generateInvoiceNumber();
-
     // Build invoice items with proper typing
     const itens: Array<{
       tipo: 'SERVICE' | 'MATERIAL' | 'OTHER';
@@ -251,9 +249,12 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       };
     }
 
-    let invoice: { id: number; numeroInvoice: string; valorTotal: Prisma.Decimal };
+    let invoice: { id: number; numeroInvoice: string; valorTotal: Prisma.Decimal } | null = null;
     try {
-      invoice = await prisma.$transaction(async (tx) => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const numeroInvoice = await generateInvoiceNumber(attempt);
+          invoice = await prisma.$transaction(async (tx) => {
       const [
         invoiceExistente,
         serviceOrderFaturada,
@@ -355,7 +356,7 @@ export class PrismaFinanceGateway implements IFinanceGateway {
           notas: dados.descricao,
           termos: dados.observacoes,
           criadoPor: dados.usuarioId,
-          empresaId: 1,
+          empresaId: dados.empresaId,
           itens: { create: itens },
         },
         select: { id: true, numeroInvoice: true, valorTotal: true },
@@ -381,7 +382,19 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       });
 
       return created;
-      });
+          });
+          break;
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002' &&
+            attempt < 2
+          ) {
+            continue;
+          }
+          throw error;
+        }
+      }
     } catch (error) {
       if (error instanceof ProjectInvoiceRuleError) {
         return { sucesso: false, mensagem: error.message };
@@ -390,6 +403,10 @@ export class PrismaFinanceGateway implements IFinanceGateway {
         return { sucesso: false, mensagem: 'Já existe uma invoice ativa para este faturamento' };
       }
       throw error;
+    }
+
+    if (!invoice) {
+      return { sucesso: false, mensagem: 'Não foi possível gerar número único para invoice' };
     }
 
     return {
@@ -421,8 +438,7 @@ export class PrismaFinanceGateway implements IFinanceGateway {
   }
 
   async listarInvoices(filtros: ListarInvoicesDTO): Promise<ListarInvoicesResponse> {
-    // Single-tenant default: empresaId = 1. Future: pass empresaId from context.
-    const where: Prisma.InvoiceWhereInput = { empresaId: 1 };
+    const where: Prisma.InvoiceWhereInput = { empresaId: filtros.empresaId ?? 1 };
     if (filtros.projetoId) where.projetoId = filtros.projetoId;
     if (filtros.clienteId) where.clienteId = filtros.clienteId;
     if (filtros.status) {
@@ -554,7 +570,7 @@ export class PrismaFinanceGateway implements IFinanceGateway {
     };
   }
 
-  async obterResumoFinanceiro(projetoId: number): Promise<ResumoFinanceiroProjeto> {
+  async obterResumoFinanceiro(projetoId: number, empresaId = 1): Promise<ResumoFinanceiroProjeto> {
     const projeto = await prisma.projeto.findUnique({
       where: { id: projetoId },
       select: { numeroProjeto: true, valorEstimado: true },
@@ -562,13 +578,13 @@ export class PrismaFinanceGateway implements IFinanceGateway {
 
     const [invoiceAgg, invoicesByStatus, materialAgg, expenseAgg, costBreakdown] = await Promise.all([
       prisma.invoice.aggregate({
-        where: { projetoId, empresaId: 1, status: { not: 'CANCELLED' } },
+        where: { projetoId, empresaId, status: { not: 'CANCELLED' } },
         _sum: { valorTotal: true, valorPago: true },
         _count: { _all: true },
       }),
       prisma.invoice.groupBy({
         by: ['status'],
-        where: { projetoId, empresaId: 1, status: { not: 'CANCELLED' } },
+        where: { projetoId, empresaId, status: { not: 'CANCELLED' } },
         _count: { _all: true },
       }),
       prisma.projetoMaterialEstoque.aggregate({

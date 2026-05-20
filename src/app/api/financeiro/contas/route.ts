@@ -138,7 +138,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const body = await request.json();
     
     // Valida dados
-    const validated = createBankAccountSchema.parse(body) as CreateBankAccountInput;
+    const validated = createBankAccountSchema.parse({
+      ...body,
+      empresaId: user.empresaId,
+    }) as CreateBankAccountInput;
     
     // Verifica se empresa existe
     const empresa = await prisma.empresa.findUnique({

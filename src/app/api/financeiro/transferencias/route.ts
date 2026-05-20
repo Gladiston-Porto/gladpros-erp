@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Decimal } from "@prisma/client/runtime/library";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
@@ -14,7 +15,6 @@ import {
   createBankTransferSchema,
   bankTransferFiltersSchema,
   validarSaldoDisponivel,
-  calcularSaldoPosterior,
   type CreateBankTransferInput
 } from "@/schemas/bank-account.schema";
 
@@ -149,12 +149,15 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const body = await request.json();
     
     // Valida dados
-    const validated = createBankTransferSchema.parse(body) as CreateBankTransferInput;
+    const validated = createBankTransferSchema.parse({
+      ...body,
+      empresaId: user.empresaId,
+    }) as CreateBankTransferInput;
     
     // Busca contas de origem e destino
     const [fromAccount, toAccount] = await Promise.all([
-      prisma.bankAccount.findUnique({
-        where: { id: validated.fromAccountId },
+      prisma.bankAccount.findFirst({
+        where: { id: validated.fromAccountId, empresaId: user.empresaId },
         select: {
           id: true,
           empresaId: true,
@@ -166,8 +169,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         }
       }),
       
-      prisma.bankAccount.findUnique({
-        where: { id: validated.toAccountId },
+      prisma.bankAccount.findFirst({
+        where: { id: validated.toAccountId, empresaId: user.empresaId },
         select: {
           id: true,
           empresaId: true,
@@ -194,7 +197,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       }, { status: 400 });
     }
     
-    if (fromAccount.empresaId !== validated.empresaId) {
+    if (fromAccount.empresaId !== user.empresaId) {
       return NextResponse.json({
         success: false,
         message: "Conta de origem pertence a outra empresa"
@@ -216,7 +219,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       }, { status: 400 });
     }
     
-    if (toAccount.empresaId !== validated.empresaId) {
+    if (toAccount.empresaId !== user.empresaId) {
       return NextResponse.json({
         success: false,
         message: "Conta de destino pertence a outra empresa"
@@ -240,10 +243,37 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     
     // Cria transferência e transações em uma única transação do banco
     const resultado = await prisma.$transaction(async (tx) => {
+      const [fromAccountTx, toAccountTx] = await Promise.all([
+        tx.bankAccount.findFirst({
+          where: { id: validated.fromAccountId, empresaId: user.empresaId },
+          select: { id: true, nome: true, saldoAtual: true, limiteCredito: true, ativo: true },
+        }),
+        tx.bankAccount.findFirst({
+          where: { id: validated.toAccountId, empresaId: user.empresaId },
+          select: { id: true, nome: true, saldoAtual: true, ativo: true },
+        }),
+      ]);
+
+      if (!fromAccountTx || !toAccountTx || !fromAccountTx.ativo || !toAccountTx.ativo) {
+        throw new Error("Conta de origem ou destino não encontrada ou inativa");
+      }
+
+      const saldoOrigemAnterior = Number(fromAccountTx.saldoAtual);
+      const validacaoSaldoTx = validarSaldoDisponivel(
+        saldoOrigemAnterior,
+        fromAccountTx.limiteCredito ? Number(fromAccountTx.limiteCredito) : null,
+        validated.valor,
+        "TRANSFERENCIA_SAIDA"
+      );
+
+      if (!validacaoSaldoTx.valido) {
+        throw new Error(validacaoSaldoTx.mensagem);
+      }
+
       // Cria registro de transferência
       const transferencia = await tx.bankTransfer.create({
         data: {
-          empresaId: validated.empresaId,
+          empresaId: user.empresaId,
           fromAccountId: validated.fromAccountId,
           toAccountId: validated.toAccountId,
           valor: validated.valor,
@@ -258,33 +288,54 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         }
       });
       
-      // Calcula novos saldos
-      const novoSaldoOrigem = calcularSaldoPosterior(
-        Number(fromAccount.saldoAtual),
-        validated.valor,
-        "TRANSFERENCIA_SAIDA"
-      );
-      
-      const novoSaldoDestino = calcularSaldoPosterior(
-        Number(toAccount.saldoAtual),
-        validated.valor,
-        "TRANSFERENCIA_ENTRADA"
-      );
-      
- 
-      
+      const amount = new Decimal(validated.valor);
+      const creditLimit = new Decimal(fromAccountTx.limiteCredito ?? 0);
+      const saldoMinimo = amount.minus(creditLimit);
+      const requiredSaldo = saldoMinimo.gt(0) ? saldoMinimo : new Decimal(0);
+      const debited = await tx.bankAccount.updateMany({
+        where: {
+          id: validated.fromAccountId,
+          empresaId: user.empresaId,
+          ativo: true,
+          saldoAtual: { gte: requiredSaldo },
+        },
+        data: { saldoAtual: { decrement: amount } }
+      });
+
+      if (debited.count !== 1) {
+        throw new Error("Saldo insuficiente ou conta alterada durante a transferência");
+      }
+       
+      await tx.bankAccount.update({
+        where: { id: validated.toAccountId },
+        data: { saldoAtual: { increment: amount } }
+      });
+
+      const [updatedFromAccount, updatedToAccount] = await Promise.all([
+        tx.bankAccount.findUniqueOrThrow({
+          where: { id: validated.fromAccountId },
+          select: { saldoAtual: true },
+        }),
+        tx.bankAccount.findUniqueOrThrow({
+          where: { id: validated.toAccountId },
+          select: { saldoAtual: true },
+        }),
+      ]);
+      const novoSaldoOrigem = new Decimal(updatedFromAccount.saldoAtual);
+      const novoSaldoDestino = new Decimal(updatedToAccount.saldoAtual);
+       
       // Cria transação de saída
       const _transacaoSaida = await tx.bankTransaction.create({
         data: {
           accountId: validated.fromAccountId,
-          empresaId: validated.empresaId,
+          empresaId: user.empresaId,
           tipo: "TRANSFERENCIA_SAIDA",
           categoria: "Transferência",
-          valor: validated.valor,
+          valor: amount,
           descricao: `Transferência para ${toAccount.nome}`,
           documento: `TRF-${transferencia.id}`,
           dataTransacao: new Date(),
-          saldoAnterior: Number(fromAccount.saldoAtual),
+          saldoAnterior: novoSaldoOrigem.plus(amount),
           saldoPosterior: novoSaldoOrigem,
           transferId: transferencia.id,
           reconciliada: true,
@@ -298,30 +349,19 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       const _transacaoEntrada = await tx.bankTransaction.create({
         data: {
           accountId: validated.toAccountId,
-          empresaId: validated.empresaId,
+          empresaId: user.empresaId,
           tipo: "TRANSFERENCIA_ENTRADA",
           categoria: "Transferência",
-          valor: validated.valor,
+          valor: amount,
           descricao: `Transferência de ${fromAccount.nome}`,
           documento: `TRF-${transferencia.id}`,
           dataTransacao: new Date(),
-          saldoAnterior: Number(toAccount.saldoAtual),
+          saldoAnterior: novoSaldoDestino.minus(amount),
           saldoPosterior: novoSaldoDestino,
           transferId: transferencia.id,
           reconciliada: true,
           dataReconciliacao: new Date()
         }
-      });
-      
-      // Atualiza saldos das contas
-      await tx.bankAccount.update({
-        where: { id: validated.fromAccountId },
-        data: { saldoAtual: novoSaldoOrigem }
-      });
-      
-      await tx.bankAccount.update({
-        where: { id: validated.toAccountId },
-        data: { saldoAtual: novoSaldoDestino }
       });
       
       // Atualiza status da transferência

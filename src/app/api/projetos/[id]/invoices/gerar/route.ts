@@ -93,6 +93,7 @@ export const POST = withErrorHandler(async (req: NextRequest,
 
   const gateway = getPrismaFinanceGateway();
   const resultado = await gateway.gerarInvoice({
+    empresaId: user.empresaId,
     projetoId,
     usuarioId: parseInt(user.id, 10),
     billingType: billingType as TipoFaturamentoProjeto,

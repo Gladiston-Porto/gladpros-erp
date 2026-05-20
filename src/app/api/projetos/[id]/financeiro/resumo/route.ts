@@ -26,7 +26,7 @@ export const GET = withErrorHandler(async (req: NextRequest,
   await requireProjectAccess(user, projetoId, 'canViewFinancials');
 
   const gateway = getFinanceGateway();
-  const resumo = await gateway.obterResumoFinanceiro(projetoId);
+  const resumo = await gateway.obterResumoFinanceiro(projetoId, user.empresaId);
 
   // `obterResumoFinanceiro` retorna objeto vazio-ish se não encontrado — verificar
   if (!resumo.numeroProjeto) {

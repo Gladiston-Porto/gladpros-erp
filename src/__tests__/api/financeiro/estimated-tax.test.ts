@@ -88,6 +88,7 @@ const validPostBody = {
   taxYear: 2026,
   quarter: 'Q1',
   paidAmount: 2500,
+  bankAccountId: 9,
   paidDate: '2026-04-15T00:00:00.000Z',
   notas: 'Q1 2026 quarterly estimated tax — Dallas TX',
 }
@@ -351,13 +352,9 @@ describe('POST /api/financeiro/estimated-tax', () => {
     expect(body.data).toBeDefined()
   })
 
-  it('201 — FINANCEIRO records payment with paidAmount = 0 (free quarter)', async () => {
+  it('400 — rejects paidAmount = 0 because payments must move cash', async () => {
     mockRequireUser.mockResolvedValue(financeiroUser as any)
     mockCan.mockReturnValue(true)
-    mockRecordPayment.mockResolvedValue({
-      success: true,
-      data: { id: 11, taxYear: 2026, quarter: 'Q2', paidAmount: 0 },
-    } as any)
 
     const req = new NextRequest(
       'http://localhost/api/financeiro/estimated-tax',
@@ -368,16 +365,8 @@ describe('POST /api/financeiro/estimated-tax', () => {
     )
     const res = await POST(req)
 
-    expect(res.status).toBe(201)
-    expect(mockRecordPayment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        empresaId: 1,
-        taxYear: 2026,
-        quarter: 'Q2',
-        paidAmount: 0,
-        userId: 2,
-      }),
-    )
+    expect(res.status).toBe(400)
+    expect(mockRecordPayment).not.toHaveBeenCalled()
   })
 
   // ─── Business rule failure ───────────────────────────────────────────────────

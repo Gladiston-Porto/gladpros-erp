@@ -228,7 +228,7 @@ export function PropostasTable({
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(proposta.id)}>
+                    <Button variant="ghost" size="sm" onClick={() => onEdit(proposta.id)} aria-label={`Editar proposta ${proposta.titulo}`}>
                       Editar
                     </Button>
                     <Button

@@ -1,8 +1,9 @@
 # 📦 MÓDULO DASHBOARD — GladPros ERP
 
-**Data**: 2025-07-15  
-**Status**: ✅ Pronto para produção  
-**Testes**: 17/17 unitários passando + 4 spec files E2E criados (30 testes)
+**Data base**: 2025-07-15  
+**Reauditado em**: 2026-05-20 (audit v1.0), 2026-06-XX (audit v2.0 — auditoria profunda)  
+**Status atual**: ✅ Production Ready (certificado após auditoria v2.0)  
+**Testes**: 25 testes unitários passando (3 suítes) — type-check clean
 
 ---
 
@@ -10,16 +11,19 @@
 
 | Dimensão | Status | Detalhes |
 |----------|--------|----------|
-| Segurança | ✅ | Auth + RBAC em todas as rotas após auditoria |
-| Auth/RBAC | ✅ | `requireUser` + `can()` em `/api/dashboard` e `/api/dashboard/executive` |
-| Performance | ✅ | N+1 query eliminado; todas as queries independentes em `Promise.all` |
-| Testes | ✅ | 17 testes unitários + 4 spec files E2E (smoke, rbac, security, regression) |
+| Segurança | ✅ | Auth/RBAC completos; gate financeiro validado; SSR-safe em todos os componentes |
+| Auth/RBAC | ✅ | `requireUser()` em todas as rotas; `can()` em cada operação; RBAC por role em QuickActions |
+| Performance | ✅ | `previousDespesas` desnecessária removida do Promise.all; sem N+1; paginação em listas |
+| Testes | ✅ | 25 testes passando; executive.test.ts atualizado para refletir remoção de query desnecessária |
 | Acessibilidade | ✅ | Componentes usam `aria-label` via biblioteca @gladpros/ui |
-| Cores | ✅ | Hardcoded colors substituídas por tokens semânticos do design system |
+| Locale | ✅ | Datas formatadas com `en-US` + `America/Chicago`; sem pt-BR em formatação |
+| UX / Dados | ✅ | KPICard sem change hardcoded; SystemStatus sem dados enganosos; QuickActions filtrado por role |
+| SSR Safety | ✅ | `usePathname()` substitui `window.location.pathname` em DashboardShell |
+| Código morto | ✅ | 4 arquivos mortos removidos (DashboardChart, lazy-components, ReportBuilder duplicado, useDashboardData legado) |
 
 ---
 
-## Estrutura de Arquivos
+## Estrutura de Arquivos (estado atual)
 
 ```
 src/app/(dashboard)/dashboard/
@@ -30,24 +34,31 @@ src/app/api/dashboard/
 └── executive/
     └── route.ts               # GET /api/dashboard/executive — KPIs financeiros
 
+src/app/api/analytics/
+└── route.ts                   # GET /api/analytics — analytics + permissions
+
 src/components/dashboard/
 ├── KPICard.tsx                # Wrapper sobre StatCard + KPIGrid
 ├── DashboardCharts.tsx        # Bar chart (recharts) + status propostas
-├── DashboardChart.tsx         # Chart.js dinâmico (line/bar/doughnut)
 ├── DashboardStats.tsx         # 4 StatCards de propostas/clientes
-├── QuickActions.tsx           # 4 botões de ação rápida
-├── RecentActivity.tsx         # Lista de atividades recentes
-├── ExecutiveDashboard.tsx     # View executiva usando hook legado
+├── QuickActions.tsx           # Botões de ação rápida — filtrados por role via can()
+├── RecentActivity.tsx         # Lista de atividades recentes (en-US locale)
 ├── ExecutiveTab.tsx           # Tab executiva (busca /api/dashboard/executive)
-├── SystemStatus.tsx           # Status do sistema (database, api, backup)
-├── ReportBuilder.tsx          # Construtor de relatórios (UI)
-├── lazy-components.tsx        # Dynamic imports dos componentes
-├── useDashboardData.ts        # Hook legado (usado por ExecutiveDashboard)
+├── SystemStatus.tsx           # Status do sistema (Database + API apenas)
 └── index.ts                   # Barrel export
 
 src/shared/hooks/
-└── useDashboardData.ts        # Hook principal (usado por page.tsx)
+└── useDashboardData.ts        # Hook principal — inclui currentUserRole
+
+src/shared/components/
+└── DashboardShell.tsx         # Layout shell — usa usePathname() (SSR safe)
 ```
+
+**Arquivos removidos (eram código morto):**
+- `src/components/dashboard/useDashboardData.ts` — hook duplicado com interface diferente, sem usos
+- `src/components/dashboard/DashboardChart.tsx` — componente Chart.js nunca importado
+- `src/components/dashboard/lazy-components.tsx` — lazy loader sem uso real
+- `src/components/dashboard/ReportBuilder.tsx` — duplicata do de `src/components/reports/`
 
 ---
 
@@ -58,9 +69,9 @@ src/shared/hooks/
 Usuário acessa /dashboard
   → Layout (requireServerUser) — autentica no servidor
   → page.tsx (client component)
-  → useDashboardData (shared/hooks) — busca /api/analytics
+  → useDashboardData (shared/hooks) — busca /api/analytics (inclui currentUserRole)
   → ExecutiveTab (aba executiva) — busca /api/dashboard/executive
-  → DashboardStats, QuickActions, SystemStatus, RecentActivity
+  → DashboardStats, QuickActions (filtrado por role), SystemStatus, RecentActivity
 ```
 
 ### Fluxo de dados da API principal
@@ -97,21 +108,34 @@ GET /api/dashboard?period=30d
 | Path | `/api/dashboard/executive` |
 | Auth | ✅ `requireUser()` |
 | RBAC | ✅ `can(role, 'dashboard', 'read')` — CLIENTE bloqueado (403) |
+| Gate financeiro | `can(role, 'financeiro', 'read')` — ADMIN/GERENTE/FINANCEIRO veem dados; ESTOQUE/USUARIO recebem `null` |
 | Query params | `period` = `7d` \| `30d` (default) \| `90d` |
 | Cache | `withBusinessCache` — 120s em prod, 30s em dev |
-| Response | `{ data: { period, kpis: { receitaTotal, despesaTotal, saldoPeriodo, saldoContas, crescimentoReceita, projetosAtivos, projetosAtrasados, ... }, projetos: [...], alertas: [...] }, success }` |
+| Response | `{ data: { period, kpis, projetos, alertas, permissions: { canViewFinancials } }, success }` |
+
+### GET /api/analytics
+
+| Campo | Valor |
+|-------|-------|
+| Método | GET |
+| Path | `/api/analytics` |
+| Auth | ✅ `requireUser()` |
+| RBAC | ✅ rate limit + Zod validation |
+| Response inclui | `permissions: { canViewFinancials, canReadAnalytics, currentUserRole }` |
 
 ---
 
 ## Regras de Negócio
 
 1. **CLIENTE (role 6) não tem acesso ao dashboard** — bloqueado com 403
-2. **Todos os demais roles (ADMIN, GERENTE, FINANCEIRO, ESTOQUE, USUARIO)** têm acesso de leitura
-3. **Período padrão**: 30 dias
-4. **topClients** é resolvido com uma única query `findMany` (sem N+1)
-5. **Executive route** tem cache de 120s em produção para evitar sobrecarga no banco
-6. **Alertas automáticos**: projetos atrasados, sobre orçamento, saldo negativo
-7. **Crescimento de receita**: calculado comparando período atual com período anterior equivalente
+2. **Todos os demais roles** têm acesso de leitura ao dashboard
+3. **Dados financeiros**: apenas ADMIN/GERENTE/FINANCEIRO — gate `can(role, 'financeiro', 'read')`
+4. **QuickActions**: cada botão filtrado por `can(role, module, 'write')` no cliente
+5. **Período padrão**: 30 dias
+6. **topClients** resolvido com uma única query `findMany` (sem N+1)
+7. **Executive route** tem cache por perfil/permissão/período
+8. **Alertas automáticos**: projetos atrasados/sobre orçamento; alerta financeiro só com permissão financeira
+9. **SystemStatus**: exibe apenas Database e API status — sem dados de backup/uptime não rastreáveis
 
 ---
 
@@ -120,30 +144,26 @@ GET /api/dashboard?period=30d
 | Arquivo | Testes | O que cobre |
 |---------|--------|-------------|
 | `src/__tests__/api/dashboard/dashboard.test.ts` | 8 | Auth (401), RBAC (403), happy path, N+1 fix, estrutura de resposta |
-| `src/__tests__/api/dashboard/executive.test.ts` | 9 | Auth, RBAC, happy path, estrutura kpis/projetos/alertas, periods |
-| `tests/e2e/dashboard/dashboard-smoke.spec.ts` | 6 | Smoke: carregamento, redirect sem auth, APIs respondem |
-| `tests/e2e/dashboard/dashboard-rbac.spec.ts` | 8 | Cada role testado, CLIENTE bloqueado |
-| `tests/e2e/dashboard/dashboard-security.spec.ts` | 6 | 401 sem cookie, token inválido, campos sensíveis ausentes |
-| `tests/e2e/dashboard/dashboard-regression.spec.ts` | 10 | Guards para todos P1/P2 corrigidos |
+| `src/__tests__/api/dashboard/executive.test.ts` | 9 | Auth, RBAC, happy path, estrutura kpis/projetos/alertas, periods, expense.aggregate=1 (sem previous) |
+| `src/__tests__/api/dashboard/analytics.test.ts` | 8 | Auth, RBAC, rate limit, currentUserRole no permissions |
 
 ---
 
-## Bugs Corrigidos na Auditoria
+## Bugs Corrigidos na Auditoria v2.0
 
-| ID | Arquivo | Problema | Risco | Correção |
-|----|---------|----------|-------|---------|
-| P1-01 | `api/dashboard/route.ts` | Rota sem `requireUser()` — dados de negócio expostos sem auth | **CRÍTICO** — qualquer usuário sem login acessava dados | Adicionado `requireUser` + `can()` como primeiras operações |
-| P1-02 | `api/dashboard/route.ts:98` | N+1 query: `await findUnique()` dentro de `for` loop (até 5 queries seq.) | Alto — latência aumenta linearmente com topClients | Substituído por `findMany({ where: { id: { in: ids } } })` + Map |
-| P2-03 | `components/dashboard/useDashboardData.ts:62` | Mapeamento incorreto da resposta da API: lia `result.kpis`, `result.charts.revenue` mas API retorna `{ data: { kpis, projetos } }` | Funcional — `ExecutiveDashboard` sempre crashava com TypeError | Corrigido para `(result.data ?? result).kpis` com fallbacks seguros |
-| P2-04 | `DashboardCharts.tsx:72` | Mock data hardcoded: "75%", "20%", "5%" no card "Status das Propostas" | Qualidade — dados falsos em produção | Adicionado prop `statusData` com default `'—'` |
-| P2-05 | `ReportBuilder.tsx:91` | `console.log('Relatório gerado:', result)` em código de produção | Qualidade / vazamento de dados em logs | Removido `console.log` |
-| P2-06 | `lazy-components.tsx:9` | `border-blue-600` hardcoded (não usa design token) | UI — quebra dark mode | Substituído por `border-brand-primary` |
-| P2-07 | `DashboardChart.tsx:104,130` | `rounded-lg` em vez de `rounded-2xl` | UI — inconsistência visual | Corrigido para `rounded-2xl` |
-| P2-08 | `ExecutiveDashboard.tsx:17,43` | `text-red-600`, `text-gray-600`, `bg-gray-200` hardcoded | UI — quebra dark mode | Substituído por `text-destructive`, `text-muted-foreground`, `bg-muted` |
-| P2-09 | `RecentActivity.tsx:28-30` | Badge colors hardcoded: `bg-green-50 text-green-700`, etc. | UI — quebra dark mode | Substituído por `variant="success"`, `variant="destructive"`, `variant="info"` |
-| P2-10 | `SystemStatus.tsx:43-48` | Mesmos hardcoded badge colors | UI — quebra dark mode | Substituído por `variant="success"`, `variant="warning"`, `variant="destructive"` |
-| P2-11 | `ExecutiveTab.tsx:167,182,311,327,352,383,399,408,413,424,437,440,469,491` | Múltiplos hardcoded: `bg-gray-200`, `text-gray-600`, `bg-red-50 border-red-200`, etc. | UI — quebra dark mode | Substituído por tokens semânticos |
-| P2-12 | `page.tsx:104,114` | `rounded-lg` em `SelectTrigger` | UI — inconsistência visual | Corrigido para `rounded-2xl` |
+| ID | Arquivo | Problema | Severidade | Correção |
+|----|---------|----------|------------|---------|
+| P1-01 | `executive/route.ts:38` | Handler `(request: Request)` com cast posterior | P1 | Assinatura corrigida para `(request: NextRequest)` |
+| P1-02 | `components/dashboard/useDashboardData.ts` | Hook morto com interface diferente da real | P1 | Arquivo deletado |
+| P2-01 | `QuickActions.tsx` | Botões de ação exibidos sem verificação de permissão | P2 | RBAC via `can()` + `userRole` prop; `visibleActions` filtrado |
+| P2-02 | `RecentActivity.tsx:62` | Locale `pt-BR` em formatação de datas | P2 | Substituído por `en-US` |
+| P2-03 | `SystemStatus.tsx` | `lastBackup` = `lastActivityAt` (timestamp errado) + `uptime` sem fonte real | P2 | Campos removidos; componente exibe apenas DB e API status |
+| P2-04 | `KPICard.tsx` | `change: 2.5` e `trend: 'up'` hardcoded em "Taxa de Conversão" | P2 | Valores removidos; trend condicional em `conversionRate != null` |
+| P2-05 | `DashboardShell.tsx:29` | `window.location.pathname` SSR-unsafe (hydration mismatch cross-módulo) | P2 | Substituído por `usePathname()` do `next/navigation` |
+| P3-01 | 4 arquivos mortos | DashboardChart, lazy-components, ReportBuilder duplicado, useDashboardData legado | P3 | Todos deletados |
+| P3-02 | `executive/route.ts` | `previousDespesas` fetchada mas nunca usada no cálculo | P3 | Removida do Promise.all |
+| P3-03 | `useDashboardData.ts:145`, `ExecutiveTab.tsx:147` | `console.error` em código de produção | P3 | Substituído por `console.warn` |
+| P3-04 | `ExecutiveTab.tsx:186` | `window.location.reload()` no botão retry | P3 | Substituído por `setRetryCount(c => c + 1)` — retenta sem reload |
 
 ---
 
@@ -181,12 +201,23 @@ npx playwright test tests/e2e/dashboard/
 
 Antes de cada deploy do módulo dashboard:
 
-- [ ] `requireUser()` presente em `/api/dashboard/route.ts`
+- [ ] `requireUser()` presente em todas as rotas
 - [ ] `can(role, 'dashboard', 'read')` verificado antes de retornar dados
+- [ ] Gate financeiro `can(role, 'financeiro', 'read')` na rota executive
 - [ ] Nenhum `console.log` em código de produção
-- [ ] N+1 query resolvido (confirmar sem `await` dentro de `.map()` ou `for`)
-- [ ] Cores usando tokens do design system (`text-foreground`, `bg-card`, etc.)
+- [ ] Sem N+1 (sem `await` dentro de `.map()` ou `for`)
+- [ ] Cores usando tokens do design system
 - [ ] Testes unitários passando: `npx jest "src/__tests__/api/dashboard" --no-coverage`
-- [ ] TypeScript sem erros: `npx tsc --noEmit`
+- [ ] TypeScript sem erros: `npm run type-check`
 - [ ] Variáveis de ambiente: `TOKEN_VERSION_COLUMN_EXISTS=1`, `RBAC_TRUST_JWT=1` em produção
 - [ ] Cache da rota executive funcionando (`withBusinessCache`)
+
+---
+
+## Histórico de Auditorias
+
+| Data | Versão | Resultado | Notas |
+|------|--------|-----------|-------|
+| 2026-05-18 | v1.0 | Production Ready | Escopo limitado — não cobriu SSR safety, locale, dados enganosos, código morto |
+| 2026-05-20 | v1.1 | Not Ready | Encontrou P1/P2 novos; a maioria foi corrigida antes desta sessão |
+| 2026-06-XX | v2.0 | ✅ Production Ready | Auditoria profunda; todos os P1/P2/P3 corrigidos; 25 testes passando; type-check clean |

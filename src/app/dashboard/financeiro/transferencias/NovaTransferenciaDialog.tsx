@@ -40,7 +40,7 @@ export default function NovaTransferenciaDialog({ onSuccess }: Props) {
 
   const loadContas = useCallback(async () => {
     try {
-      const res = await fetch('/api/financeiro/contas?empresaId=1&ativo=true')
+      const res = await fetch('/api/financeiro/contas?ativo=true')
       const data = await res.json()
       if (data.success) setContas(data.data)
     } catch {
@@ -88,7 +88,6 @@ export default function NovaTransferenciaDialog({ onSuccess }: Props) {
           valor: Number(form.valor),
           descricao: form.descricao,
           dataAgendamento: new Date(form.data).toISOString(),
-          empresaId: 1,
         }),
       })
 

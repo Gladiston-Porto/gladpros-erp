@@ -101,9 +101,8 @@ export const KPIGrid = ({ kpis }: KPIGridProps) => {
     {
       title: 'Taxa de Conversão',
       value: kpis.conversionRate,
-      change: 2.5,
       icon: <Target className="size-5" />,
-      trend: 'up' as const,
+      trend: kpis.conversionRate != null ? 'up' as const : undefined,
     },
   ];
 

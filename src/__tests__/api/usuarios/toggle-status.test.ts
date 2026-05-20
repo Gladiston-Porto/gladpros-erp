@@ -138,4 +138,31 @@ describe('PUT /api/usuarios/:id/toggle-status', () => {
     expect(body.success).toBe(true);
     expect(body.data.status).toBe('INATIVO');
   });
+
+  it('desativar — incrementa tokenVersion para invalidar sessões existentes', async () => {
+    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 5, status: 'ATIVO', email: 'user@test.com', nivel: 'USUARIO',
+    });
+    (prisma.usuario.update as jest.Mock).mockResolvedValueOnce({ id: 5, status: 'INATIVO', tokenVersion: 1 });
+    (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([{ cnt: 0 }]); // não é ADMIN
+    const { PUT } = await import('@/app/api/usuarios/[id]/toggle-status/route');
+    await PUT(makePutRequest('5'), { params: Promise.resolve({ id: '5' }) });
+    const updateCall = (prisma.usuario.update as jest.Mock).mock.calls[0][0];
+    // tokenVersion deve ser incrementado ao desativar
+    expect(updateCall.data).toMatchObject({ status: 'INATIVO', tokenVersion: { increment: 1 } });
+  });
+
+  it('reativar — NÃO incrementa tokenVersion (não invalida sessões)', async () => {
+    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 5, status: 'INATIVO', email: 'user@test.com', nivel: 'USUARIO',
+    });
+    (prisma.usuario.update as jest.Mock).mockResolvedValueOnce({ id: 5, status: 'ATIVO' });
+    const { PUT } = await import('@/app/api/usuarios/[id]/toggle-status/route');
+    await PUT(makePutRequest('5'), { params: Promise.resolve({ id: '5' }) });
+    const updateCall = (prisma.usuario.update as jest.Mock).mock.calls[0][0];
+    // ao reativar, tokenVersion NÃO deve estar presente
+    expect(updateCall.data.tokenVersion).toBeUndefined();
+  });
 });

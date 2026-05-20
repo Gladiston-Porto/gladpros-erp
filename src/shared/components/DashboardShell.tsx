@@ -1,13 +1,14 @@
 "use client"
 
 import { Sidebar, DEFAULT_NAV_GROUPS } from "@/shared/components/GladPros"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useToast } from "@gladpros/ui/toast"
 import { useConfirm } from "@gladpros/ui/confirm-dialog"
 import React from "react"
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const toast = useToast()
   const { confirm, Dialog } = useConfirm()
   const [collapsed, setCollapsed] = React.useState(false)
@@ -25,8 +26,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       toast.error('Erro', msg)
     }
   }
-
-  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/dashboard'
 
   return (
     <div className="flex min-h-screen bg-background">

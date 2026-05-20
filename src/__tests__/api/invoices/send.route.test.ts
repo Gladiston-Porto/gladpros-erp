@@ -20,9 +20,10 @@ jest.mock('next/server', () => ({
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    invoice: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+    invoice: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     invoiceReminder: { create: jest.fn() },
     auditLog: { create: jest.fn() },
+    ledgerTransaction: { findUnique: jest.fn(), create: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -100,7 +101,7 @@ const mockInvoice = {
     addressZip: '75201',
   },
   projeto: null,
-  itens: [],
+  itens: [{ id: 1, descricao: 'Test item', quantidade: 1, valorUnitario: 1000, valorTotal: 1000 }],
   pagamentos: [],
 };
 
@@ -119,6 +120,9 @@ describe('POST /api/invoices/[id]/send', () => {
     (mockPrisma.invoice.findFirst as jest.Mock).mockResolvedValue(mockInvoice);
     (mockPrisma.$transaction as jest.Mock).mockImplementation(async (fn: Function) => fn(mockPrisma));
     (mockPrisma.invoice.update as jest.Mock).mockResolvedValue({ ...mockInvoice, status: 'SENT' });
+    (mockPrisma.invoice.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.ledgerTransaction.findUnique as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.ledgerTransaction.create as jest.Mock).mockResolvedValue({ id: 55, entries: [] });
     (mockPrisma.invoiceReminder as jest.Mocked<typeof mockPrisma.invoiceReminder>).create = jest.fn().mockResolvedValue({});
   });
 

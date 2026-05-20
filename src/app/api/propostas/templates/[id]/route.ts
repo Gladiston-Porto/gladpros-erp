@@ -10,7 +10,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
   const { id } = await params;
   const template = await prisma.propostaTemplate.findFirst({
-    where: { id: parseInt(id), empresaId: 1, deletedAt: null },
+    where: { id: parseInt(id), empresaId: user.empresaId, deletedAt: null },
   });
   if (!template) {
     return NextResponse.json({ error: 'Template não encontrado', message: 'Template não encontrado', success: false }, { status: 404 });
@@ -25,7 +25,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   }
   const { id } = await params;
   await prisma.propostaTemplate.update({
-    where: { id: parseInt(id), empresaId: 1 },
+    where: { id: parseInt(id), empresaId: user.empresaId },
     data: { deletedAt: new Date() },
   });
   return NextResponse.json({ data: { deleted: true }, success: true });

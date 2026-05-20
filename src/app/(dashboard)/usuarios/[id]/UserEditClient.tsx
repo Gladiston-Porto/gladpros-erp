@@ -25,6 +25,7 @@ import {
   UserCheck,
   XCircle,
   Plus,
+  MoveRight,
 } from "lucide-react";
 
 /* ---------- masks / date helpers ---------- */
@@ -680,7 +681,10 @@ export default function UserEditClient({
           </div>
 
           {/* ── Col 3: Histórico contínuo ─── */}
-          <div className="min-h-0 xl:row-span-3 xl:self-start xl:sticky xl:top-6 xl:h-[calc(100vh-10rem)]">
+          <div className="flex min-h-0 flex-col gap-4 xl:row-span-3 xl:self-start xl:sticky xl:top-6 xl:h-[calc(100vh-10rem)]">
+            {["ADMIN", "GERENTE"].includes(currentUserRole) && (
+              <RoleHistoryCard userId={id} />
+            )}
             <AuditLogPanel userId={id} userRole={user.role} />
           </div>
 
@@ -994,6 +998,101 @@ const ACAO_LABEL: Record<string, { label: string; color: string }> = {
   LOGIN:  { label: "Login",             color: "text-purple-600 dark:text-purple-400" },
   LOGOUT: { label: "Logout",            color: "text-muted-foreground" },
 };
+
+/* ─────────────────────────────────────────────────────────────
+   RoleHistoryCard — card compacto de histórico de mudanças de cargo
+   ───────────────────────────────────────────────────────────── */
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: "Admin",
+  GERENTE: "Gerente",
+  FINANCEIRO: "Financeiro",
+  ESTOQUE: "Estoque",
+  USUARIO: "Usuário",
+  CLIENTE: "Cliente",
+};
+
+interface RoleChange {
+  id: number;
+  criadoEm: string;
+  changedBy: { nomeCompleto: string; email: string | null };
+  de: string;
+  para: string;
+}
+
+function RoleHistoryCard({ userId }: { userId: string }) {
+  const [changes, setChanges] = useState<RoleChange[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    authenticatedFetch(`/api/usuarios/${userId}/role-history`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setChanges(d.data as RoleChange[]);
+      })
+      .catch(() => {/* silencioso */})
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <Card className="shrink-0">
+        <CardContent className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          Carregando histórico de cargo…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (changes.length === 0) {
+    return (
+      <Card className="shrink-0">
+        <CardContent className="px-4 py-3">
+          <h4 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+            <Shield className="size-4 text-brand-primary" />
+            Histórico de Cargo
+          </h4>
+          <p className="text-xs text-muted-foreground">Nenhuma mudança de cargo registrada.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="shrink-0">
+      <CardContent className="px-4 py-3">
+        <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+          <Shield className="size-4 text-brand-primary" />
+          Histórico de Cargo
+          <span className="ml-auto rounded-full bg-brand-primary/10 px-2 py-0.5 text-xs font-medium text-brand-primary">
+            {changes.length}
+          </span>
+        </h4>
+        <ul className="space-y-2">
+          {changes.map((c) => (
+            <li key={c.id} className="flex flex-col gap-0.5 border-b border-border pb-2 last:border-0 last:pb-0">
+              <div className="flex items-center gap-1 text-xs font-medium">
+                <span className="rounded bg-muted px-1.5 py-0.5">{ROLE_LABEL[c.de] ?? c.de}</span>
+                <MoveRight className="size-3 shrink-0 text-muted-foreground" />
+                <span className="rounded bg-brand-primary/10 px-1.5 py-0.5 text-brand-primary">
+                  {ROLE_LABEL[c.para] ?? c.para}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                por {c.changedBy.nomeCompleto} ·{" "}
+                {new Intl.DateTimeFormat("en-US", {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                  timeZone: "America/Chicago",
+                }).format(new Date(c.criadoEm))}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
 
 function AuditLogPanel({ userId, userRole }: { userId: string; userRole: string }) {
   const [logs, setLogs] = useState<AuditEntry[]>([]);

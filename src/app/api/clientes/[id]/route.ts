@@ -82,12 +82,10 @@ export const GET = withErrorHandler(async (request: NextRequest,
 
     // Buscar cliente
     const cliente = await prisma.cliente.findUnique({
-      where: { id },
+      where: { id, empresaId: user.empresaId },
       select: {
         id: true,
         tipo: true,
-        nomeCompleto: true,
-        razaoSocial: true,
         nomeFantasia: true,
         email: true,
         telefone: true,
@@ -222,7 +220,7 @@ export const PUT = withErrorHandler(async (request: NextRequest,
 
     // Buscar cliente atual
     const clienteAtual = await prisma.cliente.findUnique({
-      where: { id },
+      where: { id, empresaId: user.empresaId },
       select: {
         id: true,
         tipo: true,
@@ -364,9 +362,9 @@ export const PUT = withErrorHandler(async (request: NextRequest,
       updateData.docHash = docHash
     }
 
-    // Atualizar no banco
+    // Atualizar no banco (scoped por empresa — defense-in-depth)
     const clienteAtualizado = await prisma.cliente.update({
-      where: { id },
+      where: { id, empresaId: user.empresaId },
       data: updateData,
       select: {
         id: true,
@@ -456,7 +454,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
 
     // Buscar cliente
     const cliente = await prisma.cliente.findUnique({
-      where: { id },
+      where: { id, empresaId: user.empresaId },
       select: { id: true, status: true, nomeCompleto: true, razaoSocial: true }
     })
 
@@ -500,9 +498,9 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
       })
     }
 
-    // Inativar cliente
+    // Inativar cliente (scoped por empresa — defense-in-depth)
     await prisma.cliente.update({
-      where: { id },
+      where: { id, empresaId: user.empresaId },
       data: { status: 'INATIVO', ativo: false }
     })
 

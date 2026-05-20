@@ -11,10 +11,10 @@ function MFAVerification() {
   
   // Dados do usuário vindos da tela de login
   const userId = searchParams?.get('userId')
-  const userEmail = searchParams?.get('email') || ''
-  const userName = searchParams?.get('name') || ''
   const initialChallenge = searchParams?.get('challenge') || ''
   const isFirstAccess = searchParams?.get('firstAccess') === 'true'
+  const [userEmail, setUserEmail] = useState('')
+  const [userName, setUserName] = useState('')
   const [code, setCode] = useState(Array(6).fill(''))
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -23,6 +23,9 @@ function MFAVerification() {
   const [canResend, setCanResend] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
   const [mfaChallenge, setMfaChallenge] = useState(initialChallenge)
+  const [rememberDevice, setRememberDevice] = useState(false)
+  const [backupMode, setBackupMode] = useState(false)
+  const [backupCode, setBackupCode] = useState('')
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const autoSubmittedRef = useRef(false)
@@ -32,6 +35,12 @@ function MFAVerification() {
       router.push('/login')
       return
     }
+
+    // Ler email/nome do sessionStorage (não ficam expostos na URL — P2-4)
+    const storedEmail = sessionStorage.getItem('mfa_email') || ''
+    const storedName = sessionStorage.getItem('mfa_name') || ''
+    if (storedEmail) setUserEmail(storedEmail)
+    if (storedName) setUserName(storedName)
 
     // Timer para expiração do código
     const timer = setInterval(() => {
@@ -48,10 +57,17 @@ function MFAVerification() {
   }, [userId, router])
 
   const handleSubmit = useCallback(async () => {
-    const fullCode = code.join('')
-    if (fullCode.length !== 6) {
-      setError('Digite o código completo de 6 dígitos')
-      return
+    const finalCode = backupMode ? backupCode.trim().replace(/-/g, '').toUpperCase() : code.join('')
+    if (backupMode) {
+      if (finalCode.length !== 10) {
+        setError('Código de backup inválido. Digite os 10 caracteres.')
+        return
+      }
+    } else {
+      if (finalCode.length !== 6) {
+        setError('Digite o código completo de 6 dígitos')
+        return
+      }
     }
     if (loading || submitted) return
     setSubmitted(true)
@@ -60,16 +76,15 @@ function MFAVerification() {
     setInfo(null)
 
     try {
-      // Fazer a verificação via API diretamente
       const response = await fetch('/api/auth/mfa/verify', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: parseInt(userId!),
-          code: fullCode,
-          tipoAcao: isFirstAccess ? 'PRIMEIRO_ACESSO' : 'LOGIN'
+          code: backupMode ? backupCode.trim() : finalCode,
+          tipoAcao: isFirstAccess ? 'PRIMEIRO_ACESSO' : 'LOGIN',
+          challenge: mfaChallenge || undefined,
+          rememberDevice: rememberDevice && !backupMode,
         }),
       })
 
@@ -84,31 +99,30 @@ function MFAVerification() {
         : '/dashboard'
 
       router.replace(redirectUrl)
-
       return
 
     } catch (error) {
-      // Error handled via UI state
       setError((error as Error).message)
-      
-      // Limpar código em caso de erro
-      setCode(Array(6).fill(''))
-      inputRefs.current[0]?.focus()
-  // Permitir novo auto-submit após correção
-  autoSubmittedRef.current = false
+      if (backupMode) {
+        setBackupCode('')
+      } else {
+        setCode(Array(6).fill(''))
+        inputRefs.current[0]?.focus()
+      }
+      autoSubmittedRef.current = false
       setSubmitted(false)
     } finally {
       setLoading(false)
     }
-  }, [code, isFirstAccess, router, userId, loading, submitted])
+  }, [code, backupCode, backupMode, isFirstAccess, router, userId, loading, submitted, rememberDevice, mfaChallenge])
 
   useEffect(() => {
-    // Auto-submit quando todos os campos estão preenchidos (uma única vez)
-    if (code.every(digit => digit !== '') && !loading && !submitted && !autoSubmittedRef.current) {
+    // Auto-submit quando todos os campos estão preenchidos (somente modo TOTP, uma única vez)
+    if (!backupMode && code.every(digit => digit !== '') && !loading && !submitted && !autoSubmittedRef.current) {
       autoSubmittedRef.current = true
       handleSubmit()
     }
-  }, [code, loading, submitted, handleSubmit])
+  }, [code, loading, submitted, handleSubmit, backupMode])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -145,7 +159,6 @@ function MFAVerification() {
     }
   }
 
-
   const handleResendCode = async () => {
     if (!canResend) return
 
@@ -161,15 +174,13 @@ function MFAVerification() {
       });
       if (typeof result?.challenge === 'string') setMfaChallenge(result.challenge)
 
-  // Resetar timer e estado
       setTimeLeft(300)
       setCanResend(false)
       setCode(Array(6).fill(''))
       inputRefs.current[0]?.focus()
-  setInfo('Novo código enviado para seu email.')
+      setInfo('Novo código enviado para seu email.')
 
     } catch (error) {
-      // Error handled via UI state
       setError((error as Error).message)
     } finally {
       setLoading(false)
@@ -196,9 +207,11 @@ function MFAVerification() {
             Verificação de Segurança
           </h1>
           <p className="text-muted-foreground text-sm">
-            {isFirstAccess 
-              ? 'Digite o código enviado para finalizar o primeiro acesso'
-              : 'Digite o código de verificação enviado para seu email'
+            {backupMode
+              ? 'Digite um dos seus códigos de backup'
+              : isFirstAccess 
+                ? 'Digite o código enviado para finalizar o primeiro acesso'
+                : 'Digite o código de verificação enviado para seu email'
             }
           </p>
         </div>
@@ -218,68 +231,134 @@ function MFAVerification() {
           </div>
         </div>
 
-    {(error || info) && (
-          <div className={`mb-6 p-4 border rounded-2xl ${error ? 'bg-destructive/10 border-destructive/20' : 'bg-brand-primary/10 border-brand-primary/20'}`}>
-      {error && <p className="text-destructive text-sm">{error}</p>}
-      {info && <p className="text-brand-primary text-sm">{info}</p>}
+        {(error || info) && (
+          <div role="alert" className={`mb-6 p-4 border rounded-2xl ${error ? 'bg-destructive/10 border-destructive/20' : 'bg-brand-primary/10 border-brand-primary/20'}`}>
+            {error && <p className="text-destructive text-sm">{error}</p>}
+            {info && <p className="text-brand-primary text-sm">{info}</p>}
           </div>
         )}
 
         {/* Campos do código */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-foreground/80 mb-3">
-            Código de Verificação
-          </label>
-          <div className="flex space-x-2 justify-center">
-            {code.map((digit, index) => (
+        <div className="mb-4">
+          {backupMode ? (
+            <div>
+              <label htmlFor="backup-code-input" className="block text-sm font-medium text-foreground/80 mb-3">
+                Código de Backup
+              </label>
               <input
-                key={index}
-                ref={(el) => { inputRefs.current[index] = el }}
+                id="backup-code-input"
                 type="text"
-                value={digit}
-                onChange={(e) => handleInputChange(index, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(index, e)}
-                onPaste={handlePaste}
-                className="w-12 h-12 text-center text-xl font-semibold bg-background text-foreground border-2 border-border rounded-xl focus:border-primary focus:outline-none"
-                maxLength={1}
+                value={backupCode}
+                onChange={(e) => setBackupCode(e.target.value)}
+                placeholder="XXXXX-XXXXX"
+                className="w-full px-4 py-3 text-center text-lg font-mono tracking-widest bg-background text-foreground border-2 border-border rounded-xl focus:border-primary focus:outline-none"
+                maxLength={11}
                 disabled={loading || submitted}
-                aria-label={`Dígito ${index + 1} do código de verificação`}
+                aria-label="Código de backup MFA"
+                autoFocus
               />
-            ))}
-          </div>
-        </div>
-
-        {/* Timer */}
-        <div className="text-center mb-6">
-          {timeLeft > 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Código expira em: <span className="font-semibold text-primary">{formatTime(timeLeft)}</span>
-            </p>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Formato: XXXXX-XXXXX (com ou sem hífen)
+              </p>
+            </div>
           ) : (
-            <p className="text-sm text-destructive">
-              Código expirado. Solicite um novo código.
-            </p>
+            <div>
+              <label className="block text-sm font-medium text-foreground/80 mb-3">
+                Código de Verificação
+              </label>
+              <div className="flex space-x-2 justify-center">
+                {code.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={(el) => { inputRefs.current[index] = el }}
+                    type="text"
+                    value={digit}
+                    onChange={(e) => handleInputChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    onPaste={handlePaste}
+                    className="w-12 h-12 text-center text-xl font-semibold bg-background text-foreground border-2 border-border rounded-xl focus:border-primary focus:outline-none"
+                    maxLength={1}
+                    disabled={loading || submitted}
+                    aria-label={`Dígito ${index + 1} do código de verificação`}
+                  />
+                ))}
+              </div>
+            </div>
           )}
         </div>
+
+        {/* Link para alternar modo */}
+        {!isFirstAccess && (
+          <div className="text-center mb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setBackupMode(!backupMode)
+                setError(null)
+                setCode(Array(6).fill(''))
+                setBackupCode('')
+                autoSubmittedRef.current = false
+                setSubmitted(false)
+              }}
+              className="text-xs text-muted-foreground hover:text-primary underline"
+            >
+              {backupMode ? '← Usar código de email' : 'Sem acesso ao email? Usar código de backup'}
+            </button>
+          </div>
+        )}
+
+        {/* Timer */}
+        {!backupMode && (
+          <div className="text-center mb-4">
+            {timeLeft > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Código expira em: <span className="font-semibold text-primary">{formatTime(timeLeft)}</span>
+              </p>
+            ) : (
+              <p className="text-sm text-destructive">
+                Código expirado. Solicite um novo código.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Lembrar dispositivo */}
+        {!isFirstAccess && (
+          <div className="flex items-center gap-3 mb-6 p-3 bg-muted/30 rounded-xl">
+            <input
+              id="remember-device"
+              type="checkbox"
+              checked={rememberDevice}
+              onChange={(e) => setRememberDevice(e.target.checked)}
+              className="w-5 h-5 rounded accent-brand-primary cursor-pointer"
+              aria-label="Lembrar este dispositivo por 30 dias"
+            />
+            <label htmlFor="remember-device" className="text-sm text-foreground cursor-pointer select-none">
+              Lembrar este dispositivo por 30 dias
+            </label>
+          </div>
+        )}
 
         {/* Botões */}
         <div className="space-y-3">
           <button
             onClick={handleSubmit}
-            disabled={submitted || loading || code.some(digit => digit === '') || timeLeft === 0}
+            disabled={submitted || loading || (!backupMode && code.some(digit => digit === '')) || (backupMode && backupCode.trim().length < 10) || (!backupMode && timeLeft === 0)}
             className="w-full py-3 px-4 bg-brand-primary text-white rounded-2xl hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center"
           >
             {(loading || submitted) && <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2" />}
             {isFirstAccess ? 'Finalizar Primeiro Acesso' : 'Verificar e Entrar'}
           </button>
 
-          <button
-            onClick={handleResendCode}
-            disabled={!canResend || loading}
-            className="w-full py-2 px-4 text-primary border border-primary rounded-xl hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Reenviar Código
-          </button>
+          {!backupMode && (
+            <button
+              onClick={handleResendCode}
+              disabled={!canResend || loading}
+              className="w-full py-2 px-4 text-primary border border-primary rounded-xl hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Reenviar Código
+            </button>
+          )}
         </div>
 
         {/* Rodapé */}
@@ -287,9 +366,18 @@ function MFAVerification() {
           <div className="bg-amber-500/10 p-4 rounded-xl">
             <h4 className="font-semibold text-amber-600 dark:text-amber-400 text-sm mb-2">🔒 Dicas de Segurança:</h4>
             <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
-              <li>• O código tem 6 dígitos e expira em 5 minutos</li>
-              <li>• Nunca compartilhe este código com ninguém</li>
-              <li>• Se não solicitou, feche esta janela</li>
+              {backupMode ? (
+                <>
+                  <li>• Cada código de backup pode ser usado apenas uma vez</li>
+                  <li>• Após usar todos os códigos, gere novos em Configurações</li>
+                </>
+              ) : (
+                <>
+                  <li>• O código tem 6 dígitos e expira em 5 minutos</li>
+                  <li>• Nunca compartilhe este código com ninguém</li>
+                  <li>• Se não solicitou, feche esta janela</li>
+                </>
+              )}
             </ul>
           </div>
         </div>

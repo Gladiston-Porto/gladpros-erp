@@ -62,7 +62,6 @@ export default function NovaTransferenciaPage() {
     try {
       const payload = {
         ...data,
-        empresaId: 1,
         dataAgendamento: data.dataAgendamento ? new Date(data.dataAgendamento).toISOString() : undefined,
       };
       const res = await authenticatedFetch("/api/financeiro/transferencias", {

@@ -52,7 +52,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     )
   }
 
-  await requireClientePermission(request, 'canRead')
+  const user = await requireClientePermission(request, 'canRead')
 
   const { searchParams } = new URL(request.url)
   const params = similarQuerySchema.safeParse({
@@ -81,7 +81,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     return NextResponse.json({ data: resultado, success: true })
   }
 
-  const EMPRESA_ID = 1 // single-tenant: GladPros only
+  const EMPRESA_ID = user.empresaId // single-tenant: GladPros only
   const baseWhere = {
     empresaId: EMPRESA_ID,
     status: 'ATIVO' as const,

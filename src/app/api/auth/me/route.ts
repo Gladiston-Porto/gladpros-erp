@@ -24,8 +24,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     dataNascimento: Date | string | null;
     createdAt: Date;
     ultimoLoginEm: Date | null;
+    senhaAlteradaEm: Date | null;
   }>>`
-    SELECT id, email, nomeCompleto, telefone, endereco1, endereco2, cidade, estado, zipcode, avatarUrl, dataNascimento, criadoEm as createdAt, ultimoLoginEm
+    SELECT id, email, nomeCompleto, telefone, endereco1, endereco2, cidade, estado, zipcode, avatarUrl, dataNascimento, criadoEm as createdAt, ultimoLoginEm, senhaAlteradaEm
     FROM Usuario
     WHERE id = ${Number(me.id)}
     LIMIT 1
@@ -36,6 +37,18 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   const user = userRows[0]
+
+  // Calcular alerta de senha expirada (soft — não bloqueia, apenas avisa)
+  const passwordExpiryDays = Number(process.env.PASSWORD_EXPIRY_DAYS ?? 90);
+  let passwordAlerta = false;
+  let diasSemAlteracao: number | null = null;
+  if (user.senhaAlteradaEm) {
+    diasSemAlteracao = Math.floor((Date.now() - new Date(user.senhaAlteradaEm).getTime()) / 86400000);
+    passwordAlerta = diasSemAlteracao >= passwordExpiryDays;
+  } else {
+    // Nunca alterada — alerta ativo por padrão
+    passwordAlerta = true;
+  }
 
   // Normaliza dataNascimento para YYYY-MM-DD (input[type=date])
   let dataNascimento: string | null = null;
@@ -66,7 +79,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     avatarUrl: user.avatarUrl ?? null,
     dataNascimento,
     createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : String(user.createdAt),
-    ultimoLoginEm: user.ultimoLoginEm instanceof Date ? user.ultimoLoginEm.toISOString() : (user.ultimoLoginEm ? String(user.ultimoLoginEm) : null)
+    ultimoLoginEm: user.ultimoLoginEm instanceof Date ? user.ultimoLoginEm.toISOString() : (user.ultimoLoginEm ? String(user.ultimoLoginEm) : null),
+    passwordAlerta,
+    diasSemAlteracao,
   })
   res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
   return res

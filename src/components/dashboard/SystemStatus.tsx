@@ -7,16 +7,12 @@ import { CheckCircle, AlertCircle, XCircle } from "lucide-react";
 interface SystemStatusProps {
   database: 'online' | 'offline' | 'warning';
   api: 'online' | 'offline' | 'warning';
-  lastBackup: string;
-  uptime: string;
 }
 
 // Componente memoizado para status do sistema
 export const SystemStatus = memo(function SystemStatus({
   database,
   api,
-  lastBackup,
-  uptime
 }: SystemStatusProps) {
   // Memoizar funções de renderização para evitar recriação
   const getStatusIcon = useMemo(() => {
@@ -53,14 +49,6 @@ export const SystemStatus = memo(function SystemStatus({
     return StatusBadgeComponent;
   }, []);
 
-  // Memoizar dados de status para evitar re-renders
-  const statusData = useMemo(() => ({
-    database,
-    api,
-    lastBackup,
-    uptime
-  }), [database, api, lastBackup, uptime]);
-
   return (
     <Card>
       <CardHeader>
@@ -70,28 +58,18 @@ export const SystemStatus = memo(function SystemStatus({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              {getStatusIcon(statusData.database)}
+              {getStatusIcon(database)}
               <span>Database</span>
             </div>
-            {getStatusBadge(statusData.database)}
+            {getStatusBadge(database)}
           </div>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              {getStatusIcon(statusData.api)}
+              {getStatusIcon(api)}
               <span>API</span>
             </div>
-            {getStatusBadge(statusData.api)}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Último Backup</span>
-            <span className="text-sm">{statusData.lastBackup}</span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Uptime</span>
-            <span className="text-sm">{statusData.uptime}</span>
+            {getStatusBadge(api)}
           </div>
         </div>
       </CardContent>

@@ -7,6 +7,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { withBusinessCache } from '@/shared/lib/cache/business-cache';
 import { can, requireUser, type Role } from '@/shared/lib/rbac';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
+import { z } from 'zod';
 
 /** Generates the last `count` month labels (e.g. "Jan '25") */
 function buildMonthLabels(count: number): string[] {
@@ -34,8 +35,8 @@ function groupByMonth<T extends { criadoEm: Date }>(
   return labels.map(l => buckets[l] ?? 0);
 }
 
-export const GET = withErrorHandler(async (request: Request) => {
-    const user = await requireUser(request as NextRequest);
+export const GET = withErrorHandler(async (request: NextRequest) => {
+    const user = await requireUser(request);
     if (!can(user.role as Role, 'dashboard', 'read')) {
       return NextResponse.json(
         { error: 'Forbidden', message: 'Sem permissão', success: false },
@@ -43,7 +44,7 @@ export const GET = withErrorHandler(async (request: Request) => {
       );
     }
 
-    const rateCheck = await apiRateLimit.isAllowed(request as NextRequest);
+    const rateCheck = await apiRateLimit.isAllowed(request);
     if (!rateCheck.allowed) {
       return NextResponse.json(
         { error: 'Too Many Requests', message: rateCheck.message, success: false },
@@ -52,9 +53,18 @@ export const GET = withErrorHandler(async (request: Request) => {
     }
 
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period') || '30d';
+    const periodSchema = z.enum(['7d', '30d', '90d']);
+    const periodResult = periodSchema.safeParse(searchParams.get('period') ?? '30d');
+    if (!periodResult.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', message: 'Parâmetro "period" inválido', success: false },
+        { status: 400 }
+      );
+    }
+    const period = periodResult.data;
+    const canReadFinancial = can(user.role as Role, 'financeiro', 'read');
 
-    const cacheKey = `dashboard_executive:${String(user.role).toUpperCase()}:${period}`;
+    const cacheKey = `dashboard_executive:${String(user.role).toUpperCase()}:${canReadFinancial ? 'finance' : 'restricted'}:${period}`;
     const cacheTtlSeconds = process.env.NODE_ENV === 'production' ? 120 : 30;
 
     const response = await withBusinessCache(
@@ -63,6 +73,12 @@ export const GET = withErrorHandler(async (request: Request) => {
         const daysAgo = period === '7d' ? 7 : period === '30d' ? 30 : 90;
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - daysAgo);
+        const activeProjectStatuses: Projeto_status[] = [
+          Projeto_status.em_execucao,
+          Projeto_status.planejado,
+          Projeto_status.em_inspecao,
+          Projeto_status.aguardando_devolucoes
+        ];
 
         // previousStartDate é cálculo puro — pode ser computado antes do Promise.all
         const previousStartDate = new Date(startDate);
@@ -80,34 +96,38 @@ export const GET = withErrorHandler(async (request: Request) => {
           materiais,
           saldosEstoque,
           movimentacoesEstoque,
-          projetos,
+          projetosOverview,
+          projetosList,
           activeWorkers,
           clientes,
           propostas,
           invoices,
           previousReceitas,
-           
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          previousDespesas,
           revenueItems,
           propostaItems,
           clienteItems,
         ] = await Promise.all([
-          prisma.revenue.aggregate({
-            _sum: { valor: true },
-            _count: true,
-            where: { criadoEm: { gte: startDate } }
-          }),
-          prisma.expense.aggregate({
-            _sum: { valor: true },
-            _count: true,
-            where: { criadoEm: { gte: startDate } }
-          }),
-          prisma.bankAccount.aggregate({
-            _sum: { saldoAtual: true },
-            _count: true,
-            where: { ativo: true }
-          }),
+          canReadFinancial
+            ? prisma.revenue.aggregate({
+                _sum: { valor: true },
+                _count: true,
+                where: { empresaId: user.empresaId, criadoEm: { gte: startDate } }
+              })
+            : Promise.resolve(null),
+          canReadFinancial
+            ? prisma.expense.aggregate({
+                _sum: { valor: true },
+                _count: true,
+                where: { empresaId: user.empresaId, criadoEm: { gte: startDate } }
+              })
+            : Promise.resolve(null),
+          canReadFinancial
+            ? prisma.bankAccount.aggregate({
+                _sum: { saldoAtual: true },
+                _count: true,
+                where: { empresaId: user.empresaId, ativo: true }
+              })
+            : Promise.resolve(null),
           prisma.material.aggregate({ _count: true }),
           prisma.materialSaldo.aggregate({ _sum: { quantidade: true } }),
           prisma.materialMovimentacao.count({
@@ -116,12 +136,20 @@ export const GET = withErrorHandler(async (request: Request) => {
           prisma.projeto.findMany({
             where: {
               status: {
-                in: [
-                  Projeto_status.em_execucao,
-                  Projeto_status.planejado,
-                  Projeto_status.em_inspecao,
-                  Projeto_status.aguardando_devolucoes
-                ]
+                in: activeProjectStatuses
+              }
+            },
+            select: {
+              id: true,
+              dataConclusaoPrevista: true,
+              valorEstimado: true,
+              custoReal: true
+            },
+          }),
+          prisma.projeto.findMany({
+            where: {
+              status: {
+                in: activeProjectStatuses
               }
             },
             select: {
@@ -144,28 +172,35 @@ export const GET = withErrorHandler(async (request: Request) => {
           }),
           prisma.proposta.groupBy({
             by: ['status'],
+            where: { deletedAt: null },
             _count: true
           }),
-          prisma.invoice.aggregate({
-            _count: true,
-            _sum: { valorTotal: true },
-            where: { criadoEm: { gte: startDate } }
-          }),
+          canReadFinancial
+            ? prisma.invoice.aggregate({
+                _count: true,
+                _sum: { valorTotal: true },
+                where: {
+                  empresaId: user.empresaId,
+                  criadoEm: { gte: startDate },
+                  status: { notIn: ['CANCELLED', 'DRAFT'] }
+                }
+              })
+            : Promise.resolve(null),
           // Período anterior — junto com o resto para evitar round-trip extra
-          prisma.revenue.aggregate({
-            _sum: { valor: true },
-            where: { criadoEm: { gte: previousStartDate, lt: startDate } }
-          }),
-          prisma.expense.aggregate({
-            _sum: { valor: true },
-            where: { criadoEm: { gte: previousStartDate, lt: startDate } }
-          }),
+          canReadFinancial
+            ? prisma.revenue.aggregate({
+                _sum: { valor: true },
+                where: { empresaId: user.empresaId, criadoEm: { gte: previousStartDate, lt: startDate } }
+              })
+            : Promise.resolve(null),
           // Chart time-series: receita mensal (últimos 6 meses)
-          prisma.revenue.findMany({
-            where: { criadoEm: { gte: sixMonthsAgo } },
-            select: { criadoEm: true, valor: true },
-            orderBy: { criadoEm: 'asc' },
-          }),
+          canReadFinancial
+            ? prisma.revenue.findMany({
+                where: { empresaId: user.empresaId, criadoEm: { gte: sixMonthsAgo } },
+                select: { criadoEm: true, valor: true },
+                orderBy: { criadoEm: 'asc' },
+              })
+            : Promise.resolve([]),
           // Chart time-series: propostas mensais (últimos 6 meses)
           prisma.proposta.findMany({
             where: { criadoEm: { gte: sixMonthsAgo } },
@@ -181,24 +216,24 @@ export const GET = withErrorHandler(async (request: Request) => {
         ]);
 
         // Calcular saldo financeiro
-        const totalReceitas = Number(receitas._sum.valor || 0);
-        const totalDespesas = Number(despesas._sum.valor || 0);
-        const saldoContas = Number(contasBancarias._sum.saldoAtual || 0);
-        const saldoPeriodo = totalReceitas - totalDespesas;
+        const totalReceitas = canReadFinancial ? Number(receitas?._sum.valor || 0) : 0;
+        const totalDespesas = canReadFinancial ? Number(despesas?._sum.valor || 0) : 0;
+        const saldoContas = canReadFinancial ? Number(contasBancarias?._sum.saldoAtual || 0) : 0;
+        const saldoPeriodo = canReadFinancial ? totalReceitas - totalDespesas : 0;
 
-        // Calcular health score dos projetos
+        // Calcular health score dos projetos (em todo o conjunto ativo, sem truncar por paginação)
         const agora = new Date();
-        const projetosComAtraso = projetos.filter(p => {
+        const projetosComAtraso = projetosOverview.filter(p => {
           if (!p.dataConclusaoPrevista) return false;
           return p.dataConclusaoPrevista < agora && p.status !== Projeto_status.concluido;
         }).length;
 
-        const projetosSobreOrcamento = projetos.filter(p => {
+        const projetosSobreOrcamento = projetosOverview.filter(p => {
           if (!p.valorEstimado || !p.custoReal) return false;
           return Number(p.custoReal) > Number(p.valorEstimado);
         }).length;
 
-        const projetosPayload = projetos.map((p) => {
+        const projetosPayload = projetosList.map((p) => {
           const orcamento = p.valorEstimado ? Number(p.valorEstimado) : null;
           const custoAtual = p.custoReal ? Number(p.custoReal) : null;
 
@@ -224,8 +259,8 @@ export const GET = withErrorHandler(async (request: Request) => {
           cancelada: propostas.find(p => p.status === 'CANCELADA')?._count || 0,
         };
 
-        const previousTotalReceitas = Number(previousReceitas._sum.valor || 0);
-        const crescimentoReceita = previousTotalReceitas > 0 
+        const previousTotalReceitas = canReadFinancial ? Number(previousReceitas?._sum.valor || 0) : 0;
+        const crescimentoReceita = canReadFinancial && previousTotalReceitas > 0
           ? ((totalReceitas - previousTotalReceitas) / previousTotalReceitas) * 100 
           : 0;
 
@@ -233,32 +268,35 @@ export const GET = withErrorHandler(async (request: Request) => {
         const monthLabels = buildMonthLabels(6);
         const chartData = {
           labels: monthLabels,
-          revenue: groupByMonth(revenueItems, monthLabels, (r) => Number(r.valor || 0)),
+          revenue: canReadFinancial ? groupByMonth(revenueItems, monthLabels, (r) => Number(r.valor || 0)) : monthLabels.map(() => 0),
           proposals: groupByMonth(propostaItems, monthLabels),
           clients: groupByMonth(clienteItems, monthLabels),
         };
 
         return {
           period,
+          permissions: {
+            canViewFinancials: canReadFinancial,
+          },
           kpis: {
-            receitaTotal: Number(totalReceitas),
-            despesaTotal: Number(totalDespesas),
-            saldoPeriodo: Number(saldoPeriodo),
-            saldoContas: Number(saldoContas),
-            crescimentoReceita: Number(crescimentoReceita),
-            projetosAtivos: projetos.length,
+            receitaTotal: canReadFinancial ? Number(totalReceitas) : null,
+            despesaTotal: canReadFinancial ? Number(totalDespesas) : null,
+            saldoPeriodo: canReadFinancial ? Number(saldoPeriodo) : null,
+            saldoContas: canReadFinancial ? Number(saldoContas) : null,
+            crescimentoReceita: canReadFinancial ? Number(crescimentoReceita) : null,
+            projetosAtivos: projetosOverview.length,
             projetosAtrasados: projetosComAtraso,
             projetosSobreOrcamento,
             workersAtivos: activeWorkers,
             clientesAtivos: clientes._count,
             propostasTotal: propostasStats.total,
             propostasAprovadas: propostasStats.aprovada,
-            propostasPendentes: propostasStats.enviada,
+            propostasPendentes: propostasStats.rascunho + propostasStats.enviada,
             produtosTotal: materiais._count,
             estoqueTotal: Number(saldosEstoque._sum.quantidade || 0),
             movimentacoesRecentes: movimentacoesEstoque,
-            invoicesTotal: invoices._count,
-            invoicesFaturamento: Number(invoices._sum.valorTotal || 0),
+            invoicesTotal: canReadFinancial ? (invoices?._count ?? 0) : 0,
+            invoicesFaturamento: canReadFinancial ? Number(invoices?._sum.valorTotal || 0) : null,
           },
           projetos: projetosPayload,
           alertas: [
@@ -274,7 +312,7 @@ export const GET = withErrorHandler(async (request: Request) => {
               mensagem: `${projetosSobreOrcamento} projeto(s) sobre orçamento`,
               count: projetosSobreOrcamento
             }] : []),
-            ...(saldoPeriodo < 0 ? [{
+            ...(canReadFinancial && saldoPeriodo < 0 ? [{
               tipo: 'financeiro',
               severidade: 'high' as const,
               mensagem: 'Saldo negativo no período',
@@ -294,4 +332,3 @@ export const GET = withErrorHandler(async (request: Request) => {
     );
     
   });
-

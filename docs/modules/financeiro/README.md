@@ -1,8 +1,8 @@
 # Módulo Financeiro — GladPros ERP
 
-> **Status:** 🚀 PRODUCTION CERTIFIED v1.3.0  
-> **Certificado em:** 2026-05-22  
-> **Co-produtores:** Gladiston Porto · GitHub Copilot  
+> **Status:** ❌ NOT READY — re-audit em correção
+> **Última re-auditoria:** 2026-05-18
+> **Co-produtores:** Gladiston Porto · GitHub Copilot
 
 ---
 
@@ -155,7 +155,9 @@ const empresaId = user.empresaId  // sempre do JWT, nunca de query params ou bod
 
 ---
 
-## 6. Segurança — Decisões P1 (mai/2025)
+## 6. Segurança — Estado após re-auditoria (mai/2026)
+
+> A re-auditoria de 2026-05-18 encontrou P1/P2 abertos. Este módulo não deve ser declarado Production Ready até que os achados sejam corrigidos, cobertos por regressão e revalidados pelo gate `docs/architecture/06-production-readiness.md`.
 
 | Vulnerabilidade | Status | Solução |
 |-----------------|--------|---------|
@@ -163,6 +165,11 @@ const empresaId = user.empresaId  // sempre do JWT, nunca de query params ou bod
 | `empresaId` vinha do body em POST | ✅ Corrigido | Override com `user.empresaId` após parse do Zod |
 | `fluxo-caixa` sem `take` (OOM risk) | ✅ Corrigido | `take: 1000` + flag `truncated` na resposta |
 | `(user as any).empresaId` TypeScript blind | ✅ Corrigido | `requireUser` retorna `empresaId: 1` no tipo |
+| Rotas por ID sem escopo `empresaId` | 🔧 Em correção | Escopo aplicado no primeiro pacote para receitas, despesas e contas |
+| Approval spoof por `aprovadorId` no body | 🔧 Em correção | Aprovação/rejeição passam a comparar com `user.id` autenticado |
+| Invoice→Revenue não bloqueante/reversível | 🔧 Em correção | Primeiro pacote torna criação de receita crítica e reversão remove receita derivada |
+| Exports e relatórios sem cap/rate limit | ❌ Aberto | Pendente de correção P2 |
+| Owner compensation / fiscal exposto além de ADMIN/FINANCEIRO | ❌ Aberto | Pendente de correção P2 |
 
 ---
 

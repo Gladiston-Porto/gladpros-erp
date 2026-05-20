@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from "@/lib/api/error-handler";
 import { requireUser } from "@/shared/lib/rbac";
 import { UserRole } from "@/shared/lib/user-hierarchy";
+import { AuditLogger } from "@/shared/lib/audit";
 
 /* PATCH /api/usuarios/delegacoes/:id — cancelar delegação */
 export const PATCH = withErrorHandler(async (req: Request, context: unknown) => {
@@ -52,6 +53,27 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
       delegatario: { select: { id: true, nomeCompleto: true, email: true } },
     },
   });
+
+  // Auditoria — cancelamento de delegação é operação crítica de segurança
+  try {
+    await AuditLogger.log({
+      userId: Number(authUser.id),
+      userEmail: authUser.email,
+      action: "CANCEL_DELEGACAO",
+      resource: "Delegacao",
+      resourceId: String(id),
+      details: {
+        deleganteId: cancelada.delegante.id,
+        deleganteEmail: cancelada.delegante.email,
+        delegatarioId: cancelada.delegatario.id,
+        delegatarioEmail: cancelada.delegatario.email,
+        canceladoPor: userId,
+      },
+      status: "SUCCESS",
+    });
+  } catch {
+    // auditoria não deve quebrar o fluxo
+  }
 
   return NextResponse.json({ data: cancelada, success: true });
 });

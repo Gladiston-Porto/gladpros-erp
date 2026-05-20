@@ -35,8 +35,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     });
 
     // Verificar se despesa existe
-    const expense = await prisma.expense.findUnique({
-      where: { id: expenseId },
+    const expense = await prisma.expense.findFirst({
+      where: { id: expenseId, empresaId: user.empresaId },
       include: {
         aprovacao: {
           include: {
@@ -79,7 +79,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
     }
 
     // Verificar se aprovador é o correto
-    if (expense.aprovacao.aprovadorId !== validatedData.aprovadorId) {
+    if (expense.aprovacao.aprovadorId !== Number(user.id)) {
       return NextResponse.json({
         success: false,
         error: 'Você não está autorizado a aprovar esta despesa'

@@ -26,8 +26,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     }
 
     // Buscar receita
-    const existing = await prisma.revenue.findUnique({
-      where: { id },
+    const existing = await prisma.revenue.findFirst({
+      where: { id, empresaId: user.empresaId },
       include: { recorrencia: true }
     });
 

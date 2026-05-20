@@ -30,9 +30,9 @@ export async function GET(req: NextRequest) {
   }
 
   // Buscar usuário e verificar que ainda está aguardando primeiro acesso
-  type UserRow = { id: number; nivel: string; status: string; primeiroAcesso: boolean | number; email: string; tokenVersion: number | null }
+  type UserRow = { id: number; nivel: string; status: string; primeiroAcesso: boolean | number; email: string; tokenVersion: number | null; magicLinkConsumedAt: Date | null }
   const rows = await prisma.$queryRaw<UserRow[]>`
-    SELECT id, email, nivel, status, primeiroAcesso, tokenVersion
+    SELECT id, email, nivel, status, primeiroAcesso, tokenVersion, magicLinkConsumedAt
     FROM Usuario
     WHERE id = ${userId} LIMIT 1
   `;
@@ -46,6 +46,12 @@ export async function GET(req: NextRequest) {
   if (jaConfigurou) {
     // Usuário já completou o primeiro acesso — redirecionar para login normal
     return NextResponse.redirect(new URL("/login?info=conta-ja-configurada", req.url));
+  }
+
+  // Verificar se o magic link já foi consumido (single-use protection)
+  if (user.magicLinkConsumedAt !== null) {
+    logger.warn("[first-access/magic] Magic link já consumido — reuso bloqueado", { userId: user.id });
+    return NextResponse.redirect(new URL("/login?erro=magic-link-ja-utilizado", req.url));
   }
 
   if (user.status !== "ATIVO") {
@@ -72,6 +78,11 @@ export async function GET(req: NextRequest) {
     path: "/",
     maxAge: 30 * 60, // 30 minutos — apenas para completar o setup
   });
+
+  // Consumir magic link (single-use) antes de emitir o authToken
+  await prisma.$executeRaw`
+    UPDATE Usuario SET magicLinkConsumedAt = NOW() WHERE id = ${user.id}
+  `;
 
   logger.info("[first-access/magic] Magic link utilizado", { userId: user.id, email: user.email });
   return res;

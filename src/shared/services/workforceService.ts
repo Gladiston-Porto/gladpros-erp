@@ -4,7 +4,9 @@
  * Core functions for the Workforce/Contractor Payments module.
  */
 
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
+import { Decimal } from '@prisma/client/runtime/library';
+import { postLedgerTransaction } from '@/shared/services/ledgerPostingService';
 import {
     PayType,
     AssignmentStatus,
@@ -42,25 +44,15 @@ export interface GeneratePayableParams {
 export interface MarkPayableAsPaidParams {
     payableId: number;
     paidById: number;
+    empresaId: number;
     paymentMethod: PaymentMethod;
+    bankAccountId: number;
     paymentRef?: string;
 }
 
 // ============================================================================
 // HELPERS
 // ============================================================================
-
-/**
- * Busca empresaId do contexto do usuário
- */
- 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function getEmpresaIdFromContext(userId: number): Promise<number> {
-    // Usuario doesn't have empresaId — fallback to first Empresa
-    const empresa = await prisma.empresa.findFirst();
-    if (!empresa) throw new Error('Nenhuma empresa encontrada');
-    return empresa.id;
-}
 
 /**
  * Busca ou cria categoria de despesa para Contract Labor
@@ -398,7 +390,7 @@ export async function generatePayable(params: GeneratePayableParams) {
  * REFATORADO: empresaId e categoriaId vêm do contexto, não hardcoded.
  */
 export async function markPayableAsPaid(params: MarkPayableAsPaidParams) {
-    const { payableId, paidById, paymentMethod, paymentRef } = params;
+    const { payableId, paidById, empresaId, paymentMethod, bankAccountId, paymentRef } = params;
 
     return prisma.$transaction(async (tx) => {
         // 1. Get Payable with Worker
@@ -419,9 +411,34 @@ export async function markPayableAsPaid(params: MarkPayableAsPaidParams) {
             throw new Error(`Payable #${payableId} não tem Worker vinculado`);
         }
 
-        // 2. Get empresaId e categoriaId do contexto (NÃO HARDCODED)
-        const empresaId = await getEmpresaIdFromContext(paidById);
+        const claimed = await tx.payable.updateMany({
+            where: {
+                id: payableId,
+                status: PayableStatus.APPROVED,
+                expenseId: null,
+            },
+            data: {
+                status: PayableStatus.PAID,
+                paidAt: new Date(),
+                paidById,
+                paymentMethod,
+                paymentRef,
+            },
+        });
+        if (claimed.count !== 1) {
+            throw new Error(`Payable #${payableId} já foi pago ou não está disponível para pagamento`);
+        }
+
+        // 2. Categoria e lançamentos no contexto da empresa autenticada.
         const categoriaId = await getOrCreateContractLaborCategory(empresaId);
+        const amount = new Decimal(payable.totalAmount);
+        const account = await tx.bankAccount.findFirst({
+            where: { id: bankAccountId, empresaId, ativo: true },
+            select: { id: true, saldoAtual: true, limiteCredito: true },
+        });
+        if (!account) {
+            throw new Error('Conta bancária não encontrada ou inativa');
+        }
 
         // 3. Create Expense
         const expense = await tx.expense.create({
@@ -446,15 +463,76 @@ export async function markPayableAsPaid(params: MarkPayableAsPaidParams) {
             }
         });
 
+        const availableBalance = new Decimal(account.saldoAtual).plus(account.limiteCredito ?? 0);
+        if (availableBalance.lt(amount)) {
+            throw new Error('Saldo insuficiente na conta bancária');
+        }
+
+        const accountClaim = await tx.bankAccount.updateMany({
+            where: {
+                id: bankAccountId,
+                empresaId,
+                saldoAtual: {
+                    gte: amount.minus(account.limiteCredito ?? 0),
+                },
+            },
+            data: {
+                saldoAtual: { decrement: amount },
+            },
+        });
+        if (accountClaim.count === 0) {
+            throw new Error('Saldo insuficiente na conta bancária');
+        }
+
+        const updatedAccount = await tx.bankAccount.findUniqueOrThrow({
+            where: { id: bankAccountId },
+            select: { saldoAtual: true },
+        });
+
+        await tx.bankTransaction.create({
+            data: {
+                accountId: bankAccountId,
+                empresaId,
+                tipo: 'DEBITO',
+                categoria: 'WORKFORCE_PAYABLE',
+                valor: amount,
+                descricao: `Pagamento Worker: ${payable.worker.name}`,
+                documento: paymentRef,
+                dataTransacao: new Date(),
+                saldoAnterior: new Decimal(updatedAccount.saldoAtual).plus(amount),
+                saldoPosterior: updatedAccount.saldoAtual,
+                expenseId: expense.id,
+                observacoes: `Payable #${payable.id} | Worker #${payable.workerId}`,
+            }
+        });
+
+        await postLedgerTransaction(
+            {
+                empresaId,
+                data: new Date(),
+                descricao: `Pagamento payable #${payable.id} - ${payable.worker.name}`,
+                sourceType: 'EXPENSE_PAYMENT',
+                sourceId: expense.id,
+                entries: [
+                    {
+                        accountCode: 'EXPENSE',
+                        debit: amount,
+                        memo: `Payable #${payable.id}`,
+                    },
+                    {
+                        accountCode: 'CASH',
+                        credit: amount,
+                        memo: `Bank account #${bankAccountId}`,
+                    },
+                ],
+            },
+            tx,
+        );
+
         // 4. Update Payable
         const updatedPayable = await tx.payable.update({
             where: { id: payableId },
             data: {
-                status: PayableStatus.PAID,
-                paidAt: new Date(),
-                paidById,
-                paymentMethod,
-                paymentRef,
                 expenseId: expense.id
             }
         });

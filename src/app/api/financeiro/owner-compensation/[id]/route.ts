@@ -7,43 +7,39 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireUser } from "@/shared/lib/rbac"
 import { can, type Role } from "@/shared/lib/rbac-core"
 import { deleteCompensation } from "@/shared/services/ownerCompensationService"
-import { logger } from "@/lib/api/logger"
+import { withErrorHandler } from "@/lib/api/error-handler"
 
-export async function DELETE(
+export const DELETE = withErrorHandler(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await requireUser(request)
+) => {
+  const user = await requireUser(request)
 
-    if (!can(user.role as Role, "financeiro", "delete")) {
-      return NextResponse.json({ error: "Forbidden", success: false }, { status: 403 })
-    }
-
-    const { id } = await params
-    const compensationId = Number(id)
-    if (isNaN(compensationId)) {
-      return NextResponse.json(
-        { error: "ID inválido", success: false },
-        { status: 400 }
-      )
-    }
-
-    const result = await deleteCompensation(compensationId, Number(user.id))
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error, success: false },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
-      return NextResponse.json({ error: "Unauthorized", success: false }, { status: 401 })
-    }
-    logger.error("[Financeiro] DELETE /api/financeiro/owner-compensation/[id]", {}, error)
-    return NextResponse.json({ error: "Internal server error", success: false }, { status: 500 })
+  if (user.role !== "ADMIN" || !can(user.role as Role, "financeiro", "delete")) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "Apenas ADMIN pode excluir compensação do proprietário", success: false },
+      { status: 403 }
+    )
   }
-}
+
+  const { id } = await params
+  const compensationId = Number(id)
+  if (isNaN(compensationId)) {
+    return NextResponse.json(
+      { error: "ID inválido", success: false },
+      { status: 400 }
+    )
+  }
+
+  const result = await deleteCompensation(compensationId, Number(user.id), user.empresaId)
+
+  if (!result.success) {
+    const status = result.error.code === "BANK_LINKED_DELETE_BLOCKED" ? 409 : 404
+    return NextResponse.json(
+      { error: result.error, success: false },
+      { status }
+    )
+  }
+
+  return NextResponse.json({ success: true })
+})

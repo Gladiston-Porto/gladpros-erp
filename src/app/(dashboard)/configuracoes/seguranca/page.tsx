@@ -17,6 +17,8 @@ import {
   XCircle,
   ShieldCheck,
   Monitor,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -95,20 +97,26 @@ function PolicyRow({ label, value, icon }: { label: string; value: string | Reac
 export default function SegurancaPage() {
   const [report, setReport] = useState<SecurityReport>({});
   const [loading, setLoading] = useState(true);
+  const [backupStatus, setBackupStatus] = useState<{ total: number; remaining: number; generatedAt: string | null } | null>(null);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
     try {
-      const [loginRes, failedRes, sessionsRes] = await Promise.all([
+      const [loginRes, failedRes, sessionsRes, backupRes] = await Promise.all([
         fetch('/api/security/reports?type=login-attempts'),
         fetch('/api/security/reports?type=failed-logins'),
         fetch('/api/security/reports?type=active-sessions'),
+        fetch('/api/auth/mfa/backup-codes'),
       ]);
 
       const newReport: SecurityReport = {};
       if (loginRes.ok) newReport.loginAttempts = (await loginRes.json()).data;
       if (failedRes.ok) newReport.failedLogins = (await failedRes.json()).data;
       if (sessionsRes.ok) newReport.activeSessions = (await sessionsRes.json()).data;
+      if (backupRes.ok) setBackupStatus((await backupRes.json()).data);
       setReport(newReport);
     } catch (err) {
       console.error('Erro ao buscar relatórios:', err);
@@ -116,6 +124,32 @@ export default function SegurancaPage() {
       setLoading(false);
     }
   }, []);
+
+  const handleGenerateBackupCodes = async () => {
+    if (!confirm('Isso invalidará todos os códigos de backup anteriores. Confirmar?')) return;
+    setBackupLoading(true);
+    setBackupCodes(null);
+    try {
+      const res = await fetch('/api/auth/mfa/backup-codes', { method: 'POST' });
+      const json = await res.json();
+      if (res.ok && json.data?.codes) {
+        setBackupCodes(json.data.codes);
+        setBackupStatus(json.data.status ?? null);
+      } else {
+        alert(json.error || 'Erro ao gerar códigos de backup');
+      }
+    } catch {
+      alert('Erro ao gerar códigos de backup');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleCopyCode = async (code: string, idx: number) => {
+    await navigator.clipboard.writeText(code).catch(() => {});
+    setCopiedIndex(idx);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
 
   useEffect(() => {
     fetchReport();
@@ -269,6 +303,81 @@ export default function SegurancaPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Códigos de Backup MFA */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Key className="h-4 w-4" /> Códigos de Backup MFA
+                  </CardTitle>
+                  <CardDescription>Use em caso de perda de acesso ao email</CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateBackupCodes}
+                  disabled={backupLoading}
+                  aria-label="Gerar novos códigos de backup"
+                >
+                  {backupLoading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Gerar novos códigos
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {backupStatus && (
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <span className="text-muted-foreground">
+                    Restantes: <span className="font-semibold text-foreground">{backupStatus.remaining}/{backupStatus.total}</span>
+                  </span>
+                  {backupStatus.generatedAt && (
+                    <span className="text-muted-foreground">
+                      Gerados em: <span className="font-semibold text-foreground">
+                        {new Date(backupStatus.generatedAt).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {!backupStatus && !backupLoading && (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum código de backup gerado ainda. Clique em &quot;Gerar novos códigos&quot; para criar.
+                </p>
+              )}
+
+              {backupCodes && (
+                <div className="space-y-3">
+                  <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
+                    <p className="text-sm font-semibold text-amber-600 dark:text-amber-400 mb-1">⚠️ Atenção</p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Estes códigos são exibidos apenas UMA VEZ. Guarde-os em lugar seguro. Cada código pode ser usado apenas uma vez.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {backupCodes.map((code, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2 font-mono text-sm">
+                        <span>{code}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCode(code, idx)}
+                          className="ml-2 text-muted-foreground hover:text-foreground"
+                          aria-label={`Copiar código ${code}`}
+                        >
+                          {copiedIndex === idx ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ===== ABA KMS ===== */}

@@ -35,7 +35,7 @@ export default async function ConciliacaoList({
     );
   }
 
-  // Gerar dados de conciliação simulados (em produção, isso viria de uma tabela específica)
+  // Resumo derivado de transações bancárias persistidas e flags de reconciliação.
   const data: ConciliacaoTableRow[] = accounts.map((account) => {
     const transactions = account.transactions;
     const reconciliadas = transactions.filter((t) => t.reconciliada).length;

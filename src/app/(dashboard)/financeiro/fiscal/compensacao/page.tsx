@@ -171,7 +171,7 @@ async function CompensacaoContent({ empresaId }: { empresaId: number }) {
                 {compensacoes.map((c) => (
                   <tr key={c.id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-6 py-3 text-muted-foreground">
-                      {new Date(c.data).toLocaleDateString("en-US")}
+                      {new Date(c.data).toLocaleDateString("en-US", { timeZone: "America/Chicago" })}
                     </td>
                     <td className="px-6 py-3">
                       <Badge variant={tipoVariant[c.tipo] ?? "secondary"}>

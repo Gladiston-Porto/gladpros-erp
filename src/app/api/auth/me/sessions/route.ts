@@ -12,7 +12,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const userId = Number(me.id);
 
   // Ler token atual do cookie para identificar sessão corrente
-  const currentToken = req.cookies.get("session_token")?.value ?? null;
+  const currentToken = req.cookies.get("sessionToken")?.value ?? null;
 
   const sessions = await prisma.$queryRaw<Array<{
     id: number;
@@ -53,7 +53,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const me = await requireUser(req);
   const userId = Number(me.id);
 
-  const currentToken = req.cookies.get("session_token")?.value ?? null;
+  const currentToken = req.cookies.get("sessionToken")?.value ?? null;
 
   if (currentToken) {
     await prisma.$executeRaw`

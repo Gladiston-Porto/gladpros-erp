@@ -203,8 +203,9 @@ CLIENTE (6)    → Acesso externo limitado
 ```
 
 ### 6.5 Gestão de usuários
-- ADMIN gerencia todos
-- GERENTE gerencia apenas USUARIO, FINANCEIRO, ESTOQUE
+- ADMIN gerencia todos (módulo Usuários: criação de contas, definição de roles, reset de senha)
+- GERENTE **não tem acesso ao módulo Usuários** — gerencia seu time operacionalmente via Projetos, RH e OS
+  - "Gerenciar USUARIO/FINANCEIRO/ESTOQUE" significa alocar, escalar e supervisionar esses colaboradores dentro dos módulos operacionais (projetos, ordens de serviço), não administrar suas contas no sistema
 - demais roles não podem gerenciar usuários
 
 ### 6.6 Matriz de permissões por módulo
@@ -637,7 +638,7 @@ Estas variáveis existem no código e têm impacto direto na performance. Um age
 | Variável | Valor | Efeito quando ativa |
 |----------|-------|---------------------|
 | `TOKEN_VERSION_COLUMN_EXISTS=1` | `1` | Elimina query ao `INFORMATION_SCHEMA` no boot/HMR. Sem ela: até 10s de latência no cold start. |
-| `RBAC_TRUST_JWT=1` | `1` | Elimina 1 query ao banco por request autenticada. O JWT já é verificado pelo middleware com a mesma chave. |
+| `RBAC_TRUST_JWT=1` | `1` | Elimina 1 query ao banco por request autenticada. O JWT já é verificado pelo middleware com a mesma chave. **Ver trade-off abaixo.** |
 | `REDIS_DISABLED=true` | `true` | Força rate-limiter a usar memória. Sem Redis configurado, nunca deixar `REDIS_ENABLED=true`. |
 | `REDIS_URL` ou `REDIS_HOST` | URL real | Habilita Redis para rate-limiting distribuído. Requer Redis real acessível. |
 | `DATABASE_URL` com `?connection_limit=N&pool_timeout=20` | já configurado | Limita pool de conexões Prisma para evitar `Too many connections` no MySQL. |
@@ -646,6 +647,31 @@ Estas variáveis existem no código e têm impacto direto na performance. Um age
 - `TOKEN_VERSION_COLUMN_EXISTS=1` e `RBAC_TRUST_JWT=1` **devem estar presentes em produção** após deploy.
 - Nunca adicionar `REDIS_ENABLED=true` sem Redis real — causa timeout de ~1s no primeiro login após restart.
 - Nunca remover `connection_limit` da `DATABASE_URL` sem justificar.
+
+### ⚠️ Trade-off de segurança: RBAC_TRUST_JWT=1
+
+Com `RBAC_TRUST_JWT=1` ativo, o sistema **não consulta o banco de dados por request**. Isso traz ganho de performance, mas cria uma janela de segurança:
+
+| Situação | Com RBAC_TRUST_JWT=0 | Com RBAC_TRUST_JWT=1 |
+|----------|----------------------|----------------------|
+| Usuário desativado (toggle-status) | Bloqueado **imediatamente** na próxima request | Acesso válido por até **8 horas** (cookie) ou **7 dias** (JWT bruto) |
+| Mudança de role/nivel | Refletida **imediatamente** na próxima request | Só reflete após **novo login** |
+| Incremento de `tokenVersion` (logout forçado) | Bloqueia o token **imediatamente** | **Ignorado** — DB não é consultado |
+
+**JWT no sistema:**
+- Cookie `authToken`: `maxAge = 8h` — janela efetiva para browser normal
+- JWT assinado: `exp = 7d` — janela se o token for extraído do cookie
+
+**Quando usar:**
+- ✅ Produção com alto throughput e sem necessidade de bloqueio imediato
+- ❌ Situações onde um usuário comprometido precisa ser bloqueado em segundos
+
+**Procedimento para bloqueio de emergência com RBAC_TRUST_JWT=1:**
+1. Desativar usuário via `/api/usuarios/[id]/toggle-status` (incrementa `tokenVersion` no DB)
+2. O cookie expira em até 8h naturalmente
+3. Se urgente: rotacionar `JWT_SECRET` no ambiente → invalida **todos** os tokens ativos (impacto global)
+
+**Nunca:** remover `RBAC_TRUST_JWT=1` em produção sem medir o impacto em queries por segundo — cada request autenticada passa a fazer 1 query extra ao banco.
 
 ### ⚠️ Sentry — desativado em desenvolvimento
 

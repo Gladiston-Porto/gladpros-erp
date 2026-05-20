@@ -41,6 +41,8 @@ jest.mock('@/lib/prisma', () => ({
     invoicePayment: { findMany: jest.fn(), create: jest.fn(), findUnique: jest.fn() },
     auditLog: { create: jest.fn() },
     taxRate: { findUnique: jest.fn() },
+    cliente: { findUnique: jest.fn(), findFirst: jest.fn() },
+    projeto: { findUnique: jest.fn(), findFirst: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -184,6 +186,8 @@ describe('POST /api/invoices', () => {
     (mockPrisma.invoice.create as jest.Mock).mockResolvedValue(mockInvoice);
     (mockPrisma.auditLog.create as jest.Mock).mockResolvedValue({});
     (mockPrisma.taxRate.findUnique as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.cliente.findFirst as jest.Mock).mockResolvedValue({ id: 1, nomeCompleto: 'Test' });
+    (mockPrisma.projeto.findFirst as jest.Mock).mockResolvedValue(null);
   });
 
   it('201 — creates invoice successfully', async () => {

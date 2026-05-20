@@ -16,19 +16,19 @@ import { withErrorHandler } from '@/lib/api/error-handler';
  */
 export const GET = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
-    const params = await context.params;
     const user = await requireUser(request);
     if (!can(user.role as Role, "financeiro", "read")) {
       return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
     }
+    const params = await context.params;
 
     const id = parseInt(params.id);
     if (isNaN(id)) {
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
     }
 
-    const revenue = await prisma.revenue.findUnique({
-      where: { id },
+    const revenue = await prisma.revenue.findFirst({
+      where: { id, empresaId: user.empresaId },
       include: {
         empresa: {
           select: {
@@ -74,11 +74,11 @@ export const GET = withErrorHandler(async (request: NextRequest,
  */
 export const PUT = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
-    const params = await context.params;
     const user = await requireUser(request);
     if (!can(user.role as Role, "financeiro", "update")) {
       return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
     }
+    const params = await context.params;
 
     const id = parseInt(params.id);
     if (isNaN(id)) {
@@ -86,8 +86,8 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     }
 
     // Buscar receita existente
-    const existing = await prisma.revenue.findUnique({
-      where: { id }
+    const existing = await prisma.revenue.findFirst({
+      where: { id, empresaId: user.empresaId }
     });
 
     if (!existing) {
@@ -105,6 +105,13 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     // Parse e validação
     const body = await request.json();
     const validatedData = updateRevenueSchema.parse(body);
+    const lifecycleFields = validatedData.status !== undefined || validatedData.dataPagamento !== undefined;
+    if (lifecycleFields) {
+      return NextResponse.json(
+        { error: 'Invalid operation', message: 'Status e pagamento devem ser alterados pelos fluxos financeiros dedicados', success: false },
+        { status: 409 }
+      );
+    }
 
     // Atualizar receita
     const updated = await prisma.revenue.update({
@@ -160,11 +167,11 @@ export const PUT = withErrorHandler(async (request: NextRequest,
  */
 export const DELETE = withErrorHandler(async (request: NextRequest,
   context: { params: Promise<{ id: string }> }) => {
-    const params = await context.params;
     const user = await requireUser(request);
     if (!can(user.role as Role, "financeiro", "delete")) {
       return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
     }
+    const params = await context.params;
 
     const id = parseInt(params.id);
     if (isNaN(id)) {
@@ -172,8 +179,8 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
     }
 
     // Buscar receita
-    const existing = await prisma.revenue.findUnique({
-      where: { id }
+    const existing = await prisma.revenue.findFirst({
+      where: { id, empresaId: user.empresaId }
     });
 
     if (!existing) {

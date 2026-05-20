@@ -27,12 +27,8 @@ jest.mock('../../../lib/prisma', () => ({
       count: jest.fn(),
       groupBy: jest.fn(),
     },
-    cliente: { count: jest.fn() },
-    projeto: {
-      count: jest.fn(),
-      groupBy: jest.fn(),
-      findMany: jest.fn(),
-    },
+    cliente: { count: jest.fn(), findMany: jest.fn() },
+    projeto: { count: jest.fn(), groupBy: jest.fn() },
     invoice: {
       aggregate: jest.fn(),
       groupBy: jest.fn(),
@@ -48,6 +44,12 @@ jest.mock('../../../shared/lib/rbac', () => ({
 
 jest.mock('../../../shared/lib/rbac-core', () => ({
   can: jest.fn(),
+}));
+
+jest.mock('../../../shared/lib/rate-limit', () => ({
+  apiRateLimit: {
+    isAllowed: jest.fn().mockResolvedValue({ allowed: true, message: '', resetTime: Date.now() + 60_000 }),
+  },
 }));
 
 // withErrorHandler just calls through the handler
@@ -105,13 +107,11 @@ describe('GET /api/dashboard', () => {
       _count: 8,
     });
     prisma.invoice.groupBy.mockResolvedValue([
-      { projetoId: 1, _count: 2, _sum: { valorTotal: 20000 } },
+      { clienteId: 1, _count: 2, _sum: { valorTotal: 20000 } },
     ]);
     prisma.serviceOrder.groupBy.mockResolvedValue([]);
     prisma.domainEvent.findMany.mockResolvedValue([]);
-    prisma.projeto.findMany.mockResolvedValue([
-      { id: 1, Cliente: { nomeFantasia: 'Acme Corp', nomeCompleto: 'Acme Corporation' } },
-    ]);
+    prisma.cliente.findMany.mockResolvedValue([{ id: 1, nomeFantasia: 'Acme Corp', nomeCompleto: 'Acme Corporation' }]);
 
     // Re-import to get fresh GET handler
     jest.isolateModules(() => {
@@ -164,13 +164,13 @@ describe('GET /api/dashboard', () => {
     expect((res as unknown as { _data: { success: boolean } })._data.success).toBe(false);
   });
 
-  test('sem N+1 — projeto.findMany chamado apenas uma vez', async () => {
+  test('sem N+1 — cliente.findMany chamado apenas uma vez', async () => {
     const { GET: handler } = require('../../../app/api/dashboard/route');
     await handler(buildRequest());
 
     // findMany deve ser chamado no máximo 1x para resolver os top clients
     // (jamais dentro de loop — que seria múltiplas chamadas a findUnique)
-    const calls = prisma.projeto.findMany.mock.calls.length;
+    const calls = prisma.cliente.findMany.mock.calls.length;
     expect(calls).toBeLessThanOrEqual(1);
   });
 
@@ -179,6 +179,30 @@ describe('GET /api/dashboard', () => {
     await handler(new NextRequest('http://localhost:3000/api/dashboard') as unknown as NextRequest);
 
     expect(prisma.proposta.count).toHaveBeenCalled();
+  });
+
+  test('400 — period inválido retorna erro de validação', async () => {
+    const { GET: handler } = require('../../../app/api/dashboard/route');
+    const res = await handler(new NextRequest('http://localhost:3000/api/dashboard?period=foo') as unknown as NextRequest);
+    expect(res.status).toBe(400);
+    expect((res as unknown as { _data: { success: boolean } })._data.success).toBe(false);
+  });
+
+  test('200 — sem permissão financeira retorna revenue nulo e topClients vazio', async () => {
+    can.mockImplementation((role: string, module: string) => {
+      if (module === 'dashboard') return true;
+      if (module === 'financeiro') return false;
+      return false;
+    });
+
+    const { GET: handler } = require('../../../app/api/dashboard/route');
+    const res = await handler(buildRequest());
+    expect(res.status).toBe(200);
+
+    const body = (res as unknown as { _data: { data: Record<string, unknown> } })._data;
+    expect(body.data.revenue).toBeNull();
+    expect(body.data.topClients).toEqual([]);
+    expect(body.data.permissions).toEqual({ canViewFinancials: false });
   });
 
   test('200 — response contém estrutura esperada', async () => {

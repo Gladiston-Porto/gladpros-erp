@@ -34,8 +34,8 @@ export const GET = withErrorHandler(async (request: NextRequest,
       }, { status: 400 });
     }
 
-    const expense = await prisma.expense.findUnique({
-      where: { id },
+    const expense = await prisma.expense.findFirst({
+      where: { id, empresaId: user.empresaId },
       include: {
         categoria: {
           select: {
@@ -124,8 +124,8 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     }
 
     // Verificar se despesa existe
-    const existingExpense = await prisma.expense.findUnique({
-      where: { id },
+    const existingExpense = await prisma.expense.findFirst({
+      where: { id, empresaId: user.empresaId },
       include: { aprovacao: true }
     });
 
@@ -161,6 +161,13 @@ export const PUT = withErrorHandler(async (request: NextRequest,
 
     const body = await request.json();
     const validatedData = updateExpenseSchema.parse(body);
+    const lifecycleFields = validatedData.status !== undefined || validatedData.dataPagamento !== undefined;
+    if (lifecycleFields) {
+      return NextResponse.json({
+        success: false,
+        error: 'Status e pagamento devem ser alterados pelos fluxos financeiros dedicados'
+      }, { status: 409 });
+    }
 
     // Atualizar despesa
     const updatedExpense = await prisma.expense.update({
@@ -221,8 +228,8 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
     }
 
     // Verificar se despesa existe
-    const existingExpense = await prisma.expense.findUnique({
-      where: { id },
+    const existingExpense = await prisma.expense.findFirst({
+      where: { id, empresaId: user.empresaId },
       include: { aprovacao: true }
     });
 

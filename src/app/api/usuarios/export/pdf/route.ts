@@ -25,6 +25,7 @@ const exportBodySchema = z.object({
  * the print page (/reports/users) via Playwright headless browser.
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
+  const authUser = await requireUser(request);
   const rateCheck = await apiRateLimit.isAllowed(request);
   if (!rateCheck.allowed) {
     return NextResponse.json(
@@ -32,8 +33,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
     );
   }
-  const authUser = await requireUser(request);
-  if (!can(authUser.role as Role, 'usuarios', 'update')) {
+  if (!can(authUser.role as Role, 'usuarios', 'read')) {
     return NextResponse.json({ error: 'Forbidden', message: 'Acesso negado', success: false }, { status: 403 });
   }
 

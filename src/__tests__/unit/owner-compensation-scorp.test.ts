@@ -10,13 +10,26 @@
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
+    $transaction: jest.fn(),
     worker: { findUnique: jest.fn() },
     empresa: { findUniqueOrThrow: jest.fn() },
+    bankAccount: {
+      findFirst: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    bankTransaction: { create: jest.fn() },
+    ledgerTransaction: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
     ownerCompensation: {
       count: jest.fn(),
       aggregate: jest.fn(),
       create: jest.fn(),
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       delete: jest.fn(),
     },
@@ -36,6 +49,7 @@ const BASE_INPUT = {
   valor: 5000,
   data: new Date('2024-06-01'),
   criadoPor: 1,
+  bankAccountId: 5,
 }
 
 const mockOwnerOperator = { classification: 'OWNER_OPERATOR' }
@@ -53,7 +67,15 @@ function mockCreatedCompensation(tipo: string) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma))
   mockPrisma.auditLog.create.mockResolvedValue({})
+  mockPrisma.bankAccount.update.mockResolvedValue({})
+  mockPrisma.bankAccount.updateMany.mockResolvedValue({ count: 1 })
+  mockPrisma.bankAccount.findFirst.mockResolvedValue({ id: 5, saldoAtual: 10000 })
+  mockPrisma.bankAccount.findUniqueOrThrow.mockResolvedValue({ saldoAtual: 5000 })
+  mockPrisma.bankTransaction.create.mockResolvedValue({})
+  mockPrisma.ledgerTransaction.findUnique.mockResolvedValue(null)
+  mockPrisma.ledgerTransaction.create.mockResolvedValue({ id: 77, entries: [] })
 })
 
 // ── Worker Classification ────────────────────────────────────────────────────
@@ -239,5 +261,79 @@ describe('AuditLog creation', () => {
     await createCompensation(BASE_INPUT)
 
     expect(mockPrisma.auditLog.create).not.toHaveBeenCalled()
+  })
+})
+
+// ── Bank Movement ─────────────────────────────────────────────────────────────
+
+describe('Bank account movement', () => {
+  beforeEach(() => {
+    mockPrisma.worker.findUnique.mockResolvedValue(mockOwnerOperator)
+    mockPrisma.empresa.findUniqueOrThrow
+      .mockResolvedValueOnce({ tipoTributacao: 'LLC_DEFAULT' })
+      .mockResolvedValueOnce({ tipoTributacao: 'LLC_DEFAULT' })
+  })
+
+  it('creates a bank debit and decrements balance when bankAccountId is provided', async () => {
+    mockCreatedCompensation('OWNER_DRAW')
+    mockPrisma.bankAccount.findFirst.mockResolvedValue({ id: 5, saldoAtual: 10000 })
+
+    const result = await createCompensation(BASE_INPUT)
+
+    expect(result.success).toBe(true)
+    expect(mockPrisma.bankTransaction.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          accountId: 5,
+          empresaId: 1,
+          tipo: 'DEBITO',
+          categoria: 'OWNER_COMPENSATION_OWNER_DRAW',
+          valor: 5000,
+          saldoAnterior: expect.anything(),
+          saldoPosterior: expect.anything(),
+          metadata: expect.objectContaining({ ownerCompensationId: 1 }),
+        }),
+      })
+    )
+    expect(mockPrisma.bankAccount.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 5, empresaId: 1, ativo: true }),
+        data: expect.objectContaining({ saldoAtual: expect.objectContaining({ decrement: expect.anything() }) }),
+      })
+    )
+    expect(mockPrisma.ledgerTransaction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        sourceType: 'OWNER_COMPENSATION',
+        sourceId: 1,
+      }),
+    }))
+  })
+
+  it('blocks bank-linked compensation when the account has insufficient balance', async () => {
+    mockPrisma.bankAccount.findFirst.mockResolvedValue({ id: 5, saldoAtual: 100 })
+
+    const result = await createCompensation({ ...BASE_INPUT, bankAccountId: 5 })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.code).toBe('INSUFFICIENT_BANK_BALANCE')
+    expect(mockPrisma.ownerCompensation.create).not.toHaveBeenCalled()
+    expect(mockPrisma.bankTransaction.create).not.toHaveBeenCalled()
+  })
+
+  it('blocks deletion of compensation linked to a bank account', async () => {
+    const { deleteCompensation } = await import('@/shared/services/ownerCompensationService')
+    mockPrisma.ownerCompensation.findFirst.mockResolvedValue({
+      id: 1,
+      tipo: 'OWNER_DRAW',
+      valor: 5000,
+      data: BASE_INPUT.data,
+      bankAccountId: 5,
+    })
+
+    const result = await deleteCompensation(1, 1, 1)
+
+    expect(result.success).toBe(false)
+    expect(result.error?.code).toBe('BANK_LINKED_DELETE_BLOCKED')
+    expect(mockPrisma.ownerCompensation.delete).not.toHaveBeenCalled()
   })
 })

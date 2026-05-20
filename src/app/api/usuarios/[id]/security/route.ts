@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 import { checkUserManagementAccess } from "../../_helpers/access";
 
 interface Params {
@@ -12,6 +13,10 @@ interface Params {
 export const GET = withErrorHandler(async (request: NextRequest,
   { params }: { params: Promise<Params> }) => {
     const authUser = await requireUser(request);
+
+    if (!can(authUser.role as Role, 'usuarios', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Acesso negado', success: false }, { status: 403 });
+    }
 
     // Only ADMIN/GERENTE can view security info of other users
     const { id } = await params;

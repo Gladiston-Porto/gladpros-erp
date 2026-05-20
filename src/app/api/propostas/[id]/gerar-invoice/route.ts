@@ -3,6 +3,7 @@ import { requireUser, can, type Role } from '@/shared/lib/rbac';
 import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
 
 export const POST = withErrorHandler(
   async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -24,7 +25,7 @@ export const POST = withErrorHandler(
     }
 
     // Buscar proposta com etapas e materiais
-    const proposta = await prisma.proposta.findUnique({
+    const proposta = await prisma.proposta.findFirst({
       where: { id: propostaId, deletedAt: null },
       include: {
         PropostaEtapa: true,
@@ -53,7 +54,14 @@ export const POST = withErrorHandler(
 
     // Verificar se já existe invoice para esta proposta (evitar duplicatas)
     const existing = await prisma.invoice.findFirst({
-      where: { propostaId },
+      where: {
+        empresaId: user.empresaId,
+        status: { not: 'CANCELLED' },
+        OR: [
+          { propostaId },
+          ...(proposta.projetoId ? [{ projetoId: proposta.projetoId }] : []),
+        ],
+      },
       select: { id: true, numeroInvoice: true },
     });
 
@@ -151,54 +159,77 @@ export const POST = withErrorHandler(
     const hoje = new Date();
     const dataStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(hoje).replace(/-/g, '');
 
-    const invoice = await prisma.$transaction(async (tx) => {
-      const count = await tx.invoice.count({
-        where: { numeroInvoice: { startsWith: `INV-${dataStr}` } },
-      });
-      const numeroInvoice = `INV-${dataStr}-${String(count + 1).padStart(4, '0')}`;
+    let invoice: { id: number; numeroInvoice: string; valorTotal: Decimal; status: string } | null = null;
 
-      const created = await tx.invoice.create({
-        data: {
-          numeroInvoice,
-          clienteId: proposta.clienteId,
-          propostaId,
-          dataVencimento,
-          subtotal: new Decimal(subtotal),
-          descontoValor: new Decimal(0),
-          descontoPercentual: new Decimal(0),
-          taxRate: new Decimal(taxRate),
-          taxAmount: new Decimal(taxAmount),
-          valorTotal: new Decimal(valorTotal),
-          valorPago: new Decimal(0),
-          saldo: new Decimal(valorTotal),
-          status: 'DRAFT',
-          notas: `Invoice gerada a partir da proposta ${proposta.numeroProposta}`,
-          criadoPor: Number(user.id),
-          empresaId: 1,
-          itens: { create: itens },
-        },
-        select: { id: true, numeroInvoice: true, valorTotal: true, status: true },
-      });
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        invoice = await prisma.$transaction(async (tx) => {
+          const count = await tx.invoice.count({
+            where: { numeroInvoice: { startsWith: `INV-${dataStr}` } },
+          });
+          const numeroInvoice = `INV-${dataStr}-${String(count + 1 + attempt).padStart(4, '0')}`;
 
-      await tx.auditLog.create({
-        data: {
-          id: crypto.randomUUID(),
-          userId: Number(user.id),
-          entidade: 'Invoice',
-          entidadeId: String(created.id),
-          acao: 'CREATE',
-          diff: JSON.stringify({
-            origem: 'gerar_invoice_proposta',
-            propostaId,
-            numeroProposta: proposta.numeroProposta,
-            numeroInvoice,
-            valorTotal,
-          }),
-        },
-      });
+          const created = await tx.invoice.create({
+            data: {
+              numeroInvoice,
+              clienteId: proposta.clienteId,
+              propostaId,
+              dataVencimento,
+              subtotal: new Decimal(subtotal),
+              descontoValor: new Decimal(0),
+              descontoPercentual: new Decimal(0),
+              taxRate: new Decimal(taxRate),
+              taxAmount: new Decimal(taxAmount),
+              valorTotal: new Decimal(valorTotal),
+              valorPago: new Decimal(0),
+              saldo: new Decimal(valorTotal),
+              status: 'DRAFT',
+              notas: `Invoice gerada a partir da proposta ${proposta.numeroProposta}`,
+              criadoPor: Number(user.id),
+              empresaId: user.empresaId,
+              itens: { create: itens },
+            },
+            select: { id: true, numeroInvoice: true, valorTotal: true, status: true },
+          });
 
-      return created;
-    });
+          await tx.auditLog.create({
+            data: {
+              id: crypto.randomUUID(),
+              userId: Number(user.id),
+              entidade: 'Invoice',
+              entidadeId: String(created.id),
+              acao: 'CREATE',
+              diff: JSON.stringify({
+                origem: 'gerar_invoice_proposta',
+                propostaId,
+                numeroProposta: proposta.numeroProposta,
+                numeroInvoice,
+                valorTotal,
+              }),
+            },
+          });
+
+          return created;
+        });
+        break;
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          attempt < 2
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (!invoice) {
+      return NextResponse.json(
+        { error: 'Conflict', message: 'Não foi possível gerar número único para invoice', success: false },
+        { status: 409 },
+      );
+    }
 
     return NextResponse.json(
       { data: { invoiceId: invoice.id, numeroInvoice: invoice.numeroInvoice, valorTotal: invoice.valorTotal }, success: true },

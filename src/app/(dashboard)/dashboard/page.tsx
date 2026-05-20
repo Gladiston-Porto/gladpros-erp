@@ -71,10 +71,10 @@ export default function DashboardPage() {
   const {
     stats, roles, recentActivities,
     roleChartData, userMetricsData, loginChartData,
-    loading, period, setPeriod, userRole, setUserRole, refetch,
+    loading, error, period, setPeriod, userRole, setUserRole, refetch, canReadAnalytics, currentUserRole,
   } = useDashboardData({ enabled: analyticsEnabled });
 
-  const hv = healthVariant(stats?.systemHealth || 'good');
+  const hv = canReadAnalytics ? healthVariant(stats?.systemHealth || 'warning') : 'warning';
 
   return (
     <div className="space-y-6">
@@ -88,7 +88,7 @@ export default function DashboardPage() {
         breadcrumbs={[{ label: 'Dashboard' }]}
         badges={
           <Badge variant={hv} className="text-xs">
-            {healthText(stats?.systemHealth || 'good')}
+            {canReadAnalytics ? healthText(stats?.systemHealth || 'warning') : 'Visão operacional limitada'}
           </Badge>
         }
         actions={
@@ -153,12 +153,24 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Tentativas de Login"
-          value={stats?.loginAttempts ?? 0}
-          description={`${stats?.failedLogins ?? 0} falhas`}
+          value={canReadAnalytics ? (stats?.loginAttempts ?? 0) : '—'}
+          description={
+            canReadAnalytics
+              ? `${stats?.failedLogins ?? 0} falhas`
+              : 'Disponível para ADMIN/GERENTE'
+          }
           icon={<Shield />}
-          variant={stats?.failedLogins ? 'warning' : 'muted'}
+          variant={canReadAnalytics && stats?.failedLogins ? 'warning' : 'muted'}
         />
       </div>
+
+      {error && (
+        <Card className="border-warning/40 bg-warning/5">
+          <CardContent className="p-4 text-sm text-warning-foreground">
+            {error}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Stats de propostas ───────────────────────────────────────── */}
       <Suspense fallback={<Skel />}>
@@ -180,22 +192,13 @@ export default function DashboardPage() {
             onNewClient={()   => router.push('/clientes/novo')}
             onViewReports={()  => router.push('/relatorios')}
             onSettings={()    => router.push('/configuracoes')}
+            userRole={currentUserRole}
           />
         </Suspense>
         <Suspense fallback={<Skel h="h-48" />}>
           <SystemStatus
-            database="online"
-            api="online"
-            lastBackup={
-              stats?.lastActivityAt
-                ? new Date(stats.lastActivityAt).toLocaleString('en-US', {
-                    timeZone: 'America/Chicago',
-                    month: 'short', day: 'numeric',
-                    hour: '2-digit', minute: '2-digit',
-                  })
-                : 'N/A'
-            }
-            uptime="Ativo"
+            database={stats?.systemHealth === 'error' ? 'warning' : 'online'}
+            api={stats?.systemHealth === 'error' ? 'warning' : 'online'}
           />
         </Suspense>
       </div>
@@ -209,8 +212,8 @@ export default function DashboardPage() {
         <TabsList className="h-9">
           <TabsTrigger value="executive" className="text-xs">Executivo</TabsTrigger>
           <TabsTrigger value="overview"  className="text-xs">Visão Geral</TabsTrigger>
-          <TabsTrigger value="roles"     className="text-xs">Por Função</TabsTrigger>
-          <TabsTrigger value="security"  className="text-xs">Segurança</TabsTrigger>
+          {canReadAnalytics && <TabsTrigger value="roles" className="text-xs">Por Função</TabsTrigger>}
+          {canReadAnalytics && <TabsTrigger value="security" className="text-xs">Segurança</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="executive" className="mt-4">
@@ -224,14 +227,14 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle>Análise de Performance</CardTitle>
               <CardDescription>
-                Métricas de uso nos últimos {period === '7d' ? '7' : period === '30d' ? '30' : '90'} dias
+                Série mensal consolidada dos últimos 6 meses
               </CardDescription>
             </CardHeader>
             <CardContent><UserMetricsChart data={userMetricsData} /></CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="roles" className="mt-4 space-y-4">
+        {canReadAnalytics && <TabsContent value="roles" className="mt-4 space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             {roles.map(role => (
               <Card key={role.id}>
@@ -256,31 +259,37 @@ export default function DashboardPage() {
             <CardHeader><CardTitle>Distribuição de Funções</CardTitle></CardHeader>
             <CardContent><RoleDistributionChart data={roleChartData} /></CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
 
-        <TabsContent value="security" className="mt-4 space-y-4">
+        {canReadAnalytics && <TabsContent value="security" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle>Relatório de Segurança</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between rounded-2xl border border-border p-3">
                 <div className="flex items-center gap-3">
                   <Shield className="size-4 text-emerald-500" />
                   <div>
-                    <p className="text-sm font-medium">Sistema Seguro</p>
-                    <p className="text-xs text-muted-foreground">Nenhuma vulnerabilidade crítica</p>
+                    <p className="text-sm font-medium">Saúde do Sistema</p>
+                    <p className="text-xs text-muted-foreground">
+                      {healthText(stats?.systemHealth || 'warning')}
+                    </p>
                   </div>
                 </div>
-                <Badge variant="success">OK</Badge>
+                <Badge variant={healthVariant(stats?.systemHealth || 'warning')}>
+                  {(stats?.systemHealth || 'warning').toUpperCase()}
+                </Badge>
               </div>
-              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between rounded-2xl border border-border p-3">
                 <div className="flex items-center gap-3">
-                  <Clock className="size-4 text-[#0098DA]" />
+                  <Clock className="size-4 text-brand-primary" />
                   <div>
-                    <p className="text-sm font-medium">Auditoria Ativa</p>
-                    <p className="text-xs text-muted-foreground">Monitoramento contínuo</p>
+                    <p className="text-sm font-medium">Eventos de Auditoria</p>
+                    <p className="text-xs text-muted-foreground">
+                      {stats?.auditEvents ?? 0} evento(s) no período selecionado
+                    </p>
                   </div>
                 </div>
-                <Badge variant="info">Ativo</Badge>
+                <Badge variant="info">Telemetria</Badge>
               </div>
             </CardContent>
           </Card>
@@ -288,7 +297,7 @@ export default function DashboardPage() {
             <CardHeader><CardTitle>Métricas de Segurança</CardTitle></CardHeader>
             <CardContent><SecurityMetricsChart data={loginChartData} /></CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
     </div>
   );

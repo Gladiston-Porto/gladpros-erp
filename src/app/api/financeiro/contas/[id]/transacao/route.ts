@@ -6,15 +6,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Decimal } from "@prisma/client/runtime/library";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import {
   createBankTransactionSchema,
-  calcularSaldoPosterior,
   validarSaldoDisponivel,
   type CreateBankTransactionInput
 } from "@/schemas/bank-account.schema";
+import { postLedgerTransaction } from "@/shared/services/ledgerPostingService";
 
 /**
  * POST - Criar nova transação bancária
@@ -48,8 +49,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     const validated = createBankTransactionSchema.parse(body) as CreateBankTransactionInput;
     
     // Verifica se conta existe e está ativa
-    const conta = await prisma.bankAccount.findUnique({
-      where: { id: accountId },
+    const conta = await prisma.bankAccount.findFirst({
+      where: { id: accountId, empresaId: user.empresaId },
       select: {
         id: true,
         empresaId: true,
@@ -75,7 +76,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
     }
     
     // Verifica se empresaId corresponde
-    if (conta.empresaId !== validated.empresaId) {
+    if (conta.empresaId !== user.empresaId) {
       return NextResponse.json({
         success: false,
         message: "Empresa da transação não corresponde à empresa da conta"
@@ -84,8 +85,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     
     // Se vinculado a receita/despesa, verifica se existem
     if (validated.revenueId) {
-      const revenue = await prisma.revenue.findUnique({
-        where: { id: validated.revenueId },
+      const revenue = await prisma.revenue.findFirst({
+        where: { id: validated.revenueId, empresaId: user.empresaId },
         select: { id: true, valor: true, status: true }
       });
       
@@ -96,6 +97,20 @@ export const POST = withErrorHandler(async (request: NextRequest,
         }, { status: 404 });
       }
       
+      if (validated.tipo !== "CREDITO") {
+        return NextResponse.json({
+          success: false,
+          message: "Receitas só podem ser vinculadas a transações de crédito"
+        }, { status: 400 });
+      }
+
+      if (revenue.status !== "PENDENTE") {
+        return NextResponse.json({
+          success: false,
+          message: `Receita não pode ser liquidada com status: ${revenue.status}`
+        }, { status: 409 });
+      }
+
       // Valida valor da transação com valor da receita
       if (Math.abs(Number(revenue.valor) - validated.valor) > 0.01) {
         return NextResponse.json({
@@ -106,8 +121,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     }
     
     if (validated.expenseId) {
-      const expense = await prisma.expense.findUnique({
-        where: { id: validated.expenseId },
+      const expense = await prisma.expense.findFirst({
+        where: { id: validated.expenseId, empresaId: user.empresaId },
         select: { id: true, valor: true, status: true }
       });
       
@@ -118,6 +133,20 @@ export const POST = withErrorHandler(async (request: NextRequest,
         }, { status: 404 });
       }
       
+      if (validated.tipo !== "DEBITO") {
+        return NextResponse.json({
+          success: false,
+          message: "Despesas só podem ser vinculadas a transações de débito"
+        }, { status: 400 });
+      }
+
+      if (expense.status !== "APROVADA") {
+        return NextResponse.json({
+          success: false,
+          message: "Despesa deve estar aprovada antes de ser paga por transação bancária"
+        }, { status: 409 });
+      }
+
       // Valida valor da transação com valor da despesa
       if (Math.abs(Number(expense.valor) - validated.valor) > 0.01) {
         return NextResponse.json({
@@ -143,22 +172,106 @@ export const POST = withErrorHandler(async (request: NextRequest,
       }, { status: 400 });
     }
     
-    // Calcula saldo posterior
-    const saldoPosterior = calcularSaldoPosterior(
-      saldoAnterior,
-      validated.valor,
-      validated.tipo
-    );
-    
     // Cria transação e atualiza saldo da conta em transação
     const resultado = await prisma.$transaction(async (tx) => {
+      const contaAtual = await tx.bankAccount.findFirst({
+        where: { id: accountId, empresaId: user.empresaId },
+        select: { id: true, saldoAtual: true, limiteCredito: true, ativo: true },
+      });
+
+      if (!contaAtual || !contaAtual.ativo) {
+        throw new Error("Conta não encontrada ou inativa");
+      }
+
+      const saldoAnteriorTx = Number(contaAtual.saldoAtual);
+      const validacaoSaldoTx = validarSaldoDisponivel(
+        saldoAnteriorTx,
+        contaAtual.limiteCredito ? Number(contaAtual.limiteCredito) : null,
+        validated.valor,
+        validated.tipo
+      );
+
+      if (!validacaoSaldoTx.valido) {
+        throw new Error(validacaoSaldoTx.mensagem);
+      }
+
+      if (validated.revenueId) {
+        const claimedRevenue = await tx.revenue.updateMany({
+          where: {
+            id: validated.revenueId,
+            empresaId: user.empresaId,
+            status: "PENDENTE",
+          },
+          data: {
+            status: "RECEBIDA",
+            dataPagamento: validated.dataTransacao,
+          },
+        });
+
+        if (claimedRevenue.count !== 1) {
+          throw new Error("Receita já foi liquidada ou alterada por outra transação");
+        }
+      }
+
+      if (validated.expenseId) {
+        const claimedExpense = await tx.expense.updateMany({
+          where: {
+            id: validated.expenseId,
+            empresaId: user.empresaId,
+            status: "APROVADA",
+          },
+          data: {
+            status: "PAGA",
+            dataPagamento: validated.dataTransacao,
+          },
+        });
+
+        if (claimedExpense.count !== 1) {
+          throw new Error("Despesa já foi paga/rejeitada ou alterada por outra transação");
+        }
+      }
+
+      const creditTypes = ["CREDITO", "TRANSFERENCIA_ENTRADA", "JUROS", "ESTORNO"];
+      const isCredit = creditTypes.includes(validated.tipo);
+      const amount = new Decimal(validated.valor);
+
+      if (isCredit) {
+        await tx.bankAccount.update({
+          where: { id: accountId },
+          data: { saldoAtual: { increment: amount } },
+        });
+      } else {
+        const updated = await tx.bankAccount.updateMany({
+          where: {
+            id: accountId,
+            empresaId: user.empresaId,
+            ativo: true,
+            saldoAtual: { gte: amount },
+          },
+          data: { saldoAtual: { decrement: amount } },
+        });
+        if (updated.count === 0) {
+          throw new Error("Saldo insuficiente ou conta alterada durante a transação");
+        }
+      }
+
+      const updatedAccount = await tx.bankAccount.findUniqueOrThrow({
+        where: { id: accountId },
+        select: { saldoAtual: true },
+      });
+      const saldoPosteriorTx = Number(updatedAccount.saldoAtual);
+      const saldoAnteriorFinal = isCredit
+        ? new Decimal(updatedAccount.saldoAtual).minus(amount)
+        : new Decimal(updatedAccount.saldoAtual).plus(amount);
+
       // Cria transação
       const transacao = await tx.bankTransaction.create({
         data: {
           ...validated,
-          saldoAnterior,
-           
-          saldoPosterior
+          empresaId: user.empresaId,
+          saldoAnterior: saldoAnteriorFinal,
+            
+          saldoPosterior: saldoPosteriorTx
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
         include: {
@@ -186,33 +299,26 @@ export const POST = withErrorHandler(async (request: NextRequest,
         }
       });
       
-      // Atualiza saldo da conta
-      await tx.bankAccount.update({
-        where: { id: accountId },
-        data: { saldoAtual: saldoPosterior }
-      });
-      
-      // Se vinculado a receita, atualiza status para PAGO
-      if (validated.revenueId) {
-        await tx.revenue.update({
-          where: { id: validated.revenueId },
-          data: {
-            status: "RECEBIDA",
-            dataPagamento: validated.dataTransacao
-          }
-        });
-      }
-      
-      // Se vinculado a despesa, atualiza status para PAGA
-      if (validated.expenseId) {
-        await tx.expense.update({
-          where: { id: validated.expenseId },
-          data: {
-            status: "PAGA",
-            dataPagamento: validated.dataTransacao
-          }
-        });
-      }
+      await postLedgerTransaction(
+        {
+          empresaId: user.empresaId,
+          data: validated.dataTransacao,
+          descricao: `Transação bancária #${transacao.id}: ${validated.descricao}`,
+          sourceType: "BANK_TRANSFER",
+          sourceId: transacao.id,
+          entries:
+            validated.tipo === "CREDITO"
+              ? [
+                { accountCode: "CASH", debit: new Decimal(validated.valor), memo: validated.descricao },
+                { accountCode: "REVENUE", credit: new Decimal(validated.valor), memo: "Entrada bancária manual" },
+              ]
+              : [
+                { accountCode: "EXPENSE", debit: new Decimal(validated.valor), memo: validated.descricao },
+                { accountCode: "CASH", credit: new Decimal(validated.valor), memo: "Saída bancária manual" },
+              ],
+        },
+        tx
+      );
       
       return transacao;
     });
@@ -233,7 +339,7 @@ export const POST = withErrorHandler(async (request: NextRequest,
       message: "Transação criada com sucesso",
       data: {
         ...resultado,
-        saldoAtualizado: saldoPosterior
+        saldoAtualizado: resultado.saldoPosterior
       }
     }, { status: 201 });
     

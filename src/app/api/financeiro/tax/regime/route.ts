@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     const empresa = await prisma.empresa.findUnique({
-      where: { id: 1 },
+      where: { id: user.empresaId },
       select: {
         id: true,
         nome: true,
@@ -62,8 +62,17 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    const currentEmpresa = await prisma.empresa.findUnique({
+      where: { id: user.empresaId },
+      select: { id: true, tipoTributacao: true },
+    })
+
+    if (!currentEmpresa) {
+      return NextResponse.json({ error: "Empresa não encontrada", success: false }, { status: 404 })
+    }
+
     const empresa = await prisma.empresa.update({
-      where: { id: 1 },
+      where: { id: user.empresaId },
       data: {
         tipoTributacao: body.data.tipoTributacao,
         tipoTributacaoDesde: new Date(),
@@ -84,7 +93,10 @@ export async function PUT(request: NextRequest) {
         entidade: "Empresa",
         entidadeId: String(empresa.id),
         acao: "UPDATE",
-        diff: JSON.stringify({ tipoTributacao: body.data.tipoTributacao }),
+        diff: JSON.stringify({
+          tipoTributacaoAnterior: currentEmpresa.tipoTributacao,
+          tipoTributacaoNovo: body.data.tipoTributacao,
+        }),
       },
     })
 

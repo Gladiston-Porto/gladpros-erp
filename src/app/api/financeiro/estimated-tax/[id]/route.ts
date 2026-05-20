@@ -10,10 +10,9 @@ import { updatePayment } from "@/shared/services/estimatedTaxService"
 import { logger } from "@/lib/api/logger"
 
 const updateSchema = z.object({
-  paidAmount: z.number().nonnegative().optional(),
   paidDate: z.string().transform((s) => new Date(s)).optional(),
   notas: z.string().optional(),
-})
+}).strict()
 
 export async function PUT(
   request: NextRequest,
@@ -43,7 +42,7 @@ export async function PUT(
       )
     }
 
-    const result = await updatePayment(paymentId, body.data, Number(user.id))
+    const result = await updatePayment(paymentId, body.data, Number(user.id), user.empresaId)
 
     if (!result.success) {
       return NextResponse.json(

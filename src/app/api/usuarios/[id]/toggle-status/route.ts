@@ -75,10 +75,16 @@ export const PUT = withErrorHandler(async (req: NextRequest,
     }
 
     // Atualizar usuário
+    // Ao desativar: incrementar tokenVersion para invalidar todos os JWTs existentes
+    // quando RBAC_TRUST_JWT=0 (DB é consultado por request, versão invalida imediatamente).
+    // Com RBAC_TRUST_JWT=1: tokenVersion é ignorado — o bloqueio ocorre apenas quando
+    // o cookie expirar (~8h) ou o JWT bruto expirar (7d). Para bloqueio imediato,
+    // rotacionar JWT_SECRET no ambiente (invalida todos os tokens globalmente).
     await prisma.usuario.update({
       where: { id },
       data: {
         status: newStatus,
+        ...(newStatus === 'INATIVO' ? { tokenVersion: { increment: 1 } } : {}),
         atualizadoEm: new Date()
       }
     });

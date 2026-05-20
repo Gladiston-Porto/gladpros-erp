@@ -66,7 +66,6 @@ export default function NovaDespesaPage() {
     try {
       const payload = {
         ...data,
-        empresaId: 1,
         dataEmissao: new Date(data.dataEmissao).toISOString(),
         dataVencimento: new Date(data.dataVencimento).toISOString(),
         numeroDocumento: data.notaFiscal,

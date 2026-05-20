@@ -19,6 +19,7 @@ import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { KMS } from '@/lib/security/kms';
 import { signAuthJWT, type Role } from '@/shared/lib/jwt';
+import { logger } from '@/lib/api/logger';
 
 const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutos
 const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias em ms (para datas)
@@ -60,7 +61,7 @@ async function getJwtSecret(): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     if (!jwtKmsFallbackLogged) {
-      console.warn('[TokenService] Failed to get JWT key from KMS, using env fallback');
+      logger.warn('[TokenService] Failed to get JWT key from KMS, using env fallback');
       jwtKmsFallbackLogged = true;
     }
     const secret = process.env.JWT_SECRET;
@@ -93,7 +94,7 @@ async function getAllJwtSecrets(): Promise<string[]> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     if (!allJwtKmsFallbackLogged) {
-      console.warn('[TokenService] Failed to get all JWT keys from KMS, using current key fallback');
+      logger.warn('[TokenService] Failed to get all JWT keys from KMS, using current key fallback');
       allJwtKmsFallbackLogged = true;
     }
     // Fallback para chave atual
@@ -198,7 +199,7 @@ export async function generateTokenPair(
   // Salvar refresh token no banco (access token é stateless)
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (prisma as any).refreshToken.create({
+    await prisma.refreshToken.create({
       data: {
         token: refreshToken,
         usuarioId: userId,
@@ -209,7 +210,7 @@ export async function generateTokenPair(
       }
     });
   } catch (error) {
-    console.error('[createTokenPair] Failed to save refreshToken:', error);
+    logger.error('[createTokenPair] Failed to save refreshToken', { error });
     throw error;
   }
   
@@ -249,7 +250,7 @@ export async function generateRefreshToken(
       VALUES (${refreshToken}, ${userId}, ${refreshJti}, FALSE, ${refreshTokenExpiresAt}, ${metadata?.ip ?? null}, ${metadata?.userAgent ?? null}, NOW())
     `;
   } catch (error) {
-    console.error('[generateRefreshToken] Failed to save refreshToken:', error);
+    logger.error('[generateRefreshToken] Failed to save refreshToken', { error });
     throw error;
   }
 
@@ -392,7 +393,7 @@ export async function validateRefreshToken(token: string) {
     
     // 3. Buscar no banco
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const storedToken = await (prisma as any).refreshToken.findUnique({
+    const storedToken = await prisma.refreshToken.findUnique({
       where: { jti: decoded.jti },
       include: { usuario: true }
     });
@@ -473,7 +474,7 @@ export async function refreshAccessToken(
   
   // 3. Marcar token antigo como usado
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (prisma as any).refreshToken.update({
+  await prisma.refreshToken.update({
     where: { jti: validated.jti },
     data: { usadoEm: new Date() }
   });
@@ -510,7 +511,7 @@ export async function refreshAccessToken(
   
   // 5. Salvar novo refresh token com referência ao anterior (rotation chain)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (prisma as any).refreshToken.create({
+  await prisma.refreshToken.create({
     data: {
       token: refreshToken,
       usuarioId: usuario.id,
@@ -543,7 +544,7 @@ export async function revokeRefreshToken(
 ): Promise<void> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const revokedByToken = await (prisma as any).refreshToken.updateMany({
+    const revokedByToken = await prisma.refreshToken.updateMany({
       where: {
         token,
         revogado: false
@@ -564,7 +565,7 @@ export async function revokeRefreshToken(
     const decoded = jwt.verify(token, jwtSecret) as TokenPayload;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (prisma as any).refreshToken.updateMany({
+    await prisma.refreshToken.updateMany({
       where: {
         jti: decoded.jti,
         revogado: false
@@ -577,7 +578,7 @@ export async function revokeRefreshToken(
     });
   } catch (error) {
     // Token inválido ou expirado - ignorar silenciosamente
-    console.warn('Tentativa de revogar token inválido:', error);
+    logger.warn('Tentativa de revogar token inválido', { error });
   }
 }
 
@@ -598,7 +599,7 @@ export async function revokeAllUserTokens(
   motivo: string = 'Logout de todos os dispositivos'
 ): Promise<number> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = await (prisma as any).refreshToken.updateMany({
+  const result = await prisma.refreshToken.updateMany({
     where: {
       usuarioId: userId,
       revogado: false
@@ -627,7 +628,7 @@ export async function cleanupExpiredTokens(): Promise<number> {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = await (prisma as any).refreshToken.deleteMany({
+  const result = await prisma.refreshToken.deleteMany({
     where: {
       expiraEm: {
         lt: thirtyDaysAgo
@@ -654,9 +655,9 @@ export async function getUserTokenStats(userId: number) {
   const [total, ativos, revogados, expirados, usados] = await Promise.all([
      
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (prisma as any).refreshToken.count({ where: { usuarioId: userId } }),
+    prisma.refreshToken.count({ where: { usuarioId: userId } }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (prisma as any).refreshToken.count({
+    prisma.refreshToken.count({
       where: {
         usuarioId: userId,
          
@@ -666,18 +667,18 @@ export async function getUserTokenStats(userId: number) {
       }
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (prisma as any).refreshToken.count({
+    prisma.refreshToken.count({
       where: { usuarioId: userId, revogado: true }
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (prisma as any).refreshToken.count({
+    prisma.refreshToken.count({
       where: {
         usuarioId: userId,
         expiraEm: { lt: new Date() }
       }
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (prisma as any).refreshToken.count({
+    prisma.refreshToken.count({
       where: {
         usuarioId: userId,
         usadoEm: { not: null }
@@ -705,7 +706,7 @@ export async function getUserTokenStats(userId: number) {
  */
 export async function listUserActiveTokens(userId: number) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return await (prisma as any).refreshToken.findMany({
+  return await prisma.refreshToken.findMany({
     where: {
       usuarioId: userId,
       revogado: false,

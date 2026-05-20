@@ -27,7 +27,6 @@ interface Cliente {
 }
 
 interface FormData {
-  empresaId: number
   categoriaId: string
   clienteId: string
   descricao: string
@@ -88,7 +87,6 @@ export default function ReceitaFormPageClient() {
   const today = new Date().toISOString().split('T')[0]
 
   const [formData, setFormData] = useState<FormData>({
-    empresaId: 1,
     categoriaId: '',
     clienteId: '',
     descricao: '',
@@ -115,7 +113,7 @@ export default function ReceitaFormPageClient() {
 
   const loadCategories = async () => {
     try {
-      const res = await fetch('/api/financeiro/receitas/categorias?empresaId=1')
+      const res = await fetch('/api/financeiro/receitas/categorias')
       const data = await res.json()
       if (data.success) setCategories(data.data)
     } catch {
@@ -125,7 +123,7 @@ export default function ReceitaFormPageClient() {
 
   const loadClientes = async () => {
     try {
-      const res = await fetch('/api/clientes?empresaId=1&pageSize=100')
+      const res = await fetch('/api/clientes?pageSize=100')
       const data = await res.json()
       if (data.success) setClientes(data.data)
     } catch {
@@ -171,7 +169,6 @@ export default function ReceitaFormPageClient() {
 
     try {
       const payload: Record<string, unknown> = {
-        empresaId: 1,
         categoriaId: Number(formData.categoriaId),
         descricao: formData.descricao,
         valor: Number(formData.valor),

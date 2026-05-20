@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
   }
   const templates = await prisma.propostaTemplate.findMany({
-    where: { empresaId: 1, deletedAt: null },
+    where: { empresaId: user.empresaId, deletedAt: null },
     select: { id: true, nome: true, descricao: true, titulo: true, createdAt: true },
     orderBy: { nome: 'asc' },
   });
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     );
   }
   const template = await prisma.propostaTemplate.create({
-    data: { ...body.data, empresaId: 1 },
+    data: { ...body.data, empresaId: user.empresaId },
   });
   return NextResponse.json({ data: template, success: true }, { status: 201 });
 }

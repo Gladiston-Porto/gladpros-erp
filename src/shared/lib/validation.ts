@@ -35,10 +35,13 @@ export const pinSchema = z
   .length(4, 'PIN deve ter exatamente 4 dígitos')
   .refine((pin) => /^\d{4}$/.test(pin), 'PIN deve conter apenas números');
 
+// Aceita código TOTP de 6 dígitos OU backup code de 10 chars (com ou sem hífen: XXXXX-XXXXX)
 export const mfaCodeSchema = z
   .string()
-  .length(6, 'Código MFA deve ter exatamente 6 dígitos')
-  .refine((code) => /^\d{6}$/.test(code), 'Código MFA deve conter apenas números');
+  .refine(
+    (code) => /^\d{6}$/.test(code) || /^[A-Z0-9]{10}$/.test(code.replace(/-/g, "").toUpperCase()),
+    'Código inválido (6 dígitos ou backup code de 10 caracteres)'
+  );
 
 export const securityQuestionSchema = z
   .string()
@@ -62,7 +65,9 @@ export const loginSchema = z.object({
 export const mfaVerificationSchema = z.object({
   userId: z.number().int().positive('ID do usuário inválido'),
   code: mfaCodeSchema,
-  tipoAcao: z.enum(['LOGIN', 'PRIMEIRO_ACESSO', 'RESET_PASSWORD']).optional()
+  tipoAcao: z.enum(['LOGIN', 'PRIMEIRO_ACESSO', 'RESET_PASSWORD']).optional(),
+  challenge: z.string().optional(),
+  rememberDevice: z.boolean().optional(),
 });
 
 export const mfaRequestSchema = z.object({

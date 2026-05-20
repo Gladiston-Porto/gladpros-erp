@@ -140,18 +140,12 @@ export default function LoginPage() {
       }
 
       if (isMfaData(res.data)) {
-        if (
-          process.env.NODE_ENV === "development" &&
-          process.env.DISABLE_MFA_FOR_TESTS === "true"
-        ) {
-          router.replace("/dashboard")
-          return
-        }
         const u = res.data.user
+        // Salvar email/nome no sessionStorage (não expor na URL — P2-4)
+        sessionStorage.setItem('mfa_email', u.email || '')
+        sessionStorage.setItem('mfa_name', u.nomeCompleto || u.email || '')
         const params = new URLSearchParams({
           userId: String(u.id),
-          email: u.email,
-          name: u.nomeCompleto || u.email,
           firstAccess: u.primeiroAcesso ? "true" : "false",
         })
         if (res.data.mfaChallenge) params.set("challenge", res.data.mfaChallenge)

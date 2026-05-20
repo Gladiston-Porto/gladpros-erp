@@ -226,6 +226,7 @@ export const GET = withErrorHandler(async (req: Request, context: unknown) => {
 
 /* PATCH /api/usuarios/:id - parcial */
 export const PATCH = withErrorHandler(async (req: Request, context: unknown) => {
+    const authUser = await requireUser(req);
     const rateCheck = await apiRateLimit.isAllowed(req as Parameters<typeof apiRateLimit.isAllowed>[0]);
     if (!rateCheck.allowed) {
       return NextResponse.json(
@@ -233,7 +234,6 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
         { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
       );
     }
-    const authUser = await requireUser(req);
     const params = await resolveParams(context);
   const idVal = (params as Record<string, unknown>)?.id;
   const id = Number(idVal);
@@ -355,9 +355,31 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
         // ignorar strings vazias para não apagar dados sem intenção
         if (typeof raw === "string" && raw.trim() === "") continue;
         if (key === "senha") {
-          const hash = await bcrypt.hash(String(raw), 12);
+          const novaSenha = String(raw);
+          const hash = await bcrypt.hash(novaSenha, 12);
+
+          // Verificar se a nova senha já foi utilizada anteriormente (últimas 5)
+          const historico = await prisma.historicoSenha.findMany({
+            where: { usuarioId: id },
+            orderBy: { criadaEm: "desc" },
+            take: 5,
+            select: { senhaHash: true },
+          });
+          for (const entrada of historico) {
+            const jaUsada = await bcrypt.compare(novaSenha, entrada.senhaHash);
+            if (jaUsada) {
+              return NextResponse.json(
+                { error: "Senha já utilizada anteriormente. Escolha uma senha diferente.", success: false },
+                { status: 400 }
+              );
+            }
+          }
+
           sets.push(`senha = ?`);
           paramsVals.push(hash);
+          sets.push(`senhaAlteradaEm = NOW()`);
+          // Registrar nova senha no histórico após o UPDATE (pendente — ver abaixo)
+          (req as unknown as Record<string, unknown>)["_newPasswordHash"] = hash;
         } else if (key === "cep" && !(body as Record<string, unknown>)["zipcode"]) {
           // normalize cep -> zipcode or cep, conforme schema
           const target = cols.has("zipcode") ? "zipcode" : cols.has("cep") ? "cep" : null;
@@ -449,6 +471,26 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
 
     await withRetry(() => prisma.$executeRawUnsafe(sql, ...paramsVals));
 
+    // Registrar nova senha no HistoricoSenha (mantém reutilização bloqueada)
+    const newPasswordHash = (req as unknown as Record<string, unknown>)["_newPasswordHash"];
+    if (typeof newPasswordHash === "string") {
+      try {
+        await prisma.historicoSenha.create({ data: { usuarioId: id, senhaHash: newPasswordHash } });
+        // Manter apenas as últimas 10 entradas para não crescer indefinidamente
+        const antigas = await prisma.historicoSenha.findMany({
+          where: { usuarioId: id },
+          orderBy: { criadaEm: "desc" },
+          skip: 10,
+          select: { id: true },
+        });
+        if (antigas.length > 0) {
+          await prisma.historicoSenha.deleteMany({ where: { id: { in: antigas.map((e) => e.id) } } });
+        }
+      } catch {
+        // não bloqueia o fluxo principal
+      }
+    }
+
     // Capturar dados depois da atualização para auditoria
   const dadosDepois = (await withRetry(() =>
     prisma.$queryRawUnsafe(`SELECT ${userSelect} FROM Usuario WHERE id = ? LIMIT 1`, id)
@@ -482,6 +524,7 @@ export const PUT = withErrorHandler(async (req: Request, context: unknown) => {
 /* DELETE /api/usuarios/:id */
 export const DELETE = withErrorHandler(async (req: Request,
   context: { params: Promise<{ id: string }> }) => {
+    const authUser = await requireUser(req);
     const rateCheck = await apiRateLimit.isAllowed(req as Parameters<typeof apiRateLimit.isAllowed>[0]);
     if (!rateCheck.allowed) {
       return NextResponse.json(
@@ -489,7 +532,6 @@ export const DELETE = withErrorHandler(async (req: Request,
         { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
       );
     }
-    const authUser = await requireUser(req);
 
     // Only roles with 'delete' permission can deactivate users
     if (!can(authUser.role as Role, 'usuarios', 'delete')) {

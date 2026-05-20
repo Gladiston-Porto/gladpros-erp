@@ -11,6 +11,14 @@ import { ApiErrorCode } from '@/lib/api/types';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { markPayableAsPaid } from '@/shared/services/workforceService';
+import { z } from 'zod';
+import { PaymentMethod } from '@prisma/client';
+
+const markPaidSchema = z.object({
+    paymentMethod: z.nativeEnum(PaymentMethod),
+    bankAccountId: z.number().int().positive(),
+    paymentRef: z.string().optional(),
+});
 
 async function postHandler(
     request: NextRequest,
@@ -26,16 +34,22 @@ async function postHandler(
     }
     const { id } = await params;
 
-    const body = await request.json();
-
-    if (!body.paymentMethod) {
-        return errorResponse('paymentMethod é obrigatório', ApiErrorCode.VALIDATION_ERROR, 400);
+    const parsed = markPaidSchema.safeParse(await request.json());
+    if (!parsed.success) {
+        return errorResponse(
+            parsed.error.issues[0]?.message ?? 'Dados inválidos',
+            ApiErrorCode.VALIDATION_ERROR,
+            400
+        );
     }
+    const body = parsed.data;
 
     const result = await markPayableAsPaid({
         payableId: parseInt(id),
         paidById: Number(user.id),
+        empresaId: user.empresaId,
         paymentMethod: body.paymentMethod,
+        bankAccountId: body.bankAccountId,
         paymentRef: body.paymentRef
     });
 

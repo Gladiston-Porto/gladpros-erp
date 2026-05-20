@@ -54,6 +54,28 @@ export async function requireUser(req?: NextRequest | Request) {
     throw new Error("UNAUTHENTICATED")
   }
 
+  // ─── RBAC_TRUST_JWT mode ────────────────────────────────────────────────────
+  // Com RBAC_TRUST_JWT=1, o sistema confia 100% nas claims do JWT sem consultar
+  // o banco de dados. Isso elimina 1 query por request autenticada, mas cria
+  // uma janela de segurança onde usuários desativados ou com role alterado
+  // continuam com acesso válido até o JWT expirar.
+  //
+  // Trade-off:
+  //   Performance : -1 query/request (ganho real em produção com alto throughput)
+  //   Segurança   : Desativação de usuário NÃO é imediata — window de até 8h
+  //                 (cookie maxAge) ou 7 dias (JWT bruto sem cookie)
+  //   tokenVersion: O incremento de tokenVersion feito pelo toggle-status NÃO
+  //                 invalida tokens em uso quando RBAC_TRUST_JWT=1, pois o DB
+  //                 nunca é consultado para validar a versão.
+  //
+  // Quando usar:
+  //   ✅ Produção com alto throughput — aceita window de 8h após desativação
+  //   ❌ Quando for necessário bloqueio imediato de usuários comprometidos
+  //
+  // Mitigação ao desativar usuário com flag ativa:
+  //   • Chamar /api/auth/logout no contexto do usuário (invalida cookie)
+  //   • OU aguardar o cookie expirar (8 horas por padrão)
+  //   • OU rotacionar JWT_SECRET para invalidar todos os tokens (impacto global)
   const trustJwtOnly = process.env.RBAC_TRUST_JWT === '1'
   const tokenUser = {
     id: claims.sub,
@@ -103,6 +125,12 @@ export async function requireUser(req?: NextRequest | Request) {
 
   const dbRole = dbRow.nivel ? String(dbRow.nivel).trim().toUpperCase() : undefined
   const dbStatus = dbRow.status ? String(dbRow.status) : undefined
+
+  // Bloquear imediatamente usuários desativados — sem depender do JWT
+  if (dbStatus === 'INATIVO') {
+    throw new Error("UNAUTHENTICATED")
+  }
+
   if (dbRole && String(claims.role).trim().toUpperCase() !== dbRole) {
     console.warn(`[RBAC] Token role mismatch for userId=${claims.sub}: token="${String(claims.role)}" db="${dbRole}" — using DB role`)
   }

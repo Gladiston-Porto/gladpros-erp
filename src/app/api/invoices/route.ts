@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -49,6 +49,10 @@ const filterInvoiceSchema = z.object({
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+function canReadInternalInvoices(role: Role) {
+  return role === 'ADMIN' || role === 'GERENTE' || role === 'FINANCEIRO';
+}
 
 function calcularTotais<T extends { quantidade: number; precoUnitario: number; desconto: number; taxavel: boolean }>(
   itens: T[],
@@ -108,6 +112,30 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
   const body = parsed.data;
 
+  const cliente = await prisma.cliente.findFirst({
+    where: { id: body.clienteId, ativo: true },
+    select: { id: true },
+  });
+  if (!cliente) {
+    return NextResponse.json(
+      { error: 'Validation failed', message: 'Cliente inválido ou inativo', success: false },
+      { status: 400 },
+    );
+  }
+
+  if (body.projetoId) {
+    const projeto = await prisma.projeto.findFirst({
+      where: { id: body.projetoId, clienteId: body.clienteId },
+      select: { id: true },
+    });
+    if (!projeto) {
+      return NextResponse.json(
+        { error: 'Validation failed', message: 'Projeto inválido para este cliente', success: false },
+        { status: 400 },
+      );
+    }
+  }
+
   // Buscar TaxRate (ou usar default Texas 8.25%)
   let taxRate = 0.0825;
   if (body.taxRateId) {
@@ -119,57 +147,86 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const { itensComSubtotal, subtotal, descontoTotal, subtotalComDesconto: _subtotalComDesconto, taxAmount, valorTotal } =
     calcularTotais(body.itens, body.descontoValor, body.descontoPercentual, taxRate);
 
-  // Gerar número único da invoice em transação serializada
+  // Gerar número único da invoice com retry para corrida no índice unique.
   const hoje = new Date();
   const dataStr = hoje.toISOString().split('T')[0].replace(/-/g, '');
 
-  const invoice = await prisma.$transaction(async (tx) => {
-    const count = await tx.invoice.count({
-      where: { numeroInvoice: { startsWith: `INV-${dataStr}` } },
-    });
-    const numeroInvoice = `INV-${dataStr}-${String(count + 1).padStart(4, '0')}`;
+  let invoice: Prisma.InvoiceGetPayload<{
+    include: {
+      cliente: { select: { nomeCompleto: true; nomeFantasia: true; email: true } };
+      projeto: { select: { titulo: true } };
+      itens: true;
+    };
+  }> | null = null;
 
-    const created = await tx.invoice.create({
-      data: {
-        numeroInvoice,
-        clienteId: body.clienteId,
-        projetoId: body.projetoId,
-        dataVencimento: new Date(body.dataVencimento),
-        subtotal: new Decimal(subtotal),
-        descontoValor: new Decimal(descontoTotal),
-        descontoPercentual: new Decimal(body.descontoPercentual),
-        taxRate: new Decimal(taxRate),
-        taxAmount: new Decimal(taxAmount),
-        valorTotal: new Decimal(valorTotal),
-        valorPago: new Decimal(0),
-        saldo: new Decimal(valorTotal),
-        status: 'DRAFT',
-        notas: body.notas,
-        termos: body.termos,
-        criadoPor: Number(user.id),
-        empresaId: 1,
-        itens: { create: itensComSubtotal },
-      },
-      include: {
-        cliente: { select: { nomeCompleto: true, nomeFantasia: true, email: true } },
-        projeto: { select: { titulo: true } },
-        itens: true,
-      },
-    });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      invoice = await prisma.$transaction(async (tx) => {
+        const count = await tx.invoice.count({
+          where: { numeroInvoice: { startsWith: `INV-${dataStr}` } },
+        });
+        const numeroInvoice = `INV-${dataStr}-${String(count + 1 + attempt).padStart(4, '0')}`;
 
-    await tx.auditLog.create({
-      data: {
-        id: crypto.randomUUID(),
-        userId: Number(user.id),
-        entidade: 'Invoice',
-        entidadeId: String(created.id),
-        acao: 'CREATE',
-        diff: JSON.stringify({ numeroInvoice, clienteId: body.clienteId, valorTotal }),
-      },
-    });
+        const created = await tx.invoice.create({
+          data: {
+            numeroInvoice,
+            clienteId: body.clienteId,
+            projetoId: body.projetoId,
+            dataVencimento: new Date(body.dataVencimento),
+            subtotal: new Decimal(subtotal),
+            descontoValor: new Decimal(descontoTotal),
+            descontoPercentual: new Decimal(body.descontoPercentual),
+            taxRate: new Decimal(taxRate),
+            taxAmount: new Decimal(taxAmount),
+            valorTotal: new Decimal(valorTotal),
+            valorPago: new Decimal(0),
+            saldo: new Decimal(valorTotal),
+            status: 'DRAFT',
+            notas: body.notas,
+            termos: body.termos,
+            criadoPor: Number(user.id),
+            empresaId: user.empresaId,
+            itens: { create: itensComSubtotal },
+          },
+          include: {
+            cliente: { select: { nomeCompleto: true, nomeFantasia: true, email: true } },
+            projeto: { select: { titulo: true } },
+            itens: true,
+          },
+        });
 
-    return created;
-  });
+        await tx.auditLog.create({
+          data: {
+            id: crypto.randomUUID(),
+            userId: Number(user.id),
+            entidade: 'Invoice',
+            entidadeId: String(created.id),
+            acao: 'CREATE',
+            diff: JSON.stringify({ numeroInvoice, clienteId: body.clienteId, valorTotal }),
+          },
+        });
+
+        return created;
+      });
+      break;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        attempt < 2
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (!invoice) {
+    return NextResponse.json(
+      { error: 'Conflict', message: 'Não foi possível gerar número único para invoice', success: false },
+      { status: 409 },
+    );
+  }
 
   return NextResponse.json({ data: invoice, success: true }, { status: 201 });
 });
@@ -178,7 +235,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const user = await requireUser(req);
-  if (!can(user.role as Role, 'invoices', 'read')) {
+  const role = user.role as Role;
+  if (!can(role, 'invoices', 'read') || !canReadInternalInvoices(role)) {
     return NextResponse.json(
       { error: 'Forbidden', message: 'Sem permissão', success: false },
       { status: 403 },
@@ -205,7 +263,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const filters = parsed.data;
   const skip = (filters.page - 1) * filters.limit;
 
-  const where: Prisma.InvoiceWhereInput = { empresaId: 1 };
+  const where: Prisma.InvoiceWhereInput = { empresaId: user.empresaId };
 
   if (filters.clienteId) where.clienteId = parseInt(filters.clienteId);
   if (filters.projetoId) where.projetoId = parseInt(filters.projetoId);

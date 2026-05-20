@@ -20,26 +20,43 @@ const createSchema = z.object({
   data: z.string().transform((s) => new Date(s)),
   descricao: z.string().optional(),
   referencia: z.string().optional(),
-  bankAccountId: z.number().int().positive().optional(),
+  bankAccountId: z.number().int().positive(),
+})
+
+const listQuerySchema = z.object({
+  year: z.coerce.number().int().min(2020).max(2100).optional(),
+  tipo: z.enum(["OWNER_DRAW", "SALARY", "DISTRIBUTION"]).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
 })
 
 export async function GET(request: NextRequest) {
   try {
     const user = await requireUser(request)
 
-    if (!can(user.role as Role, "financeiro", "read")) {
-      return NextResponse.json({ error: "Forbidden", success: false }, { status: 403 })
+    if (user.role !== "ADMIN" || !can(user.role as Role, "financeiro", "read")) {
+      return NextResponse.json(
+        { error: "Forbidden", message: "Apenas ADMIN pode acessar compensação do proprietário", success: false },
+        { status: 403 }
+      )
     }
 
     const { searchParams } = new URL(request.url)
-    const year = searchParams.get("year") ? Number(searchParams.get("year")) : undefined
-    const tipo = searchParams.get("tipo") as "OWNER_DRAW" | "SALARY" | "DISTRIBUTION" | undefined
-    const page = Number(searchParams.get("page")) || 1
-    const pageSize = Number(searchParams.get("pageSize")) || 20
+    const parsedQuery = listQuerySchema.safeParse({
+      year: searchParams.get("year") ?? undefined,
+      tipo: searchParams.get("tipo") ?? undefined,
+      page: searchParams.get("page") ?? undefined,
+      pageSize: searchParams.get("pageSize") ?? undefined,
+    })
+    if (!parsedQuery.success) {
+      return NextResponse.json(
+        { error: "Validation failed", message: parsedQuery.error.issues[0]?.message, success: false },
+        { status: 400 }
+      )
+    }
+    const { year, tipo, page, pageSize } = parsedQuery.data
 
     const result = await listCompensations({
-       
-       
       empresaId: user.empresaId,
       year,
       tipo: tipo || undefined,
@@ -65,9 +82,12 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireUser(request)
 
-    // Only ADMIN can create owner compensation
-    if (!can(user.role as Role, "financeiro", "create")) {
-      return NextResponse.json({ error: "Forbidden", success: false }, { status: 403 })
+    // Owner compensation affects owner draws/salary/distributions and is ADMIN-only.
+    if (user.role !== "ADMIN" || !can(user.role as Role, "financeiro", "create")) {
+      return NextResponse.json(
+        { error: "Forbidden", message: "Apenas ADMIN pode registrar compensação do proprietário", success: false },
+        { status: 403 }
+      )
     }
 
     const body = createSchema.safeParse(await request.json())
