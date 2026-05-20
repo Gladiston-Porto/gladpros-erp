@@ -56,6 +56,7 @@ jest.mock('@/shared/lib/audit', () => ({
 
 jest.mock('@/shared/lib/usuario-query', () => ({
   buildUsuarioSelect: jest.fn().mockResolvedValue('id,email,nomeCompleto,nivel,status'),
+  getUsuarioColumns: jest.fn().mockResolvedValue(new Set(['email', 'nomeCompleto', 'telefone', 'dataNascimento', 'nivel', 'status', 'avatarUrl', 'anotacoes'])),
 }));
 
 jest.mock('@/shared/lib/user-hierarchy', () => ({
@@ -162,8 +163,7 @@ describe('PATCH /api/usuarios/:id', () => {
   it('200 — happy path returns { data: { id }, success: true }', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
     (prisma.$queryRaw as jest.Mock)
-      .mockResolvedValueOnce([{ nivel: 'USUARIO' }]) // getTargetUserRole
-      .mockResolvedValueOnce([{ COLUMN_NAME: 'nomeCompleto' }, { COLUMN_NAME: 'email' }, { COLUMN_NAME: 'nivel' }, { COLUMN_NAME: 'atualizadoEm' }]); // INFORMATION_SCHEMA cols
+      .mockResolvedValueOnce([{ nivel: 'USUARIO' }]); // getTargetUserRole
     (prisma.$queryRawUnsafe as jest.Mock)
       .mockResolvedValueOnce([{ id: 5, nomeCompleto: 'Old Name', nivel: 'USUARIO' }]) // before
       .mockResolvedValueOnce([{ id: 5, nomeCompleto: 'New Name', nivel: 'USUARIO' }]); // after

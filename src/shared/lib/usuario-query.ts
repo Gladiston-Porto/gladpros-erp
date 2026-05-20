@@ -23,6 +23,11 @@ async function loadUsuarioColumns() {
   return cachedColumns;
 }
 
+/** Returns the cached set of column names available in the Usuario table. */
+export async function getUsuarioColumns(): Promise<Set<string>> {
+  return loadUsuarioColumns();
+}
+
 export async function buildUsuarioSelect(columns: string[]) {
   const availableColumns = await loadUsuarioColumns();
   const select = columns

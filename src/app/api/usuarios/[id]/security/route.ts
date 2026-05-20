@@ -41,13 +41,16 @@ export const GET = withErrorHandler(async (request: NextRequest,
     `;
 
     const u = rows[0];
-    if (!u) return NextResponse.json({ message: "Usuário não encontrado" }, { status: 404 });
+    if (!u) return NextResponse.json({ error: "NOT_FOUND", message: "Usuário não encontrado", success: false }, { status: 404 });
 
     const blocked = typeof u.bloqueado === 'boolean' ? u.bloqueado : u.bloqueado === 1;
     return NextResponse.json({
-      id: u.id,
-      blocked,
-      blockedAt: u.bloqueadoEm ? u.bloqueadoEm.toISOString() : null,
-      lastSuccessfulLoginAt: u.ultimoLoginEm ? u.ultimoLoginEm.toISOString() : null
+      data: {
+        id: u.id,
+        blocked,
+        blockedAt: u.bloqueadoEm ? u.bloqueadoEm.toISOString() : null,
+        lastSuccessfulLoginAt: u.ultimoLoginEm ? u.ultimoLoginEm.toISOString() : null,
+      },
+      success: true,
     });
   });

@@ -33,7 +33,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
     if (!access.allowed) return access.response;
 
   const sessions = await SecurityService.getUserSessions(userId);
-  return NextResponse.json({ sessions });
+  return NextResponse.json({ data: sessions, success: true });
   });
 
 // DELETE - Revogar todas as sessões do usuário
@@ -68,6 +68,8 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
     await SecurityService.revokeAllUserSessions(userId);
 
     return NextResponse.json({
-      message: "Todas as sessões foram revogadas com sucesso"
+      data: null,
+      success: true,
+      message: "Todas as sessões foram revogadas com sucesso",
     });
   });

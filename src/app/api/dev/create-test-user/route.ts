@@ -7,7 +7,7 @@ export async function POST(req: Request) {
   const { email, password } = await req.json().catch(() => ({}));
   if (!email || !password) return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
 
-  const senha = await bcrypt.hash(String(password), 10);
+  const senha = await bcrypt.hash(String(password), 12);
   // Garantir colunas NOT NULL com defaults vazios e nivel padrão
   await prisma.$executeRawUnsafe(
     `INSERT INTO Usuario (email, senha, status, nivel, endereco1, endereco2, cidade, criadoEm, atualizadoEm)

@@ -569,7 +569,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
                 Invoices
               </Button>
             </Link>
-            <Link href="/estoque">
+            <Link href="/estoque/materiais">
               <Button variant="outline" className="w-full justify-start">
                 <Package className="h-4 w-4 mr-2" />
                 Materiais

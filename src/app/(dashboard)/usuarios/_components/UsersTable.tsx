@@ -151,6 +151,7 @@ export function UsersTable({
           <tr className="border-b border-border">
             <th className="w-10 px-3 py-3">
               <input
+                data-testid="checkbox-select-all"
                 aria-label="Selecionar todos"
                 type="checkbox"
                 checked={allSelected}
@@ -188,11 +189,13 @@ export function UsersTable({
             return (
               <tr
                 key={user.id}
+                data-testid={`user-row-${user.id}`}
                 className={`border-b border-border/50 transition-colors hover:bg-muted/40 ${checked ? "bg-brand-primary/5" : ""}`}
               >
                 {/* Checkbox */}
                 <td className="px-3 py-3">
                   <input
+                    data-testid={`checkbox-user-${user.id}`}
                     aria-label={`Selecionar ${user.nomeCompleto}`}
                     type="checkbox"
                     checked={checked}
@@ -277,6 +280,7 @@ export function UsersTable({
                 <td className="px-3 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <button
+                      data-testid={`btn-view-${user.id}`}
                       onClick={() => onView(user.id)}
                       title="Visualizar"
                       className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
@@ -285,6 +289,7 @@ export function UsersTable({
                       <Eye className="h-4 w-4" />
                     </button>
                     <button
+                      data-testid={`btn-edit-${user.id}`}
                       onClick={() => onEdit(user.id)}
                       title="Editar"
                       className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
@@ -294,6 +299,7 @@ export function UsersTable({
                     </button>
                     {aguardandoAcesso && onResendWelcome && (
                       <button
+                        data-testid={`btn-resend-${user.id}`}
                         onClick={() => onResendWelcome(user.id)}
                         title="Reenviar email de boas-vindas"
                         className="flex h-12 w-12 items-center justify-center rounded-lg text-amber-500 transition hover:bg-amber-500/10 hover:text-amber-600"
@@ -304,6 +310,7 @@ export function UsersTable({
                     )}
                     {isBloqueado && onUnlock && (
                       <button
+                        data-testid={`btn-unlock-${user.id}`}
                         onClick={() => onUnlock(user.id)}
                         title="Desbloquear conta"
                         className="flex h-12 w-12 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10 hover:text-red-600"
@@ -313,6 +320,7 @@ export function UsersTable({
                       </button>
                     )}
                     <button
+                      data-testid={`btn-toggle-status-${user.id}`}
                       onClick={() => onToggleStatus(user.id, isActive)}
                       title={isActive ? "Desativar" : "Ativar"}
                       className={`flex h-12 w-12 items-center justify-center rounded-lg transition ${

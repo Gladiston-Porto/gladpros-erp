@@ -2,15 +2,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { AuditoriaService } from "@/shared/lib/audit";
+import { AuditoriaService } from "@/shared/lib/audit"; // TODO: migrar para AuditLogger diretamente (AuditoriaService é deprecated em audit.ts)
 import { userUpdateApiSchema } from "@/shared/lib/validation";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
-import { buildUsuarioSelect } from "@/shared/lib/usuario-query";
+import { buildUsuarioSelect, getUsuarioColumns } from "@/shared/lib/usuario-query";
 import { UserRole, canManageRole } from "@/shared/lib/user-hierarchy";
 import { logger } from "@/lib/api/logger";
 import { apiRateLimit } from '@/shared/lib/rate-limit';
+import { withRetry } from "@/lib/utils/retry";
 
 /**
  * Campos permitidos quando um usuário edita o próprio perfil.
@@ -92,24 +93,6 @@ async function resolveParams(context: unknown) {
   const isPromise = typeof (maybe as { then?: unknown })?.then === "function";
   const params = isPromise ? await (maybe as Promise<unknown>) : maybe;
   return (params as Record<string, unknown>) ?? {};
-}
-
-async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 500): Promise<T> {
-  let lastErr: unknown;
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await fn();
-    } catch (err: unknown) {
-      const e = err as { code?: string; errorCode?: string; name?: string } | undefined;
-      const code = e?.code || e?.errorCode;
-      const name = e?.name;
-      const isInit = name === "PrismaClientInitializationError" || code === "P1001";
-      if (!isInit || i === retries) throw err;
-      lastErr = err;
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-  throw lastErr;
 }
 
 const USER_DETAIL_COLUMNS = [
@@ -320,11 +303,8 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
       }
     }
 
-    // Detectar colunas reais do schema para mapear campos dinamicamente
-  const colsRows = (await prisma.$queryRaw`
-      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario'
-  `) as unknown as Array<{ COLUMN_NAME: string }>;
-  const cols = new Set(colsRows.map((r) => String(r.COLUMN_NAME)));
+    // Detectar colunas reais do schema para mapear campos dinamicamente (usando cache com TTL de 5 min)
+  const cols = await getUsuarioColumns();
 
     const allowed = [
       "email",
@@ -444,7 +424,7 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
     }
 
     if (sets.length === 0) {
-      return NextResponse.json({ ok: true, message: "NO_CHANGES" });
+      return NextResponse.json({ data: null, success: true, message: "NO_CHANGES" });
     }
 
     // Se o role (nivel) mudou, invalidar todas as sessões ativas imediatamente
@@ -581,7 +561,7 @@ export const DELETE = withErrorHandler(async (req: Request,
 
     // Se já está inativo, considerar como sucesso (idempotente)
     if (user.status === 'INATIVO') {
-      return NextResponse.json({ ok: true, message: "Usuário já estava inativo" });
+      return NextResponse.json({ data: null, success: true, message: "Usuário já estava inativo" });
     }
 
     // Soft delete: marcar como inativo em vez de excluir
@@ -607,5 +587,5 @@ export const DELETE = withErrorHandler(async (req: Request,
       logger.error('[DELETE usuario] Erro ao registrar auditoria', {}, auditError);
     }
 
-    return NextResponse.json({ ok: true, message: "Usuário desativado com sucesso" });
+    return NextResponse.json({ data: null, success: true, message: "Usuário desativado com sucesso" });
   });

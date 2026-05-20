@@ -49,6 +49,8 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
     await SecurityService.revokeSession(id);
     
     return NextResponse.json({ 
-      message: "Sessão revogada com sucesso" 
+      data: null,
+      success: true,
+      message: "Sessão revogada com sucesso",
     });
   });

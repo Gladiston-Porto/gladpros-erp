@@ -198,7 +198,7 @@ export async function generateTokenPair(
   
   // Salvar refresh token no banco (access token é stateless)
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await prisma.refreshToken.create({
       data: {
         token: refreshToken,
@@ -392,7 +392,7 @@ export async function validateRefreshToken(token: string) {
     }
     
     // 3. Buscar no banco
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const storedToken = await prisma.refreshToken.findUnique({
       where: { jti: decoded.jti },
       include: { usuario: true }
@@ -473,7 +473,7 @@ export async function refreshAccessToken(
   }
   
   // 3. Marcar token antigo como usado
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   await prisma.refreshToken.update({
     where: { jti: validated.jti },
     data: { usadoEm: new Date() }
@@ -510,7 +510,7 @@ export async function refreshAccessToken(
   });
   
   // 5. Salvar novo refresh token com referência ao anterior (rotation chain)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   await prisma.refreshToken.create({
     data: {
       token: refreshToken,
@@ -543,7 +543,7 @@ export async function revokeRefreshToken(
   motivo: string = 'Logout do usuário'
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const revokedByToken = await prisma.refreshToken.updateMany({
       where: {
         token,
@@ -564,7 +564,7 @@ export async function revokeRefreshToken(
     const jwtSecret = await getJwtSecret();
     const decoded = jwt.verify(token, jwtSecret) as TokenPayload;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await prisma.refreshToken.updateMany({
       where: {
         jti: decoded.jti,
@@ -598,7 +598,7 @@ export async function revokeAllUserTokens(
   userId: number,
   motivo: string = 'Logout de todos os dispositivos'
 ): Promise<number> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const result = await prisma.refreshToken.updateMany({
     where: {
       usuarioId: userId,
@@ -627,7 +627,7 @@ export async function cleanupExpiredTokens(): Promise<number> {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const result = await prisma.refreshToken.deleteMany({
     where: {
       expiraEm: {
@@ -654,9 +654,9 @@ export async function cleanupExpiredTokens(): Promise<number> {
 export async function getUserTokenStats(userId: number) {
   const [total, ativos, revogados, expirados, usados] = await Promise.all([
      
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     prisma.refreshToken.count({ where: { usuarioId: userId } }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     prisma.refreshToken.count({
       where: {
         usuarioId: userId,
@@ -666,18 +666,18 @@ export async function getUserTokenStats(userId: number) {
         usadoEm: null
       }
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     prisma.refreshToken.count({
       where: { usuarioId: userId, revogado: true }
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     prisma.refreshToken.count({
       where: {
         usuarioId: userId,
         expiraEm: { lt: new Date() }
       }
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     prisma.refreshToken.count({
       where: {
         usuarioId: userId,
@@ -705,7 +705,7 @@ export async function getUserTokenStats(userId: number) {
  * @returns Lista de tokens ativos com metadados
  */
 export async function listUserActiveTokens(userId: number) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return await prisma.refreshToken.findMany({
     where: {
       usuarioId: userId,

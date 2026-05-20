@@ -6,6 +6,7 @@ import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { buildUsuarioSelect } from "@/shared/lib/usuario-query";
+import { withRetry } from "@/lib/utils/retry";
 
 type UserRow = {
 	id: number; email: string; nomeCompleto?: string | null; nome?: string | null;
@@ -34,14 +35,6 @@ const USER_EXPORT_COLUMNS = [
 	"zipcode",
 	"criadoEm",
 ];
-
-async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 300): Promise<T> {
-	let last: unknown;
-	for (let i = 0; i <= retries; i++) {
-		try { return await fn(); } catch (e) { last = e; await new Promise(r => setTimeout(r, delayMs)); }
-	}
-	throw last;
-}
 
 function sanitizeCsvCell(value: unknown) {
 	const stringValue = String(value ?? "");
@@ -73,11 +66,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 		}
 
 		const raw = await req.json().catch(() => ({}));
-		const parsed = z.object({ filters: FiltersSchema }).safeParse(raw);
+		const parsed = z.object({
+			filters: FiltersSchema,
+			ids: z.array(z.number().int().positive()).max(500).optional(),
+		}).safeParse(raw);
 		if (!parsed.success) {
 			return NextResponse.json({ message: "Payload inválido" }, { status: 400 });
 		}
 		const f = parsed.data.filters ?? {};
+		const selectedIds = parsed.data.ids;
 		const colsRows = (await prisma.$queryRaw`
 			SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario'
 		`) as unknown as ColumnRow[];
@@ -95,9 +92,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 		const where: string[] = [];
 		const params: SqlValue[] = [];
 
-		// BUG-03 fix: Always filter by empresaId to prevent IDOR
+		// Always filter by empresaId to prevent IDOR
 		where.push("empresaId = ?");
 		params.push(authUser.empresaId);
+
+		// When specific IDs are provided, filter by them (bulk selection export)
+		if (selectedIds && selectedIds.length > 0) {
+			const placeholders = selectedIds.map(() => '?').join(',');
+			where.push(`id IN (${placeholders})`);
+			params.push(...selectedIds);
+		}
 
 		if (f.q) {
 			const like = `%${f.q}%`;

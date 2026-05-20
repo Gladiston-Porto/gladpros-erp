@@ -13,10 +13,11 @@ import { requireUser } from '@/shared/lib/rbac';
 import { UserRole, canManageRole, getManageableRoles } from "@/shared/lib/user-hierarchy";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { withBusinessCache } from "@/shared/lib/cache/business-cache";
-import { AuditoriaService } from "@/shared/lib/audit";
+import { AuditoriaService } from "@/shared/lib/audit"; // TODO: migrar para AuditLogger diretamente (AuditoriaService é deprecated em audit.ts)
 import { logger } from "@/lib/api/logger";
 import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { signFirstAccessJWT } from "@/shared/lib/jwt";
+import { getUsuarioColumns } from "@/shared/lib/usuario-query";
 
 // Minimal shapes for raw SQL rows (A10: PII fica fora da listagem)
 type UserRow = {
@@ -38,27 +39,9 @@ type UserRow = {
 };
 
 type CountRow = { cnt: number };
-type ColumnRow = { COLUMN_NAME: string };
 type SqlValue = string | number | null | Date | boolean;
 
-// Retry helper for transient DB init (e.g., P1001 on container boot)
-async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 500): Promise<T> {
-  let lastErr: unknown;
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await fn();
-    } catch (err: unknown) {
-      const e = err as { code?: string; errorCode?: string; name?: string } | undefined;
-      const code = e?.code || e?.errorCode;
-      const name = e?.name;
-      const isInit = name === "PrismaClientInitializationError" || code === "P1001";
-      if (!isInit || i === retries) throw err;
-      lastErr = err;
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-  throw lastErr;
-}
+import { withRetry } from "@/lib/utils/retry";
 
 /** Enums alinhados ao Prisma (note: Prisma model uses 'nivel' e 'StatusUsuario') */
 const Roles = z.enum(["ADMIN", "GERENTE", "USUARIO", "FINANCEIRO", "ESTOQUE", "CLIENTE"]);
@@ -505,11 +488,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       const tempPassword = generateTempPassword(12);
       const senhaHash = await bcrypt.hash(tempPassword, 12);
 
-      // 2) Inserção resiliente ao schema: detectar colunas disponíveis
-      const colsRows = (await withRetry(() => prisma.$queryRaw`
-        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario'
-        `)) as unknown as ColumnRow[];
-      const cols = new Set(colsRows.map((r) => String(r.COLUMN_NAME)));
+      // 2) Inserção resiliente ao schema: detectar colunas disponíveis (usando cache com TTL de 5 min)
+      const cols = await getUsuarioColumns();
 
       const insertCols: string[] = ["email", "senha"]; // essenciais
       const values: SqlValue[] = [emailAddr, senhaHash];

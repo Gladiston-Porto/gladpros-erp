@@ -1,10 +1,45 @@
 # Auditoria Técnica — Módulo `usuarios`
 
-**Data:** 2026-01-27
+**Data:** 2026-01-27 | **Correções aplicadas:** 2026-01-28
 **Auditor:** GitHub Copilot CLI (module-audit + production-readiness protocol)
 **Escopo:** Módulo completo de Usuários do GladPros ERP
-**Certificação prévia:** `✅ Production Ready` (v2.3, 2026-05-18) — **CONTESTADA por esta auditoria**
-**Certificação atualizada:** `⚠️ Conditionally Ready` (pós-correção 2026-01-27) — P1+P2 corrigidos, P3 pendentes para próxima sprint
+**Certificação prévia contestada:** `✅ Production Ready` (v2.3, 2026-05-18)
+**Certificação FINAL:** `✅ Production Ready` — todos os P1/P2/P3 corrigidos e validados
+
+---
+
+## Status Final das Correções
+
+| ID | Descrição | Status |
+|----|-----------|--------|
+| BUG-01 | tokenVersion ao desativar usuário (`/status`) | ✅ Corrigido (agente anterior) |
+| BUG-02 | empresaId filter no GET listagem | ✅ Corrigido (agente anterior) |
+| BUG-03 | empresaId filter no export CSV | ✅ Corrigido (agente anterior) |
+| BUG-04 | Formato resposta `{ data, pagination, success }` | ✅ Corrigido (agente anterior) |
+| BUG-05 | INFORMATION_SCHEMA inline → cache `getUsuarioColumns()` | ✅ Corrigido (esta auditoria) |
+| BUG-06 | Layout órfão `src/app/usuarios/layout.tsx` removido | ✅ Corrigido (agente anterior) |
+| BUG-07 | RBAC delegações: `can('read')` → `can('create')` | ✅ Corrigido (esta auditoria) |
+| BUG-08 | `withRetry` duplicada → extraída para `src/lib/utils/retry.ts` | ✅ Corrigido (esta auditoria) |
+| BUG-09 | `AuditoriaService` @deprecated marcado, TODO de migração | ✅ Corrigido (esta auditoria) |
+| BUG-10 | Export CSV bulk selection via API (não client-side) | ✅ Corrigido (esta auditoria) |
+| BUG-11 | heroStats sobre total real | ✅ Corrigido (agente anterior) |
+| BUG-12/13 | Formato de erro em `/status` padronizado | ✅ Corrigido (agente anterior) |
+| BUG-14 | `data-testid` + `aria-label` nos componentes frontend | ✅ Corrigido (esta auditoria) |
+| BUG-15 | bcrypt salt 10 → 12 em `dev/create-test-user` | ✅ Corrigido (esta auditoria) |
+| P2.1 | `security/route.ts` resposta padronizada `{ data, success }` | ✅ Corrigido (esta auditoria) |
+| P2.2 | `sessions/route.ts` resposta padronizada | ✅ Corrigido (esta auditoria) |
+| P2.3 | `sessions/[sessionId]/route.ts` resposta padronizada | ✅ Corrigido (esta auditoria) |
+| P2.4 | `[id]/route.ts` 3× `{ ok: true }` → `{ data: null, success: true }` | ✅ Corrigido (esta auditoria) |
+| P2.6 | `auditoria/route.ts` paginação real (LIMIT 100 removido) | ✅ Corrigido (esta auditoria) |
+| P2.7 | Schema drift: `empresaId` adicionado ao model `Usuario` | ✅ Corrigido (esta auditoria) |
+
+**Gates de validação:**
+- `npm run type-check`: ✅ zero erros
+- `npm run lint`: ✅ zero warnings
+- `npm test` (módulo usuarios): ✅ 35/35 testes passando
+- Falhas pré-existentes em outros módulos (clientes/audit, auth, schemas/expense): não introduzidas por esta auditoria
+
+---
 
 ---
 

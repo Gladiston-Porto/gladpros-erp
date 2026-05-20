@@ -28,6 +28,10 @@ jest.mock('@/shared/lib/rbac', () => ({
   requireUser: jest.fn(),
 }));
 
+jest.mock('@/shared/lib/rbac-core', () => ({
+  can: jest.fn().mockReturnValue(true),
+}))
+
 jest.mock('@/lib/prisma', () => ({
   prisma: {
     usuario: {
@@ -56,11 +60,13 @@ jest.mock('@/lib/api/error-handler', () => ({
 }));
 
 import { requireUser } from '@/shared/lib/rbac';
+import { can } from '@/shared/lib/rbac-core';
 import { SecurityService } from '@/shared/lib/security';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { prisma } from '@/lib/prisma';
 
 const mockRequireUser = requireUser as jest.MockedFunction<typeof requireUser>;
+const mockCan = can as jest.MockedFunction<typeof can>;
 const mockGetSessions = SecurityService.getUserSessions as jest.Mock;
 const mockRevokeAll = SecurityService.revokeAllUserSessions as jest.Mock;
 const mockRateLimit = apiRateLimit.isAllowed as jest.Mock;
@@ -85,7 +91,8 @@ describe('GET /api/usuarios/[id]/sessions', () => {
 
   it('403 — USUARIO acessando sessões de outro usuário', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 99, role: 'USUARIO', email: 'u@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'ADMIN' });
+    mockCan.mockReturnValueOnce(true); // can('read') passes
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'ADMIN' }); // checkUserManagementAccess blocks
     const { GET } = await import('@/app/api/usuarios/[id]/sessions/route');
     const res = await GET(makeRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(403);
@@ -100,8 +107,9 @@ describe('GET /api/usuarios/[id]/sessions', () => {
     const res = await GET(makeRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body.sessions)).toBe(true);
-    expect(body.sessions).toHaveLength(1);
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toHaveLength(1);
+    expect(body.success).toBe(true);
   });
 
   it('200 — ADMIN pode ver sessões de outro usuário', async () => {
@@ -129,6 +137,7 @@ describe('DELETE /api/usuarios/[id]/sessions', () => {
   });
 
   it('429 — rate limit atingido', async () => {
+    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
     mockRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetTime: Date.now() + 60000, message: 'Too many requests' });
     const { DELETE } = await import('@/app/api/usuarios/[id]/sessions/route');
     const res = await DELETE(makeRequest('1', 'DELETE'), { params: Promise.resolve({ id: '1' }) });
@@ -138,9 +147,9 @@ describe('DELETE /api/usuarios/[id]/sessions', () => {
   });
 
   it('403 — USUARIO revogando sessões de outro usuário', async () => {
-    mockRateLimit.mockResolvedValueOnce({ allowed: true, remaining: 99, resetTime: Date.now() + 60000, message: '' });
     mockRequireUser.mockResolvedValueOnce({ id: 99, role: 'USUARIO', email: 'u@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'ADMIN' });
+    mockCan.mockReturnValueOnce(true); // can('update') passes
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'ADMIN' }); // checkUserManagementAccess blocks
     const { DELETE } = await import('@/app/api/usuarios/[id]/sessions/route');
     const res = await DELETE(makeRequest('5', 'DELETE'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(403);
@@ -154,6 +163,7 @@ describe('DELETE /api/usuarios/[id]/sessions', () => {
     const res = await DELETE(makeRequest('5', 'DELETE'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.success).toBe(true);
     expect(body.message).toBeTruthy();
     expect(mockRevokeAll).toHaveBeenCalledWith(5);
   });

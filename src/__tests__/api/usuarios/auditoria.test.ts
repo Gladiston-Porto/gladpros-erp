@@ -103,7 +103,9 @@ describe('GET /api/usuarios/[id]/auditoria', () => {
     const fakeAuditorias = [
       { id: 1, tabela: 'Usuario', registroId: 1, acao: 'UPDATE', usuarioId: 1, ip: '127.0.0.1', payload: null, criadoEm: new Date(), nomeCompleto: 'Admin', email: 'a@test.com' },
     ];
-    (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce(fakeAuditorias);
+    (prisma.$queryRaw as jest.Mock)
+      .mockResolvedValueOnce(fakeAuditorias)
+      .mockResolvedValueOnce([{ cnt: BigInt(1) }]);
     const { GET } = await import('@/app/api/usuarios/[id]/auditoria/route');
     const res = await GET(makeRequest(), { params: Promise.resolve({ id: '1' }) });
     expect(res.status).toBe(200);
@@ -111,12 +113,15 @@ describe('GET /api/usuarios/[id]/auditoria', () => {
     expect(body.success).toBe(true);
     expect(Array.isArray(body.data)).toBe(true);
     expect(body.data).toHaveLength(1);
+    expect(body.pagination.total).toBe(1);
   });
 
   it('200 — GERENTE pode acessar auditoria', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 2, role: 'GERENTE', email: 'g@test.com' } as any);
     mockCan.mockReturnValueOnce(true);
-    (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([]);
+    (prisma.$queryRaw as jest.Mock)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ cnt: BigInt(0) }]);
     const { GET } = await import('@/app/api/usuarios/[id]/auditoria/route');
     const res = await GET(makeRequest(), { params: Promise.resolve({ id: '1' }) });
     expect(res.status).toBe(200);

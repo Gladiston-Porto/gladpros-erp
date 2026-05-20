@@ -918,6 +918,7 @@ model TentativaLogin {
 
 model Usuario {
   id                           Int                          @id @default(autoincrement())
+  empresaId                    Int?
   email                        String                       @unique
   senha                        String
   nivel                        Usuario_nivel
@@ -1064,6 +1065,7 @@ model Usuario {
   InfractionsWaived      WorkerInfraction[] @relation("InfractionWaivedBy")
   TimeOffsApproved       WorkerTimeOff[]    @relation("TimeOffApprovedBy")
 
+  @@index([empresaId])
   @@index([nivel])
   @@index([status])
   @@index([bloqueado])

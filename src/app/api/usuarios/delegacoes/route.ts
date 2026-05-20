@@ -43,9 +43,8 @@ export const GET = withErrorHandler(async (req: Request) => {
 export const POST = withErrorHandler(async (req: Request) => {
   const authUser = await requireUser(req);
 
-  // BUG-07 fix: Only ADMIN can create delegations.
-  // GERENTE has no 'usuarios' permission per rbac-core.ts matrix — removing the GERENTE exception.
-  if (!can(authUser.role as Role, 'usuarios', 'read')) {
+  // Only ADMIN can create delegations — 'create' is the correct action for a write operation.
+  if (!can(authUser.role as Role, 'usuarios', 'create')) {
     return NextResponse.json(
       { error: "Forbidden", message: "Apenas ADMIN pode criar delegações.", success: false },
       { status: 403 }
