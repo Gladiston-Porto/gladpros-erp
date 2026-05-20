@@ -7,7 +7,7 @@ import { useConfirm } from "@gladpros/ui/confirm-dialog";
 import { useToast } from "@gladpros/ui/toast";
 import { AdvancedPagination } from "@gladpros/ui/advanced-pagination";
 import { TableSkeleton } from "@gladpros/ui/loading";
-import { ChevronDown, Download, FileText, Plus, Shield, Users, UserCheck, UserX } from "lucide-react";
+import { ChevronDown, Download, FileText, Plus, Shield, Users, UserCheck, UserX, AlertTriangle } from "lucide-react";
 import { Button } from '@gladpros/ui/button';
 import { ModulePageHeader } from "@gladpros/ui/module-page-header";
 import { Card, CardContent } from "@gladpros/ui/card";
@@ -60,6 +60,13 @@ async function resendWelcomeEmail(id: number) {
   return json;
 }
 
+async function unlockUserAccount(id: number) {
+  const res = await fetch(`/api/usuarios/${id}/unlock`, { method: "POST" });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "Erro ao desbloquear conta");
+  return json;
+}
+
 export default function UsersPage() {
   const router = useRouter();
   const { confirm, Dialog } = useConfirm();
@@ -67,11 +74,15 @@ export default function UsersPage() {
   const [q, setQ] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("");
+  const [primeiroAcesso, setPrimeiroAcesso] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
+  const [activeTotal, setActiveTotal] = useState(0);
+  const [inactiveTotal, setInactiveTotal] = useState(0);
   const [data, setData] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inactiveAlert, setInactiveAlert] = useState<{ count: number; days: number } | null>(null);
   const [sortKey, setSortKey] = useState<"nome" | "email" | "role" | "ativo" | "criadoEm">("criadoEm");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -100,6 +111,11 @@ export default function UsersPage() {
     setPage(1);
   }, []);
 
+  const updatePrimeiroAcesso = useCallback((value: string) => {
+    setPrimeiroAcesso(value);
+    setPage(1);
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     abortRef.current?.abort();
@@ -107,12 +123,14 @@ export default function UsersPage() {
     abortRef.current = ac;
     try {
       const res = await getUsers(
-        { q: debouncedQuery, role, status, page, pageSize, sortKey, sortDir },
+        { q: debouncedQuery, role, status, primeiroAcesso: primeiroAcesso || undefined, page, pageSize, sortKey, sortDir },
         { signal: ac.signal },
       );
       if (ac.signal.aborted) return;
-      setData(res.items);
-      setTotal(res.total);
+      setData(res.data);
+      setTotal(res.pagination.total);
+      setActiveTotal(res.pagination.activeTotal ?? 0);
+      setInactiveTotal(res.pagination.inactiveTotal ?? 0);
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
         return;
@@ -124,7 +142,7 @@ export default function UsersPage() {
         setLoading(false);
       }
     }
-  }, [debouncedQuery, role, status, page, pageSize, sortKey, sortDir, toast]);
+  }, [debouncedQuery, role, status, primeiroAcesso, page, pageSize, sortKey, sortDir, toast]);
 
   useEffect(() => {
     load();
@@ -134,6 +152,20 @@ export default function UsersPage() {
     return () => {
       abortRef.current?.abort();
     };
+  }, []);
+
+  // Buscar alerta de usuários sem login recente (30 dias) — uma vez ao montar
+  useEffect(() => {
+    fetch("/api/usuarios/alerts/inactive?days=30")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) {
+          setInactiveAlert({ count: json.data.count, days: json.data.days });
+        }
+      })
+      .catch(() => {
+        // silencioso — alerta é informativo, não crítico
+      });
   }, []);
 
   async function onToggleStatus(id: number, currentStatus: boolean) {
@@ -181,8 +213,31 @@ export default function UsersPage() {
     }
   }
 
+  async function onUnlock(id: number) {
+    const targetUser = data.find((u) => u.id === id);
+    const ok = await confirm({
+      title: "Desbloquear conta",
+      message: `A conta de ${targetUser?.nomeCompleto ?? "este usuário"} foi bloqueada por tentativas excessivas de login. Deseja desbloquear agora?`,
+      confirmText: "Desbloquear",
+      tone: "default",
+      subject: targetUser
+        ? { name: targetUser.nomeCompleto, description: targetUser.email, avatarUrl: targetUser.avatarUrl }
+        : undefined,
+    });
+    if (!ok) return;
+
+    try {
+      await unlockUserAccount(id);
+      toast.success("Conta desbloqueada", `A conta de ${targetUser?.nomeCompleto ?? "o usuário"} foi desbloqueada.`);
+      load();
+    } catch (error) {
+      toast.error("Erro", (error as Error).message || "Erro ao desbloquear conta");
+    }
+  }
+
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
+  // BUG-11 fix: heroStats now uses global activeTotal/inactiveTotal from API (not page-scoped counts)
   const heroStats = useMemo(() => {
     const roles: Record<UserRole, number> = {
       ADMIN: 0,
@@ -193,15 +248,14 @@ export default function UsersPage() {
       CLIENTE: 0,
     };
 
-    let activeCount = 0;
+    let linkExpiradoCount = 0;
     data.forEach((user) => {
-      const isActive = user.ativo ?? (user.status === "ATIVO");
-      if (isActive) activeCount += 1;
+      if (user.linkExpirado === true) linkExpiradoCount += 1;
       roles[user.role] = (roles[user.role] ?? 0) + 1;
     });
 
-    const inactiveCount = data.length - activeCount;
-    const activeShare = total ? Math.min(100, Math.round((activeCount / Math.max(total, 1)) * 100)) : 0;
+    const totalGlobal = activeTotal + inactiveTotal;
+    const activeShare = totalGlobal > 0 ? Math.min(100, Math.round((activeTotal / totalGlobal) * 100)) : 0;
     const topRoles = Object.entries(roles)
       .sort(([, a], [, b]) => b - a)
       .map(([role, count]) => ({ role: role as UserRole, count }))
@@ -209,13 +263,14 @@ export default function UsersPage() {
       .slice(0, 2);
 
     return {
-      active: activeCount,
-      inactive: inactiveCount,
+      active: activeTotal,
+      inactive: inactiveTotal,
+      linkExpiradoCount,
       roles,
       topRoles,
       activeShare,
     };
-  }, [data, total]);
+  }, [data, activeTotal, inactiveTotal]);
 
   // Ações em lote
   const handleBulkStatusChange = async (newStatus: boolean) => {
@@ -419,6 +474,28 @@ export default function UsersPage() {
         <StatCard title="Administradores" value={heroStats.roles.ADMIN} icon={<Shield className="h-5 w-5" />} compact />
       </div>
 
+      {/* Alerta: usuários ativos sem login recente */}
+      {inactiveAlert !== null && inactiveAlert.count > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-400">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>
+            <strong>{inactiveAlert.count} usuário(s) ativo(s)</strong> não fazem login há mais de{" "}
+            <strong>{inactiveAlert.days} dias</strong>. Considere revisar essas contas.
+          </span>
+        </div>
+      )}
+
+      {/* Alerta: links de primeiro acesso expirados nesta página */}
+      {heroStats.linkExpiradoCount > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>
+            <strong>{heroStats.linkExpiradoCount} usuário(s)</strong> com link de primeiro acesso expirado (mais de 7 dias).
+            Use o botão <strong>Reenviar email</strong> para gerar um novo link.
+          </span>
+        </div>
+      )}
+
       {selectedIds.length > 0 && (
         <Card>
           <CardContent className="flex flex-wrap items-center gap-3 py-3 text-sm">
@@ -470,6 +547,8 @@ export default function UsersPage() {
         onRole={updateRole}
         status={status}
         onStatus={updateStatus}
+        primeiroAcesso={primeiroAcesso}
+        onPrimeiroAcesso={updatePrimeiroAcesso}
         total={total}
         showNew={false}
       />
@@ -487,6 +566,7 @@ export default function UsersPage() {
               onView={(id) => setViewUserId(id)}
               onToggleStatus={onToggleStatus}
               onResendWelcome={onResendWelcome}
+              onUnlock={onUnlock}
               onSelectedChange={setSelectedIds}
               resetKey={selectionResetKey}
               sortKey={sortKey}

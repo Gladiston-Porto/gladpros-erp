@@ -141,4 +141,33 @@ describe('PATCH /api/usuarios/:id/status', () => {
     expect(body.success).toBe(true);
     expect(body.data).toHaveProperty('ativo');
   });
+
+  // BUG-01 regression: deactivating must increment tokenVersion to invalidate JWTs
+  it('BUG-01 regression — deactivating user includes tokenVersion increment in SQL', async () => {
+    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
+    (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([{ nivel: 'USUARIO', status: 'ATIVO' }]);
+    (prisma.$executeRaw as jest.Mock).mockResolvedValueOnce(1);
+    const { PATCH } = await import('@/app/api/usuarios/[id]/status/route');
+    await PATCH(makePatchRequest('5', { ativo: false }), { params: Promise.resolve({ id: '5' }) });
+    const executeRawMock = prisma.$executeRaw as jest.Mock;
+    const callArgs = executeRawMock.mock.calls[0];
+    // Tagged template literal: first arg is TemplateStringsArray; check strings contain tokenVersion
+    const sqlParts = callArgs[0] as TemplateStringsArray;
+    const fullSql = sqlParts.join(' ');
+    expect(fullSql).toContain('tokenVersion');
+  });
+
+  // BUG-01 regression: activating must NOT touch tokenVersion
+  it('BUG-01 regression — activating user does NOT touch tokenVersion', async () => {
+    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
+    (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([{ nivel: 'USUARIO', status: 'INATIVO' }]);
+    (prisma.$executeRaw as jest.Mock).mockResolvedValueOnce(1);
+    const { PATCH } = await import('@/app/api/usuarios/[id]/status/route');
+    await PATCH(makePatchRequest('5', { ativo: true }), { params: Promise.resolve({ id: '5' }) });
+    const executeRawMock = prisma.$executeRaw as jest.Mock;
+    const callArgs = executeRawMock.mock.calls[0];
+    const sqlParts = callArgs[0] as TemplateStringsArray;
+    const fullSql = sqlParts.join(' ');
+    expect(fullSql).not.toContain('tokenVersion');
+  });
 });

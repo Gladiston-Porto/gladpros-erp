@@ -6,6 +6,7 @@ import { withErrorHandler } from "@/lib/api/error-handler";
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { UserRole } from "@/shared/lib/user-hierarchy";
+import { AuditLogger } from "@/shared/lib/audit";
 
 const criarDelegacaoSchema = z.object({
   delegatarioId: z.number().int().positive(),
@@ -42,10 +43,11 @@ export const GET = withErrorHandler(async (req: Request) => {
 export const POST = withErrorHandler(async (req: Request) => {
   const authUser = await requireUser(req);
 
-  // Apenas GERENTE ou ADMIN podem criar delegações
-  if (authUser.role !== UserRole.GERENTE && authUser.role !== UserRole.ADMIN) {
+  // BUG-07 fix: Only ADMIN can create delegations.
+  // GERENTE has no 'usuarios' permission per rbac-core.ts matrix — removing the GERENTE exception.
+  if (!can(authUser.role as Role, 'usuarios', 'read')) {
     return NextResponse.json(
-      { error: "Apenas GERENTE ou ADMIN podem criar delegações.", success: false },
+      { error: "Forbidden", message: "Apenas ADMIN pode criar delegações.", success: false },
       { status: 403 }
     );
   }
@@ -129,6 +131,28 @@ export const POST = withErrorHandler(async (req: Request) => {
       delegatario: { select: { id: true, nomeCompleto: true, email: true } },
     },
   });
+
+  // Auditoria — criação de delegação é operação crítica de segurança
+  try {
+    await AuditLogger.log({
+      userId: Number(authUser.id),
+      userEmail: authUser.email,
+      action: "CREATE_DELEGACAO",
+      resource: "Delegacao",
+      resourceId: String(delegacao.id),
+      details: {
+        deleganteId,
+        delegatarioId,
+        delegatarioEmail: delegacao.delegatario.email,
+        dataInicio: inicio.toISOString(),
+        dataFim: fim.toISOString(),
+        motivo: motivo ?? null,
+      },
+      status: "SUCCESS",
+    });
+  } catch {
+    // auditoria não deve quebrar o fluxo
+  }
 
   return NextResponse.json({ data: delegacao, success: true }, { status: 201 });
 });

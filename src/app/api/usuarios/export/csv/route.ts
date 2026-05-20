@@ -60,6 +60,7 @@ const FiltersSchema = z.object({
 }).optional();
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+		const authUser = await requireUser(req);
 		const rateCheck = await apiRateLimit.isAllowed(req);
 		if (!rateCheck.allowed) {
 		  return NextResponse.json(
@@ -67,8 +68,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 		    { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
 		  );
 		}
-		const authUser = await requireUser(req);
-		if (!can(authUser.role as Role, 'usuarios', 'update')) {
+		if (!can(authUser.role as Role, 'usuarios', 'read')) {
 			return NextResponse.json({ error: 'Forbidden', message: "Acesso negado", success: false }, { status: 403 });
 		}
 
@@ -94,6 +94,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
 		const where: string[] = [];
 		const params: SqlValue[] = [];
+
+		// BUG-03 fix: Always filter by empresaId to prevent IDOR
+		where.push("empresaId = ?");
+		params.push(authUser.empresaId);
+
 		if (f.q) {
 			const like = `%${f.q}%`;
 			const searchClauses = ["email LIKE ?"];
@@ -165,4 +170,3 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 			}
 		});
 	});
-
