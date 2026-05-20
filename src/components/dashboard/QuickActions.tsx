@@ -18,14 +18,14 @@ const ACTIONS = [
     iconClass: "bg-brand-primary",
     cb: "onNewProposal" as const,
     module: "propostas" as const,
-    action: "write" as const,
+    action: "create" as const,
   },
   {
     key: "client", label: "Novo Cliente", icon: Users,
     iconClass: "bg-brand-secondary",
     cb: "onNewClient" as const,
     module: "clientes" as const,
-    action: "write" as const,
+    action: "create" as const,
   },
   {
     key: "reports", label: "Relatórios", icon: FileText,
