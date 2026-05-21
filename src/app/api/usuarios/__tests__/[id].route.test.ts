@@ -245,7 +245,7 @@ describe('GET /api/usuarios/[id]', () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
-    expect(body.code).toBe('INVALID_ID');
+    expect(body.error).toBe('INVALID_ID');
   });
 
   it('retorna 403 quando usuário não é self e não tem permissão read', async () => {
@@ -264,7 +264,7 @@ describe('GET /api/usuarios/[id]', () => {
     const body = await res.json();
 
     expect(res.status).toBe(404);
-    expect(body.code).toBe('NOT_FOUND');
+    expect(body.error).toBe('NOT_FOUND');
   });
 
   it('retorna dados do usuário normalizado no happy path', async () => {
@@ -272,9 +272,9 @@ describe('GET /api/usuarios/[id]', () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.id).toBe(42);
-    expect(body.email).toBe('john.smith@example.com');
-    expect(body.nomeCompleto).toBe('John Smith');
+    expect(body.data.id).toBe(42);
+    expect(body.data.email).toBe('john.smith@example.com');
+    expect(body.data.nomeCompleto).toBe('John Smith');
   });
 
   it('inclui workerId quando existe worker vinculado', async () => {
@@ -287,8 +287,8 @@ describe('GET /api/usuarios/[id]', () => {
     const res = await GET(mockRequest('GET'), mockContext('42'));
     const body = await res.json();
 
-    expect(body.workerId).toBe(7);
-    expect(body.worker).toMatchObject({ id: 7, classification: 'CONTRACTOR_1099' });
+    expect(body.data.workerId).toBe(7);
+    expect(body.data.worker).toMatchObject({ id: 7, classification: 'CONTRACTOR_1099' });
   });
 
   it('usuário pode visualizar o próprio perfil mesmo sem permissão read', async () => {
@@ -351,7 +351,7 @@ describe('PATCH /api/usuarios/[id]', () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
-    expect(body.code).toBe('INVALID_ID');
+    expect(body.error).toBe('INVALID_ID');
   });
 
   it('retorna 403 quando não é self e não tem permissão update', async () => {
@@ -380,7 +380,7 @@ describe('PATCH /api/usuarios/[id]', () => {
     const body = await res.json();
 
     expect(res.status).toBe(404);
-    expect(body.code).toBe('NOT_FOUND');
+    expect(body.error).toBe('NOT_FOUND');
   });
 
   it('retorna 400 ao tentar validação inválida', async () => {
@@ -469,7 +469,7 @@ describe('DELETE /api/usuarios/[id]', () => {
     const body = await res.json();
 
     expect(res.status).toBe(403);
-    expect(body.code).toBe('FORBIDDEN');
+    expect(body.error).toBe('FORBIDDEN');
   });
 
   it('retorna 400 ao tentar deletar a própria conta (self-delete)', async () => {
@@ -489,7 +489,7 @@ describe('DELETE /api/usuarios/[id]', () => {
     const body = await res.json();
 
     expect(res.status).toBe(404);
-    expect(body.code).toBe('NOT_FOUND');
+    expect(body.error).toBe('NOT_FOUND');
   });
 
   it('retorna 400 ao tentar desativar o último ADMIN ativo', async () => {

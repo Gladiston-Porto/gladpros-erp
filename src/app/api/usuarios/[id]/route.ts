@@ -132,11 +132,11 @@ export const GET = withErrorHandler(async (req: Request, context: unknown) => {
     const params = await resolveParams(context);
     const idVal = (params as Record<string, unknown>)?.id;
     const id = Number(idVal);
-    if (!id) return NextResponse.json({ code: "INVALID_ID" }, { status: 400 });
+    if (!id) return NextResponse.json({ error: "INVALID_ID", message: "ID inválido", success: false }, { status: 400 });
 
     // Users can view their own profile; roles with 'read' permission can view anyone
     if (Number(authUser.id) !== id && !can(authUser.role as Role, 'usuarios', 'read')) {
-      return NextResponse.json({ code: "FORBIDDEN" }, { status: 403 });
+      return NextResponse.json({ error: "FORBIDDEN", message: "Sem permissão", success: false }, { status: 403 });
     }
 
     const userSelect = await buildUsuarioSelect(USER_DETAIL_COLUMNS);
@@ -144,7 +144,7 @@ export const GET = withErrorHandler(async (req: Request, context: unknown) => {
       prisma.$queryRawUnsafe(`SELECT ${userSelect} FROM Usuario WHERE id = ? LIMIT 1`, id)
     )) as unknown as UserRow[];
     const found = rows[0];
-    if (!found) return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
+    if (!found) return NextResponse.json({ error: "NOT_FOUND", message: "Usuário não encontrado", success: false }, { status: 404 });
 
     // normalizar para o frontend (campos esperados pelo form/serviço)
     let dobStr: string | null = null;
@@ -199,11 +199,14 @@ export const GET = withErrorHandler(async (req: Request, context: unknown) => {
     }).catch(() => null);
 
     return NextResponse.json({
-      ...normalized,
-      workerId: workerRecord?.id ?? null,
-      worker: workerRecord
-        ? { id: workerRecord.id, name: workerRecord.name, classification: workerRecord.classification }
-        : null,
+      data: {
+        ...normalized,
+        workerId: workerRecord?.id ?? null,
+        worker: workerRecord
+          ? { id: workerRecord.id, name: workerRecord.name, classification: workerRecord.classification }
+          : null,
+      },
+      success: true,
     }, { status: 200 });
   });
 
@@ -220,24 +223,24 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
     const params = await resolveParams(context);
   const idVal = (params as Record<string, unknown>)?.id;
   const id = Number(idVal);
-    if (!id) return NextResponse.json({ code: "INVALID_ID" }, { status: 400 });
+    if (!id) return NextResponse.json({ error: "INVALID_ID", message: "ID inválido", success: false }, { status: 400 });
 
     const isSelfEdit = Number(authUser.id) === id;
     const hasUpdatePermission = can(authUser.role as Role, 'usuarios', 'update');
 
     // Precisa ser self-edit ou ter permissão de update no módulo
     if (!isSelfEdit && !hasUpdatePermission) {
-      return NextResponse.json({ code: "FORBIDDEN" }, { status: 403 });
+      return NextResponse.json({ error: "FORBIDDEN", message: "Sem permissão", success: false }, { status: 403 });
     }
 
     // Admin-edit: verificar hierarquia contra o alvo
     const targetRole = await getTargetUserRole(id);
     if (!targetRole) {
-      return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
+      return NextResponse.json({ error: "NOT_FOUND", message: "Usuário não encontrado", success: false }, { status: 404 });
     }
     if (!isSelfEdit && !canManageRole(authUser.role as UserRole, targetRole)) {
       return NextResponse.json(
-        { code: "FORBIDDEN", message: "Você não pode gerenciar este usuário." },
+        { error: "FORBIDDEN", message: "Você não pode gerenciar este usuário.", success: false },
         { status: 403 }
       );
     }
@@ -256,6 +259,7 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
         error: "VALIDATION_ERROR",
         message: "Dados inválidos. Verifique os campos.",
         fields: fieldErrors,
+        success: false,
       },
       { status: 400 }
     );
@@ -276,13 +280,13 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
       const newRole = String(body.role).toUpperCase();
       if (!(Object.values(UserRole) as string[]).includes(newRole)) {
         return NextResponse.json(
-          { code: "INVALID_ROLE", message: "Nível inválido." },
+          { error: "INVALID_ROLE", message: "Nível inválido.", success: false },
           { status: 400 }
         );
       }
       if (!canManageRole(authUser.role as UserRole, newRole as UserRole)) {
         return NextResponse.json(
-          { code: "FORBIDDEN", message: "Você não pode promover um usuário a este nível." },
+          { error: "FORBIDDEN", message: "Você não pode promover um usuário a este nível.", success: false },
           { status: 403 }
         );
       }
@@ -517,16 +521,16 @@ export const DELETE = withErrorHandler(async (req: Request,
 
     // Only roles with 'delete' permission can deactivate users
     if (!can(authUser.role as Role, 'usuarios', 'delete')) {
-      return NextResponse.json({ code: "FORBIDDEN" }, { status: 403 });
+      return NextResponse.json({ error: "FORBIDDEN", message: "Sem permissão", success: false }, { status: 403 });
     }
 
     const params = await context.params;
     const id = Number(params.id);
-    if (!id) return NextResponse.json({ code: "INVALID_ID" }, { status: 400 });
+    if (!id) return NextResponse.json({ error: "INVALID_ID", message: "ID inválido", success: false }, { status: 400 });
 
     // Cannot deactivate yourself
     if (Number(authUser.id) === id) {
-      return NextResponse.json({ error: "Não é possível desativar a própria conta" }, { status: 400 });
+      return NextResponse.json({ error: "Não é possível desativar a própria conta", message: "Não é possível desativar a própria conta", success: false }, { status: 400 });
     }
 
     // Verificar se o usuário existe
@@ -536,7 +540,7 @@ export const DELETE = withErrorHandler(async (req: Request,
     });
 
     if (!user) {
-      return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
+      return NextResponse.json({ error: "NOT_FOUND", message: "Usuário não encontrado", success: false }, { status: 404 });
     }
 
     // Hierarquia: GERENTE não pode desativar ADMIN/outro GERENTE, etc.
