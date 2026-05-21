@@ -16,7 +16,7 @@ export const PUT = withErrorHandler(async (req: NextRequest,
     // Verificar se usuário tem permissão via RBAC
     if (!can(user.role as Role, 'usuarios', 'update')) {
       return NextResponse.json(
-        { error: 'Acesso negado. Apenas administradores podem alterar status de usuários.' },
+        { error: 'Forbidden', message: 'Acesso negado. Apenas administradores podem alterar status de usuários.', success: false },
         { status: 403 }
       );
     }
@@ -25,7 +25,7 @@ export const PUT = withErrorHandler(async (req: NextRequest,
     const id = Number(params.id);
 
     if (!id || isNaN(id)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+      return NextResponse.json({ error: "Bad Request", message: "ID inválido", success: false }, { status: 400 });
     }
 
     // Verificar se o usuário existe
@@ -35,13 +35,13 @@ export const PUT = withErrorHandler(async (req: NextRequest,
     });
 
     if (!existingUser) {
-      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Not Found", message: "Usuário não encontrado", success: false }, { status: 404 });
     }
 
     // Impedir que usuário desative a si mesmo
     if (Number(user.id) === id) {
       return NextResponse.json(
-        { error: "Não é possível alterar o status da própria conta" },
+        { error: "Bad Request", message: "Não é possível alterar o status da própria conta", success: false },
         { status: 400 }
       );
     }
@@ -51,7 +51,7 @@ export const PUT = withErrorHandler(async (req: NextRequest,
     if ((Object.values(UserRole) as string[]).includes(targetRoleRaw)) {
       if (!canManageRole(user.role as UserRole, targetRoleRaw as UserRole)) {
         return NextResponse.json(
-          { error: "Você não pode gerenciar este usuário." },
+          { error: "Forbidden", message: "Você não pode gerenciar este usuário.", success: false },
           { status: 403 }
         );
       }
@@ -68,7 +68,7 @@ export const PUT = withErrorHandler(async (req: NextRequest,
       `)[0];
       if (Number(otherActiveAdmins?.cnt ?? 0) === 0) {
         return NextResponse.json(
-          { error: "Não é possível desativar o último ADMIN ativo do sistema." },
+          { error: "Bad Request", message: "Não é possível desativar o último ADMIN ativo do sistema.", success: false },
           { status: 400 }
         );
       }

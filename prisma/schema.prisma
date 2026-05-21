@@ -1124,6 +1124,7 @@ model UserPreference {
 
 model Delegacao {
   id             Int       @id @default(autoincrement())
+  empresaId      Int
   deleganteId    Int
   delegatarioId  Int
   dataInicio     DateTime
@@ -1139,6 +1140,7 @@ model Delegacao {
   delegatario  Usuario  @relation("DelegacoesRecebidas", fields: [delegatarioId], references: [id])
   canceladaPor Usuario? @relation("DelegacoesCanceladas", fields: [canceladaPorId], references: [id])
 
+  @@index([empresaId])
   @@index([deleganteId])
   @@index([delegatarioId])
   @@index([ativa, dataFim])

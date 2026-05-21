@@ -5,7 +5,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { apiRateLimit } from '@/shared/lib/rate-limit';
-import { buildUsuarioSelect } from "@/shared/lib/usuario-query";
+import { buildUsuarioSelect, getUsuarioColumns } from "@/shared/lib/usuario-query";
 import { withRetry } from "@/lib/utils/retry";
 
 type UserRow = {
@@ -14,8 +14,6 @@ type UserRow = {
 	telefone?: string | null; cidade?: string | null; estado?: string | null;
 	cep?: string | null; zipcode?: string | null; criadoEm?: Date | null;
 };
-
-type ColumnRow = { COLUMN_NAME: string };
 
 type SqlValue = string | number | null | Date | boolean;
 const MAX_EXPORT_ROWS = 5000;
@@ -75,10 +73,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 		}
 		const f = parsed.data.filters ?? {};
 		const selectedIds = parsed.data.ids;
-		const colsRows = (await prisma.$queryRaw`
-			SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario'
-		`) as unknown as ColumnRow[];
-		const cols = new Set(colsRows.map((row) => String(row.COLUMN_NAME)));
+		const cols = await getUsuarioColumns();
 
 		// Processar filtros
 		const effectiveRole = f.role && f.role.trim() !== '' ? f.role : undefined;

@@ -24,7 +24,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
 
     if (isNaN(userId)) {
       return NextResponse.json(
-        { message: "ID de usuário inválido" },
+        { error: "Bad Request", message: "ID de usuário inválido", success: false },
         { status: 400 }
       );
     }
@@ -57,7 +57,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
 
     if (isNaN(userId)) {
       return NextResponse.json(
-        { message: "ID de usuário inválido" },
+        { error: "Bad Request", message: "ID de usuário inválido", success: false },
         { status: 400 }
       );
     }
