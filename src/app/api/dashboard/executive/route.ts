@@ -282,7 +282,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
             clientesAtivos: clientes._count,
             propostasTotal: propostasStats.total,
             propostasAprovadas: propostasStats.aprovada,
-            propostasPendentes: propostasStats.rascunho + propostasStats.enviada,
+            propostasPendentes: propostasStats.enviada,
             produtosTotal: materiais._count,
             estoqueTotal: Number(saldosEstoque._sum.quantidade || 0),
             movimentacoesRecentes: movimentacoesEstoque,
