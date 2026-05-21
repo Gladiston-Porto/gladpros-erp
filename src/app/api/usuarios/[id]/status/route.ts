@@ -4,7 +4,7 @@ import { toggleUserStatusSchema } from "@/shared/lib/validation";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { UserRole, canManageRole } from "@/shared/lib/user-hierarchy";
-import { AuditoriaService } from "@/shared/lib/audit";
+import { AuditLogger } from "@/shared/lib/audit";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { logger } from "@/lib/api/logger";
 
@@ -104,13 +104,15 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
     // Registrar auditoria
     try {
       const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-      await AuditoriaService.registrarAtualizacaoUsuario(
-        userId,
-        { status: target.status },
-        { status: ativo ? 'ATIVO' : 'INATIVO' },
-        Number(authUser.id),
-        ip
-      );
+      await AuditLogger.log({
+        userId: Number(authUser.id),
+        action: 'UPDATE_USER',
+        resource: 'Usuario',
+        resourceId: String(userId),
+        ip,
+        details: { before: { status: target.status }, after: { status: ativo ? 'ATIVO' : 'INATIVO' } },
+        status: 'SUCCESS',
+      });
     } catch (auditError) {
       logger.error('[PATCH /[id]/status] Erro ao registrar auditoria', {}, auditError);
     }

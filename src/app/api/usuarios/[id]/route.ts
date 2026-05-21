@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { AuditoriaService } from "@/shared/lib/audit"; // TODO: migrar para AuditLogger diretamente (AuditoriaService é deprecated em audit.ts)
+import { AuditLogger } from "@/shared/lib/audit";
 import { userUpdateApiSchema } from "@/shared/lib/validation";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
@@ -480,13 +480,15 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
     // Registrar auditoria (não deve quebrar o fluxo se falhar)
     try {
       const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-      await AuditoriaService.registrarAtualizacaoUsuario(
-        id,
-        usuarioAntes,
-        usuarioDepois,
-        Number(authUser.id),
-        ip
-      );
+      await AuditLogger.log({
+        userId: Number(authUser.id),
+        action: 'UPDATE_USER',
+        resource: 'Usuario',
+        resourceId: String(id),
+        ip,
+        details: { before: usuarioAntes, after: usuarioDepois },
+        status: 'SUCCESS',
+      });
     } catch (error) {
       logger.error("Erro ao registrar auditoria", {}, error);
       // Não quebra o fluxo principal
@@ -577,12 +579,15 @@ export const DELETE = withErrorHandler(async (req: Request,
     try {
       const req2 = req as unknown as import('next/server').NextRequest;
       const ip = req2.headers?.get('x-forwarded-for') || req2.headers?.get('x-real-ip') || 'unknown';
-      await AuditoriaService.registrarExclusaoUsuario(
-        id,
-        { email: user.email, statusAnterior: user.status },
-        Number(authUser.id),
-        ip
-      );
+      await AuditLogger.log({
+        userId: Number(authUser.id),
+        action: 'DELETE_USER',
+        resource: 'Usuario',
+        resourceId: String(id),
+        ip,
+        details: { email: user.email, statusAnterior: user.status },
+        status: 'SUCCESS',
+      });
     } catch (auditError) {
       logger.error('[DELETE usuario] Erro ao registrar auditoria', {}, auditError);
     }

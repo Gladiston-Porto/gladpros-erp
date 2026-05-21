@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/shared/lib/rbac";
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { AuditoriaService } from "@/shared/lib/audit";
+import { AuditLogger } from "@/shared/lib/audit";
 import { UserRole, canManageRole } from "@/shared/lib/user-hierarchy";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { logger } from "@/lib/api/logger";
@@ -92,13 +92,15 @@ export const PUT = withErrorHandler(async (req: NextRequest,
     // Registrar auditoria
     try {
       const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-      await AuditoriaService.registrarAtualizacaoUsuario(
-        id,
-        { status: existingUser.status },
-        { status: newStatus },
-        Number(user.id),
-        ip
-      );
+      await AuditLogger.log({
+        userId: Number(user.id),
+        action: 'UPDATE_USER',
+        resource: 'Usuario',
+        resourceId: String(id),
+        ip,
+        details: { before: { status: existingUser.status }, after: { status: newStatus } },
+        status: 'SUCCESS',
+      });
     } catch (auditError) {
       logger.error('[toggle-status] Erro ao registrar auditoria', {}, auditError);
     }

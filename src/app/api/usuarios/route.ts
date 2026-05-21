@@ -13,7 +13,7 @@ import { requireUser } from '@/shared/lib/rbac';
 import { UserRole, canManageRole, getManageableRoles } from "@/shared/lib/user-hierarchy";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { withBusinessCache } from "@/shared/lib/cache/business-cache";
-import { AuditoriaService } from "@/shared/lib/audit"; // TODO: migrar para AuditLogger diretamente (AuditoriaService é deprecated em audit.ts)
+import { AuditLogger } from "@/shared/lib/audit";
 import { logger } from "@/lib/api/logger";
 import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { signFirstAccessJWT } from "@/shared/lib/jwt";
@@ -564,12 +564,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       // Registrar auditoria da criação (não bloqueia o fluxo se falhar)
       try {
         const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-        await AuditoriaService.registrarCriacaoUsuario(
-          created.id,
-          { email: created.email, role: role ?? 'USUARIO', nomeCompleto: nomeCompleto ?? null },
-          Number(user.id),
-          ip
-        );
+        await AuditLogger.log({
+          userId: Number(user.id),
+          action: 'CREATE_USER',
+          resource: 'Usuario',
+          resourceId: String(created.id),
+          ip,
+          details: { email: created.email, role: role ?? 'USUARIO', nomeCompleto: nomeCompleto ?? null },
+          status: 'SUCCESS',
+        });
       } catch (auditError) {
         logger.error('[POST usuarios] Erro ao registrar auditoria', {}, auditError);
       }

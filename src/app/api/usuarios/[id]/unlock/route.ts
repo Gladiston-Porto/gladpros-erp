@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { withErrorHandler } from "@/lib/api/error-handler";
-import { AuditoriaService } from "@/shared/lib/audit";
+import { AuditLogger } from "@/shared/lib/audit";
 import { logger } from "@/lib/api/logger";
 
 interface Params {
@@ -87,13 +87,15 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: { para
   // Auditoria
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    await AuditoriaService.registrarAtualizacaoUsuario(
-      userId,
-      { bloqueado: true },
-      { bloqueado: false },
-      Number(authUser.id),
-      ip
-    );
+    await AuditLogger.log({
+      userId: Number(authUser.id),
+      action: 'UPDATE_USER',
+      resource: 'Usuario',
+      resourceId: String(userId),
+      ip,
+      details: { before: { bloqueado: true }, after: { bloqueado: false } },
+      status: 'SUCCESS',
+    });
   } catch (auditError) {
     logger.error("[unlock] Erro ao registrar auditoria", {}, auditError);
   }

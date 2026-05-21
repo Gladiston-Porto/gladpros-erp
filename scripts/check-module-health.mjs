@@ -3,6 +3,10 @@
  * GladPros ERP — Module Health Check
  *
  * Detecta anti-patterns conhecidos no codebase.
+ * Também verifica relatorios/known-bugs.json: quando um commit toca um arquivo
+ * listado em um bug OPEN, verifica se o padrão foi removido de TODOS os arquivos
+ * daquele bug (previne o problema "N-1 fix" — corrigir todos menos 1).
+ *
  * Roda automaticamente no pre-commit hook e pode ser chamado manualmente:
  *
  *   node scripts/check-module-health.mjs
@@ -16,6 +20,7 @@
 import { execSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
+import { readFileSync, existsSync } from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -76,6 +81,104 @@ function grepStaged(pattern) {
   }
 }
 
+// ── Known-bugs checker ───────────────────────────────────────────────────────
+/**
+ * Lê relatorios/known-bugs.json e verifica que bugs OPEN não têm padrão
+ * remanescente em nenhum dos arquivos afetados.
+ *
+ * Quando --staged: detecta se o commit toca um arquivo de um bug OPEN
+ * e verifica se o padrão ainda existe (mesmo fora do staged) — previne N-1 fix.
+ */
+function checkKnownBugs() {
+  const knownBugsPath = path.join(ROOT, "relatorios", "known-bugs.json");
+  if (!existsSync(knownBugsPath)) return [];
+
+  let knownBugs;
+  try {
+    knownBugs = JSON.parse(readFileSync(knownBugsPath, "utf-8"));
+  } catch {
+    return [];
+  }
+
+  const openBugs = (knownBugs.bugs ?? []).filter((b) => b.status === "OPEN");
+  if (openBugs.length === 0) return [];
+
+  // When --module, filter to bugs of that module
+  const bugsToCheck = moduleArg
+    ? openBugs.filter((b) => !b.module || b.module === moduleArg)
+    : openBugs;
+
+  // When --staged, get the list of files in the commit
+  let stagedFiles = [];
+  if (onlyStagedFiles) {
+    try {
+      stagedFiles = execSync("git diff --cached --name-only --diff-filter=ACMR", {
+        cwd: ROOT, encoding: "utf-8",
+      }).trim().split("\n").filter(Boolean);
+    } catch { /* not in a git repo */ }
+  }
+
+  const violations = [];
+
+  for (const bug of bugsToCheck) {
+    if (!bug.verificationPattern || !bug.affectedFiles?.length) continue;
+
+    // When --staged: only check bugs whose files are touched by this commit
+    if (onlyStagedFiles) {
+      const touchedBugFiles = bug.affectedFiles.filter((af) =>
+        stagedFiles.some((sf) => sf.includes(af) || af.includes(sf))
+      );
+      if (touchedBugFiles.length === 0) continue;
+    }
+
+    // Verify ALL affected files — any file still containing the pattern = incomplete fix
+    for (const affectedFile of bug.affectedFiles) {
+      const fullPath = path.join(ROOT, affectedFile);
+      if (!existsSync(fullPath)) continue;
+
+      let fileContent;
+      try {
+        fileContent = readFileSync(fullPath, "utf-8");
+      } catch { continue; }
+
+      const lines = fileContent.split("\n");
+      let found = false;
+      let foundLine = -1;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Skip comment lines
+        if (/^\s*(\/\/|\/\*|\*)/.test(line)) continue;
+        try {
+          if (new RegExp(bug.verificationPattern).test(line)) {
+            // Skip if in allowed files
+            const isAllowed = bug.allowedInFiles?.some((af) => affectedFile.includes(af));
+            if (!isAllowed) {
+              found = true;
+              foundLine = i + 1;
+              break;
+            }
+          }
+        } catch { /* invalid regex */ }
+      }
+
+      if (found) {
+        violations.push({
+          bugId: bug.id,
+          priority: bug.priority ?? "P1",
+          title: bug.title,
+          file: affectedFile,
+          line: foundLine,
+          fix: bug.fix,
+          isPartialFix: onlyStagedFiles,
+        });
+      }
+    }
+  }
+
+  return violations;
+}
+
 // ── Rules ────────────────────────────────────────────────────────────────────
 
 /**
@@ -130,7 +233,7 @@ const RULES = [
     description: "empresaId hardcoded como 1 em rota de API — use user.empresaId",
     pattern: "empresaId:\\s*1[^0-9]",
     scope: "src/app/api/",
-    allowedFiles: ["src/app/api/dev/", "src/app/api/webhooks/"],
+    allowedFiles: ["src/app/api/dev/", "src/app/api/webhooks/", "__tests__", ".test.ts", ".spec.ts"],
     fix: "Use: empresaId: user.empresaId (obtido via requireUser())",
   },
   {
@@ -210,6 +313,15 @@ for (const rule of RULES) {
   }
 }
 
+// ── Run known-bugs check ──────────────────────────────────────────────────────
+
+const knownBugViolations = checkKnownBugs();
+const knownBugP1s = knownBugViolations.filter((v) => v.priority === "P1");
+const knownBugP2s = knownBugViolations.filter((v) => v.priority === "P2");
+const knownBugP3s = knownBugViolations.filter((v) => v.priority === "P3");
+
+totalErrors += knownBugViolations.length;
+
 // ── Output ────────────────────────────────────────────────────────────────────
 
 const scopeLabel = moduleArg ? ` [módulo: ${moduleArg}]` : "";
@@ -241,10 +353,32 @@ printErrors(P1_errors, RED, "🔴 P1 — Crítico (bloqueiam commit)");
 printErrors(P2_errors, YELLOW, "🟠 P2 — Funcional");
 printErrors(P3_errors, CYAN, "🟡 P3 — Qualidade");
 
+// ── Known-bugs output ─────────────────────────────────────────────────────────
+if (knownBugViolations.length > 0) {
+  const label = onlyStagedFiles
+    ? "⚠️  KNOWN-BUGS: Fix incompleto detectado (N-1 problem)"
+    : "📋 KNOWN-BUGS: Bugs em aberto com padrão ainda presente";
+
+  console.log(`\n${RED}${BOLD}${label}${RESET}`);
+  console.log(`  ${YELLOW}Esses bugs têm arquivos afetados onde o padrão ainda existe.${RESET}`);
+  console.log(`  ${YELLOW}Não marque como FIXED em known-bugs.json até todos os arquivos estarem limpos.${RESET}\n`);
+
+  for (const v of knownBugViolations) {
+    const color = v.priority === "P1" ? RED : v.priority === "P2" ? YELLOW : CYAN;
+    console.log(`  ${color}[${v.bugId}]${RESET} ${v.title}`);
+    console.log(`    Arquivo com padrão ainda presente: ${v.file}:${v.line}`);
+    console.log(`    Fix: ${v.fix}`);
+    if (v.isPartialFix) {
+      console.log(`    ${RED}${BOLD}ATENÇÃO: Você está commitando uma correção parcial — o padrão ainda existe neste arquivo!${RESET}`);
+    }
+    console.log("");
+  }
+}
+
 console.log("\n" + "─".repeat(62));
 console.log(`${BOLD}Total: ${totalErrors} violação(ões)${scopeLabel}${RESET}`);
 
-if (P1_errors.length > 0) {
+if (P1_errors.length > 0 || knownBugP1s.length > 0) {
   console.log(`${RED}${BOLD}Commit bloqueado — corrija os P1 antes de continuar.${RESET}\n`);
   process.exit(1);
 } else {

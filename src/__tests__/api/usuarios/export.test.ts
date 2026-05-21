@@ -64,6 +64,7 @@ jest.mock('@/shared/lib/rate-limit', () => ({
 
 jest.mock('@/shared/lib/usuario-query', () => ({
   buildUsuarioSelect: jest.fn().mockResolvedValue('id, email, nomeCompleto, role, status, criadoEm'),
+  getUsuarioColumns: jest.fn().mockResolvedValue(new Set(['id', 'email', 'nomeCompleto', 'nome', 'role', 'status', 'criadoEm'])),
 }));
 
 jest.mock('@/shared/lib/services/report-pdf-html', () => ({
