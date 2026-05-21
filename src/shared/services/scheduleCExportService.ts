@@ -86,10 +86,13 @@ export async function generateScheduleCReport(
     select: { nome: true, razaoSocial: true, tipoTributacao: true },
   })
 
-  const ownerWorker = await prisma.worker.findFirst({
-    where: { classification: "OWNER_OPERATOR" },
-    select: { name: true },
+  // Look up owner worker via OwnerCompensation (Worker has no empresaId column)
+  const ownerCompForTenant = await prisma.ownerCompensation.findFirst({
+    where: { empresaId },
+    include: { worker: { select: { name: true } } },
+    orderBy: { criadoEm: 'desc' },
   })
+  const ownerWorker = ownerCompForTenant?.worker ?? null
 
   // Tax calculation for the full year
   const taxResult = await calculateTax({

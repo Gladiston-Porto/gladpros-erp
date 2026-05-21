@@ -222,7 +222,7 @@ const RULES = [
     description: "requireAuth / requireApiUser legados — use requireUser de @/shared/lib/rbac",
     pattern: "requireAuth\\(|requireApiUser\\(",
     scope: "src/app/api/",
-    allowedFiles: ["src/lib/api/auth.ts"],
+    allowedFiles: ["src/lib/api/auth.ts", "src/shared/lib/requireServerUser.ts"],
     fix: 'Use: import { requireUser } from "@/shared/lib/rbac"',
   },
 
@@ -233,7 +233,7 @@ const RULES = [
     description: "empresaId hardcoded como 1 em rota de API — use user.empresaId",
     pattern: "empresaId:\\s*1[^0-9]",
     scope: "src/app/api/",
-    allowedFiles: ["src/app/api/dev/", "src/app/api/webhooks/", "__tests__", ".test.ts", ".spec.ts"],
+    allowedFiles: ["src/app/api/dev/", "src/app/api/webhooks/", "__tests__", ".test.ts", ".spec.ts", "src/shared/lib/rbac.ts"],
     fix: "Use: empresaId: user.empresaId (obtido via requireUser())",
   },
   {

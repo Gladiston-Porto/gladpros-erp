@@ -15,6 +15,7 @@ export interface InvoiceOverdueContext extends PlaybookContext {
   invoiceId: number;
   // Populated by steps
   projetoId?: number;
+  empresaId?: number;
 }
 
 export function createInvoiceOverdueSteps(ctx: InvoiceOverdueContext): PlaybookStep[] {
@@ -31,6 +32,7 @@ export function createInvoiceOverdueSteps(ctx: InvoiceOverdueContext): PlaybookS
             projetoId: true,
             valorTotal: true,
             saldo: true,
+            empresaId: true,
           },
         });
 
@@ -49,15 +51,23 @@ export function createInvoiceOverdueSteps(ctx: InvoiceOverdueContext): PlaybookS
         }
 
         ctx.projetoId = invoice.projetoId ?? undefined;
+        ctx.empresaId = invoice.empresaId;
       },
     },
     {
       name: 'mark-overdue',
       async run() {
-        await prisma.invoice.update({
-          where: { id: ctx.invoiceId },
+        const result = await prisma.invoice.updateMany({
+          where: {
+            id: ctx.invoiceId,
+            status: { notIn: ['PAID', 'CANCELLED', 'OVERDUE'] },
+          },
           data: { status: 'OVERDUE' },
         });
+        // If count === 0, the invoice status changed between validation and update (race condition)
+        if (result.count === 0) {
+          throw new Error(`Invoice ${ctx.invoiceId} não pode ser marcada OVERDUE — status mudou concorrentemente`);
+        }
       },
     },
     {
@@ -115,9 +125,9 @@ export function createInvoiceOverdueSteps(ctx: InvoiceOverdueContext): PlaybookS
           }).catch(() => {});
         }
 
-        // Notify all admins
+        // Notify all admins — scoped to the same empresa as the invoice
         const admins = await prisma.usuario.findMany({
-          where: { nivel: 'ADMIN', status: 'ATIVO' },
+          where: { nivel: 'ADMIN', status: 'ATIVO', empresaId: ctx.empresaId },
           select: { id: true },
         });
 

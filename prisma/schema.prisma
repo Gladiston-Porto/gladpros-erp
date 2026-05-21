@@ -396,6 +396,7 @@ model CatalogoItem {
 
 model Proposta {
   id                         Int                               @id @default(autoincrement())
+  empresaId                  Int                               @default(1)
   numeroProposta             String                            @unique @db.VarChar(20)
   clienteId                  Int
   dataCriacao                DateTime                          @default(now())
@@ -505,6 +506,7 @@ model Proposta {
   Views                      PropostaView[]
 
   @@index([clienteId])
+  @@index([empresaId])
   @@index([dataCriacao, id])
   @@index([status, dataCriacao, id])
   @@index([status])
@@ -3677,6 +3679,7 @@ enum ServiceOrderPriority {
 
 model ServiceOrder {
   id           Int    @id @default(autoincrement())
+  empresaId    Int    @default(1)
   ticketNumber String @unique @db.VarChar(50)
 
   // Client and Location
@@ -3805,6 +3808,7 @@ model ServiceOrder {
   timeEntryActivities TimeEntryActivity[] @relation("TimeEntryActivityServiceOrder")
 
   @@index([clienteId])
+  @@index([empresaId])
   @@index([status])
   @@index([assignedWorkerId])
   @@index([scheduledDate])

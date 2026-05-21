@@ -57,6 +57,7 @@ describe("GET /api/financeiro/aprovadores", () => {
     expect(body.success).toBe(true)
     expect(mockPrisma.usuario.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
+        empresaId: 1,
         status: "ATIVO",
         nivel: { in: ["ADMIN", "GERENTE", "FINANCEIRO"] },
       },

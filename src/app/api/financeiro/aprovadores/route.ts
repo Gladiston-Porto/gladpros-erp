@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
       where: {
         status: "ATIVO",
         nivel: { in: ["ADMIN", "GERENTE", "FINANCEIRO"] },
+        empresaId: user.empresaId,
       },
       select: {
         id: true,

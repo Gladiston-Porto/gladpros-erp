@@ -92,20 +92,20 @@ export async function requireUser(req?: NextRequest | Request) {
 
   const shouldCheckTokenVersion = await hasTokenVersionColumn()
   let dbRow:
-    | { nivel: string | null; status: string | null; tokenVersion: number | null }
-    | { nivel: string | null; status: string | null }
+    | { nivel: string | null; status: string | null; tokenVersion: number | null; empresaId: number | null }
+    | { nivel: string | null; status: string | null; empresaId: number | null }
     | undefined
 
   try {
     dbRow = shouldCheckTokenVersion
       ? (
-          await prisma.$queryRaw<Array<{ nivel: string | null; status: string | null; tokenVersion: number | null }>>`
-            SELECT nivel, status, tokenVersion FROM Usuario WHERE id = ${Number(claims.sub)} LIMIT 1
+          await prisma.$queryRaw<Array<{ nivel: string | null; status: string | null; tokenVersion: number | null; empresaId: number | null }>>`
+            SELECT nivel, status, tokenVersion, empresaId FROM Usuario WHERE id = ${Number(claims.sub)} LIMIT 1
           `
         )[0]
       : (
-          await prisma.$queryRaw<Array<{ nivel: string | null; status: string | null }>>`
-            SELECT nivel, status FROM Usuario WHERE id = ${Number(claims.sub)} LIMIT 1
+          await prisma.$queryRaw<Array<{ nivel: string | null; status: string | null; empresaId: number | null }>>`
+            SELECT nivel, status, empresaId FROM Usuario WHERE id = ${Number(claims.sub)} LIMIT 1
           `
         )[0]
   } catch {
@@ -141,7 +141,7 @@ export async function requireUser(req?: NextRequest | Request) {
     status: dbStatus ?? tokenUser.status,
     email: tokenUser.email,
     nome: tokenUser.nome,
-    empresaId: 1 as const,
+    empresaId: dbRow.empresaId ?? 1,
   }
 }
 

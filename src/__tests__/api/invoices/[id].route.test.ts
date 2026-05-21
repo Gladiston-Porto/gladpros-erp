@@ -31,8 +31,10 @@ jest.mock('@/lib/prisma', () => ({
       findMany: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
     },
@@ -41,6 +43,7 @@ jest.mock('@/lib/prisma', () => ({
     ledgerTransaction: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
     auditLog: { create: jest.fn() },
     taxRate: { findUnique: jest.fn() },
@@ -178,6 +181,8 @@ describe('PUT /api/invoices/[id]', () => {
     (mockPrisma.$transaction as jest.Mock).mockImplementation(async (fn: Function) => fn(mockPrisma));
     (mockPrisma.invoice.findFirst as jest.Mock).mockResolvedValue(mockInvoice);
     (mockPrisma.invoice.update as jest.Mock).mockResolvedValue(mockInvoice);
+    (mockPrisma.invoice.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.invoice.findUniqueOrThrow as jest.Mock).mockResolvedValue(mockInvoice);
     (mockPrisma.ledgerTransaction.findUnique as jest.Mock).mockResolvedValue(null);
     (mockPrisma.ledgerTransaction.create as jest.Mock).mockResolvedValue({ id: 55, entries: [] });
     (mockPrisma.auditLog.create as jest.Mock).mockResolvedValue({});

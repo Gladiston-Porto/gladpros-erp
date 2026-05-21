@@ -6,6 +6,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
 import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
+import { postLedgerTransaction } from '@/shared/services/ledgerPostingService';
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -355,8 +356,8 @@ export const PUT = withErrorHandler(
         };
       }
 
-      const updated = await tx.invoice.update({
-        where: { id: invoiceId },
+      const updateResult = await tx.invoice.updateMany({
+        where: { id: invoiceId, status: { notIn: ['PAID', 'CANCELLED'] } },
         data: {
           ...(body.dataVencimento && { dataVencimento: new Date(body.dataVencimento) }),
           ...(body.notas !== undefined && { notas: body.notas }),
@@ -376,6 +377,15 @@ export const PUT = withErrorHandler(
           ...financialUpdate,
           atualizadoPor: Number(user.id),
         },
+      });
+
+      if (updateResult.count === 0) {
+        throw new Error('CONFLICT_STATUS');
+      }
+
+      // Refetch to return full invoice data (updateMany doesn't return rows)
+      const updated = await tx.invoice.findUniqueOrThrow({
+        where: { id: invoiceId },
         include: {
           cliente: { select: { id: true, nomeCompleto: true, nomeFantasia: true, email: true } },
           projeto: { select: { id: true, titulo: true } },
@@ -415,7 +425,19 @@ export const PUT = withErrorHandler(
       }
 
       return updated;
+    }).catch((txErr: unknown) => {
+      if (txErr instanceof Error && txErr.message === 'CONFLICT_STATUS') {
+        return null as typeof invoice;
+      }
+      throw txErr;
     });
+
+    if (!invoice) {
+      return NextResponse.json(
+        { error: 'Conflict', message: 'Invoice foi paga ou cancelada concorrentemente — recarregue e tente novamente', success: false },
+        { status: 409 },
+      );
+    }
 
     return NextResponse.json({ data: invoice, success: true });
   },
@@ -446,7 +468,7 @@ export const DELETE = withErrorHandler(
 
     const existingInvoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, empresaId: user.empresaId },
-      select: { id: true, status: true, valorPago: true, numeroInvoice: true },
+      select: { id: true, status: true, valorPago: true, valorTotal: true, numeroInvoice: true, ledgerTransactionId: true },
     });
 
     if (!existingInvoice) {
@@ -473,6 +495,34 @@ export const DELETE = withErrorHandler(
         data: { status: 'CANCELLED', atualizadoPor: Number(user.id) },
       });
 
+      // Reverse the ledger posting if the invoice was sent and a ledger entry exists
+      if (existingInvoice.ledgerTransactionId) {
+        // Void the original ledger transaction
+        await tx.ledgerTransaction.update({
+          where: { id: existingInvoice.ledgerTransactionId },
+          data: { status: 'VOIDED' },
+        });
+
+        // Post a REVERSAL to maintain the double-entry trail
+        const amount = Number(existingInvoice.valorTotal ?? 0);
+        if (amount > 0) {
+          await postLedgerTransaction(
+            {
+              empresaId: user.empresaId,
+              data: new Date(),
+              descricao: `Reversal — Invoice cancelled: ${existingInvoice.numeroInvoice}`,
+              sourceType: 'REVERSAL',
+              sourceId: invoiceId,
+              entries: [
+                { accountCode: 'REVENUE', debit: amount },
+                { accountCode: 'ACCOUNTS_RECEIVABLE', credit: amount },
+              ],
+            },
+            tx,
+          );
+        }
+      }
+
       await tx.auditLog.create({
         data: {
           id: crypto.randomUUID(),
@@ -483,6 +533,7 @@ export const DELETE = withErrorHandler(
           diff: JSON.stringify({
             numeroInvoice: existingInvoice.numeroInvoice,
             statusAnterior: existingInvoice.status,
+            ledgerReversed: !!existingInvoice.ledgerTransactionId,
           }),
         },
       });

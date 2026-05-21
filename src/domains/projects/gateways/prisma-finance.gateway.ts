@@ -381,6 +381,14 @@ export class PrismaFinanceGateway implements IFinanceGateway {
         },
       });
 
+      // Link the invoice back to the service order in the same transaction
+      if (billingType === 'SERVICE_ORDER' && dados.serviceOrderId) {
+        await tx.serviceOrder.update({
+          where: { id: dados.serviceOrderId },
+          data: { invoiceId: created.id },
+        });
+      }
+
       return created;
           });
           break;
@@ -438,7 +446,12 @@ export class PrismaFinanceGateway implements IFinanceGateway {
   }
 
   async listarInvoices(filtros: ListarInvoicesDTO): Promise<ListarInvoicesResponse> {
-    const where: Prisma.InvoiceWhereInput = { empresaId: filtros.empresaId ?? 1 };
+    const where: Prisma.InvoiceWhereInput = {
+      empresaId: (() => {
+        if (!filtros.empresaId) throw new Error('empresaId is required for listarInvoices');
+        return filtros.empresaId;
+      })(),
+    };
     if (filtros.projetoId) where.projetoId = filtros.projetoId;
     if (filtros.clienteId) where.clienteId = filtros.clienteId;
     if (filtros.status) {
@@ -502,6 +515,11 @@ export class PrismaFinanceGateway implements IFinanceGateway {
       return { sucesso: false, mensagem: 'Invoice não encontrado' };
     }
 
+    // Tenant isolation guard — reject if invoice belongs to a different empresa
+    if (invoice.empresaId !== dados.empresaId) {
+      return { sucesso: false, mensagem: 'Invoice não encontrado' };
+    }
+
     if (invoice.status === 'CANCELLED' || invoice.status === 'PAID') {
       return { sucesso: false, mensagem: `Não é possível registrar pagamento — status: ${invoice.status}` };
     }
@@ -541,11 +559,16 @@ export class PrismaFinanceGateway implements IFinanceGateway {
     };
   }
 
-  async cancelarInvoice(invoiceId: string, motivo: string, usuarioId: number): Promise<RespostaFinanceira> {
+  async cancelarInvoice(invoiceId: string, motivo: string, usuarioId: number, empresaId: number): Promise<RespostaFinanceira> {
     const id = parseInt(invoiceId);
     const invoice = await prisma.invoice.findUnique({ where: { id } });
 
     if (!invoice) {
+      return { sucesso: false, mensagem: 'Invoice não encontrado' };
+    }
+
+    // Tenant isolation guard
+    if (invoice.empresaId !== empresaId) {
       return { sucesso: false, mensagem: 'Invoice não encontrado' };
     }
 
@@ -570,7 +593,7 @@ export class PrismaFinanceGateway implements IFinanceGateway {
     };
   }
 
-  async obterResumoFinanceiro(projetoId: number, empresaId = 1): Promise<ResumoFinanceiroProjeto> {
+  async obterResumoFinanceiro(projetoId: number, empresaId: number): Promise<ResumoFinanceiroProjeto> {
     const projeto = await prisma.projeto.findUnique({
       where: { id: projetoId },
       select: { numeroProjeto: true, valorEstimado: true },

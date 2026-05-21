@@ -24,9 +24,9 @@ export const POST = withErrorHandler(
       );
     }
 
-    // Buscar proposta com etapas e materiais
+    // Buscar proposta com etapas e materiais — filtered by empresaId for tenant isolation
     const proposta = await prisma.proposta.findFirst({
-      where: { id: propostaId, deletedAt: null },
+      where: { id: propostaId, empresaId: user.empresaId, deletedAt: null },
       include: {
         PropostaEtapa: true,
         PropostaMaterial: true,
@@ -164,6 +164,22 @@ export const POST = withErrorHandler(
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         invoice = await prisma.$transaction(async (tx) => {
+          // Re-check for duplicate inside transaction to prevent double-billing race condition
+          const duplicateCheck = await tx.invoice.findFirst({
+            where: {
+              empresaId: user.empresaId,
+              status: { not: 'CANCELLED' },
+              OR: [
+                { propostaId },
+                ...(proposta.projetoId ? [{ projetoId: proposta.projetoId }] : []),
+              ],
+            },
+            select: { id: true, numeroInvoice: true },
+          });
+          if (duplicateCheck) {
+            throw new Error(`DUPLICATE:${duplicateCheck.id}:${duplicateCheck.numeroInvoice}`);
+          }
+
           const count = await tx.invoice.count({
             where: { numeroInvoice: { startsWith: `INV-${dataStr}` } },
           });
@@ -213,6 +229,19 @@ export const POST = withErrorHandler(
         });
         break;
       } catch (error) {
+        // Race-condition duplicate detected inside transaction
+        if (error instanceof Error && error.message.startsWith('DUPLICATE:')) {
+          const [, dupId, dupNum] = error.message.split(':');
+          return NextResponse.json(
+            {
+              error: 'Conflict',
+              message: `Já existe uma invoice para esta proposta: ${dupNum}`,
+              invoiceId: Number(dupId),
+              success: false,
+            },
+            { status: 409 },
+          );
+        }
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === 'P2002' &&

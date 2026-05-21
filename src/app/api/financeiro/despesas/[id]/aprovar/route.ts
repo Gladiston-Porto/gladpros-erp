@@ -95,11 +95,21 @@ export const POST = withErrorHandler(async (request: NextRequest,
     }
 
     // Processar aprovação
-    const result = await prisma.$transaction(async (tx) => {
+    let result;
+    try {
+      result = await prisma.$transaction(async (tx) => {
       const now = new Date();
 
       // Se requer próximo nível de aprovação
       if (validatedData.requerProximoNivel && validatedData.proximoAprovadorId) {
+        // Validate nextApprover belongs to the same tenant (cross-tenant guard)
+        const nextApprover = await tx.usuario.findFirst({
+          where: { id: validatedData.proximoAprovadorId, empresaId: user.empresaId },
+          select: { id: true },
+        });
+        if (!nextApprover) {
+          throw new Error('INVALID_NEXT_APPROVER');
+        }
         // Atualizar aprovação atual
         const updatedApproval = await tx.expenseApproval.update({
           where: { id: expense.aprovacao!.id },
@@ -220,6 +230,15 @@ export const POST = withErrorHandler(async (request: NextRequest,
         message: 'Despesa aprovada com sucesso'
       };
     });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'INVALID_NEXT_APPROVER') {
+        return NextResponse.json(
+          { error: 'Validation failed', message: 'Próximo aprovador não pertence à mesma empresa', success: false },
+          { status: 400 },
+        );
+      }
+      throw err;
+    }
 
     await prisma.auditLog.create({
       data: {
@@ -228,14 +247,14 @@ export const POST = withErrorHandler(async (request: NextRequest,
         entidade: "Expense",
         entidadeId: String(expenseId),
         acao: "EXPENSE_APPROVED",
-        diff: JSON.stringify({ expenseId, valor: String(result.expense.valor) }),
+        diff: JSON.stringify({ expenseId, valor: String(result!.expense.valor) }),
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: result.message,
-      data: result.expense
+      message: result!.message,
+      data: result!.expense
     });
 
   });

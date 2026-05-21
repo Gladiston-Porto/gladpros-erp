@@ -44,6 +44,7 @@ const createPaymentSchema = z.object({
   notas: z.string().optional(),
   gatewayId: z.string().max(100).optional(),
   gatewayTransactionId: z.string().max(255).optional(),
+  clientIdempotencyKey: z.string().max(128).optional(),
 });
 
 // ── POST /api/invoices/[id]/payments ─────────────────────────────────────────
@@ -91,6 +92,25 @@ export const POST = withErrorHandler(
       const existingPayment = await prisma.invoicePayment.findFirst({
         where: {
           gatewayTransactionId: body.gatewayTransactionId,
+          invoice: { empresaId: user.empresaId },
+        },
+        select: { id: true, invoiceId: true, valor: true, dataPagamento: true, metodoPagamento: true },
+      });
+
+      if (existingPayment) {
+        return NextResponse.json(
+          { data: { payment: existingPayment }, success: true, idempotent: true },
+          { status: 200 }
+        );
+      }
+    }
+
+    // Idempotency for manual payments (no gateway transaction ID)
+    if (body.clientIdempotencyKey) {
+      const existingPayment = await prisma.invoicePayment.findFirst({
+        where: {
+          invoiceId,
+          referencia: `idempotency:${body.clientIdempotencyKey}`,
           invoice: { empresaId: user.empresaId },
         },
         select: { id: true, invoiceId: true, valor: true, dataPagamento: true, metodoPagamento: true },
@@ -237,7 +257,9 @@ export const POST = withErrorHandler(
           dataPagamento: new Date(body.dataPagamento),
           metodoPagamento: body.metodoPagamento,
           bankAccountId: body.bankAccountId,
-          referencia: body.referencia,
+          referencia: body.clientIdempotencyKey
+            ? `idempotency:${body.clientIdempotencyKey}`
+            : (body.referencia ?? null),
           notas: body.notas,
           gatewayId: body.gatewayId,
           gatewayTransactionId: body.gatewayTransactionId,

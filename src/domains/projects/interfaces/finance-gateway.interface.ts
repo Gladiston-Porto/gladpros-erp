@@ -242,6 +242,8 @@ export interface ListarInvoicesResponse {
 export interface RegistrarPagamentoDTO {
   /** ID do invoice */
   invoiceId: string;
+  /** Empresa ID — required for tenant isolation */
+  empresaId: number;
   /** Valor pago */
   valorPago: number;
   /** Forma de pagamento */
@@ -316,7 +318,7 @@ export interface IFinanceGateway {
    * @param usuarioId ID do usuário
    * @returns Resposta da operação
    */
-  cancelarInvoice(invoiceId: string, motivo: string, usuarioId: number): Promise<RespostaFinanceira>;
+  cancelarInvoice(invoiceId: string, motivo: string, usuarioId: number, empresaId: number): Promise<RespostaFinanceira>;
 
   /**
    * Obtém resumo financeiro de um projeto

@@ -323,7 +323,7 @@ export async function updatePayment(
       entidadeId: String(id),
       acao: "UPDATE",
       diff: JSON.stringify({
-        paidAmount: newPaidAmount,
+        paidAmount: Number(existing.paidAmount),
         status,
       }),
     },

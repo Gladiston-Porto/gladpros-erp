@@ -45,9 +45,9 @@ export const POST = withErrorHandler(async (request: Request,
             );
         }
 
-        // Get order with all related data
-        const order = await prisma.serviceOrder.findUnique({
-            where: { id: serviceOrderId },
+        // Filtered by empresaId for tenant isolation
+        const order = await prisma.serviceOrder.findFirst({
+            where: { id: serviceOrderId, empresaId: user.empresaId },
             include: {
                 Cliente: { select: { id: true, nomeFantasia: true, nomeCompleto: true } },
                 Invoice: { select: { id: true, numeroInvoice: true, status: true } },
@@ -161,8 +161,8 @@ export const POST = withErrorHandler(async (request: Request,
             try {
                 result = await prisma.$transaction(async (tx) => {
             // Re-check idempotency inside the transaction
-            const freshOrder = await tx.serviceOrder.findUnique({
-                where: { id: serviceOrderId },
+            const freshOrder = await tx.serviceOrder.findFirst({
+                where: { id: serviceOrderId, empresaId: user.empresaId },
                 select: { invoiceId: true, projetoId: true }
             });
             if (freshOrder?.invoiceId) {
@@ -307,6 +307,23 @@ export const POST = withErrorHandler(async (request: Request,
                     reason: 'Fatura gerada',
                     createdById: Number(user.id),
                 }
+            });
+
+            // Central AuditLog for invoice generation from service order
+            await tx.auditLog.create({
+                data: {
+                    id: crypto.randomUUID(),
+                    userId: Number(user.id),
+                    entidade: 'Invoice',
+                    entidadeId: String(invoice.id),
+                    acao: 'CREATE',
+                    diff: JSON.stringify({
+                        origem: 'service-order-generate-invoice',
+                        serviceOrderId,
+                        numeroInvoice: invoice.numeroInvoice,
+                        valorTotal: invoice.valorTotal,
+                    }),
+                },
             });
 
             // Update service order

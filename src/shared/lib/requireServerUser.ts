@@ -54,7 +54,7 @@ async function extractAccessTokenAsync(req?: NextRequest | Request): Promise<str
   return undefined
 }
 
-export type ServerUser = { id: string; role: string; email?: string; name?: string; avatarUrl?: string }
+export type ServerUser = { id: string; role: string; email?: string; name?: string; avatarUrl?: string; empresaId: number }
 export type ApiUser = { id: number; role: string; email: string; name?: string; avatarUrl?: string }
 
 type AuthenticatedUserRow = {
@@ -64,6 +64,7 @@ type AuthenticatedUserRow = {
   avatarUrl: string | null;
   tokenVersion?: number | null;
   status: string;
+  empresaId: number | null;
 };
 
 const resolveServerUserFromToken = cache(async (token: string): Promise<ServerUser> => {
@@ -73,13 +74,13 @@ const resolveServerUserFromToken = cache(async (token: string): Promise<ServerUs
   const shouldCheckTokenVersion = await hasTokenVersionColumn();
   const userRows = shouldCheckTokenVersion
     ? await prisma.$queryRaw<Array<AuthenticatedUserRow>>`
-        SELECT id, email, nomeCompleto, avatarUrl, tokenVersion, status
+        SELECT id, email, nomeCompleto, avatarUrl, tokenVersion, status, empresaId
         FROM Usuario
         WHERE id = ${userId}
         LIMIT 1
       `
     : await prisma.$queryRaw<Array<AuthenticatedUserRow>>`
-        SELECT id, email, nomeCompleto, avatarUrl, status
+        SELECT id, email, nomeCompleto, avatarUrl, status, empresaId
         FROM Usuario
         WHERE id = ${userId}
         LIMIT 1
@@ -108,6 +109,7 @@ const resolveServerUserFromToken = cache(async (token: string): Promise<ServerUs
     email: usuario.email || undefined,
     name: usuario.nomeCompleto || 'Usuário',
     avatarUrl: usuario.avatarUrl || undefined,
+    empresaId: usuario.empresaId ?? 1,
   };
 });
 
