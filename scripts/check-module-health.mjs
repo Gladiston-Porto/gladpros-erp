@@ -242,6 +242,8 @@ const RULES = [
     description: "Resposta de API sem campo success — quebra o contrato do frontend",
     pattern: "NextResponse\\.json\\(\\s*\\{(?![^}]*success)",
     scope: "src/app/api/",
+    // For multi-line responses, also check the next N lines for `success:`
+    multilineContextLines: 10,
     allowedFiles: [
       "src/app/api/dev/",
       "src/app/api/webhooks/",
@@ -290,6 +292,9 @@ for (const rule of RULES) {
 
   const raw = onlyStagedFiles ? grepStaged(rule.pattern) : grep(rule.pattern, searchPath);
 
+  // Cache file contents for multiline context checks
+  const fileCache = new Map();
+
   const violations = raw.filter((line) => {
     // When --module is specified, only consider files that mention the module name
     if (moduleArg && !line.includes(moduleArg)) return false;
@@ -300,6 +305,26 @@ for (const rule of RULES) {
 
     // Skip allowed files
     if (rule.allowedFiles?.some((f) => line.includes(f))) return false;
+
+    // Multiline context check: if the rule defines multilineContextLines,
+    // also check the following N lines in the actual file for the presence of `success:`
+    if (rule.multilineContextLines) {
+      const parts = line.split(":");
+      const filePath = parts[0];
+      const lineNum = parseInt(parts[1], 10);
+      if (filePath && !isNaN(lineNum)) {
+        try {
+          if (!fileCache.has(filePath)) {
+            const content = readFileSync(path.join(ROOT, filePath), "utf-8").split("\n");
+            fileCache.set(filePath, content);
+          }
+          const lines = fileCache.get(filePath);
+          const endLine = Math.min(lineNum + rule.multilineContextLines, lines.length);
+          const context = lines.slice(lineNum - 1, endLine).join("\n");
+          if (/success\s*:/.test(context)) return false; // has success in context window
+        } catch { /* file unreadable — keep violation */ }
+      }
+    }
 
     return true;
   });
