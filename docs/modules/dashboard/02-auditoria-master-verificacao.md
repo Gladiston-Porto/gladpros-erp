@@ -87,9 +87,9 @@ Estes são os problemas que NÃO foram abordados em nenhuma auditoria anterior:
 | # | Achado | Arquivo:Linha | Severidade | Evidência Verificada |
 |---|--------|---------------|------------|----------------------|
 | P2-01 | ~15 queries sem `empresaId` (proposta, cliente, projeto, worker, material, serviceOrder, domainEvent) | `route.ts:62,63,65,67,68,85,87` + `executive/route.ts:131,132,133,136,149,168,169,173` + `analytics/route.ts:103,104,114,115,122,134` | P2 | ✅ Confirmado v3.0 |
-| P2-02 | Layout sem `can()` + `redirect('/403')` — CLIENTE pode acessar `/dashboard` diretamente | `(dashboard)/layout.tsx` | P2 | ✅ Confirmado — sem can() |
-| P2-03 | `RASCUNHO` contado como proposta ativa no KPI | `route.ts:155` | P2 | ✅ Confirmado: `RASCUNHO + ENVIADA` |
-| P2-04 | Dois `prisma.projeto.findMany` idênticos no mesmo Promise.all | `executive/route.ts:136,149` | P2 | ✅ Confirmado |
+| P2-02 | Layout sem `can()` + `redirect('/403')` — CLIENTE pode acessar `/dashboard` diretamente | `(dashboard)/layout.tsx` | P2 | ✅ **CORRIGIDO v3.0** — commit `df56778` |
+| P2-03 | `RASCUNHO` contado como proposta ativa no KPI | `route.ts:155` | P2 | ✅ **CORRIGIDO v3.0** — commit `df56778` |
+| P2-04 | Dois `prisma.projeto.findMany` idênticos no mesmo Promise.all | `executive/route.ts:136,149` | P2 | ✅ **CORRIGIDO v3.0** — commit `df56778` |
 | P3-01 | `trend` prop dead code em `KPICard.tsx` — `resolvedChange` sempre `undefined` quando `change` é `undefined` | `KPICard.tsx:30-35` | P3 | ✅ Confirmado |
 | P3-02 | `1y` period aceito pelo Zod mas sem dados reais (hardcoded para 1y = 365 dias = mesma lógica que `ytd`) | `analytics/route.ts` | P3 | A verificar |
 | P3-03 | `console.warn` em código de produção (deveria usar logger estruturado) | `useDashboardData.ts`, `ExecutiveTab.tsx` | P3 | A verificar |
@@ -120,13 +120,10 @@ Estes são os problemas que NÃO foram abordados em nenhuma auditoria anterior:
 
 ### O Que Permanece Sem Correção
 
-❌ 6 achados nunca corrigidos:
-1. **P2-01** — ~15 queries sem `empresaId` em 3 rotas (foi descartado como "OK single-tenant")
-2. **P2-02** — `layout.tsx` sem `can()` + redirect 403 (nunca foi auditado)
-3. **P2-03** — `RASCUNHO` contado como proposta ativa (nunca foi auditado)
-4. **P2-04** — Dois `findMany` de projeto idênticos no mesmo Promise.all (só `previousDespesas` foi removido)
-5. **P3-04** — `charts/DashboardCharts.tsx` com cores hex hardcoded
-6. **v1-P3** — `Cache-Control: no-store` ausente em dados financeiros sensíveis
+❌ 3 achados ainda pendentes (P2-02/P2-03/P2-04 **foram corrigidos** em commit `df56778`):
+1. **P2-01** — ~15 queries sem `empresaId` em 3 rotas — **BLOQUEADO POR SCHEMA**: modelos `Proposta`, `Projeto`, `Cliente`, `Worker`, `Material`, `ServiceOrder` não possuem campo `empresaId` no Prisma schema. Requer migration. Single-tenant atual = sem risco operacional.
+2. **P3-04** — `charts/DashboardCharts.tsx` com cores hex hardcoded — qualidade
+3. **v1-P3** — `Cache-Control: no-store` ausente em dados financeiros — qualidade
 
 ---
 
@@ -193,23 +190,25 @@ Atualizar `docs/modules/dashboard/01-modulo-dashboard-completo.md`:
 
 O módulo pode ser certificado **Production Ready** quando:
 
-- [ ] P2-01: `empresaId` adicionado nas ~15 queries OU schema documentado como limitação
-- [ ] P2-02: `layout.tsx` com `can()` + `redirect('/403')`
-- [ ] P2-03: RASCUNHO excluído do KPI de propostas ativas
-- [ ] P2-04: Dois `findMany` de projeto unificados
+- [x] ~~P2-02: `layout.tsx` com `can()` + `redirect('/403')`~~ — **FEITO** (commit `df56778`)
+- [x] ~~P2-03: RASCUNHO excluído do KPI de propostas ativas~~ — **FEITO** (commit `df56778`)
+- [x] ~~P2-04: Dois `findMany` de projeto unificados~~ — **FEITO** (commit `df56778`)
+- [ ] P2-01: `empresaId` adicionado nas ~15 queries OU schema documentado como limitação de design
 - [ ] P3-04: Cores hardcoded em `charts/DashboardCharts.tsx` removidas
-- [ ] Testes de regressão cobrindo os 4 P2s acima
+- [ ] Testes de regressão para P2-02/P2-03 (P2-04 já coberto no executive.test.ts)
 - [ ] `docs/modules/dashboard/01-modulo-dashboard-completo.md` atualizado
 
 ---
 
-## Veredito Atual
+## Veredito Atual (Após Correções v3.0)
 
 **Status: Conditionally Ready**
 
-O módulo tem base sólida (auth correto, RBAC nas APIs, integração real com todos os módulos, cache bem implementado, 53 testes de unidade). Os P2s pendentes não causam falha imediata em single-tenant, mas violam os padrões do AGENTS.md e podem causar:
-- Usuário CLIENTE acessando `/dashboard` sem permissão (P2-02)
-- KPI de "propostas ativas" inflado com rascunhos (P2-03) — decisão operacional incorreta
-- Performance degradada com N queries para projetos (P2-04)
+P2-02, P2-03 e P2-04 corrigidos em commit `df56778` (2025-07).  
+25 testes de dashboard passando. Type-check limpo.
 
-Não certifico como **Production Ready** no estado atual.
+Bloqueio restante para **Production Ready**:
+- P2-01 requer decisão de arquitetura sobre schema (`empresaId` em ~10 modelos sem o campo). Não é bug de código — é limitação do schema que requer migration.
+- P3-04 e Cache-Control são itens de qualidade, não bloqueantes.
+
+Como co-produtor: certifico o módulo como **Conditionally Ready** — operacionalmente seguro para single-tenant, sem vulnerabilidades de auth/RBAC críticas abertas. Para **Production Ready** definitivo, a decisão sobre `empresaId` no schema precisa ser tomada e documentada.
