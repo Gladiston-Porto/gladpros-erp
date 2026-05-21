@@ -564,3 +564,53 @@ E usar essa permissão em vez da condição `authUser.role !== UserRole.GERENTE`
 - P2 corrigidos com testes de regressão
 - P3 documentados para próxima sprint
 - Testes de segurança (security.test.ts) com falhas pré-existentes não relacionadas às correções desta auditoria
+
+---
+
+## 4º Ciclo de Auditoria — 2026-05-21/22
+
+**Meta-problema descoberto:** Known-bugs.json corrompido (2 objetos JSON raiz — parser lia apenas o 1º)
+**Consequência:** Bugs OPEN invisíveis ao pre-commit em 3 ciclos anteriores
+
+### Falsos Positivos da Certificação v3.0
+
+| Gate | Afirmação v3.0 | Realidade |
+|------|----------------|-----------|
+| Gate 2 | can() em todas as rotas sensíveis ✅ | `delegacoes/[id]` sem can() (USUARIOS-P2-004) |
+| Gate 3 | IDOR filtrado em todas as listagens ✅ | `_helpers`, `delegacoes/[id]`, `toggle-status` sem empresaId (USUARIOS-P2-005) |
+| Gate 3 | tokenVersion ao desativar ✅ | DELETE handler sem tokenVersion (USUARIOS-P2-003) |
+
+### Bugs P2 Encontrados e Corrigidos (4º Ciclo)
+
+| ID | Arquivo | Descrição | Commit |
+|----|---------|-----------|--------|
+| USUARIOS-P2-003 | `[id]/route.ts:574` | DELETE sem tokenVersion — JWT válido após soft-delete | 3e46a6c |
+| USUARIOS-P2-004 | `delegacoes/[id]/route.ts` | GET + PATCH sem nenhum can() RBAC | 3e46a6c |
+| USUARIOS-P2-005 | `_helpers/access.ts`, `delegacoes/[id]`, `toggle-status`, `[id]:537` | findUnique sem empresaId (IDOR potential) | 3e46a6c |
+| USUARIOS-P2-006 | `src/app/api/usuarios/__tests__/` | Diretório de testes duplicado (5 arquivos) | 3e46a6c |
+
+**Detalhe notável:** Semgrep bloqueou o primeiro commit do 4º ciclo porque detectou um `findUnique` sem `empresaId` na linha 537 de `[id]/route.ts` que NÃO estava no plano original — prova de funcionamento real do Swiss Cheese Model.
+
+### Correção P3 Aplicada (4º Ciclo)
+
+| ID | Arquivo | Descrição | Commit |
+|----|---------|-----------|--------|
+| USUARIOS-P3-009 | `src/shared/lib/user-hierarchy.ts` | `getVisibleModules()` desatualizado — GERENTE sem 9 módulos; ESTOQUE/USUARIO com relatorios indevido; CLIENTE com propostas indevido | e2979b3 |
+
+### Sistema de Qualidade Implantado
+
+1. **Swiss Cheese Model** — 7 camadas independentes (known-bugs validador → health-check → Semgrep → lint-staged → jest @bug:ID → certify-module.mjs → CI/GitHub Actions)
+2. **`scripts/certify-module.mjs`** — certificação programática: exit 0 = PR, exit 1 = NR, exit 2 = CR, exit 3 = NeedsReAudit
+3. **GitHub `Gladiston-Porto/gladpros-erp`** — CI, weekly audit, monthly audit, CODEOWNERS, PR template, Semgrep rules, governance.json (11 módulos)
+4. **Pre-commit hooks** — bloqueiam commit se Semgrep detectar anti-pattern de segurança
+
+### Certificação Final (4º Ciclo)
+
+**Status: ✅ Production Ready (v4.0) — re-certificado 2026-05-22**
+- Zero P1 abertos
+- Zero P2 abertos (4 novos P2s encontrados e corrigidos)
+- P3-09 corrigido (getVisibleModules)
+- 78 testes passando (66 base + 12 novos do 4º ciclo com tags @bug:ID)
+- Quality Gate pre-commit passando (Semgrep + validate-known-bugs + ESLint)
+- Evidências em: `docs/modules/usuarios/04-certificacao-producao-2026-05-21.md` (cert v4.0)
+- Governança em: `Gladiston-Porto/gladpros-erp` (commit ac1bc2c)
