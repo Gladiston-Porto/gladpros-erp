@@ -69,7 +69,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 			ids: z.array(z.number().int().positive()).max(500).optional(),
 		}).safeParse(raw);
 		if (!parsed.success) {
-			return NextResponse.json({ message: "Payload inválido" }, { status: 400 });
+			return NextResponse.json({ error: "Bad Request", message: "Payload inválido", success: false }, { status: 400 });
 		}
 		const f = parsed.data.filters ?? {};
 		const selectedIds = parsed.data.ids;
