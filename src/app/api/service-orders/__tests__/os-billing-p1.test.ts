@@ -2,6 +2,7 @@ jest.mock('@/lib/prisma', () => ({
   prisma: {
     serviceOrder: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
     },
     invoice: {
@@ -51,6 +52,7 @@ describe('Service Orders P1 billing regressions', () => {
   const requireUserMock = requireUser as jest.Mock;
   const canMock = can as jest.Mock;
   const serviceOrderFindUniqueMock = prisma.serviceOrder.findUnique as jest.Mock;
+  const serviceOrderFindFirstMock = prisma.serviceOrder.findFirst as jest.Mock;
   const invoiceFindFirstMock = prisma.invoice.findFirst as jest.Mock;
   const serviceOrderUpdateMock = prisma.serviceOrder.update as jest.Mock;
 
@@ -76,7 +78,7 @@ describe('Service Orders P1 billing regressions', () => {
   });
 
   it('blocks invoice generation for project-linked OS when the project already has an active invoice', async () => {
-    serviceOrderFindUniqueMock.mockResolvedValue({
+    serviceOrderFindFirstMock.mockResolvedValue({
       id: 123,
       ticketNumber: 'OS-2025-00123',
       status: 'COMPLETED',
