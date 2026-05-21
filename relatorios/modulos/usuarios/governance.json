@@ -1,9 +1,9 @@
 {
   "$schema": "../../governance.schema.json",
   "modulo": "usuarios",
-  "displayName": "Usu\u00e1rios",
+  "displayName": "Usuários",
   "owner": "Gladiston-Porto",
-  "statusAtual": "Conditionally Ready",
+  "statusAtual": "Production Ready",
   "ultimaAuditoria": {
     "data": "2026-05-21",
     "auditadoPor": "copilot-agent",
@@ -13,6 +13,11 @@
       "P1": 0,
       "P2": 4,
       "P3": 10
+    },
+    "correcoes": {
+      "commit": "3e46a6c",
+      "data": "2026-05-21",
+      "P2corrigidos": ["USUARIOS-P2-003", "USUARIOS-P2-004", "USUARIOS-P2-005", "USUARIOS-P2-006"]
     }
   },
   "proximaAuditoriaObrigatoria": "2026-06-21",
@@ -26,13 +31,24 @@
   },
   "bugs": {
     "referencia": "relatorios/known-bugs.json",
-    "abertos": ["USUARIOS-P2-003", "USUARIOS-P2-004", "USUARIOS-P2-005", "USUARIOS-P2-006"],
-    "corrigidos": ["USUARIOS-P1-001", "USUARIOS-P1-002", "USUARIOS-P2-001", "USUARIOS-P2-002", "USUARIOS-P3-001", "USUARIOS-P3-002"]
+    "abertos": [],
+    "corrigidos": [
+      "USUARIOS-P1-001",
+      "USUARIOS-P1-002",
+      "USUARIOS-P2-001",
+      "USUARIOS-P2-002",
+      "USUARIOS-P2-003",
+      "USUARIOS-P2-004",
+      "USUARIOS-P2-005",
+      "USUARIOS-P2-006",
+      "USUARIOS-P3-001",
+      "USUARIOS-P3-002"
+    ]
   },
   "expira": {
     "data": "2026-06-21",
-    "acao": "re-audit obrigat\u00f3rio",
+    "acao": "re-audit obrigatório",
     "aviso30dias": true
   },
-  "notas": "4\u00ba ciclo encontrou 4 P2s que escaparam de 3 ciclos anteriores. known-bugs.json estava corrompido (2 objetos raiz). Certifica\u00e7\u00e3o rebaixada de Production Ready para Conditionally Ready."
+  "notas": "4º ciclo encontrou 4 P2s que escaparam de 3 ciclos anteriores. Todos corrigidos em 2026-05-21 (commit 3e46a6c). Sistema de qualidade Swiss Cheese Model ativo — pre-commit bloqueou commit com Semgrep ao detectar findUnique sem empresaId adicional em [id]/route.ts:537 que havia sido omitido. Módulo certificado Production Ready após correção completa verificada pelo quality gate."
 }
