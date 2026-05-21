@@ -1,6 +1,3 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 # GladPros ERP — Pre-commit health check
 # Detecta anti-patterns P1 antes de cada commit.
 # Para bypass de emergência (não recomendado): git commit --no-verify
