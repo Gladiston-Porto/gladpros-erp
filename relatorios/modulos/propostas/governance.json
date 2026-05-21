@@ -1,0 +1,28 @@
+{
+  "$schema": "../../governance.schema.json",
+  "modulo": "propostas",
+  "displayName": "Propostas",
+  "owner": "Gladiston-Porto",
+  "statusAtual": "Needs Re-audit",
+  "ultimaAuditoria": null,
+  "proximaAuditoriaObrigatoria": "2026-06-01",
+  "intervaloMaxDias": 30,
+  "criteriosDeAprovacao": {
+    "P1Abertos": 0,
+    "P2Abertos": 0,
+    "regressionTestCoverage": "todos os bugs FIXED devem ter @bug:ID",
+    "semgrepFindings": 0,
+    "healthCheckPassing": true
+  },
+  "bugs": {
+    "referencia": "relatorios/known-bugs.json",
+    "abertos": [],
+    "corrigidos": []
+  },
+  "expira": {
+    "data": "2026-06-01",
+    "acao": "re-audit obrigat\u00f3rio",
+    "aviso30dias": true
+  },
+  "notas": "M\u00f3dulo cr\u00edtico — inicia fluxo proposta → projeto → invoice. Prioridade alta na fila de auditoria."
+}

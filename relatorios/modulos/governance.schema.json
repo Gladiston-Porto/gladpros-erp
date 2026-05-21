@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GladPros Module Governance",
+  "description": "Schema para arquivos governance.json de cada m\u00f3dulo do GladPros ERP. Lido por scripts/check-governance.mjs e weekly-audit.yml.",
+  "type": "object",
+  "required": ["modulo", "displayName", "owner", "statusAtual", "proximaAuditoriaObrigatoria", "intervaloMaxDias", "criteriosDeAprovacao"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "modulo": {
+      "type": "string",
+      "description": "Identificador do m\u00f3dulo (slug, lowercase, kebab-case)"
+    },
+    "displayName": {
+      "type": "string",
+      "description": "Nome exib\u00edvel do m\u00f3dulo"
+    },
+    "owner": {
+      "type": "string",
+      "description": "Username GitHub do respons\u00e1vel"
+    },
+    "statusAtual": {
+      "type": "string",
+      "enum": ["Production Ready", "Conditionally Ready", "Not Ready", "Needs Re-audit"],
+      "description": "Status atual do m\u00f3dulo. S\u00f3 Production Ready se zero P1/P2 abertos e gate aprovado."
+    },
+    "ultimaAuditoria": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["data", "auditadoPor", "ciclo"],
+          "properties": {
+            "data": { "type": "string", "format": "date" },
+            "auditadoPor": { "type": "string" },
+            "ciclo": { "type": "integer", "minimum": 1 },
+            "relatorio": { "type": "string" },
+            "achados": {
+              "type": "object",
+              "properties": {
+                "P1": { "type": "integer", "minimum": 0 },
+                "P2": { "type": "integer", "minimum": 0 },
+                "P3": { "type": "integer", "minimum": 0 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "proximaAuditoriaObrigatoria": {
+      "type": "string",
+      "format": "date",
+      "description": "Data m\u00e1xima para pr\u00f3xima auditoria. weekly-audit.yml cria issue se ultrapassada."
+    },
+    "intervaloMaxDias": {
+      "type": "integer",
+      "minimum": 7,
+      "maximum": 90,
+      "description": "Intervalo m\u00e1ximo entre auditorias em dias"
+    },
+    "criteriosDeAprovacao": {
+      "type": "object",
+      "required": ["P1Abertos", "P2Abertos"],
+      "properties": {
+        "P1Abertos": { "type": "integer", "maximum": 0 },
+        "P2Abertos": { "type": "integer", "maximum": 0 },
+        "regressionTestCoverage": { "type": "string" },
+        "semgrepFindings": { "type": "integer", "minimum": 0 },
+        "healthCheckPassing": { "type": "boolean" }
+      }
+    },
+    "bugs": {
+      "type": "object",
+      "properties": {
+        "referencia": { "type": "string" },
+        "abertos": { "type": "array", "items": { "type": "string" } },
+        "corrigidos": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "expira": {
+      "type": "object",
+      "required": ["data", "acao"],
+      "properties": {
+        "data": { "type": "string", "format": "date" },
+        "acao": { "type": "string" },
+        "aviso30dias": { "type": "boolean" }
+      }
+    },
+    "notas": { "type": "string" }
+  }
+}

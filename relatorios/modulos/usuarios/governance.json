@@ -1,0 +1,38 @@
+{
+  "$schema": "../../governance.schema.json",
+  "modulo": "usuarios",
+  "displayName": "Usu\u00e1rios",
+  "owner": "Gladiston-Porto",
+  "statusAtual": "Conditionally Ready",
+  "ultimaAuditoria": {
+    "data": "2026-05-21",
+    "auditadoPor": "copilot-agent",
+    "ciclo": 4,
+    "relatorio": "docs/modules/usuarios/04-certificacao-producao-2026-05-21.md",
+    "achados": {
+      "P1": 0,
+      "P2": 4,
+      "P3": 10
+    }
+  },
+  "proximaAuditoriaObrigatoria": "2026-06-21",
+  "intervaloMaxDias": 30,
+  "criteriosDeAprovacao": {
+    "P1Abertos": 0,
+    "P2Abertos": 0,
+    "regressionTestCoverage": "todos os bugs FIXED devem ter @bug:ID",
+    "semgrepFindings": 0,
+    "healthCheckPassing": true
+  },
+  "bugs": {
+    "referencia": "relatorios/known-bugs.json",
+    "abertos": ["USUARIOS-P2-003", "USUARIOS-P2-004", "USUARIOS-P2-005", "USUARIOS-P2-006"],
+    "corrigidos": ["USUARIOS-P1-001", "USUARIOS-P1-002", "USUARIOS-P2-001", "USUARIOS-P2-002", "USUARIOS-P3-001", "USUARIOS-P3-002"]
+  },
+  "expira": {
+    "data": "2026-06-21",
+    "acao": "re-audit obrigat\u00f3rio",
+    "aviso30dias": true
+  },
+  "notas": "4\u00ba ciclo encontrou 4 P2s que escaparam de 3 ciclos anteriores. known-bugs.json estava corrompido (2 objetos raiz). Certifica\u00e7\u00e3o rebaixada de Production Ready para Conditionally Ready."
+}
