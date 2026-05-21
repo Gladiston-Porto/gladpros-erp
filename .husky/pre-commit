@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# GladPros ERP — Pre-commit health check
+# Detecta anti-patterns P1 antes de cada commit.
+# Para bypass de emergência (não recomendado): git commit --no-verify
+
+echo "🔍 GladPros: verificando anti-patterns no código staged..."
+node scripts/check-module-health.mjs --staged
+
+# Exit code propagado: 1 = P1 encontrado → commit bloqueado

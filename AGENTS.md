@@ -1029,6 +1029,39 @@ Classificações permitidas:
 - [ ] O fluxo alterado foi validado?
 - [ ] Há risco de regressão em módulo próximo?
 
+### 20.1 Regra de verificação obrigatória para correção de bugs
+
+Quando um bug é corrigido em um arquivo, o agente **deve** rodar o seguinte antes de commitar:
+
+```bash
+# Substituir PADRÃO_ANTIGO pelo padrão que estava errado (ex: INFORMATION_SCHEMA, console.log, etc.)
+grep -rn "PADRÃO_ANTIGO" src/app/api/MODULO/ src/app/(dashboard)/MODULO/
+```
+
+Se o grep retornar qualquer resultado → o fix está **incompleto**. Não commitar.
+
+O resultado do grep deve ser incluído no commit message como evidência:
+```
+fix(modulo): corrigir PADRÃO_ANTIGO
+
+Verificação: grep -rn "PADRÃO_ANTIGO" src/app/api/modulo/ → 0 ocorrências
+Arquivos corrigidos: arquivo1.ts, arquivo2.ts
+```
+
+**Nunca escrever "Corrigido ✅" sem executar a verificação.**
+
+### 20.2 Regra para novas features em módulos auditados
+
+Quando um commit do tipo `feat` modifica um módulo que já passou por auditoria:
+
+1. Todo **novo arquivo** de API deve passar pelo checklist de 15 pontos da seção 20
+2. Todo **novo model Prisma** deve ter: `empresaId Int`, `@@index([empresaId])`, soft-delete se aplicável
+3. Todo **novo link de navegação** no frontend deve apontar para uma página que existe
+4. O **filtro multi-role** ou qualquer novo campo de filtro deve ser testado com valores compostos (ex: `?role=ADMIN,GERENTE`)
+5. Se a feature cria nova funcionalidade visível ao usuário → adicionar `data-testid` nos elementos interativos
+
+**Violação desta regra é a principal causa de "novas auditorias encontrarem novos bugs".**
+
 ---
 
 ## 21. Resposta final obrigatória do agente
