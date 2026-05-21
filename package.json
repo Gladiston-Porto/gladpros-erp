@@ -56,6 +56,8 @@
     "quality:types": "tsc -p tsconfig.typecheck.json",
     "quality:test": "npm test",
     "secret:scan": "node scripts/maintenance/secret-scan.js",
+    "health:check": "node scripts/check-module-health.mjs",
+    "health:check:module": "node scripts/check-module-health.mjs --module",
     "db:fix-sessions": "node scripts/fix-missing-tables.js",
     "test:smoke": "cross-env BASE_URL=http://localhost:3001 dotenv -e .env.test -- node scripts/smoke-auth.mjs",
     "test:db:reset": "node scripts/test-reset-db.js",

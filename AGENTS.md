@@ -1136,3 +1136,86 @@ Se houver dúvida entre duas abordagens, sempre escolher na seguinte ordem de pr
 | Código conciso vs código claro | **Claro** |
 
 **Em caso de incerteza real:** não assumir, não improvisar. Explicar o que foi encontrado, apontar os riscos e sugerir o próximo passo mais seguro antes de agir.
+
+---
+
+## 25. Protocolo obrigatório de verificação de fix
+
+> Este protocolo nasceu da análise de 3 auditorias consecutivas do módulo usuarios que continuaram encontrando os mesmos problemas porque os fixes eram reais mas incompletos: corrigiam N-1 arquivos e esqueciam o N-ésimo.
+
+### Regra de ouro: um fix só está feito quando não existe mais nenhuma ocorrência do padrão antigo em TODO o codebase.
+
+### 25.1 — Antes de declarar um fix como ✅ Corrigido
+
+**Passo 1 — Busca global pelo padrão antigo:**
+```bash
+# Substituir "PADRÃO_ANTIGO" pelo que foi corrigido
+grep -rn "PADRÃO_ANTIGO" src/
+```
+O resultado deve ser **zero linhas**. Se encontrar qualquer ocorrência, o fix está incompleto.
+
+**Passo 2 — Executar o script de health check:**
+```bash
+node scripts/check-module-health.mjs
+# ou para um módulo específico:
+node scripts/check-module-health.mjs --module=usuarios
+```
+Deve retornar `✅ Nenhum anti-pattern encontrado`.
+
+**Passo 3 — Confirmar no commit message com evidência:**
+```
+fix(usuarios): corrige INFORMATION_SCHEMA em export/csv
+
+- export/csv/route.ts:79 — raw query substituída por buildUsuarioSelect()
+- grep INFORMATION_SCHEMA src/ → 1 ocorrência restante (autorizada em usuario-query.ts)
+- node scripts/check-module-health.mjs → P1 limpo
+```
+
+### 25.2 — Ao corrigir um bug que existe em múltiplos arquivos
+
+**Antes de escrever qualquer código:**
+1. Buscar o padrão em TODOS os arquivos do módulo
+2. Listar explicitamente TODOS os arquivos afetados
+3. Só então corrigir — um arquivo de cada vez
+4. Confirmar com grep após cada arquivo
+
+**Exemplo (BUG-05 que falhou 3 auditorias):**
+```bash
+# Passo correto que foi pulado
+grep -rn "INFORMATION_SCHEMA" src/app/api/usuarios/
+# Resultado: route.ts:510, [id]/route.ts:325, export/csv/route.ts:79
+# Corrigir os 3, não apenas os 2 primeiros
+```
+
+### 25.3 — Ao fazer commit de uma nova feature (feat)
+
+Todo commit `feat` que altera ou cria código em módulos existentes deve incluir no corpo do commit:
+- Quais anti-patterns foram verificados na nova feature
+- Resultado de `node scripts/check-module-health.mjs --staged`
+
+### 25.4 — Padrões proibidos e seus arquivos autorizados
+
+| Padrão | Motivo da proibição | Arquivo onde é PERMITIDO |
+|--------|--------------------|-----------------------------|
+| `INFORMATION_SCHEMA` | Performance — query de metadados custosa | `src/shared/lib/usuario-query.ts` |
+| `from "@/server/db"` | Import errado do Prisma | Nenhum (sempre usar `@/lib/prisma`) |
+| `.map(async` em API routes | N+1 queries | Nenhum (usar Promise.all) |
+| `empresaId: 1` hardcoded | IDOR técnica | `src/app/api/dev/` (dev only) |
+| `{ ok: true }` em NextResponse | Formato de resposta inválido | Nenhum |
+| `requireAuth\|requireApiUser` | Auth legado | `src/lib/api/auth.ts` (apenas definição) |
+| `console.log` em API routes | Debug em produção | `src/app/api/dev/` (dev only) |
+
+### 25.5 — Ferramenta de verificação
+
+```bash
+# Verificar o projeto inteiro
+npm run health:check
+
+# Verificar só arquivos staged (pre-commit)
+node scripts/check-module-health.mjs --staged
+
+# Verificar módulo específico
+node scripts/check-module-health.mjs --module=usuarios
+```
+
+O script `scripts/check-module-health.mjs` é o árbitro final. Se ele retorna P1 limpo, o padrão de anti-patterns catalogados está ausente. O hook pre-commit roda isso automaticamente — P1 bloqueia o commit.
