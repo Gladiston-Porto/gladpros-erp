@@ -11,7 +11,7 @@ export enum UserRole {
   FINANCEIRO = 'FINANCEIRO',
   ESTOQUE = 'ESTOQUE',
   USUARIO = 'USUARIO',
-  CLIENTE = 'CLIENTE'
+  CLIENTE = 'CLIENTE',
 }
 
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -20,7 +20,7 @@ export const ROLE_HIERARCHY: Record<UserRole, number> = {
   [UserRole.FINANCEIRO]: 3,
   [UserRole.ESTOQUE]: 4,
   [UserRole.USUARIO]: 5,
-  [UserRole.CLIENTE]: 6
+  [UserRole.CLIENTE]: 6,
 };
 
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
@@ -29,7 +29,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   [UserRole.FINANCEIRO]: 'Responsável Financeiro - Gestão financeira',
   [UserRole.ESTOQUE]: 'Responsável por Estoque - Controle de inventário',
   [UserRole.USUARIO]: 'Usuário de Campo - Operações diárias',
-  [UserRole.CLIENTE]: 'Cliente Externo - Acesso limitado'
+  [UserRole.CLIENTE]: 'Cliente Externo - Acesso limitado',
 };
 
 /**
@@ -95,19 +95,78 @@ export function hasFinancialAccess(userRole: UserRole): boolean {
 export function getVisibleModules(userRole: UserRole): string[] {
   const baseModules = ['dashboard'];
 
+  // Baseado na matriz de permissões em AGENTS.md (seção 6.6)
+  // Módulos listados são aqueles onde o role tem acesso RO ou superior
   switch (userRole) {
     case UserRole.ADMIN:
-      return [...baseModules, 'usuarios', 'clientes', 'propostas', 'projetos', 'estoque', 'financeiro', 'relatorios', 'auditoria', 'configuracoes'];
+      return [
+        ...baseModules,
+        'usuarios',
+        'clientes',
+        'propostas',
+        'projetos',
+        'service-orders',
+        'estoque',
+        'financeiro',
+        'invoices',
+        'rh',
+        'workforce',
+        'relatorios',
+        'analytics',
+        'documents',
+        'aprovacoes',
+        'configuracoes',
+      ];
     case UserRole.GERENTE:
-      return [...baseModules, 'clientes', 'propostas', 'projetos', 'estoque', 'relatorios'];
+      return [
+        ...baseModules,
+        'clientes',
+        'propostas',
+        'projetos',
+        'service-orders',
+        'estoque',
+        'financeiro',
+        'invoices',
+        'rh',
+        'workforce',
+        'relatorios',
+        'analytics',
+        'documents',
+        'aprovacoes',
+        'configuracoes',
+      ];
     case UserRole.FINANCEIRO:
-      return [...baseModules, 'clientes', 'propostas', 'projetos', 'estoque', 'financeiro', 'relatorios'];
+      return [
+        ...baseModules,
+        'clientes',
+        'propostas',
+        'projetos',
+        'service-orders',
+        'estoque',
+        'financeiro',
+        'invoices',
+        'rh',
+        'workforce',
+        'relatorios',
+        'documents',
+        'aprovacoes',
+      ];
     case UserRole.ESTOQUE:
-      return [...baseModules, 'clientes', 'projetos', 'estoque', 'relatorios'];
+      return [...baseModules, 'clientes', 'projetos', 'service-orders', 'estoque', 'documents'];
     case UserRole.USUARIO:
-      return [...baseModules, 'clientes', 'projetos', 'estoque', 'relatorios'];
+      return [
+        ...baseModules,
+        'clientes',
+        'projetos',
+        'service-orders',
+        'estoque',
+        'invoices',
+        'workforce',
+        'documents',
+        'aprovacoes',
+      ];
     case UserRole.CLIENTE:
-      return ['dashboard', 'propostas', 'projetos'];
+      return ['projetos', 'invoices'];
     default:
       return baseModules;
   }
