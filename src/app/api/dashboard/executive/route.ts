@@ -96,8 +96,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           materiais,
           saldosEstoque,
           movimentacoesEstoque,
-          projetosOverview,
-          projetosList,
+          projetosAll,
           activeWorkers,
           clientes,
           propostas,
@@ -133,19 +132,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           prisma.materialMovimentacao.count({
             where: { criadoEm: { gte: startDate } }
           }),
-          prisma.projeto.findMany({
-            where: {
-              status: {
-                in: activeProjectStatuses
-              }
-            },
-            select: {
-              id: true,
-              dataConclusaoPrevista: true,
-              valorEstimado: true,
-              custoReal: true
-            },
-          }),
+          // P2-04 fix: um único findMany com todos os campos necessários; projetosOverview e projetosList derivados do resultado
           prisma.projeto.findMany({
             where: {
               status: {
@@ -162,7 +149,6 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
               valorEstimado: true,
               custoReal: true
             },
-            take: 10,
             orderBy: { dataInicioPrevista: 'desc' }
           }),
           prisma.worker.count({ where: { status: 'ACTIVE' } }),
@@ -220,6 +206,11 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         const totalDespesas = canReadFinancial ? Number(despesas?._sum.valor || 0) : 0;
         const saldoContas = canReadFinancial ? Number(contasBancarias?._sum.saldoAtual || 0) : 0;
         const saldoPeriodo = canReadFinancial ? totalReceitas - totalDespesas : 0;
+
+        // projetosAll contém todos os projetos ativos com todos os campos
+        // projetosOverview = todos (para health score); projetosList = top 10 (para display)
+        const projetosOverview = projetosAll;
+        const projetosList = projetosAll.slice(0, 10);
 
         // Calcular health score dos projetos (em todo o conjunto ativo, sem truncar por paginação)
         const agora = new Date();

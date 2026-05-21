@@ -191,7 +191,7 @@ describe('GET /api/dashboard/executive', () => {
     // Todos os modelos devem ter sido chamados
     expect(prisma.revenue.aggregate).toHaveBeenCalledTimes(2); // current + previous period
     expect(prisma.expense.aggregate).toHaveBeenCalledTimes(1); // only current period (previous was unused)
-    expect(prisma.projeto.findMany).toHaveBeenCalledTimes(2);
+    expect(prisma.projeto.findMany).toHaveBeenCalledTimes(1); // P2-04 fix: merged into single query
   });
 
   test('500 — erro interno retorna { success: false }', async () => {

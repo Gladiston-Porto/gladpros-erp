@@ -152,7 +152,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     success: true,
     data: {
       totalProposals,
-      activeProposals: (proposalStatusMap['RASCUNHO'] ?? 0) + (proposalStatusMap['ENVIADA'] ?? 0),
+      activeProposals: proposalStatusMap['ENVIADA'] ?? 0,
       totalClients,
       totalProjects,
       revenue: canReadFinancial
