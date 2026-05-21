@@ -1,0 +1,21 @@
+# CODEOWNERS — GladPros ERP
+# Todo PR que toca estes caminhos exige review do owner antes de merge.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: todos os PRs precisam de review do owner principal
+* @Gladiston-Porto
+
+# Módulos críticos — review obrigatório
+src/app/api/usuarios/** @Gladiston-Porto
+src/app/api/auth/**     @Gladiston-Porto
+src/app/api/financeiro/** @Gladiston-Porto
+src/app/api/invoices/**   @Gladiston-Porto
+prisma/schema.prisma      @Gladiston-Porto
+
+# Sistema de qualidade — alterações precisam de atenção redobrada
+relatorios/known-bugs.json     @Gladiston-Porto
+.semgrep/**                    @Gladiston-Porto
+.github/workflows/**           @Gladiston-Porto
+scripts/validate-known-bugs.mjs @Gladiston-Porto
+scripts/certify-module.mjs     @Gladiston-Porto
+docs/architecture/**           @Gladiston-Porto

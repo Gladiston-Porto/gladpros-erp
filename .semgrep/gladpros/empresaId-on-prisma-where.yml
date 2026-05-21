@@ -1,0 +1,29 @@
+rules:
+  - id: gladpros-empresaId-required-on-prisma-where
+    languages: [typescript]
+    severity: WARNING
+    message: |
+      Operações Prisma findUnique/findFirst em modelos com empresaId DEVEM incluir
+      empresaId no where para evitar IDOR cross-tenant. Modelos críticos: Usuario,
+      Delegacao, Cliente, Proposta, Projeto, OrdemServico, Invoice, Movimentacao.
+      Bug ID: USUARIOS-P2-005
+    patterns:
+      - pattern-either:
+          - pattern: "prisma.usuario.findUnique({ where: { id: $ID } })"
+          - pattern: "prisma.usuario.findUnique({ where: { id: $ID, ... }, select: $S })"
+          - pattern: "prisma.usuario.findFirst({ where: { id: $ID } })"
+          - pattern: "prisma.delegacao.findUnique({ where: { id: $ID } })"
+          - pattern: "prisma.delegacao.findUnique({ where: { id: $ID, ... }, select: $S })"
+          - pattern: "prisma.delegacao.findFirst({ where: { id: $ID } })"
+      - pattern-not-regex: "empresaId"
+    paths:
+      include:
+        - "src/app/api/**/*.ts"
+        - "src/services/**/*.ts"
+        - "src/domains/**/*.ts"
+      exclude:
+        - "**/__tests__/**"
+        - "**/*.test.ts"
+        - "**/*.spec.ts"
+        - "src/app/api/auth/**"
+        - "src/app/api/portal/**"

@@ -1,0 +1,32 @@
+rules:
+  - id: gladpros-can-check-required-on-usuarios-mutations
+    languages: [typescript]
+    severity: ERROR
+    message: |
+      Todas as rotas sob src/app/api/usuarios/** (exceto /me) DEVEM checar can(role, 'usuarios', action)
+      após requireUser(). Apenas requireUser() não é suficiente — ele autentica mas não autoriza.
+      Bug ID: USUARIOS-P2-004
+    patterns:
+      - pattern-either:
+          - pattern: |
+              export async function GET($REQ: $T) { ... }
+          - pattern: |
+              export async function POST($REQ: $T) { ... }
+          - pattern: |
+              export async function PUT($REQ: $T) { ... }
+          - pattern: |
+              export async function PATCH($REQ: $T) { ... }
+          - pattern: |
+              export async function DELETE($REQ: $T) { ... }
+      - pattern-not-regex: 'can\(\s*\w+\.role'
+      - metavariable-regex:
+          metavariable: $T
+          regex: 'NextRequest|Request'
+    paths:
+      include:
+        - "src/app/api/usuarios/**/*.ts"
+      exclude:
+        - "src/app/api/usuarios/me/**"
+        - "**/__tests__/**"
+        - "**/*.test.ts"
+        - "**/*.spec.ts"

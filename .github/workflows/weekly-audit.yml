@@ -1,0 +1,105 @@
+name: Auditoria Semanal — Todos os Módulos
+
+on:
+  schedule:
+    # Toda segunda-feira às 06:00 CT (11:00 UTC)
+    - cron: '0 11 * * 1'
+  workflow_dispatch:
+    inputs:
+      modulo:
+        description: 'Módulo específico a auditar (deixe vazio para todos)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: read
+
+jobs:
+  auditoria-semanal:
+    name: Auditoria Semanal GladPros
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Camada 0 — Validar known-bugs.json
+        run: npm run known-bugs:validate
+
+      - name: Camada 1 — Health check TODOS os módulos
+        run: node scripts/check-module-health.mjs
+        continue-on-error: true
+        id: health_check
+
+      - name: Camada 2 — Semgrep CODEBASE INTEIRO
+        uses: semgrep/semgrep-action@v1
+        id: semgrep
+        with:
+          config: .semgrep/gladpros
+          output-format: sarif
+          output: semgrep-results.sarif
+        continue-on-error: true
+        env:
+          SEMGREP_TIMEOUT: 600
+
+      - name: Verificar governança por módulo
+        run: node scripts/check-governance.mjs
+        continue-on-error: true
+        id: governance
+
+      - name: Gerar relatório da semana
+        run: node scripts/generate-weekly-report.mjs
+        id: report
+        env:
+          HEALTH_STATUS: ${{ steps.health_check.outcome }}
+          SEMGREP_STATUS: ${{ steps.semgrep.outcome }}
+          GOVERNANCE_STATUS: ${{ steps.governance.outcome }}
+          WEEK_NUMBER: ${{ github.run_number }}
+
+      - name: Criar issue de auditoria (se houver falhas)
+        if: steps.health_check.outcome == 'failure' || steps.semgrep.outcome == 'failure' || steps.governance.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const week = new Date().toISOString().slice(0, 10);
+            let body = `## Auditoria Semanal — ${week}\n\n`;
+
+            // Tentar ler relatório gerado
+            try {
+              body += fs.readFileSync('relatorios/weekly-report-latest.md', 'utf8');
+            } catch {
+              body += `### Resultados\n`;
+              body += `- Health check: ${{ steps.health_check.outcome }}\n`;
+              body += `- Semgrep: ${{ steps.semgrep.outcome }}\n`;
+              body += `- Governança: ${{ steps.governance.outcome }}\n`;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[AUDIT] Auditoria Semanal — ${week}`,
+              body,
+              labels: ['audit-weekly', 'quality']
+            });
+
+      - name: Upload SARIF (CodeQL dashboard)
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-results.sarif
+        continue-on-error: true

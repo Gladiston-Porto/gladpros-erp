@@ -1,0 +1,103 @@
+name: Auditoria Mensal Profunda
+
+on:
+  schedule:
+    # Dia 1 de cada mês às 06:00 CT (11:00 UTC)
+    - cron: '0 11 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  auditoria-mensal:
+    name: Auditoria Mensal GladPros
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Camada 0 — Validar known-bugs.json
+        run: npm run known-bugs:validate
+
+      - name: Camada 1+2 — Health check + Semgrep
+        run: node scripts/check-module-health.mjs
+        continue-on-error: true
+        id: health
+
+      - name: Semgrep full scan
+        uses: semgrep/semgrep-action@v1
+        id: semgrep
+        with:
+          config: .semgrep/gladpros
+        continue-on-error: true
+        env:
+          SEMGREP_TIMEOUT: 600
+
+      - name: Testes unitários completos
+        run: npm test -- --ci --coverage --reporters=default
+        continue-on-error: true
+        id: unit_tests
+
+      - name: Verificar expiração de certificações
+        run: node scripts/check-governance.mjs --strict
+        continue-on-error: true
+        id: governance
+
+      - name: Gerar relatório mensal
+        run: |
+          MONTH=$(date '+%Y-%m')
+          node scripts/generate-monthly-report.mjs --month=$MONTH
+        id: report
+        env:
+          HEALTH_STATUS: ${{ steps.health.outcome }}
+          SEMGREP_STATUS: ${{ steps.semgrep.outcome }}
+          TEST_STATUS: ${{ steps.unit_tests.outcome }}
+          GOVERNANCE_STATUS: ${{ steps.governance.outcome }}
+
+      - name: Criar PR com relatório mensal
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const month = new Date().toISOString().slice(0, 7);
+            const branch = `audit/monthly-${month}`;
+
+            // Criar branch para o relatório
+            const ref = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'heads/main'
+            });
+
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/heads/${branch}`,
+              sha: ref.data.object.sha
+            }).catch(() => {}); // ignora se branch já existe
+
+            // PR com o relatório
+            await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[AUDIT] Relatório Mensal — ${month}`,
+              head: branch,
+              base: 'main',
+              body: `Relatório de auditoria mensal gerado automaticamente.\n\nVer \`relatorios/auditoria-${month}.md\` para detalhes completos.`,
+              draft: false
+            }).catch(console.error);
