@@ -44,7 +44,8 @@ async function getHandler(request: NextRequest) {
   const origemTipo = searchParams.get('origemTipo') ?? undefined;
   const minha = searchParams.get('minha') === '1';
 
-  const canViewAll = can(user.role as Role, 'financeiro', 'read') || can(user.role as Role, 'estoque', 'create');
+  const canViewAll =
+    can(user.role as Role, 'financeiro', 'read') || can(user.role as Role, 'estoque', 'create');
 
   const where = {
     // Se não pode ver todas, filtra pelas próprias
@@ -114,7 +115,10 @@ async function postHandler(request: NextRequest) {
   const body = await request.json();
   const parsed = criarSCSchema.safeParse(body);
   if (!parsed.success) {
-    const errors = parsed.error.issues.map(e => ({ field: e.path.join('.'), message: e.message }));
+    const errors = parsed.error.issues.map((e) => ({
+      field: e.path.join('.'),
+      message: e.message,
+    }));
     return validationErrorResponse(errors);
   }
   const dados = parsed.data;
@@ -127,15 +131,14 @@ async function postHandler(request: NextRequest) {
   const sc = await prisma.$transaction(async (tx) => {
     const nova = await tx.solicitacaoCompra.create({
       data: {
-        empresaId: 1,
+        empresaId: Number(user.empresaId),
         origemTipo: dados.origemTipo,
         origemId: dados.origemId ?? null,
         status: 'RASCUNHO',
         solicitanteId: Number(user.id),
-        valorEstimado,
         observacoes: dados.observacoes ?? null,
         itens: {
-          create: dados.itens.map(item => ({
+          create: dados.itens.map((item) => ({
             materialId: item.materialId ?? null,
             descricao: item.descricao,
             unidade: item.unidade ?? null,
