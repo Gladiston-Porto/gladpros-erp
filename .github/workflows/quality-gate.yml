@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -32,7 +32,7 @@ jobs:
           cache: 'npm'
 
       - name: Install deps
-        run: npm ci --prefer-offline --no-audit
+        run: npm ci --prefer-offline --no-audit --legacy-peer-deps
 
       - name: 🔒 Camada 0 — Validar known-bugs.json
         run: npm run known-bugs:validate
@@ -61,11 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
-      - run: npm ci --prefer-offline --no-audit
+      - run: npm ci --prefer-offline --no-audit --legacy-peer-deps
       - run: npm run db:generate
       - run: npm test -- --ci --reporters=default
