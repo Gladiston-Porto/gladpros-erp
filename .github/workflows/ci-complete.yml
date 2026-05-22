@@ -63,11 +63,10 @@ jobs:
             sleep 2
           done
 
-      - name: Setup database for unit tests
+      - name: Setup database env for unit tests
         run: |
           echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/gladpros_test" > .env
           npx prisma generate
-          npx prisma migrate deploy || npx prisma db push --skip-generate
         env:
           DATABASE_URL: 'mysql://root:root@127.0.0.1:3306/gladpros_test'
 
