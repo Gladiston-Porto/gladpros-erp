@@ -137,7 +137,7 @@ jobs:
 
       - name: Upload related tests list (on failure)
         if: failure() && github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: related-tests-list-${{ github.run_id }}
           path: |
@@ -265,7 +265,7 @@ jobs:
 
       - name: Upload build artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-logs
           path: |
