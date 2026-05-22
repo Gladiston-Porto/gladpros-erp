@@ -39,7 +39,7 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       # Segredos gerados em runtime (evita hardcode e garante disponibilidade cedo)
       - name: Generate test secrets

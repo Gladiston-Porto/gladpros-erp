@@ -33,7 +33,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Generate Prisma Client
         run: npm run db:generate
@@ -74,7 +74,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Lint
         run: npm run quality:lint
@@ -98,7 +98,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Generate Prisma Client
         run: npm run db:generate
@@ -141,7 +141,7 @@ jobs:
           echo "DATABASE_URL=mysql://root:root@localhost:3306/gladpros_test" >> .env
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Generate Prisma Client
         run: npm run db:generate
