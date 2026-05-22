@@ -2,9 +2,7 @@ name: Smoke Tests
 
 on:
   push:
-    branches: [ main, develop, 'fix/*' ]
-  pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop, 'fix/*']
 
 concurrency:
   group: smoke-tests-${{ github.workflow }}-${{ github.ref }}
@@ -113,7 +111,7 @@ jobs:
 
       - name: Upload server logs (on failure)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: server-logs-${{ github.run_id }}
           path: server.log

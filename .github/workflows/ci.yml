@@ -6,8 +6,6 @@ name: CI
 on:
   push:
     branches: [main, 'chore/**', 'fix/**', 'feat/**', 'feature/**', develop]
-  pull_request:
-    branches: [main, develop]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,7 +18,7 @@ jobs:
   smoke:
     name: 🔥 Smoke Test
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,7 +62,7 @@ jobs:
     name: 📝 Lint
     runs-on: ubuntu-latest
     continue-on-error: true
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -85,7 +83,7 @@ jobs:
     name: 🔍 TypeScript
     runs-on: ubuntu-latest
     continue-on-error: true
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -112,7 +110,7 @@ jobs:
     name: 🧪 Tests
     runs-on: ubuntu-latest
     continue-on-error: true
-    
+
     services:
       mariadb:
         image: mariadb:10.11
@@ -151,7 +149,7 @@ jobs:
       - name: Run database migrations
         run: npx prisma migrate deploy || npx prisma db push --skip-generate
         env:
-          DATABASE_URL: "mysql://root:root@localhost:3306/gladpros_test"
+          DATABASE_URL: 'mysql://root:root@localhost:3306/gladpros_test'
 
       - name: Run Tests
         run: npm run quality:test
