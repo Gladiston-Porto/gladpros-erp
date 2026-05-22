@@ -1064,6 +1064,44 @@ Quando um commit do tipo `feat` modifica um módulo que já passou por auditoria
 
 ---
 
+## 20.1 Quando declarar um bug FIXED — critérios obrigatórios
+
+Um bug em `relatorios/known-bugs.json` **só pode ser marcado `status: FIXED`** quando TODOS os critérios abaixo forem verdadeiros. Marcação prematura cria falsa sensação de qualidade e foi causa raiz de regressões anteriores.
+
+### Critérios obrigatórios (todos):
+
+1. **Correção aplicada** — patch existe no código, validado por teste manual ou unit test
+2. **Teste de regressão criado** com tag obrigatória no topo do arquivo:
+   ```ts
+   // @bug:USUARIOS-P2-XX
+   // @description: <descrição curta>
+   describe('REGRESSION USUARIOS-P2-XX', () => { ... })
+   ```
+3. **Teste passa** — `npm test path/to/test.test.ts` retorna verde
+4. **Regra Semgrep adicionada** se o bug é padrão repetível (ex: RBAC ausente, empresaId faltando, tokenVersion não incrementado)
+   - Arquivo em `.semgrep/gladpros/<regra>.yml`
+   - Validada com `semgrep --config .semgrep/gladpros src/`
+5. **Health check passa** — `node scripts/check-module-health.mjs --module=X` verde
+6. **Certificação programática** — `node scripts/certify-module.mjs --module=X` retorna exit 0
+7. **Entrada do known-bugs preenchida**:
+   - `status: "FIXED"`
+   - `regressionTest: "src/__tests__/.../USUARIOS-P2-XX.test.ts"` (path válido)
+   - `semgrepRule: ".semgrep/gladpros/<regra>.yml"` (se aplicável)
+   - `fixedIn: "<commit-sha>"`
+   - `fixedAt: "YYYY-MM-DD"`
+
+### Se falhar QUALQUER critério:
+
+- **Não marcar FIXED.** Manter `status: OPEN` ou criar `status: IN_PROGRESS`.
+- Não é aceitável "comentar que está corrigido" sem teste de regressão.
+- Não é aceitável corrigir 1 bug e marcar 4 como FIXED sem evidência individual.
+
+### Validação automatizada
+
+O script `scripts/certify-module.mjs` valida esses critérios. CI bloqueia merge se inconsistência for detectada. Pre-commit hook avisa localmente. **Não há bypass válido.**
+
+---
+
 ## 21. Resposta final obrigatória do agente
 
 Ao concluir qualquer tarefa que envolva alteração de código, sempre responder com:

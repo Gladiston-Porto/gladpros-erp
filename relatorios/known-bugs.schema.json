@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GladPros Known Bugs Registry",
+  "description": "Registro auditável de bugs conhecidos. Usado pelo pre-commit hook e CI para impedir correções parciais.",
+  "type": "object",
+  "required": ["_meta", "bugs"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "_meta": {
+      "type": "object",
+      "required": ["version", "purpose"],
+      "properties": {
+        "version": { "type": "string" },
+        "purpose": { "type": "string" },
+        "rules": { "type": "array", "items": { "type": "string" } },
+        "fields": { "type": "object" }
+      }
+    },
+    "bugs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "module",
+          "priority",
+          "title",
+          "description",
+          "status",
+          "detectedAt",
+          "affectedFiles",
+          "regressionTest"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]+-(P1|P2|P3)-[0-9]{3,4}$"
+          },
+          "module": { "type": "string" },
+          "priority": { "enum": ["P1", "P2", "P3"] },
+          "title": { "type": "string", "minLength": 10 },
+          "description": { "type": "string", "minLength": 20 },
+          "status": { "enum": ["OPEN", "FIXED", "WONTFIX", "DUPLICATE"] },
+          "detectedAt": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "auditRef": { "type": ["string", "null"] },
+          "affectedFiles": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "allowedInFiles": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "verificationPattern": { "type": ["string", "null"] },
+          "semgrepRule": { "type": ["string", "null"] },
+          "fix": { "type": ["string", "null"] },
+          "fixedAt": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "fixedBy": { "type": ["string", "null"] },
+          "fixCommit": { "type": ["string", "null"] },
+          "regressionTest": { "type": ["string", "null"] }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "status": { "const": "FIXED" } } },
+            "then": {
+              "required": ["fixedAt", "fixedBy", "fixCommit"],
+              "properties": {
+                "fixedAt": { "type": "string" },
+                "fixedBy": { "type": "string" },
+                "fixCommit": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

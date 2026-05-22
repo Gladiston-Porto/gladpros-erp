@@ -1,0 +1,72 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+# IMPORTANTE: Este workflow é OBRIGATÓRIO em PRs.
+# Mesmo que dev rode "git commit --no-verify" localmente,
+# o PR não merge sem este passar.
+# Ver: docs/architecture/06-production-readiness.md
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  quality-gate:
+    name: Quality Gate (Swiss Cheese)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci --prefer-offline --no-audit
+
+      - name: 🔒 Camada 0 — Validar known-bugs.json
+        run: npm run known-bugs:validate
+
+      - name: 🔍 Camada 1 — Health check (regex anti-patterns)
+        run: npm run health:check
+
+      - name: 🧠 Camada 2 — Semgrep (regras semânticas)
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: .semgrep/gladpros
+          # Falha o job se ENCONTRAR algum match (ERROR/WARNING).
+          # Não usa --baseline-ref para garantir 0 regressões.
+        env:
+          SEMGREP_TIMEOUT: 300
+
+      - name: 🛡️ Camada 2b — ESLint
+        run: npm run lint
+
+      - name: 📐 Camada 2c — Type check
+        run: npm run type-check
+
+  # Job separado para que falhas de teste não escondam falhas de qualidade
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci --prefer-offline --no-audit
+      - run: npm run db:generate
+      - run: npm test -- --ci --reporters=default

@@ -1,0 +1,31 @@
+rules:
+  - id: gladpros-prisma-import-canonical-path
+    languages: [typescript]
+    severity: ERROR
+    message: |
+      Único caminho válido para importar Prisma é @/lib/prisma. Outros caminhos
+      (@/server/db, @/server/db-temp, @/shared/lib/prisma) são LEGADOS e proibidos.
+      Veja AGENTS.md seção 6.1.
+    pattern-either:
+      - pattern: import { prisma } from "@/server/db"
+      - pattern: import { prisma } from "@/server/db-temp"
+      - pattern: import { prisma } from "@/shared/lib/prisma"
+      - pattern: import { db } from "@/server/db"
+    paths:
+      include:
+        - "src/**/*.ts"
+        - "src/**/*.tsx"
+
+  - id: gladpros-legacy-auth-import-banned
+    languages: [typescript]
+    severity: ERROR
+    message: |
+      requireAuth e requireApiUser são LEGADOS. Use requireUser (API routes) ou
+      requireServerUser (Server Components). Veja AGENTS.md seção 6.2.
+    pattern-either:
+      - pattern: import { requireAuth } from "@/lib/api/auth"
+      - pattern: import { requireApiUser } from $X
+    paths:
+      include:
+        - "src/**/*.ts"
+        - "src/**/*.tsx"
