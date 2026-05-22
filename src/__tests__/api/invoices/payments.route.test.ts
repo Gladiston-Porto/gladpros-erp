@@ -4,20 +4,31 @@
 
 jest.mock('next/server', () => {
   const makeSearchParams = (url: string) => {
-    try { return new URLSearchParams(url.includes('?') ? url.split('?')[1] ?? '' : ''); }
-    catch { return new URLSearchParams(); }
+    try {
+      return new URLSearchParams(url.includes('?') ? (url.split('?')[1] ?? '') : '');
+    } catch {
+      return new URLSearchParams();
+    }
   };
   return {
-    NextRequest: jest.fn().mockImplementation((url: string, init?: { method?: string; body?: string }) => ({
-      url,
-      method: (init?.method ?? 'GET').toUpperCase(),
-      nextUrl: { searchParams: makeSearchParams(url) },
-      headers: { get: () => null },
-      json: jest.fn().mockImplementation(() => {
-        if (init?.body) { try { return Promise.resolve(JSON.parse(init.body)); } catch { return Promise.resolve({}); } }
-        return Promise.resolve({});
-      }),
-    })),
+    NextRequest: jest
+      .fn()
+      .mockImplementation((url: string, init?: { method?: string; body?: string }) => ({
+        url,
+        method: (init?.method ?? 'GET').toUpperCase(),
+        nextUrl: { searchParams: makeSearchParams(url) },
+        headers: { get: () => null },
+        json: jest.fn().mockImplementation(() => {
+          if (init?.body) {
+            try {
+              return Promise.resolve(JSON.parse(init.body));
+            } catch {
+              return Promise.resolve({});
+            }
+          }
+          return Promise.resolve({});
+        }),
+      })),
     NextResponse: {
       json: jest.fn().mockImplementation((data: unknown, options?: { status?: number }) => ({
         status: options?.status ?? 200,
@@ -29,8 +40,18 @@ jest.mock('next/server', () => {
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    invoice: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
-    invoicePayment: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
+    invoice: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    invoicePayment: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
     bankAccount: { findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     bankTransaction: { create: jest.fn() },
     ledgerTransaction: { findUnique: jest.fn(), create: jest.fn() },
@@ -51,16 +72,18 @@ jest.mock('@/shared/lib/rbac', () => ({
 }));
 
 jest.mock('@/lib/api/error-handler', () => ({
-  withErrorHandler: jest.fn().mockImplementation((handler: Function) => async (...args: unknown[]) => {
-    try {
-      return await handler(...args);
-    } catch (error) {
-      if (error instanceof Error && error.message === 'UNAUTHENTICATED') {
-        return { status: 401, _data: { error: 'Unauthorized', success: false } };
+  withErrorHandler: jest
+    .fn()
+    .mockImplementation((handler: Function) => async (...args: unknown[]) => {
+      try {
+        return await handler(...args);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'UNAUTHENTICATED') {
+          return { status: 401, _data: { error: 'Unauthorized', success: false } };
+        }
+        return { status: 500, _data: { error: 'Internal server error', success: false } };
       }
-      return { status: 500, _data: { error: 'Internal server error', success: false } };
-    }
-  }),
+    }),
 }));
 
 import { NextRequest } from 'next/server';
@@ -100,7 +123,10 @@ const mockPayment = {
 
 const makeContext = (id: string) => ({ params: Promise.resolve({ id }) });
 
-function makeRequest(url = 'http://localhost/api/invoices/1/payments', init?: { method?: string; body?: string }) {
+function makeRequest(
+  url = 'http://localhost/api/invoices/1/payments',
+  init?: { method?: string; body?: string },
+) {
   return new NextRequest(url, init);
 }
 
@@ -176,14 +202,19 @@ describe('POST /api/invoices/[id]/payments', () => {
     mockCan.mockReturnValue(true);
     (mockPrisma.invoice.findFirst as jest.Mock).mockResolvedValue(mockInvoice);
     (mockPrisma.invoice.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-    (mockPrisma.$transaction as jest.Mock).mockImplementation(async (fn: Function) => fn(mockPrisma));
+    (mockPrisma.$transaction as jest.Mock).mockImplementation(async (fn: Function) =>
+      fn(mockPrisma),
+    );
     (mockPrisma.invoicePayment.create as jest.Mock).mockResolvedValue(mockPayment);
     (mockPrisma.invoice.findFirst as jest.Mock).mockResolvedValue(mockInvoice);
     (mockPrisma.auditLog.create as jest.Mock).mockResolvedValue({});
   });
 
   it('201 — creates payment successfully', async () => {
-    (mockPrisma.$transaction as jest.Mock).mockResolvedValue({ payment: mockPayment, invoice: { ...mockInvoice, status: 'PARTIAL_PAID' } });
+    (mockPrisma.$transaction as jest.Mock).mockResolvedValue({
+      payment: mockPayment,
+      invoice: { ...mockInvoice, status: 'PARTIAL_PAID' },
+    });
 
     const { POST } = await import('@/app/api/invoices/[id]/payments/route');
     const req = makeRequest('http://localhost/api/invoices/1/payments', {
@@ -209,7 +240,10 @@ describe('POST /api/invoices/[id]/payments', () => {
   });
 
   it('400 — invoice already PAID', async () => {
-    (mockPrisma.invoice.findFirst as jest.Mock).mockResolvedValue({ ...mockInvoice, status: 'PAID' });
+    (mockPrisma.invoice.findFirst as jest.Mock).mockResolvedValue({
+      ...mockInvoice,
+      status: 'PAID',
+    });
 
     const { POST } = await import('@/app/api/invoices/[id]/payments/route');
     const req = makeRequest('http://localhost/api/invoices/1/payments', {
@@ -225,7 +259,10 @@ describe('POST /api/invoices/[id]/payments', () => {
     mockRequireUser.mockRejectedValue(new Error('UNAUTHENTICATED'));
 
     const { POST } = await import('@/app/api/invoices/[id]/payments/route');
-    const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(validBody) });
+    const req = makeRequest('http://localhost/api/invoices/1/payments', {
+      method: 'POST',
+      body: JSON.stringify(validBody),
+    });
     const res = await POST(req, makeContext('1'));
 
     expect(res.status).toBe(401);
@@ -236,7 +273,10 @@ describe('POST /api/invoices/[id]/payments', () => {
     mockCan.mockReturnValue(false);
 
     const { POST } = await import('@/app/api/invoices/[id]/payments/route');
-    const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(validBody) });
+    const req = makeRequest('http://localhost/api/invoices/1/payments', {
+      method: 'POST',
+      body: JSON.stringify(validBody),
+    });
     const res = await POST(req, makeContext('1'));
 
     expect(res.status).toBe(403);
@@ -246,7 +286,10 @@ describe('POST /api/invoices/[id]/payments', () => {
     (mockPrisma.invoice.findFirst as jest.Mock).mockResolvedValue(null);
 
     const { POST } = await import('@/app/api/invoices/[id]/payments/route');
-    const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(validBody) });
+    const req = makeRequest('http://localhost/api/invoices/1/payments', {
+      method: 'POST',
+      body: JSON.stringify(validBody),
+    });
     const res = await POST(req, makeContext('999'));
 
     expect(res.status).toBe(404);
@@ -256,7 +299,10 @@ describe('POST /api/invoices/[id]/payments', () => {
     (mockPrisma.$transaction as jest.Mock).mockRejectedValue(new Error('DB error'));
 
     const { POST } = await import('@/app/api/invoices/[id]/payments/route');
-    const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(validBody) });
+    const req = makeRequest('http://localhost/api/invoices/1/payments', {
+      method: 'POST',
+      body: JSON.stringify(validBody),
+    });
     const res = await POST(req, makeContext('1'));
 
     expect(res.status).toBe(500);
@@ -277,26 +323,44 @@ describe('POST /api/invoices/[id]/payments', () => {
           update: jest.fn().mockResolvedValue({}),
         },
         invoice: {
-          findFirst: jest.fn()
+          findFirst: jest
+            .fn()
             .mockResolvedValueOnce(mockInvoice)
             .mockResolvedValueOnce({ ...mockInvoice, valorPago: 1000, saldo: 0 }),
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          update: jest.fn().mockResolvedValue({ id: 1, status: 'PAID', valorPago: 1000, saldo: 0, valorTotal: 1000 }),
+          update: jest
+            .fn()
+            .mockResolvedValue({
+              id: 1,
+              status: 'PAID',
+              valorPago: 1000,
+              saldo: 0,
+              valorTotal: 1000,
+            }),
         },
-        bankAccount: { update: jest.fn().mockResolvedValue({ saldoAtual: 1000 }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        bankAccount: {
+          update: jest.fn().mockResolvedValue({ saldoAtual: 1000 }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
         bankTransaction: { create: jest.fn().mockResolvedValue({}) },
         ledgerTransaction: {
           findUnique: jest.fn().mockResolvedValue(null),
-          create: jest.fn()
+          create: jest
+            .fn()
             .mockResolvedValueOnce({ id: 201, entries: [] })
             .mockResolvedValueOnce({ id: 202, entries: [] }),
         },
         auditLog: { create: jest.fn().mockResolvedValue({}) },
         revenueCategory: { findFirst: jest.fn(), create: jest.fn() },
-        revenue: { create: jest.fn().mockResolvedValue({ id: 99 }) },
+        revenue: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: 99 }),
+        },
         ...overrides,
       };
-      (mockPrisma.$transaction as jest.Mock).mockImplementation((cb: (tx: typeof tx) => unknown) => cb(tx));
+      (mockPrisma.$transaction as jest.Mock).mockImplementation((cb: (tx: typeof tx) => unknown) =>
+        cb(tx),
+      );
       return tx;
     }
 
@@ -316,7 +380,10 @@ describe('POST /api/invoices/[id]/payments', () => {
       (tx.revenueCategory.findFirst as jest.Mock).mockResolvedValue({ id: 7 });
 
       const { POST } = await import('@/app/api/invoices/[id]/payments/route');
-      const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(fullPaymentBody) });
+      const req = makeRequest('http://localhost/api/invoices/1/payments', {
+        method: 'POST',
+        body: JSON.stringify(fullPaymentBody),
+      });
       const res = await POST(req, makeContext('1'));
 
       expect(res.status).toBe(201);
@@ -326,7 +393,7 @@ describe('POST /api/invoices/[id]/payments', () => {
             empresaId: 1,
             categoriaId: 7,
             valor: expect.anything(),
-            descricao: 'Invoice #1 - pagamento #10',
+            descricao: 'Invoice #1 - pagamento recebido',
             status: 'RECEBIDA',
           }),
         }),
@@ -339,7 +406,10 @@ describe('POST /api/invoices/[id]/payments', () => {
       (tx.revenueCategory.create as jest.Mock).mockResolvedValue({ id: 42 });
 
       const { POST } = await import('@/app/api/invoices/[id]/payments/route');
-      const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(fullPaymentBody) });
+      const req = makeRequest('http://localhost/api/invoices/1/payments', {
+        method: 'POST',
+        body: JSON.stringify(fullPaymentBody),
+      });
       const res = await POST(req, makeContext('1'));
 
       expect(res.status).toBe(201);
@@ -364,33 +434,41 @@ describe('POST /api/invoices/[id]/payments', () => {
       (tx.revenue.create as jest.Mock).mockRejectedValue(new Error('Decimal overflow'));
 
       const { POST } = await import('@/app/api/invoices/[id]/payments/route');
-      const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(fullPaymentBody) });
+      const req = makeRequest('http://localhost/api/invoices/1/payments', {
+        method: 'POST',
+        body: JSON.stringify(fullPaymentBody),
+      });
       const res = await POST(req, makeContext('1'));
 
       expect(res.status).toBe(500);
     });
 
-    it('Revenue is created for partial payment amount (PARTIAL_PAID)', async () => {
+    it('Revenue is NOT created for partial payment (PARTIAL_PAID)', async () => {
       const partialBody = { ...fullPaymentBody, valor: 400 };
       const tx = makeTxMock();
-      (tx.invoice.update as jest.Mock).mockResolvedValue({ id: 1, status: 'PARTIAL_PAID', valorPago: 400, saldo: 600, valorTotal: 1000 });
-      (tx.invoicePayment.create as jest.Mock).mockResolvedValue({ id: 11, invoiceId: 1, valor: 400 });
-      (tx.revenueCategory.findFirst as jest.Mock).mockResolvedValue({ id: 7 });
+      (tx.invoice.update as jest.Mock).mockResolvedValue({
+        id: 1,
+        status: 'PARTIAL_PAID',
+        valorPago: 400,
+        saldo: 600,
+        valorTotal: 1000,
+      });
+      (tx.invoicePayment.create as jest.Mock).mockResolvedValue({
+        id: 11,
+        invoiceId: 1,
+        valor: 400,
+      });
 
       const { POST } = await import('@/app/api/invoices/[id]/payments/route');
-      const req = makeRequest('http://localhost/api/invoices/1/payments', { method: 'POST', body: JSON.stringify(partialBody) });
+      const req = makeRequest('http://localhost/api/invoices/1/payments', {
+        method: 'POST',
+        body: JSON.stringify(partialBody),
+      });
       const res = await POST(req, makeContext('1'));
 
       expect(res.status).toBe(201);
-      expect(tx.revenue.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            valor: expect.anything(),
-            descricao: 'Invoice #1 - pagamento #11',
-            status: 'RECEBIDA',
-          }),
-        }),
-      );
+      // Revenue is only created when invoice becomes fully PAID, not for partial payments
+      expect(tx.revenue.create).not.toHaveBeenCalled();
     });
   });
 });
