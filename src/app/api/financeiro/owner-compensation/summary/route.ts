@@ -13,8 +13,11 @@ export async function GET(request: NextRequest) {
   try {
     const user = await requireUser(request)
 
-    if (!can(user.role as Role, "financeiro", "read")) {
-      return NextResponse.json({ error: "Forbidden", success: false }, { status: 403 })
+    if (user.role !== "ADMIN" || !can(user.role as Role, "financeiro", "read")) {
+      return NextResponse.json(
+        { error: "Forbidden", message: "Apenas ADMIN pode acessar compensação do proprietário", success: false },
+        { status: 403 }
+      )
     }
 
     const { searchParams } = new URL(request.url)

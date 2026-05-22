@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
+import { z } from 'zod';
 
 function getPeriodDate(period: string): Date {
   const now = new Date();
@@ -31,8 +32,17 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   }
 
   const { searchParams } = new URL(request.url);
-  const period = searchParams.get('period') || '30d';
+  const periodSchema = z.enum(['7d', '30d', '90d', '1y']);
+  const periodResult = periodSchema.safeParse(searchParams.get('period') ?? '30d');
+  if (!periodResult.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', message: 'Parâmetro "period" inválido', success: false },
+      { status: 400 }
+    );
+  }
+  const period = periodResult.data;
   const since = getPeriodDate(period);
+  const canReadFinancial = can(user.role as Role, 'financeiro', 'read');
 
   const lastPeriodStart = new Date(since.getTime() - (Date.now() - since.getTime()));
 
@@ -57,16 +67,20 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     prisma.projeto.count(),
     prisma.projeto.groupBy({ by: ['status'], _count: true }),
     // Revenue current period
-    prisma.invoice.aggregate({
-      where: { dataEmissao: { gte: since }, status: { not: 'CANCELLED' } },
-      _sum: { valorTotal: true, saldo: true },
-      _count: true,
-    }),
+    canReadFinancial
+      ? prisma.invoice.aggregate({
+          where: { empresaId: user.empresaId, dataEmissao: { gte: since }, status: { not: 'CANCELLED' } },
+          _sum: { valorTotal: true, saldo: true },
+          _count: true,
+        })
+      : Promise.resolve(null),
     // Revenue last period (for growth calc)
-    prisma.invoice.aggregate({
-      where: { dataEmissao: { gte: lastPeriodStart, lt: since }, status: { not: 'CANCELLED' } },
-      _sum: { valorTotal: true },
-    }),
+    canReadFinancial
+      ? prisma.invoice.aggregate({
+          where: { empresaId: user.empresaId, dataEmissao: { gte: lastPeriodStart, lt: since }, status: { not: 'CANCELLED' } },
+          _sum: { valorTotal: true },
+        })
+      : Promise.resolve(null),
     // Service Orders
     prisma.serviceOrder.groupBy({ by: ['status'], _count: true }),
     // Recent domain events
@@ -76,14 +90,16 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       select: { id: true, name: true, aggregateType: true, aggregateId: true, occurredAt: true, status: true },
     }),
     // Top clients by invoice revenue
-    prisma.invoice.groupBy({
-      by: ['projetoId'],
-      where: { status: { not: 'CANCELLED' } },
-      _sum: { valorTotal: true },
-      _count: true,
-      orderBy: { _sum: { valorTotal: 'desc' } },
-      take: 5,
-    }),
+    canReadFinancial
+      ? prisma.invoice.groupBy({
+          by: ['clienteId'],
+          where: { empresaId: user.empresaId, status: { not: 'CANCELLED' } },
+          _sum: { valorTotal: true },
+          _count: true,
+          orderBy: { _sum: { valorTotal: 'desc' } },
+          take: 5,
+        })
+      : Promise.resolve([]),
   ]);
 
   // Build proposals by status map
@@ -105,29 +121,28 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   }
 
   // Revenue
-  const currentRevenue = Number(invoiceAgg._sum.valorTotal ?? 0);
-  const lastRevenue = Number(invoiceAggLastPeriod._sum.valorTotal ?? 0);
-  const growth = lastRevenue > 0 ? ((currentRevenue - lastRevenue) / lastRevenue) * 100 : 0;
+  const currentRevenue = canReadFinancial ? Number(invoiceAgg?._sum.valorTotal ?? 0) : 0;
+  const lastRevenue = canReadFinancial ? Number(invoiceAggLastPeriod?._sum.valorTotal ?? 0) : 0;
+  const growth = canReadFinancial && lastRevenue > 0 ? ((currentRevenue - lastRevenue) / lastRevenue) * 100 : 0;
 
-  // Top clients: resolve project → client names — single query instead of N queries
-  const projetoIds = topClients
-    .filter(tc => tc.projetoId != null)
-    .map(tc => tc.projetoId as number);
+  // Top clients: aggregate directly by clienteId (includes direct SO/Invoice billing flows)
+  const clienteIds = topClients
+    .map(tc => tc.clienteId)
+    .filter((id): id is number => id != null);
 
-  const projetosMap: Map<number, { Cliente: { nomeFantasia: string | null; nomeCompleto: string } | null }> =
-    projetoIds.length > 0
-      ? await prisma.projeto.findMany({
-          where: { id: { in: projetoIds } },
-          select: { id: true, Cliente: { select: { nomeFantasia: true, nomeCompleto: true } } },
-        }).then(ps => new Map(ps.map(p => [p.id, p])))
+  const clientesMap: Map<number, { nomeFantasia: string | null; nomeCompleto: string | null }> =
+    clienteIds.length > 0
+      ? await prisma.cliente.findMany({
+          where: { id: { in: clienteIds } },
+          select: { id: true, nomeFantasia: true, nomeCompleto: true },
+        }).then(cs => new Map(cs.map(c => [c.id, c])))
       : new Map();
 
   const topClientData = topClients
-    .filter(tc => tc.projetoId != null)
     .map(tc => {
-      const projeto = projetosMap.get(tc.projetoId as number);
+      const cliente = clientesMap.get(tc.clienteId as number);
       return {
-        name: projeto?.Cliente?.nomeFantasia || projeto?.Cliente?.nomeCompleto || `Projeto #${tc.projetoId}`,
+        name: cliente?.nomeFantasia || cliente?.nomeCompleto || `Cliente #${tc.clienteId}`,
         invoices: tc._count,
         revenue: Number(tc._sum.valorTotal ?? 0),
       };
@@ -137,16 +152,18 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     success: true,
     data: {
       totalProposals,
-      activeProposals: (proposalStatusMap['ENVIADA'] ?? 0) + (proposalStatusMap['EM_ANALISE'] ?? 0),
+      activeProposals: proposalStatusMap['ENVIADA'] ?? 0,
       totalClients,
       totalProjects,
-      revenue: {
-        currentPeriod: currentRevenue,
-        lastPeriod: lastRevenue,
-        growth: Math.round(growth * 100) / 100,
-        openBalance: Number(invoiceAgg._sum.saldo ?? 0),
-        invoiceCount: invoiceAgg._count,
-      },
+      revenue: canReadFinancial
+        ? {
+            currentPeriod: currentRevenue,
+            lastPeriod: lastRevenue,
+            growth: Math.round(growth * 100) / 100,
+            openBalance: Number(invoiceAgg?._sum.saldo ?? 0),
+            invoiceCount: invoiceAgg?._count ?? 0,
+          }
+        : null,
       proposalsByStatus: proposalStatusMap,
       projectsByStatus: projectStatusMap,
       serviceOrdersByStatus: soStatusMap,
@@ -157,7 +174,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         timestamp: e.occurredAt.toISOString(),
         status: e.status,
       })),
-      topClients: topClientData,
+      topClients: canReadFinancial ? topClientData : [],
+      permissions: {
+        canViewFinancials: canReadFinancial,
+      },
     },
     period,
     timestamp: new Date().toISOString(),

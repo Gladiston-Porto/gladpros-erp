@@ -35,8 +35,8 @@ export const GET = withErrorHandler(async (request: NextRequest,
       }, { status: 400 });
     }
     
-    const conta = await prisma.bankAccount.findUnique({
-      where: { id },
+    const conta = await prisma.bankAccount.findFirst({
+      where: { id, empresaId: user.empresaId },
       include: {
         empresa: {
           select: {
@@ -138,8 +138,8 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     const validated = updateBankAccountSchema.parse(body) as UpdateBankAccountInput;
     
     // Verifica se conta existe
-    const contaExistente = await prisma.bankAccount.findUnique({
-      where: { id }
+    const contaExistente = await prisma.bankAccount.findFirst({
+      where: { id, empresaId: user.empresaId }
     });
     
     if (!contaExistente) {
@@ -233,8 +233,8 @@ export const DELETE = withErrorHandler(async (request: NextRequest,
     }
     
     // Verifica se conta existe
-    const conta = await prisma.bankAccount.findUnique({
-      where: { id },
+    const conta = await prisma.bankAccount.findFirst({
+      where: { id, empresaId: user.empresaId },
       include: {
         _count: {
           select: {

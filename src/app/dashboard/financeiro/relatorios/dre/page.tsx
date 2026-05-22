@@ -23,7 +23,7 @@ export default async function DREPage({
   const user = await requireServerUser()
   if (!can(user.role as Role, "financeiro", "read")) redirect("/403")
   const sp = await searchParams
-  const empresaId = 1;
+  const empresaId = user.empresaId;
 
   const now = new Date()
   const defaultStart = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]

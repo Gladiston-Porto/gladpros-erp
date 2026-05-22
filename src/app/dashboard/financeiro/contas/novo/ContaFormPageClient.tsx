@@ -64,7 +64,6 @@ export default function ContaFormPageClient() {
 
     try {
       const payload: Record<string, unknown> = {
-        empresaId: 1,
         nome: formData.nome,
         banco: formData.banco,
         conta: formData.conta,

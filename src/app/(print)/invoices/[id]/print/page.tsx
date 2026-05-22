@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { requireServerUser } from '@/shared/lib/requireServerUser';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 /* ── Status mappings ── */
 const STATUS_LABELS: Record<string, string> = {
@@ -57,12 +59,18 @@ export default async function InvoicePrintPage({
   const invoiceId = parseInt(id, 10);
   if (isNaN(invoiceId)) notFound();
 
+  const user = await requireServerUser();
+  const role = user.role as Role;
+  if (!can(role, 'invoices', 'read') || !['ADMIN', 'GERENTE', 'FINANCEIRO'].includes(role)) {
+    notFound();
+  }
+
   const [invoice, empresa] = await Promise.all([
-    prisma.invoice.findUnique({
-      where: { id: invoiceId },
+    prisma.invoice.findFirst({
+      where: { id: invoiceId, empresaId: user.empresaId },
       include: {
         itens: { orderBy: { ordem: 'asc' } },
-        pagamentos: { orderBy: { dataPagamento: 'asc' } },
+        pagamentos: { where: { estornadoEm: null }, orderBy: { dataPagamento: 'asc' } },
         cliente: {
           select: {
             nomeCompleto: true,
@@ -91,7 +99,7 @@ export default async function InvoicePrintPage({
         },
       },
     }),
-    prisma.empresa.findFirst({ where: { ativo: true } }),
+    prisma.empresa.findFirst({ where: { id: user.empresaId, ativo: true } }),
   ]);
 
   if (!invoice) notFound();

@@ -522,6 +522,7 @@ describe('Expense Schemas - Validação', () => {
   describe('payExpenseSchema', () => {
     const validPayment = {
       expenseId: 1,
+      bankAccountId: 1,
       dataPagamento: new Date('2025-10-25'),
       formaPagamento: 'TRANSFERENCIA' as const,
       observacoes: 'Pagamento realizado via TED'
@@ -535,6 +536,7 @@ describe('Expense Schemas - Validação', () => {
     it('deve validar pagamento sem observações', () => {
       const result = payExpenseSchema.safeParse({
         expenseId: 1,
+        bankAccountId: 1,
         dataPagamento: new Date('2025-10-25')
       });
       expect(result.success).toBe(true);
@@ -543,6 +545,7 @@ describe('Expense Schemas - Validação', () => {
     it('deve validar alteração de forma de pagamento', () => {
       const result = payExpenseSchema.safeParse({
         expenseId: 1,
+        bankAccountId: 1,
         dataPagamento: new Date('2025-10-25'),
         formaPagamento: 'PIX' as const
       });

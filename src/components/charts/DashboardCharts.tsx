@@ -33,14 +33,14 @@ interface DashboardChartsProps {
   height?: number;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+const COLORS = ['var(--brand-primary)', 'var(--color-green-500)', 'var(--color-yellow-500)', 'var(--brand-secondary)', 'var(--color-purple-500)'];
 
 export function DashboardCharts({
   data,
   type,
   title,
   dataKey = 'value',
-  color = '#0088FE',
+  color = 'var(--brand-primary)',
   height = 300
 }: DashboardChartsProps) {
   const renderChart = () => {
@@ -104,7 +104,7 @@ export function DashboardCharts({
               labelLine={false}
               label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`}
               outerRadius={80}
-              fill="#8884d8"
+              fill="var(--brand-primary)"
               dataKey={dataKey}
             >
               {data.map((entry, index) => (
@@ -150,7 +150,7 @@ export function UserMetricsChart({ data }: { data?: UserMetricsEntry[] }) {
         type="line"
         title="Crescimento de Usuários"
         dataKey="usuarios"
-        color="#0088FE"
+        color="var(--brand-primary)"
       />
 
       <DashboardCharts
@@ -158,7 +158,7 @@ export function UserMetricsChart({ data }: { data?: UserMetricsEntry[] }) {
         type="area"
         title="Usuários Ativos"
         dataKey="ativos"
-        color="#00C49F"
+        color="var(--color-green-500)"
       />
 
       <DashboardCharts
@@ -166,7 +166,7 @@ export function UserMetricsChart({ data }: { data?: UserMetricsEntry[] }) {
         type="bar"
         title="Propostas Criadas"
         dataKey="propostas"
-        color="#FFBB28"
+        color="var(--color-yellow-500)"
       />
     </div>
   );
@@ -221,7 +221,7 @@ export function SecurityMetricsChart({ data }: { data?: LoginChartEntry[] }) {
         type="bar"
         title="Tentativas de Login por Dia"
         dataKey="logins"
-        color="#0088FE"
+        color="var(--brand-primary)"
       />
 
       <DashboardCharts
@@ -229,7 +229,7 @@ export function SecurityMetricsChart({ data }: { data?: LoginChartEntry[] }) {
         type="line"
         title="Falhas de Login"
         dataKey="falhas"
-        color="#FF8042"
+        color="var(--brand-secondary)"
       />
     </div>
   );

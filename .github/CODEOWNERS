@@ -1,0 +1,35 @@
+# CODEOWNERS — GladPros ERP
+# Donos exigidos para revisar PRs por área.
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default — qualquer arquivo
+*                                       @Gladiston-Porto
+
+# Áreas críticas — Swiss Cheese Model (não pode ser alterado sem revisão)
+/.semgrep/                              @Gladiston-Porto
+/.husky/                                @Gladiston-Porto
+/scripts/certify-module.mjs             @Gladiston-Porto
+/scripts/check-module-health.mjs        @Gladiston-Porto
+/scripts/validate-known-bugs.mjs        @Gladiston-Porto
+/.github/workflows/                     @Gladiston-Porto
+/.github/CODEOWNERS                     @Gladiston-Porto
+/relatorios/known-bugs.json             @Gladiston-Porto
+
+# Documentação de governança
+/AGENTS.md                              @Gladiston-Porto
+/docs/architecture/                     @Gladiston-Porto
+
+# Módulos críticos — autenticação, fiscal, financeiro
+/src/app/auth/                          @Gladiston-Porto
+/src/app/api/auth/                      @Gladiston-Porto
+/src/shared/lib/rbac**                  @Gladiston-Porto
+/src/shared/lib/requireServerUser*      @Gladiston-Porto
+/src/lib/prisma**                       @Gladiston-Porto
+/src/app/financeiro/                    @Gladiston-Porto
+/src/app/api/financeiro/                @Gladiston-Porto
+/src/app/invoices/                      @Gladiston-Porto
+/src/app/api/invoices/                  @Gladiston-Porto
+
+# Schema Prisma — mudanças exigem db-migration agent
+/prisma/schema.prisma                   @Gladiston-Porto
+/prisma/migrations/                     @Gladiston-Porto

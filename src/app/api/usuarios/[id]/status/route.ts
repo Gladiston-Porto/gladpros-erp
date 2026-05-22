@@ -4,7 +4,7 @@ import { toggleUserStatusSchema } from "@/shared/lib/validation";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { UserRole, canManageRole } from "@/shared/lib/user-hierarchy";
-import { AuditoriaService } from "@/shared/lib/audit";
+import { AuditLogger } from "@/shared/lib/audit";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { logger } from "@/lib/api/logger";
 
@@ -18,7 +18,7 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
 
     // Only roles with 'update' permission can change user status
     if (!can(authUser.role as Role, 'usuarios', 'update')) {
-      return NextResponse.json({ message: "Acesso negado" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden", message: "Acesso negado", success: false }, { status: 403 });
     }
 
     const { id } = await params;
@@ -82,23 +82,37 @@ export const PATCH = withErrorHandler(async (request: NextRequest,
     }
 
     // Atualizar status do usuário
-    await prisma.$executeRaw`
-      UPDATE Usuario
-      SET status = ${ativo ? 'ATIVO' : 'INATIVO'},
-          atualizadoEm = NOW()
-      WHERE id = ${userId}
-    `;
+    // BUG-01 fix (P1): When deactivating, increment tokenVersion to immediately
+    // invalidate active JWT sessions (mirrors the logic in toggle-status/route.ts)
+    if (ativo) {
+      await prisma.$executeRaw`
+        UPDATE Usuario
+        SET status = 'ATIVO',
+            atualizadoEm = NOW()
+        WHERE id = ${userId}
+      `;
+    } else {
+      await prisma.$executeRaw`
+        UPDATE Usuario
+        SET status = 'INATIVO',
+            atualizadoEm = NOW(),
+            tokenVersion = tokenVersion + 1
+        WHERE id = ${userId}
+      `;
+    }
 
     // Registrar auditoria
     try {
       const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-      await AuditoriaService.registrarAtualizacaoUsuario(
-        userId,
-        { status: target.status },
-        { status: ativo ? 'ATIVO' : 'INATIVO' },
-        Number(authUser.id),
-        ip
-      );
+      await AuditLogger.log({
+        userId: Number(authUser.id),
+        action: 'UPDATE_USER',
+        resource: 'Usuario',
+        resourceId: String(userId),
+        ip,
+        details: { before: { status: target.status }, after: { status: ativo ? 'ATIVO' : 'INATIVO' } },
+        status: 'SUCCESS',
+      });
     } catch (auditError) {
       logger.error('[PATCH /[id]/status] Erro ao registrar auditoria', {}, auditError);
     }

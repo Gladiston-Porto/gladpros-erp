@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { canManageRole, UserRole } from "@/shared/lib/user-hierarchy";
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { canManageRole, UserRole } from '@/shared/lib/user-hierarchy';
 
 type AuthUser = {
   id: number | string;
   role: string;
+  empresaId?: number | null;
 };
 
 type AccessResult =
@@ -13,25 +14,26 @@ type AccessResult =
 
 function forbiddenResponse() {
   return NextResponse.json(
-    { error: "Forbidden", message: "Você não pode gerenciar este usuário.", success: false },
-    { status: 403 }
+    { error: 'Forbidden', message: 'Você não pode gerenciar este usuário.', success: false },
+    { status: 403 },
   );
 }
 
 function notFoundResponse() {
   return NextResponse.json(
-    { error: "Not Found", message: "Usuário não encontrado", success: false },
-    { status: 404 }
+    { error: 'Not Found', message: 'Usuário não encontrado', success: false },
+    { status: 404 },
   );
 }
 
 export async function checkUserManagementAccess(
   authUser: AuthUser,
   targetUserId: number,
-  options: { allowSelf: boolean }
+  options: { allowSelf: boolean },
 ): Promise<AccessResult> {
+  // @bug:USUARIOS-P2-005 — empresaId no where para prevenir IDOR cross-tenant
   const target = await prisma.usuario.findUnique({
-    where: { id: targetUserId },
+    where: { id: targetUserId, empresaId: Number(authUser.empresaId ?? 1) },
     select: { nivel: true },
   });
 
@@ -65,15 +67,18 @@ export async function getSessionOwner(sessionId: number) {
   return rows[0] ?? null;
 }
 
-export function canAccessSessionOwner(authUser: AuthUser, owner: { usuarioId: number; nivel: UserRole }) {
+export function canAccessSessionOwner(
+  authUser: AuthUser,
+  owner: { usuarioId: number; nivel: UserRole },
+) {
   if (Number(authUser.id) === owner.usuarioId) return true;
   return canManageRole(authUser.role as UserRole, owner.nivel);
 }
 
 export function sessionNotFoundResponse() {
   return NextResponse.json(
-    { error: "Not Found", message: "Sessão não encontrada", success: false },
-    { status: 404 }
+    { error: 'Not Found', message: 'Sessão não encontrada', success: false },
+    { status: 404 },
   );
 }
 

@@ -4,6 +4,23 @@ import { generateInvoicePDFFromHTML } from '@/shared/lib/services/invoice-pdf-ht
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser, can, type Role } from '@/shared/lib/rbac';
 
+function canReadInternalInvoices(role: Role) {
+  return role === 'ADMIN' || role === 'GERENTE' || role === 'FINANCEIRO';
+}
+
+function getSafePdfBaseUrl() {
+  if (!process.env.APP_URL) {
+    throw new Error('APP_URL is required for secure invoice PDF generation');
+  }
+
+  const url = new URL(process.env.APP_URL);
+  if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
+    throw new Error('APP_URL must use HTTPS in production for invoice PDF generation');
+  }
+
+  return url.origin;
+}
+
 /**
  * GET /api/invoices/[id]/pdf - Gerar e baixar PDF da invoice
  *
@@ -15,7 +32,8 @@ export const GET = withErrorHandler(async (
   { params }: { params: Promise<{ id: string }> }
 ) => {
   const user = await requireUser(request);
-  if (!can(user.role as Role, 'invoices', 'read')) {
+  const role = user.role as Role;
+  if (!can(role, 'invoices', 'read') || !canReadInternalInvoices(role)) {
     return NextResponse.json(
       { error: 'Forbidden', message: 'Sem permissão', success: false },
       { status: 403 },
@@ -26,7 +44,7 @@ export const GET = withErrorHandler(async (
   const invoiceId = parseInt(id);
 
   const invoice = await prisma.invoice.findFirst({
-    where: { id: invoiceId },
+    where: { id: invoiceId, empresaId: user.empresaId },
     select: { id: true, numeroInvoice: true },
   });
 
@@ -37,10 +55,7 @@ export const GET = withErrorHandler(async (
     );
   }
 
-  // Build base URL from the incoming request
-  const proto = request.headers.get('x-forwarded-proto') ?? 'http';
-  const host = request.headers.get('host') ?? 'localhost:3000';
-  const baseUrl = `${proto}://${host}`;
+  const baseUrl = getSafePdfBaseUrl();
 
   // Forward cookies so Playwright can access the auth-protected print page
   const cookie = request.headers.get('cookie') ?? undefined;

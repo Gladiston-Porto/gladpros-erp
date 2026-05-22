@@ -63,6 +63,7 @@ jest.mock('@/lib/prisma', () => ({
     },
     bankAccount: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
     },
     bankTransaction: {
@@ -311,7 +312,7 @@ describe('POST /api/financeiro/transferencias', () => {
     mockCan.mockReturnValue(true)
     // Use mockImplementation (not mockResolvedValueOnce) so the queue never
     // accumulates across tests when auth/Zod failures skip findUnique entirely.
-    ;(mockPrisma.bankAccount.findUnique as jest.Mock).mockImplementation(
+    ;(mockPrisma.bankAccount.findFirst as jest.Mock).mockImplementation(
       async ({ where }: { where: { id: number } }) => {
         if (where.id === mockFromAccount.id) return mockFromAccount
         if (where.id === mockToAccount.id) return mockToAccount
@@ -409,7 +410,7 @@ describe('POST /api/financeiro/transferencias', () => {
     expect(res.status).toBe(422)
   })
 
-  it('422 — missing empresaId', async () => {
+  it('201 — ignores request empresaId and uses authenticated user empresaId', async () => {
     const { POST } = await import(
       '@/app/api/financeiro/transferencias/route'
     )
@@ -419,13 +420,13 @@ describe('POST /api/financeiro/transferencias', () => {
       { method: 'POST', body: JSON.stringify(bodyWithout) },
     )
     const res = await POST(req)
-    expect(res.status).toBe(422)
+    expect(res.status).toBe(201)
   })
 
   // ─── Business rule validation → 404 / 400 ───────────────────────────────────
 
   it('404 — fromAccount not found in database', async () => {
-    ;(mockPrisma.bankAccount.findUnique as jest.Mock).mockImplementation(
+    ;(mockPrisma.bankAccount.findFirst as jest.Mock).mockImplementation(
       async ({ where }: { where: { id: number } }) => {
         if (where.id === 10) return null // fromAccount missing
         if (where.id === 20) return mockToAccount
@@ -449,7 +450,7 @@ describe('POST /api/financeiro/transferencias', () => {
   })
 
   it('400 — fromAccount is inactive', async () => {
-    ;(mockPrisma.bankAccount.findUnique as jest.Mock).mockImplementation(
+    ;(mockPrisma.bankAccount.findFirst as jest.Mock).mockImplementation(
       async ({ where }: { where: { id: number } }) => {
         if (where.id === mockFromAccount.id)
           return { ...mockFromAccount, ativo: false }
@@ -470,7 +471,7 @@ describe('POST /api/financeiro/transferencias', () => {
   })
 
   it('400 — fromAccount belongs to a different empresa', async () => {
-    ;(mockPrisma.bankAccount.findUnique as jest.Mock).mockImplementation(
+    ;(mockPrisma.bankAccount.findFirst as jest.Mock).mockImplementation(
       async ({ where }: { where: { id: number } }) => {
         if (where.id === mockFromAccount.id)
           return { ...mockFromAccount, empresaId: 99 }
@@ -490,7 +491,7 @@ describe('POST /api/financeiro/transferencias', () => {
   })
 
   it('404 — toAccount not found in database', async () => {
-    ;(mockPrisma.bankAccount.findUnique as jest.Mock).mockImplementation(
+    ;(mockPrisma.bankAccount.findFirst as jest.Mock).mockImplementation(
       async ({ where }: { where: { id: number } }) => {
         if (where.id === mockFromAccount.id) return mockFromAccount
         if (where.id === 20) return null // toAccount missing
@@ -513,7 +514,7 @@ describe('POST /api/financeiro/transferencias', () => {
   })
 
   it('400 — toAccount is inactive', async () => {
-    ;(mockPrisma.bankAccount.findUnique as jest.Mock).mockImplementation(
+    ;(mockPrisma.bankAccount.findFirst as jest.Mock).mockImplementation(
       async ({ where }: { where: { id: number } }) => {
         if (where.id === mockFromAccount.id) return mockFromAccount
         if (where.id === mockToAccount.id)
@@ -534,7 +535,7 @@ describe('POST /api/financeiro/transferencias', () => {
   })
 
   it('400 — toAccount belongs to a different empresa', async () => {
-    ;(mockPrisma.bankAccount.findUnique as jest.Mock).mockImplementation(
+    ;(mockPrisma.bankAccount.findFirst as jest.Mock).mockImplementation(
       async ({ where }: { where: { id: number } }) => {
         if (where.id === mockFromAccount.id) return mockFromAccount
         if (where.id === mockToAccount.id)
@@ -554,7 +555,7 @@ describe('POST /api/financeiro/transferencias', () => {
   })
 
   it('400 — insufficient balance (saldo 100, trying to transfer 5000)', async () => {
-    ;(mockPrisma.bankAccount.findUnique as jest.Mock).mockImplementation(
+    ;(mockPrisma.bankAccount.findFirst as jest.Mock).mockImplementation(
       async ({ where }: { where: { id: number } }) => {
         if (where.id === mockFromAccount.id)
           return { ...mockFromAccount, saldoAtual: 100 }

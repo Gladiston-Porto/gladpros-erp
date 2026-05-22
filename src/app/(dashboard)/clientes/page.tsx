@@ -25,10 +25,10 @@ export default async function DashboardClientesPage() {
   startOfMonth.setHours(0, 0, 0, 0);
 
   const [totalClientes, novosEsteMes, clientesAtivos, porTipo] = await Promise.all([
-    prisma.cliente.count(),
-    prisma.cliente.count({ where: { criadoEm: { gte: startOfMonth } } }),
-    prisma.cliente.count({ where: { status: 'ATIVO' } }),
-    prisma.cliente.groupBy({ by: ['tipo'], _count: { id: true } }),
+    prisma.cliente.count({ where: { empresaId: user.empresaId } }),
+    prisma.cliente.count({ where: { empresaId: user.empresaId, criadoEm: { gte: startOfMonth } } }),
+    prisma.cliente.count({ where: { empresaId: user.empresaId, status: 'ATIVO' } }),
+    prisma.cliente.groupBy({ by: ['tipo'], where: { empresaId: user.empresaId }, _count: { id: true } }),
   ]);
 
   const totalPF = porTipo.find(t => t.tipo === 'PF')?._count.id ?? 0;

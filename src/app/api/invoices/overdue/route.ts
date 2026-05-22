@@ -47,7 +47,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   const candidatas = await prisma.invoice.findMany({
     where: {
-      empresaId: 1,
+      empresaId: user.empresaId,
       status: { notIn: ['PAID', 'CANCELLED', 'OVERDUE'] },
       dataVencimento: { lt: new Date() },
     },

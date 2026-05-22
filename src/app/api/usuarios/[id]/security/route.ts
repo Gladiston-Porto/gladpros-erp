@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
+import { can, type Role } from "@/shared/lib/rbac-core";
 import { checkUserManagementAccess } from "../../_helpers/access";
 
 interface Params {
@@ -12,6 +13,10 @@ interface Params {
 export const GET = withErrorHandler(async (request: NextRequest,
   { params }: { params: Promise<Params> }) => {
     const authUser = await requireUser(request);
+
+    if (!can(authUser.role as Role, 'usuarios', 'read')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Acesso negado', success: false }, { status: 403 });
+    }
 
     // Only ADMIN/GERENTE can view security info of other users
     const { id } = await params;
@@ -36,13 +41,16 @@ export const GET = withErrorHandler(async (request: NextRequest,
     `;
 
     const u = rows[0];
-    if (!u) return NextResponse.json({ message: "Usuário não encontrado" }, { status: 404 });
+    if (!u) return NextResponse.json({ error: "NOT_FOUND", message: "Usuário não encontrado", success: false }, { status: 404 });
 
     const blocked = typeof u.bloqueado === 'boolean' ? u.bloqueado : u.bloqueado === 1;
     return NextResponse.json({
-      id: u.id,
-      blocked,
-      blockedAt: u.bloqueadoEm ? u.bloqueadoEm.toISOString() : null,
-      lastSuccessfulLoginAt: u.ultimoLoginEm ? u.ultimoLoginEm.toISOString() : null
+      data: {
+        id: u.id,
+        blocked,
+        blockedAt: u.bloqueadoEm ? u.bloqueadoEm.toISOString() : null,
+        lastSuccessfulLoginAt: u.ultimoLoginEm ? u.ultimoLoginEm.toISOString() : null,
+      },
+      success: true,
     });
   });

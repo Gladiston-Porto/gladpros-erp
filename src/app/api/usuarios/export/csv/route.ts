@@ -5,7 +5,8 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { apiRateLimit } from '@/shared/lib/rate-limit';
-import { buildUsuarioSelect } from "@/shared/lib/usuario-query";
+import { buildUsuarioSelect, getUsuarioColumns } from "@/shared/lib/usuario-query";
+import { withRetry } from "@/lib/utils/retry";
 
 type UserRow = {
 	id: number; email: string; nomeCompleto?: string | null; nome?: string | null;
@@ -13,8 +14,6 @@ type UserRow = {
 	telefone?: string | null; cidade?: string | null; estado?: string | null;
 	cep?: string | null; zipcode?: string | null; criadoEm?: Date | null;
 };
-
-type ColumnRow = { COLUMN_NAME: string };
 
 type SqlValue = string | number | null | Date | boolean;
 const MAX_EXPORT_ROWS = 5000;
@@ -35,14 +34,6 @@ const USER_EXPORT_COLUMNS = [
 	"criadoEm",
 ];
 
-async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 300): Promise<T> {
-	let last: unknown;
-	for (let i = 0; i <= retries; i++) {
-		try { return await fn(); } catch (e) { last = e; await new Promise(r => setTimeout(r, delayMs)); }
-	}
-	throw last;
-}
-
 function sanitizeCsvCell(value: unknown) {
 	const stringValue = String(value ?? "");
 	return /^[=+\-@]/.test(stringValue) ? `'${stringValue}` : stringValue;
@@ -60,6 +51,7 @@ const FiltersSchema = z.object({
 }).optional();
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+		const authUser = await requireUser(req);
 		const rateCheck = await apiRateLimit.isAllowed(req);
 		if (!rateCheck.allowed) {
 		  return NextResponse.json(
@@ -67,21 +59,21 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 		    { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
 		  );
 		}
-		const authUser = await requireUser(req);
-		if (!can(authUser.role as Role, 'usuarios', 'update')) {
+		if (!can(authUser.role as Role, 'usuarios', 'read')) {
 			return NextResponse.json({ error: 'Forbidden', message: "Acesso negado", success: false }, { status: 403 });
 		}
 
 		const raw = await req.json().catch(() => ({}));
-		const parsed = z.object({ filters: FiltersSchema }).safeParse(raw);
+		const parsed = z.object({
+			filters: FiltersSchema,
+			ids: z.array(z.number().int().positive()).max(500).optional(),
+		}).safeParse(raw);
 		if (!parsed.success) {
-			return NextResponse.json({ message: "Payload inválido" }, { status: 400 });
+			return NextResponse.json({ error: "Bad Request", message: "Payload inválido", success: false }, { status: 400 });
 		}
 		const f = parsed.data.filters ?? {};
-		const colsRows = (await prisma.$queryRaw`
-			SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario'
-		`) as unknown as ColumnRow[];
-		const cols = new Set(colsRows.map((row) => String(row.COLUMN_NAME)));
+		const selectedIds = parsed.data.ids;
+		const cols = await getUsuarioColumns();
 
 		// Processar filtros
 		const effectiveRole = f.role && f.role.trim() !== '' ? f.role : undefined;
@@ -94,6 +86,18 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
 		const where: string[] = [];
 		const params: SqlValue[] = [];
+
+		// Always filter by empresaId to prevent IDOR
+		where.push("empresaId = ?");
+		params.push(authUser.empresaId);
+
+		// When specific IDs are provided, filter by them (bulk selection export)
+		if (selectedIds && selectedIds.length > 0) {
+			const placeholders = selectedIds.map(() => '?').join(',');
+			where.push(`id IN (${placeholders})`);
+			params.push(...selectedIds);
+		}
+
 		if (f.q) {
 			const like = `%${f.q}%`;
 			const searchClauses = ["email LIKE ?"];
@@ -165,4 +169,3 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 			}
 		});
 	});
-

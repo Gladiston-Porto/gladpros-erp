@@ -34,8 +34,8 @@ export const GET = withErrorHandler(async (request: NextRequest,
     }
     
     // Verifica se conta existe
-    const conta = await prisma.bankAccount.findUnique({
-      where: { id: accountId },
+    const conta = await prisma.bankAccount.findFirst({
+      where: { id: accountId, empresaId: user.empresaId },
       select: {
         id: true,
         nome: true,

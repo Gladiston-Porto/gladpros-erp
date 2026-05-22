@@ -27,6 +27,10 @@ jest.mock('@/shared/lib/rbac', () => ({
   requireUser: jest.fn(),
 }));
 
+jest.mock('@/shared/lib/rbac-core', () => ({
+  can: jest.fn().mockReturnValue(true),
+}))
+
 jest.mock('@/lib/prisma', () => ({
   prisma: {
     $queryRaw: jest.fn(),
@@ -53,11 +57,13 @@ jest.mock('@/lib/api/error-handler', () => ({
 }));
 
 import { requireUser } from '@/shared/lib/rbac';
+import { can } from '@/shared/lib/rbac-core';
 import { SecurityService } from '@/shared/lib/security';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { prisma } from '@/lib/prisma';
 
 const mockRequireUser = requireUser as jest.MockedFunction<typeof requireUser>;
+const mockCan = can as jest.MockedFunction<typeof can>;
 const mockRevokeSession = SecurityService.revokeSession as jest.Mock;
 const mockRateLimit = apiRateLimit.isAllowed as jest.Mock;
 
@@ -73,6 +79,7 @@ describe('DELETE /api/usuarios/sessions/[sessionId]', () => {
   });
 
   it('429 — rate limit atingido', async () => {
+    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
     mockRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetTime: Date.now() + 60000, message: 'Too many requests' });
     const { DELETE } = await import('@/app/api/usuarios/sessions/[sessionId]/route');
     const res = await DELETE(makeRequest(), { params: Promise.resolve({ sessionId: '10' }) });
@@ -91,8 +98,8 @@ describe('DELETE /api/usuarios/sessions/[sessionId]', () => {
   });
 
   it('403 — USUARIO sem permissão de update em usuarios', async () => {
-    mockRateLimit.mockResolvedValueOnce({ allowed: true, remaining: 99, resetTime: Date.now() + 60000, message: '' });
     mockRequireUser.mockResolvedValueOnce({ id: 5, role: 'USUARIO', email: 'u@test.com' } as any);
+    mockCan.mockReturnValueOnce(false);
     const { DELETE } = await import('@/app/api/usuarios/sessions/[sessionId]/route');
     const res = await DELETE(makeRequest(), { params: Promise.resolve({ sessionId: '10' }) });
     expect(res.status).toBe(403);
@@ -101,8 +108,8 @@ describe('DELETE /api/usuarios/sessions/[sessionId]', () => {
   });
 
   it('403 — CLIENTE sem permissão', async () => {
-    mockRateLimit.mockResolvedValueOnce({ allowed: true, remaining: 99, resetTime: Date.now() + 60000, message: '' });
     mockRequireUser.mockResolvedValueOnce({ id: 6, role: 'CLIENTE', email: 'c@test.com' } as any);
+    mockCan.mockReturnValueOnce(false);
     const { DELETE } = await import('@/app/api/usuarios/sessions/[sessionId]/route');
     const res = await DELETE(makeRequest(), { params: Promise.resolve({ sessionId: '10' }) });
     expect(res.status).toBe(403);

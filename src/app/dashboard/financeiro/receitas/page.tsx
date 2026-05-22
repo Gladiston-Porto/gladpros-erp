@@ -29,7 +29,7 @@ export default async function ReceitasPage({
   if (!can(user.role as Role, "financeiro", "read")) redirect("/403")
   const sp = await searchParams
   const page = Number(sp.page ?? 1)
-  const empresaId = 1
+  const empresaId = user.empresaId
 
   return (
     <div className="space-y-6">

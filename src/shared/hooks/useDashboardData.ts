@@ -9,9 +9,9 @@ interface DashboardStats {
   propostasAprovadas: number;
   propostasPendentes: number;
   totalClients: number;
-  loginAttempts: number;
-  failedLogins: number;
-  auditEvents: number;
+  loginAttempts: number | null;
+  failedLogins: number | null;
+  auditEvents: number | null;
   systemHealth: 'good' | 'warning' | 'error';
   lastActivityAt: string | null;
 }
@@ -51,6 +51,8 @@ interface UseDashboardDataReturn {
   setPeriod: (period: '7d' | '30d' | '90d') => void;
   userRole: string;
   setUserRole: (role: string) => void;
+  canReadAnalytics: boolean;
+  currentUserRole: string;
 }
 
 interface UseDashboardDataOptions {
@@ -77,6 +79,8 @@ export function useDashboardData({ enabled = true }: UseDashboardDataOptions = {
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const [userRole, setUserRole] = useState<string>('all');
+  const [canReadAnalytics, setCanReadAnalytics] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
 
   const fetchDashboardData = useCallback(async (signal?: AbortSignal) => {
     if (!enabled) return;
@@ -97,6 +101,9 @@ export function useDashboardData({ enabled = true }: UseDashboardDataOptions = {
       const data = raw.data ?? raw;
       if (signal?.aborted) return;
       const ov = data.overview;
+      const analyticsPermission = Boolean(data.permissions?.canReadAnalytics);
+      setCanReadAnalytics(analyticsPermission);
+      setCurrentUserRole(String(data.permissions?.currentUserRole ?? ''));
 
       setStats({
         totalUsers: ov.totalUsers,
@@ -105,15 +112,15 @@ export function useDashboardData({ enabled = true }: UseDashboardDataOptions = {
         propostasAprovadas: ov.propostasAprovadas ?? 0,
         propostasPendentes: ov.propostasPendentes ?? 0,
         totalClients: ov.totalClients,
-        loginAttempts: ov.loginAttempts,
-        failedLogins: ov.failedLogins,
-        auditEvents: ov.auditEvents,
+        loginAttempts: ov.loginAttempts ?? null,
+        failedLogins: ov.failedLogins ?? null,
+        auditEvents: ov.auditEvents ?? null,
         systemHealth: ov.systemHealth,
         lastActivityAt: ov.lastActivityAt ?? null,
       });
 
       // Map roles array for the "Por Função" tab
-      const apiRoles: UserRole[] = (data.charts.usersByRole as Array<{ role: string; count: number }>).map(r => ({
+      const apiRoles: UserRole[] = ((data.charts.usersByRole as Array<{ role: string; count: number }>) ?? []).map(r => ({
         id: r.role,
         name: ROLE_LABELS[r.role] ?? r.role,
         permissions: r.role === 'ADMIN' ? ['all'] : r.role === 'GERENTE' ? ['read', 'write'] : ['read'],
@@ -125,19 +132,21 @@ export function useDashboardData({ enabled = true }: UseDashboardDataOptions = {
 
       // Chart data
       setRoleChartData(
-        (data.charts.usersByRole as Array<{ role: string; count: number }>).map(r => ({
+        ((data.charts.usersByRole as Array<{ role: string; count: number }>) ?? []).map(r => ({
           name: ROLE_LABELS[r.role] ?? r.role,
           value: r.count,
         }))
       );
       setUserMetricsData(data.charts.userMetrics ?? []);
-      setLoginChartData(data.charts.loginAttemptsByDay ?? []);
+      setLoginChartData(analyticsPermission ? (data.charts.loginAttemptsByDay ?? []) : []);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         return;
       }
       setError('Erro ao carregar dados do dashboard');
-      console.error('Dashboard data fetch error:', err);
+      setCanReadAnalytics(false);
+      setCurrentUserRole('');
+      console.warn('Dashboard data fetch error:', err);
     } finally {
       if (!signal?.aborted) {
         setLoading(false);
@@ -178,5 +187,7 @@ export function useDashboardData({ enabled = true }: UseDashboardDataOptions = {
     setPeriod,
     userRole,
     setUserRole,
+    canReadAnalytics,
+    currentUserRole,
   };
 }

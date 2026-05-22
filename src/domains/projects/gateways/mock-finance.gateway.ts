@@ -294,7 +294,7 @@ export class MockFinanceGateway implements IFinanceGateway {
   /**
    * Cancela um invoice
    */
-  async cancelarInvoice(invoiceId: string, motivo: string, usuarioId: number): Promise<RespostaFinanceira> {
+  async cancelarInvoice(invoiceId: string, motivo: string, usuarioId: number, _empresaId: number): Promise<RespostaFinanceira> {
     await this.simularLatencia();
 
     const invoice = invoicesEmMemoria.get(invoiceId);

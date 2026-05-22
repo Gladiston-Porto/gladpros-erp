@@ -25,7 +25,7 @@ export async function GET(
   }
   const { id } = await params;
   const item = await prisma.catalogoItem.findFirst({
-    where: { id: parseInt(id), empresaId: 1, deletedAt: null },
+    where: { id: parseInt(id), empresaId: user.empresaId, deletedAt: null },
   });
   if (!item) return NextResponse.json({ error: 'Item não encontrado', success: false }, { status: 404 });
   return NextResponse.json({
@@ -51,7 +51,7 @@ export async function PATCH(
   }
   const { id } = await params;
   const item = await prisma.catalogoItem.update({
-    where: { id: parseInt(id), empresaId: 1 },
+    where: { id: parseInt(id), empresaId: user.empresaId },
     data: body.data,
   });
   return NextResponse.json({
@@ -70,7 +70,7 @@ export async function DELETE(
   }
   const { id } = await params;
   await prisma.catalogoItem.update({
-    where: { id: parseInt(id), empresaId: 1 },
+    where: { id: parseInt(id), empresaId: user.empresaId },
     data: { deletedAt: new Date() },
   });
   return NextResponse.json({ data: { deleted: true }, success: true });

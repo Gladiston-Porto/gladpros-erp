@@ -16,7 +16,8 @@ import { logger } from "@/lib/api/logger"
 const recordPaymentSchema = z.object({
   taxYear: z.number().int().min(2020).max(2100),
   quarter: z.enum(["Q1", "Q2", "Q3", "Q4"]),
-  paidAmount: z.number().nonnegative(),
+  paidAmount: z.number().positive(),
+  bankAccountId: z.number().int().positive(),
   paidDate: z.string().transform((s) => new Date(s)).optional(),
   notas: z.string().optional(),
 })
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
       taxYear: body.data.taxYear,
       quarter: body.data.quarter,
       paidAmount: body.data.paidAmount,
+      bankAccountId: body.data.bankAccountId,
       paidDate: body.data.paidDate,
       notas: body.data.notas,
       userId: Number(user.id),

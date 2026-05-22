@@ -1,6 +1,6 @@
 /**
  * API Route: /api/financeiro/despesas
- * 
+ *
  * Endpoints:
  * - GET: Lista despesas com filtros e paginação
  * - POST: Cria nova despesa (com ou sem aprovação)
@@ -32,7 +32,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
 
     // empresaId always comes from JWT — never from query params
-     
+
     const empresaIdFromJwt = user.empresaId;
 
     // Parse query params
@@ -222,6 +222,12 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         hasNextPage: filters.page < totalPages,
         hasPreviousPage: filters.page > 1
       },
+      pagination: {
+        total: totalCount,
+        page: filters.page,
+        pageSize: filters.limit,
+        totalPages,
+      },
       stats: {
         totalValor: stats._sum.valor || 0,
         mediaValor: stats._avg.valor || 0,
@@ -246,11 +252,81 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const body = await request.json();
 
     // Validar dados
-    const validatedData = createExpenseSchema.parse(body);
+    const parseResult = createExpenseSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', message: parseResult.error.issues[0]?.message ?? 'Dados inválidos', success: false },
+        { status: 400 },
+      );
+    }
+    const validatedData = parseResult.data;
 
     // empresaId always comes from JWT — never from request body
-     
+
     const empresaId = user.empresaId;
+
+    const [category, fornecedor, projeto, serviceOrder, aprovador, proximoAprovador] = await Promise.all([
+      prisma.expenseCategory.findFirst({
+        where: { id: validatedData.categoriaId, empresaId, ativo: true },
+        select: { id: true, dedutivel: true, slug: true, scheduleCLine: true },
+      }),
+      validatedData.fornecedorId
+        ? prisma.fornecedor.findFirst({
+          where: { id: validatedData.fornecedorId, ativo: true },
+          select: { id: true },
+        })
+        : Promise.resolve(null),
+      validatedData.projetoId
+        ? prisma.projeto.findUnique({ where: { id: validatedData.projetoId }, select: { id: true } })
+        : Promise.resolve(null),
+      validatedData.serviceOrderId
+        ? prisma.serviceOrder.findUnique({ where: { id: validatedData.serviceOrderId }, select: { id: true } })
+        : Promise.resolve(null),
+      validatedData.requerAprovacao && validatedData.aprovacao?.aprovadorId
+        ? prisma.usuario.findFirst({
+          where: {
+            id: validatedData.aprovacao.aprovadorId,
+            status: 'ATIVO',
+            bloqueado: false,
+            nivel: { in: ['ADMIN', 'GERENTE', 'FINANCEIRO'] },
+          },
+          select: { id: true },
+        })
+        : Promise.resolve(null),
+      validatedData.requerAprovacao && validatedData.aprovacao?.proximoAprovadorId
+        ? prisma.usuario.findFirst({
+          where: {
+            id: validatedData.aprovacao.proximoAprovadorId,
+            status: 'ATIVO',
+            bloqueado: false,
+            nivel: { in: ['ADMIN', 'GERENTE', 'FINANCEIRO'] },
+          },
+          select: { id: true },
+        })
+        : Promise.resolve(null),
+    ]);
+
+    if (!category) {
+      return NextResponse.json({ error: 'Validation failed', message: 'Categoria de despesa inválida ou inativa', success: false }, { status: 400 });
+    }
+    if (validatedData.fornecedorId && !fornecedor) {
+      return NextResponse.json({ error: 'Validation failed', message: 'Fornecedor inválido ou inativo', success: false }, { status: 400 });
+    }
+    if (validatedData.projetoId && !projeto) {
+      return NextResponse.json({ error: 'Validation failed', message: 'Projeto vinculado não encontrado', success: false }, { status: 400 });
+    }
+    if (validatedData.serviceOrderId && !serviceOrder) {
+      return NextResponse.json({ error: 'Validation failed', message: 'Ordem de serviço vinculada não encontrada', success: false }, { status: 400 });
+    }
+    if (validatedData.requerAprovacao && (!validatedData.aprovacao?.aprovadorId || !aprovador)) {
+      return NextResponse.json({ error: 'Validation failed', message: 'Aprovador inválido para esta despesa', success: false }, { status: 400 });
+    }
+    if (validatedData.aprovacao?.proximoAprovadorId && !proximoAprovador) {
+      return NextResponse.json({ error: 'Validation failed', message: 'Próximo aprovador inválido', success: false }, { status: 400 });
+    }
+    if (validatedData.aprovacao?.aprovadorId === Number(user.id)) {
+      return NextResponse.json({ error: 'Validation failed', message: 'O criador da despesa não pode ser o próprio aprovador', success: false }, { status: 400 });
+    }
 
     // Iniciar transação
     const result = await prisma.$transaction(async (tx) => {
@@ -264,14 +340,20 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
           valor: validatedData.valor,
           tipo: validatedData.tipo,
           formaPagamento: validatedData.formaPagamento,
-          status: validatedData.requerAprovacao ? 'AGUARDANDO_APROVACAO' : validatedData.status,
+          status: validatedData.requerAprovacao ? 'AGUARDANDO_APROVACAO' : 'PENDENTE',
+          projetoId: validatedData.projetoId ?? null,
+          serviceOrderId: validatedData.serviceOrderId ?? null,
+          isBillableToClient: validatedData.isBillableToClient ?? false,
+          costCategory: validatedData.costCategory ?? null,
           dataEmissao: validatedData.dataEmissao,
           dataVencimento: validatedData.dataVencimento,
-          dataPagamento: validatedData.dataPagamento,
+          dataPagamento: null,
           requerAprovacao: validatedData.requerAprovacao,
           anexoUrl: validatedData.anexoUrl,
           numeroDocumento: validatedData.numeroDocumento,
           observacoes: validatedData.observacoes,
+          dedutivel: category.dedutivel,
+          percentualDedutivel: category.slug === 'meals' || category.scheduleCLine === 'Line 24b' ? 50 : null,
           criadoPor: Number(user!.id)
         },
         include: {

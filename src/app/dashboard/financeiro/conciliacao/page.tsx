@@ -23,7 +23,7 @@ const ListFallback = () => (
 export default async function ConciliacaoPage() {
   const user = await requireServerUser()
   if (!can(user.role as Role, "financeiro", "read")) redirect("/403")
-  const empresaId = 1
+  const empresaId = user.empresaId
 
   return (
     <div className="space-y-6">

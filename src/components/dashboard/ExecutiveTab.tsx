@@ -24,11 +24,11 @@ import Link from 'next/link';
 
 interface ExecutiveKPIs {
   // Financeiro
-  receitaTotal: number;
-  despesaTotal: number;
-  saldoPeriodo: number;
-  saldoContas: number;
-  crescimentoReceita: number;
+  receitaTotal: number | null;
+  despesaTotal: number | null;
+  saldoPeriodo: number | null;
+  saldoContas: number | null;
+  crescimentoReceita: number | null;
 
   // Projetos
   projetosAtivos: number;
@@ -51,7 +51,7 @@ interface ExecutiveKPIs {
 
   // Invoices
   invoicesTotal: number;
-  invoicesFaturamento: number;
+  invoicesFaturamento: number | null;
 }
 
 interface Projeto {
@@ -74,6 +74,9 @@ interface Alerta {
 
 interface ExecutiveData {
   period: string;
+  permissions?: {
+    canViewFinancials: boolean;
+  };
   kpis: ExecutiveKPIs;
   projetos: Projeto[];
   alertas: Alerta[];
@@ -94,10 +97,11 @@ const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
 const getStatusBadge = (status: string) => {
-  if (status.includes('ANDAMENTO')) return 'default';
-  if (status.includes('PLANEJAMENTO')) return 'secondary';
-  if (status.includes('CANCELADO')) return 'destructive';
-  if (status.includes('CONCLUIDO')) return 'secondary';
+  const normalized = status.toLowerCase();
+  if (normalized.includes('execucao') || normalized.includes('andamento')) return 'default';
+  if (normalized.includes('planejado') || normalized.includes('planejamento')) return 'secondary';
+  if (normalized.includes('cancelado')) return 'destructive';
+  if (normalized.includes('concluido') || normalized.includes('inspecao')) return 'secondary';
   return 'outline';
 };
 
@@ -111,6 +115,9 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
   const [data, setData] = useState<ExecutiveData | null>(null);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const handleRetry = () => setRetryCount(c => c + 1);
 
   useEffect(() => {
     if (!enabled) {
@@ -140,7 +147,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         if (err instanceof DOMException && err.name === 'AbortError') {
           return;
         }
-        console.error('Erro ao carregar dashboard executivo:', err);
+        console.warn('Erro ao carregar dashboard executivo:', err);
         setError(err instanceof Error ? err.message : 'Erro desconhecido');
       } finally {
         if (!controller.signal.aborted) {
@@ -154,7 +161,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
     return () => {
       controller.abort();
     };
-  }, [enabled, period]);
+  }, [enabled, period, retryCount]);
 
   if (loading) {
     return (
@@ -179,7 +186,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         <CardContent className="p-6 text-center">
           <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
           <p className="text-muted-foreground mb-4">{error || 'Não foi possível carregar os dados'}</p>
-          <Button onClick={() => window.location.reload()} variant="outline">
+          <Button onClick={handleRetry} variant="outline">
             Tentar Novamente
           </Button>
         </CardContent>
@@ -188,6 +195,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
   }
 
   const { kpis, projetos, alertas } = data;
+  const canViewFinancials = data.permissions?.canViewFinancials !== false;
 
   // Calcular taxa de conversão de propostas
   const taxaConversao = kpis.propostasTotal > 0
@@ -195,20 +203,22 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
     : '0';
 
   // Determinar health do financeiro
-  const financeiroHealth = kpis.saldoPeriodo >= 0 ? 'positive' : 'negative';
+  const financeiroHealth = (kpis.saldoPeriodo ?? 0) >= 0 ? 'positive' : 'negative';
 
-  const saldoTrend = kpis.crescimentoReceita > 0 ? 'up' : kpis.crescimentoReceita < 0 ? 'down' : 'neutral';
+  const saldoTrend = (kpis.crescimentoReceita ?? 0) > 0 ? 'up' : (kpis.crescimentoReceita ?? 0) < 0 ? 'down' : 'neutral';
 
   const heroHighlights = [
     {
       label: 'Saldo Líquido',
-      value: formatCurrency(kpis.saldoPeriodo),
-      detail: 'Disponível em caixa consolidado',
+      value: canViewFinancials ? formatCurrency(kpis.saldoPeriodo ?? 0) : 'Acesso restrito',
+      detail: canViewFinancials ? 'Disponível em caixa consolidado' : 'Disponível para ADMIN/GERENTE/FINANCEIRO',
     },
     {
       label: 'Receita Total',
-      value: formatCurrency(kpis.receitaTotal),
-      detail: `${kpis.crescimentoReceita >= 0 ? '+' : ''}${kpis.crescimentoReceita.toFixed(1)}% vs período anterior`,
+      value: canViewFinancials ? formatCurrency(kpis.receitaTotal ?? 0) : 'Acesso restrito',
+      detail: canViewFinancials
+        ? `${(kpis.crescimentoReceita ?? 0) >= 0 ? '+' : ''}${(kpis.crescimentoReceita ?? 0).toFixed(1)}% vs período anterior`
+        : 'Métrica financeira protegida por RBAC',
     },
     {
       label: 'Clientes Ativos',
@@ -265,34 +275,42 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <FinanceCard
-          title="Saldo Período"
-          value={kpis.saldoPeriodo}
-          change={kpis.crescimentoReceita}
-          trend={saldoTrend}
-          icon={<DollarSign className="h-5 w-5" />}
-          variant={financeiroHealth === 'positive' ? 'income' : 'expense'}
-          description="Saldo consolidado em todas as contas"
-        />
-        <FinanceCard
-          title="Receita Total"
-          value={kpis.receitaTotal}
-          change={kpis.crescimentoReceita}
-          trend={kpis.crescimentoReceita > 0 ? 'up' : kpis.crescimentoReceita < 0 ? 'down' : 'neutral'}
-          icon={<TrendingUp className="h-5 w-5" />}
-          variant="income"
-          description="Arrecadação no período selecionado"
-        />
-        <FinanceCard
-          title="Despesas Totais"
-          value={kpis.despesaTotal}
-          trend="down"
-          icon={<TrendingDown className="h-5 w-5" />}
-          variant="expense"
-          description="Pagamentos e compromissos realizados"
-        />
-      </div>
+      {canViewFinancials ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <FinanceCard
+            title="Saldo Período"
+            value={kpis.saldoPeriodo ?? 0}
+            change={kpis.crescimentoReceita ?? 0}
+            trend={saldoTrend}
+            icon={<DollarSign className="h-5 w-5" />}
+            variant={financeiroHealth === 'positive' ? 'income' : 'expense'}
+            description="Saldo consolidado em todas as contas"
+          />
+          <FinanceCard
+            title="Receita Total"
+            value={kpis.receitaTotal ?? 0}
+            change={kpis.crescimentoReceita ?? 0}
+            trend={(kpis.crescimentoReceita ?? 0) > 0 ? 'up' : (kpis.crescimentoReceita ?? 0) < 0 ? 'down' : 'neutral'}
+            icon={<TrendingUp className="h-5 w-5" />}
+            variant="income"
+            description="Arrecadação no período selecionado"
+          />
+          <FinanceCard
+            title="Despesas Totais"
+            value={kpis.despesaTotal ?? 0}
+            trend="down"
+            icon={<TrendingDown className="h-5 w-5" />}
+            variant="expense"
+            description="Pagamentos e compromissos realizados"
+          />
+        </div>
+      ) : (
+        <Card className="border-warning/40 bg-warning/5">
+          <CardContent className="p-4 text-sm text-warning-foreground">
+            Os KPIs financeiros estão protegidos para este perfil. Use os módulos autorizados para dados sensíveis.
+          </CardContent>
+        </Card>
+      )}
 
       {alertas.length > 0 && (
         <Card className="border-warning/40 bg-warning/5 shadow-sm">
@@ -430,14 +448,14 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
               <p className="text-sm text-muted-foreground">Faturamento (Invoices)</p>
               <DollarSign className="h-4 w-4 text-success" />
             </div>
-            <p className="text-2xl font-bold text-success">
-              {formatCurrency(kpis.invoicesFaturamento)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {kpis.invoicesTotal} invoice(s) no período
-            </p>
-          </CardContent>
-        </Card>
+               <p className="text-2xl font-bold text-success">
+               {canViewFinancials ? formatCurrency(kpis.invoicesFaturamento ?? 0) : 'Acesso restrito'}
+             </p>
+             <p className="text-xs text-muted-foreground mt-1">
+               {canViewFinancials ? `${kpis.invoicesTotal} invoice(s) no período` : 'Métrica financeira protegida por RBAC'}
+             </p>
+           </CardContent>
+         </Card>
       </div>
 
       {/* Projetos Críticos */}
@@ -551,7 +569,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
                 Invoices
               </Button>
             </Link>
-            <Link href="/estoque">
+            <Link href="/estoque/materiais">
               <Button variant="outline" className="w-full justify-start">
                 <Package className="h-4 w-4 mr-2" />
                 Materiais

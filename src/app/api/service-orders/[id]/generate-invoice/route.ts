@@ -5,6 +5,7 @@ import { can, requireUser, type Role } from '@/shared/lib/rbac';
 import { resolveUnitPrice } from '@/server/services/serviceOrderTotals';
 import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
 import { NotificationService } from '@/shared/lib/notifications';
+import { Prisma } from '@prisma/client';
 
 // Helper: Add business days (skip weekends)
 function addBusinessDays(date: Date, days: number): Date {
@@ -44,9 +45,9 @@ export const POST = withErrorHandler(async (request: Request,
             );
         }
 
-        // Get order with all related data
-        const order = await prisma.serviceOrder.findUnique({
-            where: { id: serviceOrderId },
+        // Filtered by empresaId for tenant isolation
+        const order = await prisma.serviceOrder.findFirst({
+            where: { id: serviceOrderId, empresaId: user.empresaId },
             include: {
                 Cliente: { select: { id: true, nomeFantasia: true, nomeCompleto: true } },
                 Invoice: { select: { id: true, numeroInvoice: true, status: true } },
@@ -150,10 +151,18 @@ export const POST = withErrorHandler(async (request: Request,
         // and ensure history is recorded for the COMPLETED → AWAITING_PAYMENT transition.
         // C13: Re-check idempotency inside the transaction (serializable) to prevent
         // duplicate invoices when the playbook fires concurrently.
-        const result = await prisma.$transaction(async (tx) => {
+        let result:
+            | { isExisting: true; projectInvoiceConflict?: false; invoice: { id: number; numeroInvoice: string; status: string } }
+            | { isExisting?: false; projectInvoiceConflict: true; invoice: { id: number; numeroInvoice: string; status: string } }
+            | { isExisting: false; projectInvoiceConflict: false; invoice: Awaited<ReturnType<typeof prisma.invoice.create>> }
+            | null = null;
+
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+            try {
+                result = await prisma.$transaction(async (tx) => {
             // Re-check idempotency inside the transaction
-            const freshOrder = await tx.serviceOrder.findUnique({
-                where: { id: serviceOrderId },
+            const freshOrder = await tx.serviceOrder.findFirst({
+                where: { id: serviceOrderId, empresaId: user.empresaId },
                 select: { invoiceId: true, projetoId: true }
             });
             if (freshOrder?.invoiceId) {
@@ -189,7 +198,7 @@ export const POST = withErrorHandler(async (request: Request,
             let invoiceNumber = `INV-${year}-0001`;
             if (lastInvoice) {
                 const parts = lastInvoice.numeroInvoice.split('-');
-                const nextNum = parseInt(parts[2]) + 1;
+                const nextNum = parseInt(parts[2]) + 1 + attempt;
                 invoiceNumber = `INV-${year}-${String(nextNum).padStart(4, '0')}`;
             }
 
@@ -227,6 +236,7 @@ export const POST = withErrorHandler(async (request: Request,
                     status: 'DRAFT',
                     notas: `OS: ${order.ticketNumber}`,
                     criadoPor: Number(user.id),
+                    empresaId: user.empresaId,
                 }
             });
 
@@ -299,6 +309,23 @@ export const POST = withErrorHandler(async (request: Request,
                 }
             });
 
+            // Central AuditLog for invoice generation from service order
+            await tx.auditLog.create({
+                data: {
+                    id: crypto.randomUUID(),
+                    userId: Number(user.id),
+                    entidade: 'Invoice',
+                    entidadeId: String(invoice.id),
+                    acao: 'CREATE',
+                    diff: JSON.stringify({
+                        origem: 'service-order-generate-invoice',
+                        serviceOrderId,
+                        numeroInvoice: invoice.numeroInvoice,
+                        valorTotal: invoice.valorTotal,
+                    }),
+                },
+            });
+
             // Update service order
             await tx.serviceOrder.update({
                 where: { id: serviceOrderId },
@@ -312,7 +339,26 @@ export const POST = withErrorHandler(async (request: Request,
             });
 
             return { isExisting: false, projectInvoiceConflict: false, invoice };
-        }, { isolationLevel: 'Serializable' });
+                }, { isolationLevel: 'Serializable' });
+                break;
+            } catch (error) {
+                if (
+                    error instanceof Prisma.PrismaClientKnownRequestError &&
+                    error.code === 'P2002' &&
+                    attempt < 2
+                ) {
+                    continue;
+                }
+                throw error;
+            }
+        }
+
+        if (!result) {
+            return NextResponse.json(
+                { error: 'Conflict', message: 'Não foi possível gerar número único para invoice', success: false },
+                { status: 409 }
+            );
+        }
 
         if (result.isExisting) {
             return NextResponse.json({

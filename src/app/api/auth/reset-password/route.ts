@@ -59,6 +59,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     UPDATE Usuario 
     SET senha = ${senhaHash},
         senhaProvisoria = FALSE,
+        senhaAlteradaEm = NOW(),
         tokenVersion = COALESCE(tokenVersion, 0) + 1,
         atualizadoEm = NOW()
     WHERE id = ${t.userId}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { ArrowUpDown, Eye, Pencil, UserCheck, UserX, Users, Mail } from "lucide-react";
+import { ArrowUpDown, Eye, Pencil, UserCheck, UserX, Users, Mail, LockOpen } from "lucide-react";
 
 import type { SortKey, UserRole, UsersList } from "./types";
 import { unwrapUsers } from "./types";
@@ -12,6 +12,7 @@ type UsersTableProps = {
   onView: (id: number) => void;
   onToggleStatus: (id: number, currentStatus: boolean) => void;
   onResendWelcome?: (id: number) => void;
+  onUnlock?: (id: number) => void;
   onSelectedChange?: (ids: number[]) => void;
   resetKey?: number;
   sortKey?: SortKey;
@@ -122,6 +123,7 @@ export function UsersTable({
   onView,
   onToggleStatus,
   onResendWelcome,
+  onUnlock,
   onSelectedChange,
   sortKey = "criadoEm",
   sortDir = "desc",
@@ -149,6 +151,7 @@ export function UsersTable({
           <tr className="border-b border-border">
             <th className="w-10 px-3 py-3">
               <input
+                data-testid="checkbox-select-all"
                 aria-label="Selecionar todos"
                 type="checkbox"
                 checked={allSelected}
@@ -177,6 +180,8 @@ export function UsersTable({
             const isActive = user.ativo ?? (user.status === "ATIVO");
             const isExpired = !isActive && user.expiresAt && new Date(user.expiresAt) < new Date();
             const aguardandoAcesso = user.primeiroAcesso === true;
+            const linkExpirado = user.linkExpirado === true;
+            const isBloqueado = user.bloqueado === true;
             const lastLogin = user.ultimoLoginEm ? new Date(user.ultimoLoginEm) : null;
             const roleConf = ROLE_CONFIG[user.role] ?? ROLE_CONFIG.USUARIO;
             const access = lastLogin ? relativeTime(lastLogin) : null;
@@ -184,11 +189,13 @@ export function UsersTable({
             return (
               <tr
                 key={user.id}
+                data-testid={`user-row-${user.id}`}
                 className={`border-b border-border/50 transition-colors hover:bg-muted/40 ${checked ? "bg-brand-primary/5" : ""}`}
               >
                 {/* Checkbox */}
                 <td className="px-3 py-3">
                   <input
+                    data-testid={`checkbox-user-${user.id}`}
                     aria-label={`Selecionar ${user.nomeCompleto}`}
                     type="checkbox"
                     checked={checked}
@@ -222,7 +229,12 @@ export function UsersTable({
 
                 {/* Último acesso com dot + tempo relativo */}
                 <td className="px-3 py-3">
-                  {aguardandoAcesso ? (
+                  {aguardandoAcesso && linkExpirado ? (
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                      <span className="text-xs font-medium text-red-600 dark:text-red-400">Link expirado</span>
+                    </div>
+                  ) : aguardandoAcesso ? (
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 shrink-0 rounded-full bg-amber-400 animate-pulse" />
                       <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Aguardando 1º acesso</span>
@@ -268,35 +280,50 @@ export function UsersTable({
                 <td className="px-3 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <button
+                      data-testid={`btn-view-${user.id}`}
                       onClick={() => onView(user.id)}
                       title="Visualizar"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                      className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
                       aria-label={`Visualizar ${user.nomeCompleto}`}
                     >
                       <Eye className="h-4 w-4" />
                     </button>
                     <button
+                      data-testid={`btn-edit-${user.id}`}
                       onClick={() => onEdit(user.id)}
                       title="Editar"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                      className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
                       aria-label={`Editar ${user.nomeCompleto}`}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     {aguardandoAcesso && onResendWelcome && (
                       <button
+                        data-testid={`btn-resend-${user.id}`}
                         onClick={() => onResendWelcome(user.id)}
                         title="Reenviar email de boas-vindas"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-500 transition hover:bg-amber-500/10 hover:text-amber-600"
+                        className="flex h-12 w-12 items-center justify-center rounded-lg text-amber-500 transition hover:bg-amber-500/10 hover:text-amber-600"
                         aria-label={`Reenviar email de boas-vindas para ${user.nomeCompleto}`}
                       >
                         <Mail className="h-4 w-4" />
                       </button>
                     )}
+                    {isBloqueado && onUnlock && (
+                      <button
+                        data-testid={`btn-unlock-${user.id}`}
+                        onClick={() => onUnlock(user.id)}
+                        title="Desbloquear conta"
+                        className="flex h-12 w-12 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-500/10 hover:text-red-600"
+                        aria-label={`Desbloquear conta de ${user.nomeCompleto}`}
+                      >
+                        <LockOpen className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
+                      data-testid={`btn-toggle-status-${user.id}`}
                       onClick={() => onToggleStatus(user.id, isActive)}
                       title={isActive ? "Desativar" : "Ativar"}
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+                      className={`flex h-12 w-12 items-center justify-center rounded-lg transition ${
                         isActive
                           ? "text-orange-500 hover:bg-orange-500/10 hover:text-orange-600"
                           : "text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
@@ -326,4 +353,3 @@ export function UsersTable({
     </div>
   );
 }
-

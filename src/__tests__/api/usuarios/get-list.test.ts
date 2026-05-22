@@ -99,30 +99,34 @@ describe('GET /api/usuarios', () => {
   });
 
   it('200 — happy path returns items and total', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    // items query runs first (line 227), then count (line 230)
+    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com', empresaId: 1 } as any);
+    // Promise.all: [items, count, stats]
     (prisma.$queryRawUnsafe as jest.Mock).mockResolvedValueOnce([
       { id: 1, email: 'user1@test.com', nomeCompleto: 'User One', nivel: 'USUARIO', status: 'ATIVO' },
       { id: 2, email: 'user2@test.com', nomeCompleto: 'User Two', nivel: 'GERENTE', status: 'ATIVO' },
     ]);
     (prisma.$queryRawUnsafe as jest.Mock).mockResolvedValueOnce([{ cnt: BigInt(2) }]);
+    (prisma.$queryRawUnsafe as jest.Mock).mockResolvedValueOnce([{ status: 'ATIVO', cnt: BigInt(2) }]);
     const { GET } = await import('@/app/api/usuarios/route');
     const res = await GET(makeRequest('http://localhost/api/usuarios?page=1&pageSize=10'));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body.items)).toBe(true);
-    expect(body.total).toBe(2);
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.pagination.total).toBe(2);
+    expect(body.success).toBe(true);
   });
 
   it('200 — pagination params respected', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
+    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com', empresaId: 1 } as any);
     (prisma.$queryRawUnsafe as jest.Mock).mockResolvedValueOnce([]); // items
     (prisma.$queryRawUnsafe as jest.Mock).mockResolvedValueOnce([{ cnt: BigInt(50) }]); // count
+    (prisma.$queryRawUnsafe as jest.Mock).mockResolvedValueOnce([]); // stats
     const { GET } = await import('@/app/api/usuarios/route');
     const res = await GET(makeRequest('http://localhost/api/usuarios?page=3&pageSize=5'));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.page).toBe(3);
-    expect(body.pageSize).toBe(5);
+    expect(body.pagination.page).toBe(3);
+    expect(body.pagination.pageSize).toBe(5);
+    expect(body.pagination.total).toBe(50);
   });
 });

@@ -6,47 +6,66 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
 import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
+import { postLedgerTransaction } from '@/shared/services/ledgerPostingService';
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
-const updateInvoiceSchema = z.object({
-  dataVencimento: z.string().datetime().optional(),
-  notas: z.string().optional(),
-  termos: z.string().optional(),
-  status: z
-    .enum(['DRAFT', 'SENT', 'VIEWED', 'PARTIAL_PAID', 'PAID', 'OVERDUE', 'CANCELLED'])
-    .optional(),
-  taxRateId: z.number().int().positive().optional(),
-  descontoValor: z.number().min(0).optional(),
-  descontoPercentual: z.number().min(0).max(100).optional(),
-  itens: z
-    .array(
-      z.object({
-        tipo: z.enum(['SERVICE', 'MATERIAL', 'EQUIPMENT', 'OTHER']),
-        descricao: z.string().min(1).max(500),
-        quantidade: z.number().positive(),
-        unidade: z.string().min(1).max(50),
-        precoUnitario: z.number().nonnegative(),
-        desconto: z.number().min(0).default(0),
-        taxavel: z.boolean().default(true),
-        propostaEtapaId: z.number().int().positive().optional(),
-        materialId: z.number().int().positive().optional(),
-        ordem: z.number().int().min(0).default(0),
-      }),
-    )
-    .min(1)
-    .optional(),
-  // Tax classification fields (Fase 2)
-  propertyType: z.nativeEnum(PropertyType).optional(),
-  serviceCategory: z.nativeEnum(ServiceCategory).optional(),
-  contractType: z.nativeEnum(ContractType).optional(),
-  taxMode: z.nativeEnum(TaxMode).optional(),
-  // Manual tax override — enforced at API level (ADMIN/FINANCEIRO only)
-  manualTaxOverride: z.boolean().optional(),
-  manualTaxOverrideReason: z.string().max(500).optional(),
-});
+const updateInvoiceSchema = z
+  .object({
+    dataVencimento: z.string().datetime().optional(),
+    notas: z.string().optional(),
+    termos: z.string().optional(),
+    taxRateId: z.number().int().positive().optional(),
+    descontoValor: z.number().min(0).optional(),
+    descontoPercentual: z.number().min(0).max(100).optional(),
+    itens: z
+      .array(
+        z.object({
+          tipo: z.enum(['SERVICE', 'MATERIAL', 'EQUIPMENT', 'OTHER']),
+          descricao: z.string().min(1).max(500),
+          quantidade: z.number().positive(),
+          unidade: z.string().min(1).max(50),
+          precoUnitario: z.number().nonnegative(),
+          desconto: z.number().min(0).default(0),
+          taxavel: z.boolean().default(true),
+          propostaEtapaId: z.number().int().positive().optional(),
+          materialId: z.number().int().positive().optional(),
+          ordem: z.number().int().min(0).default(0),
+        }),
+      )
+      .min(1)
+      .optional(),
+    // Tax classification fields (Fase 2)
+    propertyType: z.nativeEnum(PropertyType).optional(),
+    serviceCategory: z.nativeEnum(ServiceCategory).optional(),
+    contractType: z.nativeEnum(ContractType).optional(),
+    taxMode: z.nativeEnum(TaxMode).optional(),
+    // Manual tax override — enforced at API level (ADMIN/FINANCEIRO only)
+    manualTaxOverride: z.boolean().optional(),
+    manualTaxOverrideReason: z.string().max(500).optional(),
+  })
+  .strict();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+function canReadInternalInvoices(role: Role) {
+  return role === 'ADMIN' || role === 'GERENTE' || role === 'FINANCEIRO';
+}
+
+function hasFinancialInvoiceChanges(body: z.infer<typeof updateInvoiceSchema>) {
+  return (
+    body.itens !== undefined ||
+    body.taxRateId !== undefined ||
+    body.descontoValor !== undefined ||
+    body.descontoPercentual !== undefined ||
+    body.propertyType !== undefined ||
+    body.serviceCategory !== undefined ||
+    body.contractType !== undefined ||
+    body.taxMode !== undefined ||
+    body.manualTaxOverride !== undefined ||
+    body.manualTaxOverrideReason !== undefined
+  );
+}
 
 function calcularTotais<T extends { quantidade: number; precoUnitario: number; desconto: number; taxavel: boolean }>(
   itens: T[],
@@ -84,14 +103,15 @@ function calcularTotais<T extends { quantidade: number; precoUnitario: number; d
 
 export const GET = withErrorHandler(
   async (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-    const { id } = await context.params;
     const user = await requireUser(req);
-    if (!can(user.role as Role, 'invoices', 'read')) {
+    const role = user.role as Role;
+    if (!can(role, 'invoices', 'read') || !canReadInternalInvoices(role)) {
       return NextResponse.json(
         { error: 'Forbidden', message: 'Sem permissão', success: false },
         { status: 403 },
       );
     }
+    const { id } = await context.params;
 
     const invoiceId = parseInt(id);
     if (isNaN(invoiceId)) {
@@ -102,12 +122,13 @@ export const GET = withErrorHandler(
     }
 
     const invoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId, empresaId: 1 },
+      where: { id: invoiceId, empresaId: user.empresaId },
       include: {
         cliente: { select: { id: true, nomeCompleto: true, nomeFantasia: true, email: true } },
         projeto: { select: { id: true, titulo: true } },
         itens: { orderBy: { ordem: 'asc' } },
         pagamentos: {
+          where: { estornadoEm: null },
           orderBy: { dataPagamento: 'desc' },
           include: {
             criador: { select: { id: true, nomeCompleto: true, email: true } },
@@ -134,7 +155,6 @@ export const GET = withErrorHandler(
 
 export const PUT = withErrorHandler(
   async (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-    const { id } = await context.params;
     const user = await requireUser(req);
     if (!can(user.role as Role, 'invoices', 'update')) {
       return NextResponse.json(
@@ -142,6 +162,7 @@ export const PUT = withErrorHandler(
         { status: 403 },
       );
     }
+    const { id } = await context.params;
 
     const invoiceId = parseInt(id);
     if (isNaN(invoiceId)) {
@@ -166,10 +187,14 @@ export const PUT = withErrorHandler(
     const body = parsed.data;
 
     const existingInvoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId, empresaId: 1 },
+      where: { id: invoiceId, empresaId: user.empresaId },
       select: {
+        id: true,
+        empresaId: true,
         status: true,
         valorPago: true,
+        valorTotal: true,
+        ledgerTransactionId: true,
         subtotal: true,
         descontoValor: true,
         descontoPercentual: true,
@@ -199,6 +224,17 @@ export const PUT = withErrorHandler(
           success: false,
         },
         { status: 400 },
+      );
+    }
+
+    if (existingInvoice.status !== 'DRAFT' && hasFinancialInvoiceChanges(body)) {
+      return NextResponse.json(
+        {
+          error: 'Invalid operation',
+          message: 'Campos financeiros da invoice só podem ser alterados enquanto ela está em DRAFT',
+          success: false,
+        },
+        { status: 409 },
       );
     }
 
@@ -320,13 +356,12 @@ export const PUT = withErrorHandler(
         };
       }
 
-      const updated = await tx.invoice.update({
-        where: { id: invoiceId },
+      const updateResult = await tx.invoice.updateMany({
+        where: { id: invoiceId, status: { notIn: ['PAID', 'CANCELLED'] } },
         data: {
           ...(body.dataVencimento && { dataVencimento: new Date(body.dataVencimento) }),
           ...(body.notas !== undefined && { notas: body.notas }),
           ...(body.termos !== undefined && { termos: body.termos }),
-          ...(body.status && { status: body.status }),
           // Tax classification fields
           ...(body.propertyType !== undefined && { propertyType: body.propertyType }),
           ...(body.serviceCategory !== undefined && { serviceCategory: body.serviceCategory }),
@@ -342,11 +377,20 @@ export const PUT = withErrorHandler(
           ...financialUpdate,
           atualizadoPor: Number(user.id),
         },
+      });
+
+      if (updateResult.count === 0) {
+        throw new Error('CONFLICT_STATUS');
+      }
+
+      // Refetch to return full invoice data (updateMany doesn't return rows)
+      const updated = await tx.invoice.findUniqueOrThrow({
+        where: { id: invoiceId },
         include: {
           cliente: { select: { id: true, nomeCompleto: true, nomeFantasia: true, email: true } },
           projeto: { select: { id: true, titulo: true } },
           itens: { orderBy: { ordem: 'asc' } },
-          pagamentos: { orderBy: { dataPagamento: 'desc' } },
+          pagamentos: { where: { estornadoEm: null }, orderBy: { dataPagamento: 'desc' } },
         },
       });
 
@@ -381,7 +425,19 @@ export const PUT = withErrorHandler(
       }
 
       return updated;
+    }).catch((txErr: unknown) => {
+      if (txErr instanceof Error && txErr.message === 'CONFLICT_STATUS') {
+        return null as typeof invoice;
+      }
+      throw txErr;
     });
+
+    if (!invoice) {
+      return NextResponse.json(
+        { error: 'Conflict', message: 'Invoice foi paga ou cancelada concorrentemente — recarregue e tente novamente', success: false },
+        { status: 409 },
+      );
+    }
 
     return NextResponse.json({ data: invoice, success: true });
   },
@@ -391,14 +447,16 @@ export const PUT = withErrorHandler(
 
 export const DELETE = withErrorHandler(
   async (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-    const { id } = await context.params;
     const user = await requireUser(req);
-    if (!can(user.role as Role, 'invoices', 'delete')) {
+    // Cancellation is a financial operation — requires ADMIN or FINANCEIRO role
+    const role = user.role as Role;
+    if (!can(role, 'invoices', 'delete') || (role !== 'ADMIN' && role !== 'FINANCEIRO')) {
       return NextResponse.json(
-        { error: 'Forbidden', message: 'Sem permissão para excluir invoices', success: false },
+        { error: 'Forbidden', message: 'Apenas ADMIN ou FINANCEIRO podem cancelar invoices', success: false },
         { status: 403 },
       );
     }
+    const { id } = await context.params;
 
     const invoiceId = parseInt(id);
     if (isNaN(invoiceId)) {
@@ -409,8 +467,8 @@ export const DELETE = withErrorHandler(
     }
 
     const existingInvoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId, empresaId: 1 },
-      select: { id: true, status: true, valorPago: true, numeroInvoice: true },
+      where: { id: invoiceId, empresaId: user.empresaId },
+      select: { id: true, status: true, valorPago: true, valorTotal: true, numeroInvoice: true, ledgerTransactionId: true },
     });
 
     if (!existingInvoice) {
@@ -437,6 +495,34 @@ export const DELETE = withErrorHandler(
         data: { status: 'CANCELLED', atualizadoPor: Number(user.id) },
       });
 
+      // Reverse the ledger posting if the invoice was sent and a ledger entry exists
+      if (existingInvoice.ledgerTransactionId) {
+        // Void the original ledger transaction
+        await tx.ledgerTransaction.update({
+          where: { id: existingInvoice.ledgerTransactionId },
+          data: { status: 'VOIDED' },
+        });
+
+        // Post a REVERSAL to maintain the double-entry trail
+        const amount = Number(existingInvoice.valorTotal ?? 0);
+        if (amount > 0) {
+          await postLedgerTransaction(
+            {
+              empresaId: user.empresaId,
+              data: new Date(),
+              descricao: `Reversal — Invoice cancelled: ${existingInvoice.numeroInvoice}`,
+              sourceType: 'REVERSAL',
+              sourceId: invoiceId,
+              entries: [
+                { accountCode: 'REVENUE', debit: amount },
+                { accountCode: 'ACCOUNTS_RECEIVABLE', credit: amount },
+              ],
+            },
+            tx,
+          );
+        }
+      }
+
       await tx.auditLog.create({
         data: {
           id: crypto.randomUUID(),
@@ -447,6 +533,7 @@ export const DELETE = withErrorHandler(
           diff: JSON.stringify({
             numeroInvoice: existingInvoice.numeroInvoice,
             statusAnterior: existingInvoice.status,
+            ledgerReversed: !!existingInvoice.ledgerTransactionId,
           }),
         },
       });

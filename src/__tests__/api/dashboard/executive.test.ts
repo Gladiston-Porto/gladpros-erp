@@ -43,6 +43,12 @@ jest.mock('../../../shared/lib/rbac', () => ({
   can: jest.fn(),
 }));
 
+jest.mock('../../../shared/lib/rate-limit', () => ({
+  apiRateLimit: {
+    isAllowed: jest.fn().mockResolvedValue({ allowed: true, message: '', resetTime: Date.now() + 60_000 }),
+  },
+}));
+
 jest.mock('@prisma/client', () => ({
   Projeto_status: {
     em_execucao: 'em_execucao',
@@ -184,8 +190,8 @@ describe('GET /api/dashboard/executive', () => {
 
     // Todos os modelos devem ter sido chamados
     expect(prisma.revenue.aggregate).toHaveBeenCalledTimes(2); // current + previous period
-    expect(prisma.expense.aggregate).toHaveBeenCalledTimes(2);
-    expect(prisma.projeto.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.expense.aggregate).toHaveBeenCalledTimes(1); // only current period (previous was unused)
+    expect(prisma.projeto.findMany).toHaveBeenCalledTimes(1); // P2-04 fix: merged into single query
   });
 
   test('500 — erro interno retorna { success: false }', async () => {
@@ -221,5 +227,32 @@ describe('GET /api/dashboard/executive', () => {
       buildRequest('http://localhost:3000/api/dashboard/executive?period=90d')
     )) as MockResponse;
     expect(res90d.status).toBe(200);
+  });
+
+  test('400 — period inválido retorna erro de validação', async () => {
+    const { GET } = require('../../../app/api/dashboard/executive/route');
+    const res = (await GET(
+      buildRequest('http://localhost:3000/api/dashboard/executive?period=invalid')
+    )) as MockResponse;
+    expect(res.status).toBe(400);
+    expect(res._data.success).toBe(false);
+  });
+
+  test('200 — sem permissão financeira mascara KPIs financeiros', async () => {
+    can.mockImplementation((role: string, module: string) => {
+      if (module === 'dashboard') return true;
+      if (module === 'financeiro') return false;
+      return false;
+    });
+
+    const { GET } = require('../../../app/api/dashboard/executive/route');
+    const res = (await GET(buildRequest())) as MockResponse;
+    expect(res.status).toBe(200);
+    const data = res._data.data as Record<string, unknown>;
+    const kpis = data.kpis as Record<string, unknown>;
+    expect(kpis.receitaTotal).toBeNull();
+    expect(kpis.despesaTotal).toBeNull();
+    expect(kpis.saldoPeriodo).toBeNull();
+    expect(data.permissions).toEqual({ canViewFinancials: false });
   });
 });

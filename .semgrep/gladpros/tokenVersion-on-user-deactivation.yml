@@ -1,0 +1,36 @@
+rules:
+  - id: gladpros-tokenversion-on-user-deactivation
+    languages: [typescript]
+    severity: ERROR
+    message: |
+      Ao desativar usuário (status: 'INATIVO'), você DEVE incrementar tokenVersion
+      para invalidar o JWT existente. Sem isto, o usuário continuará autenticado
+      por até 8h (cookie) ou 7 dias (token bruto) mesmo após desativação.
+      Bug ID: USUARIOS-P2-003
+    patterns:
+      - pattern-either:
+          - pattern: |
+              prisma.usuario.update({
+                ...,
+                data: { ..., status: 'INATIVO', ... },
+                ...
+              })
+          - pattern: |
+              prisma.usuario.update({
+                ...,
+                data: { ..., status: "INATIVO", ... },
+                ...
+              })
+      - pattern-not: |
+          prisma.usuario.update({
+            ...,
+            data: { ..., tokenVersion: { increment: 1 }, ... },
+            ...
+          })
+    paths:
+      include:
+        - "src/app/api/**/*.ts"
+      exclude:
+        - "**/__tests__/**"
+        - "**/*.test.ts"
+        - "**/*.spec.ts"

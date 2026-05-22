@@ -29,8 +29,14 @@ interface Category {
   icone: string;
 }
 
+interface Approver {
+  id: number;
+  nomeCompleto: string | null;
+  email: string;
+  nivel: string;
+}
+
 interface FormData {
-  empresaId: number;
   categoriaId: string;
   fornecedorId: string;
   descricao: string;
@@ -54,9 +60,9 @@ export default function DespesaFormPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [approvers, setApprovers] = useState<Approver[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
-    empresaId: 1,
     categoriaId: '',
     fornecedorId: '',
     descricao: '',
@@ -79,17 +85,30 @@ export default function DespesaFormPageClient() {
   // Carregar categorias
   useEffect(() => {
     loadCategories();
+    loadApprovers();
   }, []);
 
   const loadCategories = async () => {
     try {
-      const response = await fetch('/api/financeiro/despesas/categorias?empresaId=1&ativo=true');
+      const response = await fetch('/api/financeiro/despesas/categorias?ativo=true');
       const data = await response.json();
       if (data.success) {
         setCategories(data.data);
       }
     } catch (err) {
       console.error('Erro ao carregar categorias:', err);
+    }
+  };
+
+  const loadApprovers = async () => {
+    try {
+      const response = await fetch('/api/financeiro/aprovadores');
+      const data = await response.json();
+      if (data.success) {
+        setApprovers(data.data);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar aprovadores:', err);
     }
   };
 
@@ -151,7 +170,6 @@ export default function DespesaFormPageClient() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payload: any = {
-        empresaId: formData.empresaId,
         categoriaId: parseInt(formData.categoriaId),
         fornecedorId: formData.fornecedorId ? parseInt(formData.fornecedorId) : null,
          
@@ -468,21 +486,27 @@ export default function DespesaFormPageClient() {
                   </select>
                 </div>
 
-                {/* Aprovador ID (simulado - em produ├º├úo seria um select de usu├írios) */}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">
-                    ID do Aprovador <span className="text-destructive">*</span>
+                    Aprovador <span className="text-destructive">*</span>
                   </label>
-                  <input
-                    title="Identificador do aprovador"
-                    type="number"
+                  <select
+                    title="Selecione o aprovador da despesa"
                     value={formData.aprovadorId}
                     onChange={(e) => handleChange('aprovadorId', e.target.value)}
-                    placeholder="ID do usu├írio aprovador"
                     className={`w-full px-4 py-2 border rounded-2xl focus:ring-2 focus:ring-destructive/50 focus:border-transparent ${
                       errors.aprovadorId ? 'border-destructive' : 'border-border'
                     }`}
-                  />
+                  >
+                    <option value="">Selecione um aprovador</option>
+                    {approvers
+                      .filter((approver) => approver.nivel === formData.tipoAprovador || formData.tipoAprovador === 'ADMINISTRADOR' && approver.nivel === 'ADMIN')
+                      .map((approver) => (
+                        <option key={approver.id} value={approver.id}>
+                          {approver.nomeCompleto || approver.email} - {approver.nivel}
+                        </option>
+                      ))}
+                  </select>
                   {errors.aprovadorId && (
                     <p className="mt-1 text-sm text-destructive">{errors.aprovadorId}</p>
                   )}

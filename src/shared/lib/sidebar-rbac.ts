@@ -9,7 +9,7 @@ export type NavAccessGroup<TItem extends NavAccessItem = NavAccessItem> = {
   items: TItem[]
 }
 
-export const ALWAYS_VISIBLE_HREFS = new Set(["/dashboard", "/perfil", "/meus-projetos"])
+export const ALWAYS_VISIBLE_HREFS = new Set(["/perfil", "/meus-projetos"])
 
 export function canReadNavItem(item: NavAccessItem, role: Role): boolean {
   if (item.requiredRoles && !item.requiredRoles.includes(role)) {

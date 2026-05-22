@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Download, Search } from "lucide-react";
+import { toast } from "sonner";
 
 import type { PropostaClienteOption, PropostaDTO } from "./types";
 
@@ -49,22 +50,22 @@ export function PropostasToolbar({
     try {
       if (scope === "selected") {
         if (propostas.length === 0) {
-          alert("Nenhuma proposta selecionada para exportar");
+          toast.warning("Nenhuma proposta selecionada para exportar");
           return;
         }
-        alert(`Exportação ${format.toUpperCase()} em desenvolvimento`);
+        toast.info(`Exportação ${format.toUpperCase()} em desenvolvimento`);
         return;
       }
 
       if (!onExportAllFiltered) {
-        alert("Exportação de todos os filtrados não suportada");
+        toast.warning("Exportação de todos os filtrados não suportada");
         return;
       }
 
       await onExportAllFiltered(format);
     } catch (error) {
       console.error("Erro na exportação:", error);
-      alert(`Erro ao exportar ${format.toUpperCase()}`);
+      toast.error(`Erro ao exportar ${format.toUpperCase()}`);
     }
   };
 

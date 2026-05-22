@@ -92,7 +92,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const filters = clienteFiltersSchema.parse(queryParams)
 
     // Construir where clause
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { empresaId: user.empresaId }
 
     // Filtro por busca (nome, email, documento) - MySQL não suporta mode: insensitive
     if (filters.q && filters.q.trim()) {

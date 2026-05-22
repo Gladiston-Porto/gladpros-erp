@@ -412,7 +412,7 @@ describe('PrismaFinanceGateway — fluxo projeto → invoice', () => {
       mockPrisma.invoice.findMany.mockResolvedValue([]);
       mockPrisma.invoice.count.mockResolvedValue(0);
 
-      await gateway.listarInvoices({ projetoId: 1 });
+      await gateway.listarInvoices({ empresaId: 1, projetoId: 1 });
 
       expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -425,7 +425,7 @@ describe('PrismaFinanceGateway — fluxo projeto → invoice', () => {
       mockPrisma.invoice.findMany.mockResolvedValue([]);
       mockPrisma.invoice.count.mockResolvedValue(0);
 
-      await gateway.listarInvoices({ clienteId: 10 });
+      await gateway.listarInvoices({ empresaId: 1, clienteId: 10 });
 
       expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -438,7 +438,7 @@ describe('PrismaFinanceGateway — fluxo projeto → invoice', () => {
       mockPrisma.invoice.findMany.mockResolvedValue([]);
       mockPrisma.invoice.count.mockResolvedValue(0);
 
-      const result = await gateway.listarInvoices({ projetoId: 999 });
+      const result = await gateway.listarInvoices({ empresaId: 1, projetoId: 999 });
       expect(result.data).toEqual([]);
       expect(result.paginacao.totalItens).toBe(0);
     });
@@ -451,7 +451,7 @@ describe('PrismaFinanceGateway — fluxo projeto → invoice', () => {
       mockPrisma.invoice.findMany.mockResolvedValue(fakeInvoices);
       mockPrisma.invoice.count.mockResolvedValue(2);
 
-      const result = await gateway.listarInvoices({ projetoId: 1 });
+      const result = await gateway.listarInvoices({ empresaId: 1, projetoId: 1 });
       expect(result.data).toHaveLength(2);
       expect(result.paginacao.totalItens).toBe(2);
     });

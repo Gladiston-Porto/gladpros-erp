@@ -7,6 +7,8 @@ import { EmailService } from '@/shared/lib/email';
 import { renderBaseTemplate } from '@/shared/lib/emails/template-base';
 import logger from '@/shared/lib/logger';
 import { validateTaxBeforeSend } from '@/shared/services/salesTaxService';
+import { postLedgerTransaction } from '@/shared/services/ledgerPostingService';
+import { Decimal } from '@prisma/client/runtime/library';
 
 import { checkEmailRateLimit, EMAIL_RATE_LIMIT } from './email-rate-limit';
 
@@ -61,10 +63,10 @@ export const POST = withErrorHandler(async (
   }
 
   const invoice = await prisma.invoice.findFirst({
-    where: { id: invoiceId, empresaId: 1 },
+    where: { id: invoiceId, empresaId: user.empresaId },
     include: {
       itens: { orderBy: { ordem: 'asc' } },
-      pagamentos: { orderBy: { dataPagamento: 'desc' } },
+      pagamentos: { where: { estornadoEm: null }, orderBy: { dataPagamento: 'desc' } },
       cliente: {
         select: {
           nomeCompleto: true,
@@ -94,6 +96,20 @@ export const POST = withErrorHandler(async (
     return NextResponse.json(
       { error: 'Invalid operation', message: 'Não é possível enviar invoice cancelada', success: false },
       { status: 400 },
+    );
+  }
+
+  if (invoice.status === 'PAID') {
+    return NextResponse.json(
+      { error: 'Invalid operation', message: 'Não é possível enviar invoice já paga', success: false },
+      { status: 400 },
+    );
+  }
+
+  if (!invoice.itens || invoice.itens.length === 0) {
+    return NextResponse.json(
+      { error: 'Validation failed', message: 'Invoice não pode ser enviada sem itens', success: false },
+      { status: 422 },
     );
   }
 
@@ -131,6 +147,61 @@ export const POST = withErrorHandler(async (
       message: taxBlockers[0],
       success: false,
     }, { status: 422 });
+  }
+
+  const statusUpdated = invoice.status === 'DRAFT' ? 'SENT' : null;
+
+  if (invoice.status === 'DRAFT') {
+    const claimed = await prisma.$transaction(async (tx) => {
+      const updated = await tx.invoice.updateMany({
+        where: { id: invoiceId, empresaId: user.empresaId, status: 'DRAFT' },
+        data: { status: 'SENT', atualizadoPor: Number(user.id) },
+      });
+
+      if (updated.count === 0) {
+        return false;
+      }
+
+      if (!invoice.ledgerTransactionId) {
+        const invoiceLedger = await postLedgerTransaction(
+          {
+            empresaId: invoice.empresaId,
+            data: new Date(),
+            descricao: `Invoice #${invoiceId} reconhecida`,
+            sourceType: 'INVOICE',
+            sourceId: invoiceId,
+            entries: [
+              {
+                accountCode: 'ACCOUNTS_RECEIVABLE',
+                debit: new Decimal(invoice.valorTotal),
+                memo: `Invoice #${invoiceId}`,
+              },
+              {
+                accountCode: 'REVENUE',
+                credit: new Decimal(invoice.valorTotal),
+                memo: `Invoice #${invoiceId}`,
+              },
+            ],
+          },
+          tx,
+        );
+
+        await tx.invoice.update({
+          where: { id: invoiceId },
+          data: { ledgerTransactionId: invoiceLedger.id },
+          select: { id: true },
+        });
+      }
+
+      return true;
+    });
+
+    if (!claimed) {
+      return NextResponse.json(
+        { error: 'Conflict', message: 'Invoice já está em envio ou foi enviada', success: false },
+        { status: 409 },
+      );
+    }
   }
 
   // Generate PDF
@@ -249,15 +320,7 @@ export const POST = withErrorHandler(async (
       );
     }
 
-    // Update status + create reminder in transaction
-    const newStatus = invoice.status === 'DRAFT' ? 'SENT' : invoice.status;
-
     await prisma.$transaction(async (tx) => {
-      await tx.invoice.update({
-        where: { id: invoiceId },
-        data: { status: newStatus, atualizadoPor: Number(user.id) },
-      });
-
       await tx.invoiceReminder.create({
         data: {
           invoiceId,
@@ -279,7 +342,7 @@ export const POST = withErrorHandler(async (
           entidade: 'Invoice',
           entidadeId: String(invoiceId),
           acao: 'SEND',
-          diff: JSON.stringify({ numeroInvoice: invoice.numeroInvoice, sentTo: invoice.cliente.email, statusUpdated: newStatus }),
+          diff: JSON.stringify({ numeroInvoice: invoice.numeroInvoice, sentTo: invoice.cliente.email, statusUpdated }),
         },
       });
     });
@@ -288,7 +351,7 @@ export const POST = withErrorHandler(async (
       data: {
         messageId: result.messageId,
         sentTo: invoice.cliente.email,
-        statusUpdated: invoice.status === 'DRAFT' ? 'SENT' : null,
+        statusUpdated,
       },
       success: true,
     });

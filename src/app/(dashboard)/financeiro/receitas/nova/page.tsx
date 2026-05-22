@@ -73,7 +73,6 @@ export default function NovaReceitaPage() {
     try {
       const payload = {
         ...data,
-        empresaId: 1,
         clienteId: data.clienteId || undefined,
         dataEmissao: new Date(data.dataEmissao).toISOString(),
         dataVencimento: new Date(data.dataVencimento).toISOString(),

@@ -57,6 +57,19 @@ export const FormaPagamentoEnum = z.enum([
   'CHEQUE'
 ]);
 
+export const ExpenseCostCategoryEnum = z.enum([
+  'PERMIT_FEE',
+  'DUMPSTER',
+  'FUEL',
+  'TOOL_RENTAL',
+  'SUBCONTRACTOR',
+  'MATERIAL',
+  'LABOR',
+  'INSURANCE',
+  'OVERHEAD',
+  'OTHER',
+]);
+
 // ========================================
 // VALIDAÇÕES CUSTOMIZADAS
 // ========================================
@@ -104,6 +117,14 @@ export const createExpenseSchema = z.object({
   formaPagamento: FormaPagamentoEnum,
 
   status: StatusDespesaEnum.default('PENDENTE'),
+
+  projetoId: z.number().int().positive('ID do projeto deve ser positivo').optional().nullable(),
+
+  serviceOrderId: z.number().int().positive('ID da ordem de serviço deve ser positivo').optional().nullable(),
+
+  isBillableToClient: z.boolean().optional(),
+
+  costCategory: ExpenseCostCategoryEnum.optional().nullable(),
 
   // Datas
   dataEmissao: z.coerce.date(),
@@ -407,6 +428,7 @@ export type UpdateExpenseCategoryInput = z.infer<typeof updateExpenseCategorySch
 
 export const payExpenseSchema = z.object({
   expenseId: z.number().int().positive('ID da despesa deve ser positivo'),
+  bankAccountId: z.number().int().positive('ID da conta bancária deve ser positivo'),
   dataPagamento: z.coerce.date(),
   formaPagamento: FormaPagamentoEnum.optional(), // Permitir alterar forma de pagamento
   observacoes: z.string().max(1000).optional().nullable()

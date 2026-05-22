@@ -257,6 +257,40 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return response;
   }
 
+  // Verificar dispositivo confiável (cookie deviceTrust) — pula MFA se válido
+  const deviceTrustCookie = req.cookies.get("deviceTrust")?.value;
+  if (deviceTrustCookie && !user.primeiroAcesso) {
+    type TrustRow = { id: number };
+    const trusted = await prisma.$queryRaw<TrustRow[]>`
+      SELECT id FROM DispositivoConfiavel
+      WHERE usuarioId = ${user.id} AND deviceToken = ${deviceTrustCookie} AND expiresAt > NOW()
+      LIMIT 1
+    `.catch(() => [] as TrustRow[]);
+    if (trusted.length > 0) {
+      // Dispositivo confiável — emitir token direto sem MFA
+      const { signAuthJWT } = await import("@/shared/lib/jwt");
+      const { generateRefreshToken } = await import("@/lib/auth/token-service");
+      const { SecurityService } = await import("@/shared/lib/security");
+      const userRole = ((user.nivel ?? "USUARIO").toUpperCase() as "ADMIN" | "GERENTE" | "USUARIO" | "FINANCEIRO" | "ESTOQUE" | "CLIENTE");
+      const userStatus = ((user.status ?? "ATIVO") as "ATIVO" | "INATIVO");
+      const [token, refreshResult, sessionToken] = await Promise.all([
+        signAuthJWT({ sub: user.id.toString(), role: userRole, email: user.email, status: userStatus, tokenVersion: user.tokenVersion ?? 0 }, '8h'),
+        generateRefreshToken(user.id, user.email, userRole, { ip, userAgent }).catch(() => undefined),
+        SecurityService.createSession(user.id, ip, userAgent).catch(() => undefined),
+      ]);
+      await Promise.all([
+        prisma.$executeRaw`INSERT INTO TentativaLogin (usuarioId, email, sucesso, ip, userAgent) VALUES (${user.id}, ${user.email}, TRUE, ${ip}, ${userAgent})`,
+        prisma.$executeRaw`UPDATE Usuario SET ultimoLoginEm = NOW() WHERE id = ${user.id}`,
+        AuditLogger.logLogin(user.id, user.email, req, true, { method: 'trusted-device' }),
+      ]).catch(() => {});
+      const response = NextResponse.json({ success: true, user: { id: user.id, email: user.email, nomeCompleto: user.nomeCompleto } });
+      response.cookies.set('authToken', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 8 * 60 * 60, path: '/' });
+      if (refreshResult?.refreshToken) response.cookies.set('refreshToken', refreshResult.refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 7 * 24 * 60 * 60, path: '/api/auth' });
+      if (sessionToken) response.cookies.set('sessionToken', sessionToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 24 * 60 * 60 });
+      return response;
+    }
+  }
+
   // Pré-aquecer SMTP em background para reduzir latência do primeiro envio
   const { EmailService } = await import("@/shared/lib/email");
   EmailService.prewarm();

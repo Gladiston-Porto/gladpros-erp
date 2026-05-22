@@ -13,10 +13,11 @@ import { requireUser } from '@/shared/lib/rbac';
 import { UserRole, canManageRole, getManageableRoles } from "@/shared/lib/user-hierarchy";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import { withBusinessCache } from "@/shared/lib/cache/business-cache";
-import { AuditoriaService } from "@/shared/lib/audit";
+import { AuditLogger } from "@/shared/lib/audit";
 import { logger } from "@/lib/api/logger";
 import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { signFirstAccessJWT } from "@/shared/lib/jwt";
+import { getUsuarioColumns } from "@/shared/lib/usuario-query";
 
 // Minimal shapes for raw SQL rows (A10: PII fica fora da listagem)
 type UserRow = {
@@ -34,30 +35,13 @@ type UserRow = {
   avatarUrl?: string | null;
   expiresAt?: Date | string | null;
   primeiroAcesso?: boolean | number | null;
+  bloqueado?: boolean | number | null;
 };
 
 type CountRow = { cnt: number };
-type ColumnRow = { COLUMN_NAME: string };
 type SqlValue = string | number | null | Date | boolean;
 
-// Retry helper for transient DB init (e.g., P1001 on container boot)
-async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 500): Promise<T> {
-  let lastErr: unknown;
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await fn();
-    } catch (err: unknown) {
-      const e = err as { code?: string; errorCode?: string; name?: string } | undefined;
-      const code = e?.code || e?.errorCode;
-      const name = e?.name;
-      const isInit = name === "PrismaClientInitializationError" || code === "P1001";
-      if (!isInit || i === retries) throw err;
-      lastErr = err;
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-  throw lastErr;
-}
+import { withRetry } from "@/lib/utils/retry";
 
 /** Enums alinhados ao Prisma (note: Prisma model uses 'nivel' e 'StatusUsuario') */
 const Roles = z.enum(["ADMIN", "GERENTE", "USUARIO", "FINANCEIRO", "ESTOQUE", "CLIENTE"]);
@@ -90,6 +74,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         // Aceitar boolean strings, enum values, ou strings vazias
         return val === 'true' || val === 'false' || Status.safeParse(val).success;
       }, "status inválido"),
+      primeiroAcesso: z.string().optional().refine((val) => !val || val === 'true' || val === 'false', "primeiroAcesso deve ser 'true' ou 'false'"),
       sortKey: z.enum(["nome","email","role","ativo","criadoEm"]).optional(),
       sortDir: z.enum(["asc","desc"]).optional(),
       page: z
@@ -108,6 +93,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       q: searchParams.get("q") ?? undefined,
   role: searchParams.get("role") ?? undefined,
   status: searchParams.get("status") ?? undefined,
+  primeiroAcesso: searchParams.get("primeiroAcesso") ?? undefined,
   sortKey: searchParams.get("sortKey") ?? undefined,
   sortDir: searchParams.get("sortDir") ?? undefined,
       page: searchParams.get("page") ?? undefined,
@@ -116,11 +102,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "INVALID_QUERY", issues: parsed.error.flatten() },
+        { error: "INVALID_QUERY", message: "Parâmetros de consulta inválidos", success: false },
         { status: 400 }
       );
     }
-    const { page, pageSize, q: qq, role, status, sortKey, sortDir } = parsed.data;
+    const { page, pageSize, q: qq, role, status, primeiroAcesso, sortKey, sortDir } = parsed.data;
 
     // Tratar strings vazias como undefined
     const effectiveRole = role && role.trim() !== '' ? role as z.infer<typeof Roles> : undefined;
@@ -130,12 +116,18 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       if (status === 'false') return 'INATIVO' as const;
       return status as z.infer<typeof Status>;
     })();
+    // null = sem filtro, true = só aguardando, false = só quem já acessou
+    const effectivePrimeiroAcesso = primeiroAcesso === 'true' ? true : primeiroAcesso === 'false' ? false : null;
 
     const skip = (page - 1) * pageSize;
 
     // Build WHERE
     const where: string[] = [];
     const params: SqlValue[] = [];
+
+    // BUG-02 fix: Always filter by empresaId to prevent IDOR (even in single-tenant)
+    where.push("empresaId = ?");
+    params.push(user.empresaId);
 
     // Aplicar filtros hierárquicos baseados no papel do usuário
     const userRole = user.role as UserRole;
@@ -146,7 +138,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       if (manageableRoles.length === 0) {
         // Usuário não pode gerenciar ninguém
         return NextResponse.json(
-          { error: 'Acesso negado. Você não tem permissão para listar usuários.' },
+          { error: 'Forbidden', message: 'Sem permissão para listar usuários.', success: false },
           { status: 403 }
         );
       }
@@ -165,7 +157,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const roleValues = effectiveRole.split(",").map((r) => r.trim()).filter(Boolean);
       if (userRole !== UserRole.ADMIN && roleValues.some((r) => !canManageRole(userRole, r as UserRole))) {
         return NextResponse.json(
-          { error: 'Acesso negado. Você não pode filtrar por este nível.' },
+          { error: 'Forbidden', message: 'Sem permissão para filtrar por este nível.', success: false },
           { status: 403 }
         );
       }
@@ -181,6 +173,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     if (effectiveStatus) {
       where.push("status = ?");
       params.push(effectiveStatus);
+    }
+    if (effectivePrimeiroAcesso !== null) {
+      where.push("primeiroAcesso = ?");
+      params.push(effectivePrimeiroAcesso ? 1 : 0);
     }
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
@@ -202,6 +198,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       qq: qq ?? "",
       effectiveRole: effectiveRole ?? "",
       effectiveStatus: effectiveStatus ?? "",
+      effectivePrimeiroAcesso: effectivePrimeiroAcesso ?? "",
       sortKey: sortKey ?? "criadoEm",
       sortDir: sortDir ?? "desc",
       page,
@@ -229,18 +226,37 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
             atualizadoEm,
             avatarUrl,
             expiresAt,
-            primeiroAcesso
+            primeiroAcesso,
+            bloqueado
           FROM Usuario
           ${whereSql}
           ORDER BY ${orderKey} ${orderDir}
           LIMIT ? OFFSET ?
         `;
         const itemsParams = [...params, pageSize, skip];
-        const itemsRaw = (await withRetry(() => prisma.$queryRawUnsafe(itemsSql, ...itemsParams))) as unknown as UserRow[];
-
         const countSql = `SELECT COUNT(*) as cnt FROM Usuario ${whereSql}`;
-        const countRaw = (await withRetry(() => prisma.$queryRawUnsafe(countSql, ...params))) as unknown as CountRow[];
+
+        // BUG-11 fix: Stats query for accurate global active/inactive counts (respects role visibility)
+        const statsWhereParts = [`empresaId = ?`];
+        const statsParamsList: SqlValue[] = [user.empresaId];
+        if (userRole !== UserRole.ADMIN && manageableRoles.length > 0) {
+          statsWhereParts.push(`nivel IN (${manageableRoles.map(() => '?').join(',')})`);
+          statsParamsList.push(...manageableRoles);
+        }
+        const statsWhereSql = `WHERE ${statsWhereParts.join(' AND ')}`;
+
+        const [itemsRaw, countRaw, statsRaw] = (await Promise.all([
+          withRetry(() => prisma.$queryRawUnsafe(itemsSql, ...itemsParams)),
+          withRetry(() => prisma.$queryRawUnsafe(countSql, ...params)),
+          withRetry(() => prisma.$queryRawUnsafe(
+            `SELECT status, COUNT(*) as cnt FROM Usuario ${statsWhereSql} GROUP BY status`,
+            ...statsParamsList
+          )),
+        ])) as unknown as [UserRow[], CountRow[], Array<{ status: string; cnt: bigint | number }>];
+
         const total = Number(countRaw?.[0]?.cnt ?? 0);
+        const activeTotal = Number(statsRaw.find(r => r.status === 'ATIVO')?.cnt ?? 0);
+        const inactiveTotal = Number(statsRaw.find(r => r.status === 'INATIVO')?.cnt ?? 0);
 
         const items = itemsRaw.map((it) => {
           return {
@@ -258,15 +274,31 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
             avatarUrl: it.avatarUrl ?? null,
             expiresAt: it.expiresAt ? (it.expiresAt instanceof Date ? it.expiresAt.toISOString() : String(it.expiresAt)) : null,
             primeiroAcesso: Boolean(it.primeiroAcesso),
+            bloqueado: it.bloqueado === true || it.bloqueado === 1,
+            // Link de primeiro acesso expira em 7 dias após criadoEm
+            linkExpirado: Boolean(it.primeiroAcesso) &&
+              it.criadoEm != null &&
+              (Date.now() - new Date(it.criadoEm).getTime()) > 7 * 24 * 60 * 60 * 1000,
           };
         });
 
-        return { items, total };
+        return { items, total, activeTotal, inactiveTotal };
       },
       { ttlSeconds: cacheTtlSeconds }
     );
 
-    return NextResponse.json({ items: payload.items, total: payload.total, page, pageSize }, { status: 200 });
+    return NextResponse.json({
+      data: payload.items,
+      pagination: {
+        page,
+        pageSize,
+        total: payload.total,
+        totalPages: Math.ceil(payload.total / pageSize),
+        activeTotal: payload.activeTotal,
+        inactiveTotal: payload.inactiveTotal,
+      },
+      success: true,
+    });
   });
 
 /* =========================================================
@@ -381,6 +413,9 @@ const UserCreateSchema = z.object({
 }).strict();
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+    // Verificar autenticação
+    const user = await requireUser(req);
+
     // Rate limiting — prevenir criação em massa de contas
     const rateCheck = await apiRateLimit.isAllowed(req);
     if (!rateCheck.allowed) {
@@ -390,9 +425,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       );
     }
 
-    // Verificar autenticação
-    const user = await requireUser(req);
-    
     // Verificar se usuário tem permissão de criação — apenas ADMIN (conforme rbac-core)
     if (!can(user.role as Role, 'usuarios', 'create')) {
       return NextResponse.json(
@@ -456,11 +488,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       const tempPassword = generateTempPassword(12);
       const senhaHash = await bcrypt.hash(tempPassword, 12);
 
-      // 2) Inserção resiliente ao schema: detectar colunas disponíveis
-      const colsRows = (await withRetry(() => prisma.$queryRaw`
-        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario'
-        `)) as unknown as ColumnRow[];
-      const cols = new Set(colsRows.map((r) => String(r.COLUMN_NAME)));
+      // 2) Inserção resiliente ao schema: detectar colunas disponíveis (usando cache com TTL de 5 min)
+      const cols = await getUsuarioColumns();
 
       const insertCols: string[] = ["email", "senha"]; // essenciais
       const values: SqlValue[] = [emailAddr, senhaHash];
@@ -535,12 +564,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       // Registrar auditoria da criação (não bloqueia o fluxo se falhar)
       try {
         const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-        await AuditoriaService.registrarCriacaoUsuario(
-          created.id,
-          { email: created.email, role: role ?? 'USUARIO', nomeCompleto: nomeCompleto ?? null },
-          Number(user.id),
-          ip
-        );
+        await AuditLogger.log({
+          userId: Number(user.id),
+          action: 'CREATE_USER',
+          resource: 'Usuario',
+          resourceId: String(created.id),
+          ip,
+          details: { email: created.email, role: role ?? 'USUARIO', nomeCompleto: nomeCompleto ?? null },
+          status: 'SUCCESS',
+        });
       } catch (auditError) {
         logger.error('[POST usuarios] Erro ao registrar auditoria', {}, auditError);
       }

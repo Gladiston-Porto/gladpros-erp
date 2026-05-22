@@ -13,6 +13,8 @@ type UsersToolbarProps = {
   onRole: (v: string) => void;
   status?: string;
   onStatus?: (v: string) => void;
+  primeiroAcesso?: string;
+  onPrimeiroAcesso?: (v: string) => void;
   total: number;
   showNew?: boolean;
   // legacy props — mantidas para não quebrar chamadas existentes
@@ -29,6 +31,8 @@ export function UsersToolbar({
   onRole,
   status,
   onStatus,
+  primeiroAcesso,
+  onPrimeiroAcesso,
   total,
   showNew = true,
 }: UsersToolbarProps) {
@@ -41,11 +45,13 @@ export function UsersToolbar({
             value={q}
             onChange={(e) => onQ(e.target.value)}
             placeholder="Buscar por nome ou email"
+            aria-label="Buscar usuários por nome ou email"
             className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
           />
         </div>
         <select
           title="Filtrar por nível de acesso"
+          aria-label="Filtrar por nível de acesso"
           value={role}
           onChange={(e) => onRole(e.target.value)}
           className="h-10 rounded-2xl border border-border bg-card px-3 text-sm outline-none transition hover:border-brand-primary focus:border-brand-primary dark:focus:border-brand-primary"
@@ -57,6 +63,7 @@ export function UsersToolbar({
         </select>
         <select
           title="Filtrar por status"
+          aria-label="Filtrar por status da conta"
           value={status ?? ""}
           onChange={(e) => onStatus?.(e.target.value)}
           className="h-10 rounded-2xl border border-border bg-card px-3 text-sm outline-none transition hover:border-brand-primary focus:border-brand-primary dark:focus:border-brand-primary"
@@ -64,6 +71,17 @@ export function UsersToolbar({
           <option value="">Status</option>
           <option value="true">Ativos</option>
           <option value="false">Inativos</option>
+        </select>
+        <select
+          title="Filtrar por acesso inicial"
+          aria-label="Filtrar por status do primeiro acesso"
+          value={primeiroAcesso ?? ""}
+          onChange={(e) => onPrimeiroAcesso?.(e.target.value)}
+          className="h-10 rounded-2xl border border-border bg-card px-3 text-sm outline-none transition hover:border-brand-primary focus:border-brand-primary dark:focus:border-brand-primary"
+        >
+          <option value="">1º Acesso</option>
+          <option value="true">Aguardando</option>
+          <option value="false">Configurado</option>
         </select>
 
         {showNew && (

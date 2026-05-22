@@ -19,13 +19,14 @@ export const GET = withErrorHandler(async (
 ) => {
   const user = await requireClientePermission(request, 'canRead')
   const canViewFinancial = can(user.role as Role, 'invoices', 'read') || can(user.role as Role, 'financeiro', 'read')
-  const EMPRESA_ID = 1 // single-tenant: GladPros
+  const canViewPropostas = can(user.role as Role, 'propostas', 'read')
+  const EMPRESA_ID = user.empresaId as number
 
   const { id } = clienteParamsSchema.parse(await ctx.params)
 
-  // Verificar se o cliente existe
+  // Verificar se o cliente existe (scoped por empresa)
   const cliente = await prisma.cliente.findUnique({
-    where: { id },
+    where: { id, empresaId: user.empresaId as number },
     select: { id: true, status: true },
   })
   if (!cliente) {
@@ -49,21 +50,23 @@ export const GET = withErrorHandler(async (
       take: 50,
     }),
 
-    prisma.proposta.findMany({
-      where: { clienteId: id, deletedAt: null },
-      select: {
-        id: true,
-        numeroProposta: true,
-        tipoServico: true,
-        status: true,
-        valorEstimado: true,
-        moeda: true,
-        dataCriacao: true,
-        criadoEm: true,
-      },
-      orderBy: { criadoEm: 'desc' },
-      take: 50,
-    }),
+    canViewPropostas
+      ? prisma.proposta.findMany({
+          where: { clienteId: id, deletedAt: null },
+          select: {
+            id: true,
+            numeroProposta: true,
+            tipoServico: true,
+            status: true,
+            valorEstimado: true,
+            moeda: true,
+            dataCriacao: true,
+            criadoEm: true,
+          },
+          orderBy: { criadoEm: 'desc' },
+          take: 50,
+        })
+      : Promise.resolve([]),
 
     prisma.projeto.findMany({
       where: { clienteId: id },
@@ -78,20 +81,22 @@ export const GET = withErrorHandler(async (
       take: 50,
     }),
 
-    prisma.invoice.findMany({
-      where: { clienteId: id },
-      select: {
-        id: true,
-        numeroInvoice: true,
-        status: true,
-        valorTotal: true,
-        dataEmissao: true,
-        dataVencimento: true,
-        dataPagamento: true,
-      },
-      orderBy: { dataEmissao: 'desc' },
-      take: 50,
-    }),
+    canViewFinancial
+      ? prisma.invoice.findMany({
+          where: { clienteId: id },
+          select: {
+            id: true,
+            numeroInvoice: true,
+            status: true,
+            valorTotal: true,
+            dataEmissao: true,
+            dataVencimento: true,
+            dataPagamento: true,
+          },
+          orderBy: { dataEmissao: 'desc' },
+          take: 50,
+        })
+      : Promise.resolve([]),
 
     prisma.warrantyTicket.findMany({
       where: { clienteId: id },
@@ -136,6 +141,7 @@ export const GET = withErrorHandler(async (
     canViewFinancial
       ? prisma.invoicePayment.findMany({
           where: {
+            estornadoEm: null,
             invoice: {
               clienteId: id,
             },
@@ -189,15 +195,17 @@ export const GET = withErrorHandler(async (
         total: os.total ? Number(os.total) : 0,
         criadoEm: os.createdAt.toISOString(),
       })),
-      propostas: propostas.map((p) => ({
-        id: p.id,
-        numeroProposta: p.numeroProposta,
-        tipoServico: p.tipoServico,
-        status: p.status,
-        valorEstimado: p.valorEstimado ? Number(p.valorEstimado) : null,
-        moeda: p.moeda,
-        criadoEm: p.criadoEm.toISOString(),
-      })),
+      propostas: canViewPropostas
+        ? propostas.map((p) => ({
+            id: p.id,
+            numeroProposta: p.numeroProposta,
+            tipoServico: p.tipoServico,
+            status: p.status,
+            valorEstimado: p.valorEstimado ? Number(p.valorEstimado) : null,
+            moeda: p.moeda,
+            criadoEm: p.criadoEm.toISOString(),
+          }))
+        : [],
       projetos: projetos.map((proj) => ({
         id: proj.id,
         titulo: proj.titulo,
@@ -205,15 +213,17 @@ export const GET = withErrorHandler(async (
         valorEstimado: proj.valorEstimado ? Number(proj.valorEstimado) : null,
         criadoEm: proj.criadoEm.toISOString(),
       })),
-      invoices: invoices.map((inv) => ({
-        id: inv.id,
-        numeroInvoice: inv.numeroInvoice,
-        status: inv.status,
-        valorTotal: Number(inv.valorTotal),
-        dataEmissao: inv.dataEmissao.toISOString(),
-        dataVencimento: inv.dataVencimento.toISOString(),
-        dataPagamento: inv.dataPagamento?.toISOString() ?? null,
-      })),
+      invoices: canViewFinancial
+        ? invoices.map((inv) => ({
+            id: inv.id,
+            numeroInvoice: inv.numeroInvoice,
+            status: inv.status,
+            valorTotal: Number(inv.valorTotal),
+            dataEmissao: inv.dataEmissao.toISOString(),
+            dataVencimento: inv.dataVencimento.toISOString(),
+            dataPagamento: inv.dataPagamento?.toISOString() ?? null,
+          }))
+        : [],
       warrantyTickets: warrantyTickets.map((ticket) => ({
         id: ticket.id,
         title: ticket.title,
@@ -251,20 +261,21 @@ export const GET = withErrorHandler(async (
         : [],
       totais: {
         serviceOrders: serviceOrders.length,
-        propostas: propostas.length,
+        propostas: canViewPropostas ? propostas.length : 0,
         projetos: projetos.length,
-        invoices: invoices.length,
+        invoices: canViewFinancial ? invoices.length : 0,
         warrantyTickets: warrantyTickets.length,
         revenues: canViewFinancial ? revenues.length : 0,
         invoicePayments: canViewFinancial ? invoicePayments.length : 0,
       },
       permissions: {
         canViewFinancial,
+        canViewPropostas,
       },
       metrics: {
-        lifetimeValue: paidInvoiceValue,
-        outstandingValue: outstandingInvoiceValue,
-        totalInvoiceValue,
+        lifetimeValue: canViewFinancial ? paidInvoiceValue : undefined,
+        outstandingValue: canViewFinancial ? outstandingInvoiceValue : undefined,
+        totalInvoiceValue: canViewFinancial ? totalInvoiceValue : undefined,
         projectPipelineValue,
         activeWarrantyTickets,
         totalRevenueValue: canViewFinancial ? totalRevenueValue : undefined,

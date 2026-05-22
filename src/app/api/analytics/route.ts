@@ -5,6 +5,8 @@ import { subDays, subMonths, startOfDay } from 'date-fns';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { withBusinessCache } from '@/shared/lib/cache/business-cache';
 import { can, requireUser, type Role } from '@/shared/lib/rbac';
+import { apiRateLimit } from '@/shared/lib/rate-limit';
+import { z } from 'zod';
 
 type ActivityType = 'nova_proposta' | 'aprovacao' | 'cancelamento' | 'novo_cliente';
 type Activity = { id: string; type: ActivityType; description: string; timestamp: string };
@@ -21,8 +23,23 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       );
     }
 
+    const rateCheck = await apiRateLimit.isAllowed(request);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests', message: rateCheck.message, success: false },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateCheck.resetTime - Date.now()) / 1000)) } }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period') || '30d';
+    const periodResult = z.enum(['7d', '30d', '90d']).safeParse(searchParams.get('period') ?? '30d');
+    if (!periodResult.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', message: 'Parâmetro "period" inválido', success: false },
+        { status: 400 }
+      );
+    }
+    const period = periodResult.data;
     const requestedRole = (searchParams.get('role') || 'all').trim();
     const normalizedRole =
       requestedRole === 'all'
@@ -43,8 +60,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
             ESTOQUE: 'ESTOQUE',
             CLIENTE: 'CLIENTE',
           } as const)[requestedRole] ?? 'all';
+    const roleResult = z.enum(['all', 'ADMIN', 'GERENTE', 'USUARIO', 'FINANCEIRO', 'ESTOQUE', 'CLIENTE']).safeParse(normalizedRole);
+    const safeRole = roleResult.success ? roleResult.data : 'all';
 
-    const cacheKey = `dashboard_analytics:${String(user.role).toUpperCase()}:${normalizedRole}:${period}`;
+    const cacheKey = `dashboard_analytics:${String(user.role).toUpperCase()}:${canReadAnalytics ? 'analytics' : 'dashboard'}:${safeRole}:${period}`;
     const cacheTtlSeconds = process.env.NODE_ENV === 'production' ? 120 : 30;
 
     const analyticsData = await withBusinessCache(
@@ -55,8 +74,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         const sixMonthsAgo = startOfDay(subMonths(new Date(), 6));
 
         const validRoles: Role[] = ['ADMIN', 'GERENTE', 'USUARIO', 'FINANCEIRO', 'ESTOQUE', 'CLIENTE'];
-        const roleFilter = normalizedRole !== 'all' && validRoles.includes(normalizedRole as Role)
-          ? { nivel: normalizedRole }
+        const roleFilter = safeRole !== 'all' && validRoles.includes(safeRole as Role)
+          ? { nivel: safeRole }
           : {};
 
         const [
@@ -82,14 +101,24 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           prisma.usuario.count({ where: { ...roleFilter } }),
           prisma.usuario.count({ where: { ...roleFilter, ultimoLoginEm: { gte: startDate } } }),
           prisma.cliente.count(),
-          prisma.proposta.count({ where: { deletedAt: null } }),
-          prisma.tentativaLogin.count({ where: { criadaEm: { gte: startDate } } }),
-          prisma.tentativaLogin.count({ where: { sucesso: false, criadaEm: { gte: startDate } } }),
-          prisma.auditoria.count({ where: { criadoEm: { gte: startDate } } }),
+          prisma.proposta.count({ where: { deletedAt: null, dataCriacao: { gte: startDate } } }),
+          canReadAnalytics
+            ? prisma.tentativaLogin.count({ where: { criadaEm: { gte: startDate } } })
+            : Promise.resolve(0),
+          canReadAnalytics
+            ? prisma.tentativaLogin.count({ where: { sucesso: false, criadaEm: { gte: startDate } } })
+            : Promise.resolve(0),
+          canReadAnalytics
+            ? prisma.auditoria.count({ where: { criadoEm: { gte: startDate } } })
+            : Promise.resolve(0),
           prisma.cliente.groupBy({ by: ['status'], _count: { status: true } }),
-          prisma.proposta.groupBy({ by: ['status'], _count: { status: true }, where: { deletedAt: null } }),
-          prisma.auditoria.groupBy({ by: ['acao'], _count: { acao: true }, where: { criadoEm: { gte: startDate } } }),
-          prisma.usuario.groupBy({ by: ['nivel'], _count: { nivel: true } }),
+          prisma.proposta.groupBy({ by: ['status'], _count: { status: true }, where: { deletedAt: null, dataCriacao: { gte: startDate } } }),
+          canReadAnalytics
+            ? prisma.auditoria.groupBy({ by: ['acao'], _count: { acao: true }, where: { criadoEm: { gte: startDate } } })
+            : Promise.resolve([]),
+          canReadAnalytics
+            ? prisma.usuario.groupBy({ by: ['nivel'], _count: { nivel: true } })
+            : Promise.resolve([]),
           prisma.proposta.findMany({
             take: 5,
             orderBy: { criadoEm: 'desc' },
@@ -107,23 +136,27 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
             orderBy: { criadoEm: 'desc' },
             select: { id: true, nomeFantasia: true, nomeCompleto: true, criadoEm: true },
           }),
-          prisma.auditoria.findFirst({ orderBy: { criadoEm: 'desc' }, select: { criadoEm: true } }),
-          prisma.$queryRaw<Array<{
-            date: string;
-            attempts: bigint;
-            successful: bigint;
-            failed: bigint;
-          }>>`
-            SELECT
-              DATE_FORMAT(criadaEm, '%Y-%m-%d') as date,
-              CAST(COUNT(*) AS SIGNED) as attempts,
-              CAST(SUM(CASE WHEN sucesso = 1 THEN 1 ELSE 0 END) AS SIGNED) as successful,
-              CAST(SUM(CASE WHEN sucesso = 0 THEN 1 ELSE 0 END) AS SIGNED) as failed
-            FROM TentativaLogin
-            WHERE criadaEm >= ${startDate}
-            GROUP BY DATE_FORMAT(criadaEm, '%Y-%m-%d')
-            ORDER BY date ASC
-          `,
+          canReadAnalytics
+            ? prisma.auditoria.findFirst({ orderBy: { criadoEm: 'desc' }, select: { criadoEm: true } })
+            : Promise.resolve(null),
+          canReadAnalytics
+            ? prisma.$queryRaw<Array<{
+                date: string;
+                attempts: bigint;
+                successful: bigint;
+                failed: bigint;
+              }>>`
+                SELECT
+                  DATE_FORMAT(criadaEm, '%Y-%m-%d') as date,
+                  CAST(COUNT(*) AS SIGNED) as attempts,
+                  CAST(SUM(CASE WHEN sucesso = 1 THEN 1 ELSE 0 END) AS SIGNED) as successful,
+                  CAST(SUM(CASE WHEN sucesso = 0 THEN 1 ELSE 0 END) AS SIGNED) as failed
+                FROM TentativaLogin
+                WHERE criadaEm >= ${startDate}
+                GROUP BY DATE_FORMAT(criadaEm, '%Y-%m-%d')
+                ORDER BY date ASC
+              `
+            : Promise.resolve([]),
           prisma.$queryRaw<Array<{
             month: string; label: string; propostas: bigint;
           }>>`
@@ -136,30 +169,34 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
             GROUP BY DATE_FORMAT(criadoEm, '%Y-%m'), DATE_FORMAT(criadoEm, '%b')
             ORDER BY month ASC
           `,
-          prisma.$queryRaw<Array<{
-            month: string; label: string; usuarios: bigint;
-          }>>`
-            SELECT
-              DATE_FORMAT(criadoEm, '%Y-%m') as month,
-              DATE_FORMAT(criadoEm, '%b') as label,
-              CAST(COUNT(*) AS SIGNED) as usuarios
-            FROM Usuario
-            WHERE criadoEm >= ${sixMonthsAgo}
-            GROUP BY DATE_FORMAT(criadoEm, '%Y-%m'), DATE_FORMAT(criadoEm, '%b')
-            ORDER BY month ASC
-          `,
-          prisma.$queryRaw<Array<{
-            month: string; label: string; ativos: bigint;
-          }>>`
-            SELECT
-              DATE_FORMAT(ultimoLoginEm, '%Y-%m') as month,
-              DATE_FORMAT(ultimoLoginEm, '%b') as label,
-              CAST(COUNT(DISTINCT id) AS SIGNED) as ativos
-            FROM Usuario
-            WHERE ultimoLoginEm >= ${sixMonthsAgo}
-            GROUP BY DATE_FORMAT(ultimoLoginEm, '%Y-%m'), DATE_FORMAT(ultimoLoginEm, '%b')
-            ORDER BY month ASC
-          `,
+          canReadAnalytics
+            ? prisma.$queryRaw<Array<{
+                month: string; label: string; usuarios: bigint;
+              }>>`
+                SELECT
+                  DATE_FORMAT(criadoEm, '%Y-%m') as month,
+                  DATE_FORMAT(criadoEm, '%b') as label,
+                  CAST(COUNT(*) AS SIGNED) as usuarios
+                FROM Usuario
+                WHERE criadoEm >= ${sixMonthsAgo}
+                GROUP BY DATE_FORMAT(criadoEm, '%Y-%m'), DATE_FORMAT(criadoEm, '%b')
+                ORDER BY month ASC
+              `
+            : Promise.resolve([]),
+          canReadAnalytics
+            ? prisma.$queryRaw<Array<{
+                month: string; label: string; ativos: bigint;
+              }>>`
+                SELECT
+                  DATE_FORMAT(ultimoLoginEm, '%Y-%m') as month,
+                  DATE_FORMAT(ultimoLoginEm, '%b') as label,
+                  CAST(COUNT(DISTINCT id) AS SIGNED) as ativos
+                FROM Usuario
+                WHERE ultimoLoginEm >= ${sixMonthsAgo}
+                GROUP BY DATE_FORMAT(ultimoLoginEm, '%Y-%m'), DATE_FORMAT(ultimoLoginEm, '%b')
+                ORDER BY month ASC
+              `
+            : Promise.resolve([]),
         ]);
 
         // Merge monthly metrics
@@ -212,13 +249,23 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
         // System health from real failed login rate
-        // > 50 falhas absolutas OU > 40% da taxa → erro
-        // > 30% da taxa → atenção
+        // > 50 falhas absolutas OU > 40% da taxa -> erro
+        // > 30% da taxa -> atenção
         const failedLoginRate = loginAttemptsTotal > 0 ? failedLoginsTotal / loginAttemptsTotal : 0;
         const systemHealth: 'good' | 'warning' | 'error' =
-          failedLoginsTotal > 50 ? 'error' : failedLoginRate > 0.4 ? 'warning' : 'good';
+          !canReadAnalytics
+            ? 'warning'
+            : failedLoginsTotal > 50 || failedLoginRate > 0.4
+              ? 'error'
+              : failedLoginRate > 0.3
+                ? 'warning'
+                : 'good';
 
         return {
+          permissions: {
+            canReadAnalytics,
+            currentUserRole: user.role,
+          },
           overview: {
             totalUsers,
             activeUsers,
@@ -226,27 +273,27 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
             totalProposals,
             propostasAprovadas,
             propostasPendentes,
-            loginAttempts: loginAttemptsTotal,
-            failedLogins: failedLoginsTotal,
-            auditEvents,
+            loginAttempts: canReadAnalytics ? loginAttemptsTotal : null,
+            failedLogins: canReadAnalytics ? failedLoginsTotal : null,
+            auditEvents: canReadAnalytics ? auditEvents : null,
             systemHealth,
             lastActivityAt: lastAuditEvent?.criadoEm?.toISOString() ?? null,
           },
           charts: {
-            loginAttemptsByDay: loginAttemptsByDay.map(row => ({
+            loginAttemptsByDay: canReadAnalytics ? loginAttemptsByDay.map(row => ({
               date: row.date,
               attempts: Number(row.attempts),
               successful: Number(row.successful),
               failed: Number(row.failed),
-            })),
-            auditActions: auditActionsByType.map(row => ({
+            })) : [],
+            auditActions: canReadAnalytics ? auditActionsByType.map(row => ({
               action: row.acao,
               count: row._count.acao,
-            })),
-            usersByRole: usersByNivel.map(row => ({
+            })) : [],
+            usersByRole: canReadAnalytics ? usersByNivel.map(row => ({
               role: row.nivel,
               count: row._count.nivel,
-            })),
+            })) : [],
             proposalsByStatus: proposalsByStatus.map(row => ({
               status: row.status,
               count: row._count.status,
@@ -255,16 +302,19 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
               status: row.status,
               count: row._count.status,
             })),
-            userMetrics: userMetricsData,
+            userMetrics: canReadAnalytics ? userMetricsData : [],
           },
           recentActivity: activities.slice(0, 8),
           period,
-          userRole: normalizedRole,
+          userRole: safeRole,
           generatedAt: new Date().toISOString(),
         };
       },
       { ttlSeconds: cacheTtlSeconds }
     );
 
-    return NextResponse.json({ data: analyticsData, success: true }, { status: 200 });
+    return NextResponse.json(
+      { data: analyticsData, success: true },
+      { status: 200, headers: { 'Cache-Control': 'no-store, private' } }
+    );
   });

@@ -72,6 +72,8 @@ export interface ItemInvoice {
  * DTO para gerar invoice
  */
 export interface GerarInvoiceDTO {
+  /** Empresa do usuário autenticado */
+  empresaId: number;
   /** ID do projeto */
   projetoId: number;
   /** Tipo de faturamento do projeto */
@@ -196,6 +198,8 @@ export interface ResumoFinanceiroProjeto {
  * Filtros para listar invoices
  */
 export interface ListarInvoicesDTO {
+  /** Empresa autenticada */
+  empresaId?: number;
   /** Filtrar por projeto */
   projetoId?: number;
   /** Filtrar por cliente */
@@ -238,6 +242,8 @@ export interface ListarInvoicesResponse {
 export interface RegistrarPagamentoDTO {
   /** ID do invoice */
   invoiceId: string;
+  /** Empresa ID — required for tenant isolation */
+  empresaId: number;
   /** Valor pago */
   valorPago: number;
   /** Forma de pagamento */
@@ -312,14 +318,14 @@ export interface IFinanceGateway {
    * @param usuarioId ID do usuário
    * @returns Resposta da operação
    */
-  cancelarInvoice(invoiceId: string, motivo: string, usuarioId: number): Promise<RespostaFinanceira>;
+  cancelarInvoice(invoiceId: string, motivo: string, usuarioId: number, empresaId: number): Promise<RespostaFinanceira>;
 
   /**
    * Obtém resumo financeiro de um projeto
    * @param projetoId ID do projeto
    * @returns Resumo financeiro consolidado
    */
-  obterResumoFinanceiro(projetoId: number): Promise<ResumoFinanceiroProjeto>;
+  obterResumoFinanceiro(projetoId: number, empresaId?: number): Promise<ResumoFinanceiroProjeto>;
 
   /**
    * Verifica conexão com sistema financeiro

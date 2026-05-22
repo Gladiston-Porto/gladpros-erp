@@ -4,9 +4,13 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { logger } from '@/lib/api/logger';
+import { postLedgerTransaction } from '@/shared/services/ledgerPostingService';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function canReadInternalInvoices(role: Role) {
+  return role === 'ADMIN' || role === 'GERENTE' || role === 'FINANCEIRO';
+}
 
 function mapToFormaPagamento(method: string): string {
   const map: Record<string, string> = {
@@ -40,13 +44,13 @@ const createPaymentSchema = z.object({
   notas: z.string().optional(),
   gatewayId: z.string().max(100).optional(),
   gatewayTransactionId: z.string().max(255).optional(),
+  clientIdempotencyKey: z.string().max(128).optional(),
 });
 
 // ── POST /api/invoices/[id]/payments ─────────────────────────────────────────
 
 export const POST = withErrorHandler(
   async (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-    const { id } = await context.params;
     const user = await requireUser(req);
     if (!can(user.role as Role, 'invoices', 'update')) {
       return NextResponse.json(
@@ -54,6 +58,13 @@ export const POST = withErrorHandler(
         { status: 403 },
       );
     }
+    if (!can(user.role as Role, 'financeiro', 'update')) {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Sem permissão financeira para registrar pagamentos', success: false },
+        { status: 403 },
+      );
+    }
+    const { id } = await context.params;
 
     const invoiceId = parseInt(id);
     if (isNaN(invoiceId)) {
@@ -77,15 +88,62 @@ export const POST = withErrorHandler(
     }
     const body = parsed.data;
 
+    if (body.gatewayTransactionId) {
+      const existingPayment = await prisma.invoicePayment.findFirst({
+        where: {
+          gatewayTransactionId: body.gatewayTransactionId,
+          invoice: { empresaId: user.empresaId },
+        },
+        select: { id: true, invoiceId: true, valor: true, dataPagamento: true, metodoPagamento: true },
+      });
+
+      if (existingPayment) {
+        return NextResponse.json(
+          { data: { payment: existingPayment }, success: true, idempotent: true },
+          { status: 200 }
+        );
+      }
+    }
+
+    // Idempotency for manual payments (no gateway transaction ID)
+    if (body.clientIdempotencyKey) {
+      const existingPayment = await prisma.invoicePayment.findFirst({
+        where: {
+          invoiceId,
+          referencia: `idempotency:${body.clientIdempotencyKey}`,
+          invoice: { empresaId: user.empresaId },
+        },
+        select: { id: true, invoiceId: true, valor: true, dataPagamento: true, metodoPagamento: true },
+      });
+
+      if (existingPayment) {
+        return NextResponse.json(
+          { data: { payment: existingPayment }, success: true, idempotent: true },
+          { status: 200 }
+        );
+      }
+    }
+
     const invoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId, empresaId: 1 },
-      select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true, clienteId: true, empresaId: true },
+      where: { id: invoiceId, empresaId: user.empresaId },
+      select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true, clienteId: true, empresaId: true, ledgerTransactionId: true },
     });
 
     if (!invoice) {
       return NextResponse.json(
         { error: 'Not found', message: 'Invoice não encontrada', success: false },
         { status: 404 },
+      );
+    }
+
+    if (invoice.status === 'DRAFT') {
+      return NextResponse.json(
+        {
+          error: 'Invalid operation',
+          message: 'Invoice precisa ser enviada antes de registrar pagamentos',
+          success: false,
+        },
+        { status: 409 },
       );
     }
 
@@ -123,19 +181,85 @@ export const POST = withErrorHandler(
       );
     }
 
-    const novoValorPago = Number(invoice.valorPago) + body.valor;
-    const novoSaldo = Math.max(0, Number(invoice.valorTotal) - novoValorPago);
-    const novoStatus = novoSaldo <= 0.01 ? 'PAID' : 'PARTIAL_PAID';
+    if (body.bankAccountId) {
+      const bankAccount = await prisma.bankAccount.findFirst({
+        where: {
+          id: body.bankAccountId,
+          empresaId: user.empresaId,
+          ativo: true,
+        },
+        select: { id: true, saldoAtual: true },
+      });
+
+      if (!bankAccount) {
+        return NextResponse.json(
+          { error: 'Not found', message: 'Conta bancária não encontrada ou inativa', success: false },
+          { status: 404 },
+        );
+      }
+
+    }
 
     const result = await prisma.$transaction(async (tx) => {
+      const currentInvoice = await tx.invoice.findFirst({
+        where: { id: invoiceId, empresaId: user.empresaId },
+        select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true, clienteId: true, empresaId: true, ledgerTransactionId: true },
+      });
+
+      if (
+        !currentInvoice ||
+        currentInvoice.status === 'DRAFT' ||
+        currentInvoice.status === 'PAID' ||
+        currentInvoice.status === 'CANCELLED'
+      ) {
+        throw new Error('Invoice não está disponível para pagamento');
+      }
+
+      const currentSaldo = Number(currentInvoice.saldo);
+      if (body.valor > currentSaldo + 0.01) {
+        throw new Error(`Valor (${body.valor}) excede o saldo da invoice (${currentSaldo.toFixed(2)})`);
+      }
+
+      const amount = new Decimal(body.valor);
+      const settled = await tx.invoice.updateMany({
+        where: {
+          id: invoiceId,
+          empresaId: user.empresaId,
+          status: { notIn: ['DRAFT', 'PAID', 'CANCELLED'] },
+          saldo: { gte: amount },
+        },
+        data: {
+          valorPago: { increment: amount },
+          saldo: { decrement: amount },
+          atualizadoPor: Number(user.id),
+        },
+      });
+
+      if (settled.count !== 1) {
+        throw new Error('Invoice não está disponível para pagamento ou saldo insuficiente');
+      }
+
+      const afterPaymentInvoice = await tx.invoice.findFirst({
+        where: { id: invoiceId, empresaId: user.empresaId },
+        select: { id: true, valorTotal: true, valorPago: true, saldo: true },
+      });
+
+      if (!afterPaymentInvoice) {
+        throw new Error('Invoice não encontrada após pagamento');
+      }
+
+      const novoStatus = Number(afterPaymentInvoice.saldo) <= 0.01 ? 'PAID' : 'PARTIAL_PAID';
+
       const payment = await tx.invoicePayment.create({
         data: {
           invoiceId,
-          valor: new Decimal(body.valor),
+          valor: amount,
           dataPagamento: new Date(body.dataPagamento),
           metodoPagamento: body.metodoPagamento,
           bankAccountId: body.bankAccountId,
-          referencia: body.referencia,
+          referencia: body.clientIdempotencyKey
+            ? `idempotency:${body.clientIdempotencyKey}`
+            : (body.referencia ?? null),
           notas: body.notas,
           gatewayId: body.gatewayId,
           gatewayTransactionId: body.gatewayTransactionId,
@@ -146,16 +270,104 @@ export const POST = withErrorHandler(
         },
       });
 
+      if (!currentInvoice.ledgerTransactionId) {
+        const invoiceLedger = await postLedgerTransaction(
+          {
+            empresaId: currentInvoice.empresaId,
+            data: new Date(body.dataPagamento),
+            descricao: `Invoice #${invoiceId} reconhecida`,
+            sourceType: 'INVOICE',
+            sourceId: invoiceId,
+            entries: [
+              {
+                accountCode: 'ACCOUNTS_RECEIVABLE',
+                debit: new Decimal(currentInvoice.valorTotal),
+                memo: `Invoice #${invoiceId}`,
+              },
+              {
+                accountCode: 'REVENUE',
+                credit: new Decimal(currentInvoice.valorTotal),
+                memo: `Invoice #${invoiceId}`,
+              },
+            ],
+          },
+          tx
+        );
+
+        await tx.invoice.update({
+          where: { id: invoiceId },
+          data: { ledgerTransactionId: invoiceLedger.id },
+          select: { id: true },
+        });
+      }
+
       const updatedInvoice = await tx.invoice.update({
         where: { id: invoiceId },
         data: {
-          valorPago: new Decimal(novoValorPago),
-          saldo: new Decimal(novoSaldo),
           status: novoStatus,
           ...(novoStatus === 'PAID' && { dataPagamento: new Date(body.dataPagamento) }),
           atualizadoPor: Number(user.id),
         },
         select: { id: true, status: true, valorPago: true, saldo: true, valorTotal: true },
+      });
+
+      if (body.bankAccountId) {
+        const amount = new Decimal(body.valor);
+        const updatedAccount = await tx.bankAccount.update({
+          where: { id: body.bankAccountId },
+          data: { saldoAtual: { increment: amount } },
+          select: { saldoAtual: true },
+        });
+        const saldoPosterior = new Decimal(updatedAccount.saldoAtual);
+
+        await tx.bankTransaction.create({
+          data: {
+            accountId: body.bankAccountId,
+            empresaId: currentInvoice.empresaId,
+            tipo: 'CREDITO',
+            categoria: 'INVOICE_PAYMENT',
+            valor: amount,
+            descricao: `Pagamento recebido da invoice #${invoiceId}`,
+            documento: body.referencia ?? null,
+            dataTransacao: new Date(body.dataPagamento),
+            saldoAnterior: saldoPosterior.minus(amount),
+            saldoPosterior,
+            reconciliada: false,
+            metadata: {
+              invoiceId,
+              invoicePaymentId: payment.id,
+              metodoPagamento: body.metodoPagamento,
+            },
+          },
+        });
+      }
+
+      const paymentLedger = await postLedgerTransaction(
+        {
+          empresaId: currentInvoice.empresaId,
+          data: new Date(body.dataPagamento),
+          descricao: `Pagamento da invoice #${invoiceId}`,
+          sourceType: 'INVOICE_PAYMENT',
+          sourceId: payment.id,
+          entries: [
+            {
+              accountCode: 'CASH',
+              debit: new Decimal(body.valor),
+              memo: `Pagamento #${payment.id}`,
+            },
+            {
+              accountCode: 'ACCOUNTS_RECEIVABLE',
+              credit: new Decimal(body.valor),
+              memo: `Baixa de contas a receber da invoice #${invoiceId}`,
+            },
+          ],
+        },
+        tx
+      );
+
+      await tx.invoicePayment.update({
+        where: { id: payment.id },
+        data: { ledgerTransactionId: paymentLedger.id },
       });
 
       await tx.auditLog.create({
@@ -174,48 +386,38 @@ export const POST = withErrorHandler(
         },
       });
 
-      // Auto-create Revenue record when invoice is fully paid
-      if (novoStatus === 'PAID') {
-        try {
-          // Ensure a default revenue category exists for invoice payments
-          let defaultCategory = await tx.revenueCategory.findFirst({
-            where: { empresaId: invoice.empresaId },
-            select: { id: true },
-          });
-          if (!defaultCategory) {
-            defaultCategory = await tx.revenueCategory.create({
-              data: {
-                empresaId: invoice.empresaId,
-                nome: 'Pagamentos de Invoice',
-                descricao: 'Categoria padrão para receitas geradas por invoices pagas',
-                cor: '#0098DA',
-              },
-              select: { id: true },
-            });
-          }
-          await tx.revenue.create({
-            data: {
-              empresaId: invoice.empresaId,
-              categoriaId: defaultCategory.id,
-              clienteId: invoice.clienteId ?? undefined,
-              descricao: `Invoice #${invoiceId} - pagamento recebido`,
-              valor: new Decimal(body.valor),
-              dataEmissao: new Date(body.dataPagamento),
-              dataVencimento: new Date(body.dataPagamento),
-              dataPagamento: new Date(body.dataPagamento),
-              tipo: 'SERVICO',
-               
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
-              status: 'RECEBIDA',
-            },
-          });
-        } catch (revErr) {
-          // Non-blocking: Revenue creation failure should not abort the payment
-          // Logged so ops team can detect and repair missing Revenue records
-          logger.error('[Invoice→Revenue] Failed to auto-create Revenue for paid invoice', { invoiceId, empresaId: invoice.empresaId }, revErr)
-        }
+      let defaultCategory = await tx.revenueCategory.findFirst({
+        where: { empresaId: currentInvoice.empresaId },
+        select: { id: true },
+      });
+      if (!defaultCategory) {
+        defaultCategory = await tx.revenueCategory.create({
+          data: {
+            empresaId: currentInvoice.empresaId,
+            nome: 'Pagamentos de Invoice',
+            descricao: 'Categoria padrão para receitas geradas por invoices pagas',
+            cor: '#0098DA',
+          },
+          select: { id: true },
+        });
       }
+      await tx.revenue.create({
+        data: {
+          empresaId: currentInvoice.empresaId,
+          categoriaId: defaultCategory.id,
+          clienteId: currentInvoice.clienteId ?? undefined,
+          descricao: `Invoice #${invoiceId} - pagamento #${payment.id}`,
+          valor: new Decimal(body.valor),
+          dataEmissao: new Date(body.dataPagamento),
+          dataVencimento: new Date(body.dataPagamento),
+          dataPagamento: new Date(body.dataPagamento),
+          tipo: 'SERVICO',
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
+          status: 'RECEBIDA',
+        },
+      });
 
       return { payment, invoice: updatedInvoice };
     });
@@ -228,14 +430,15 @@ export const POST = withErrorHandler(
 
 export const GET = withErrorHandler(
   async (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-    const { id } = await context.params;
     const user = await requireUser(req);
-    if (!can(user.role as Role, 'invoices', 'read')) {
+    const role = user.role as Role;
+    if (!can(role, 'invoices', 'read') || !canReadInternalInvoices(role)) {
       return NextResponse.json(
         { error: 'Forbidden', message: 'Sem permissão', success: false },
         { status: 403 },
       );
     }
+    const { id } = await context.params;
 
     const invoiceId = parseInt(id);
     if (isNaN(invoiceId)) {
@@ -246,7 +449,7 @@ export const GET = withErrorHandler(
     }
 
     const exists = await prisma.invoice.findFirst({
-      where: { id: invoiceId, empresaId: 1 },
+      where: { id: invoiceId, empresaId: user.empresaId },
       select: { id: true },
     });
 
@@ -258,7 +461,7 @@ export const GET = withErrorHandler(
     }
 
     const payments = await prisma.invoicePayment.findMany({
-      where: { invoiceId },
+      where: { invoiceId, estornadoEm: null },
       orderBy: { dataPagamento: 'desc' },
       take: 100,
       include: {

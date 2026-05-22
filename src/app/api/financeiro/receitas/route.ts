@@ -41,8 +41,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     }
 
     // 4. Verificar se categoria existe
-    const categoria = await prisma.revenueCategory.findUnique({
-      where: { id: validatedData.categoriaId }
+    const categoria = await prisma.revenueCategory.findFirst({
+      where: { id: validatedData.categoriaId, empresaId }
     });
 
     if (!categoria) {
@@ -54,8 +54,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
     // 5. Verificar cliente (se fornecido)
     if (validatedData.clienteId) {
-      const cliente = await prisma.cliente.findUnique({
-        where: { id: validatedData.clienteId }
+      const cliente = await prisma.cliente.findFirst({
+        where: { id: validatedData.clienteId, empresaId }
       });
 
       if (!cliente) {
@@ -78,10 +78,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
           valor: validatedData.valor,
           dataEmissao: new Date(validatedData.dataEmissao),
           dataVencimento: new Date(validatedData.dataVencimento),
-          dataPagamento: validatedData.dataPagamento ? new Date(validatedData.dataPagamento) : null,
+          dataPagamento: null,
           tipo: validatedData.tipo,
           formaPagamento: validatedData.formaPagamento,
-          status: validatedData.status,
+          status: 'PENDENTE',
           observacoes: validatedData.observacoes || null,
           recorrente: validatedData.recorrente,
         },

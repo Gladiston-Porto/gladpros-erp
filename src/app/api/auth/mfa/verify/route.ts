@@ -9,6 +9,8 @@ import { mfaRateLimit } from "@/shared/lib/rate-limit";
 import { mfaVerificationSchema } from "@/shared/lib/validation";
 import { SecurityService } from "@/shared/lib/security";
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 
 import { logger } from "@/lib/api/logger";
 
@@ -34,7 +36,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       raw = {
         userId: parseInt(formData.get('userId') as string, 10),
         code: formData.get('code') as string,
-        tipoAcao: formData.get('tipoAcao') as string
+        tipoAcao: formData.get('tipoAcao') as string,
+        challenge: formData.get('challenge') as string || undefined,
       }
     } else {
       raw = await req.json().catch(() => ({}))
@@ -47,9 +50,34 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         { status: 400 }
       );
     }
-    const { userId, code, tipoAcao = "LOGIN" } = parsed.data;
+    const { userId, code, tipoAcao = "LOGIN", challenge, rememberDevice } = parsed.data;
     const tipoAcaoMapped: "LOGIN" | "RESET" | "PRIMEIRO_ACESSO" | "DESBLOQUEIO" =
       tipoAcao === "RESET_PASSWORD" ? "RESET" : (tipoAcao as "LOGIN" | "PRIMEIRO_ACESSO");
+
+    // Detectar se é backup code (10 chars alfanumérico, com ou sem hífen)
+    const cleanCode = code.replace(/-/g, "").toUpperCase();
+    const isBackupCode = /^[A-Z0-9]{10}$/.test(cleanCode);
+
+    // Verificar MFA challenge para fluxos de LOGIN e PRIMEIRO_ACESSO (proteção anti-bypass)
+    if (tipoAcao === "LOGIN" || tipoAcao === "PRIMEIRO_ACESSO") {
+      if (!challenge) {
+        return NextResponse.json(
+          { error: "Sessão inválida. Faça login novamente.", success: false },
+          { status: 400 }
+        );
+      }
+      const { verifyMfaChallenge } = await import("@/shared/lib/mfa-challenge");
+      const isValid = verifyMfaChallenge(challenge, {
+        userId,
+        tipoAcao: tipoAcaoMapped as "LOGIN" | "PRIMEIRO_ACESSO",
+      });
+      if (!isValid) {
+        return NextResponse.json(
+          { error: "Sessão expirada. Faça login novamente.", success: false },
+          { status: 401 }
+        );
+      }
+    }
 
     const recentMfaFailureRows = await prisma.$queryRaw<Array<{ count: number }>>`
       SELECT COUNT(*) as count
@@ -98,52 +126,71 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       );
     }
 
-    // Verificar código MFA
-    const mfaResult = await MFAService.verifyMFACode({
-      usuarioId: userId,
-      code,
-      tipoAcao: tipoAcaoMapped
-    });
+    // Verificar código MFA ou backup code
+    let mfaValid = false;
+    if (isBackupCode) {
+      // Backup code path — verificar bcrypt contra os hashes armazenados
+      type BackupRow = { id: number; codeHash: string };
+      const backupRows = await prisma.$queryRaw<BackupRow[]>`
+        SELECT id, codeHash FROM MfaBackupCode
+        WHERE usuarioId = ${userId} AND usadoEm IS NULL
+        ORDER BY criadoEm ASC
+        LIMIT 20
+      `;
+      for (const row of backupRows) {
+        if (await bcrypt.compare(cleanCode, row.codeHash)) {
+          await prisma.$executeRaw`
+            UPDATE MfaBackupCode SET usadoEm = NOW() WHERE id = ${row.id}
+          `;
+          mfaValid = true;
+          break;
+        }
+      }
+    } else {
+      // TOTP/email code path
+      const mfaResult = await MFAService.verifyMFACode({
+        usuarioId: userId,
+        code,
+        tipoAcao: tipoAcaoMapped
+      });
+      mfaValid = mfaResult.valid;
+      if (!mfaValid) {
+        await prisma.$executeRaw`
+          INSERT INTO TentativaLogin (usuarioId, email, sucesso, ip, userAgent, motivo)
+          SELECT id, email, FALSE, ${getClientIP(req)}, ${req.headers.get("user-agent") || undefined}, 'MFA_INVALID'
+          FROM Usuario
+          WHERE id = ${userId}
+        `;
 
-    if (!mfaResult.valid) {
+        const updatedMfaFailureRows = await prisma.$queryRaw<Array<{ count: number }>>`
+          SELECT COUNT(*) as count
+          FROM TentativaLogin
+          WHERE usuarioId = ${userId}
+            AND sucesso = FALSE
+            AND motivo = 'MFA_INVALID'
+            AND criadaEm > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+        `;
+        const updatedMfaFailures = Number(updatedMfaFailureRows[0]?.count ?? 0);
+        if (updatedMfaFailures >= 3) {
+          return NextResponse.json(
+            { error: "Muitas tentativas de MFA. Aguarde 5 minutos.", success: false, retryAfter: 300 },
+            { status: 429, headers: { 'X-RateLimit-Limit': '3', 'X-RateLimit-Remaining': '0', 'Retry-After': '300' } }
+          );
+        }
+        return NextResponse.json(
+          { error: mfaResult.error || "Código inválido", success: false },
+          { status: 401 }
+        );
+      }
+    }
+
+    if (!mfaValid) {
       await prisma.$executeRaw`
         INSERT INTO TentativaLogin (usuarioId, email, sucesso, ip, userAgent, motivo)
         SELECT id, email, FALSE, ${getClientIP(req)}, ${req.headers.get("user-agent") || undefined}, 'MFA_INVALID'
-        FROM Usuario
-        WHERE id = ${userId}
+        FROM Usuario WHERE id = ${userId}
       `;
-
-      const updatedMfaFailureRows = await prisma.$queryRaw<Array<{ count: number }>>`
-        SELECT COUNT(*) as count
-        FROM TentativaLogin
-        WHERE usuarioId = ${userId}
-          AND sucesso = FALSE
-          AND motivo = 'MFA_INVALID'
-          AND criadaEm > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-      `;
-      const updatedMfaFailures = Number(updatedMfaFailureRows[0]?.count ?? 0);
-      if (updatedMfaFailures >= 3) {
-        return NextResponse.json(
-          {
-            error: "Muitas tentativas de MFA. Aguarde 5 minutos.",
-            success: false,
-            retryAfter: 300
-          },
-          {
-            status: 429,
-            headers: {
-              'X-RateLimit-Limit': '3',
-              'X-RateLimit-Remaining': '0',
-              'Retry-After': '300'
-            }
-          }
-        );
-      }
-
-      return NextResponse.json(
-        { error: mfaResult.error || "Código inválido", success: false },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Código de backup inválido ou já utilizado", success: false }, { status: 401 });
     }
 
     // Buscar dados completos do usuário apenas após passar no rate limit e no MFA.
@@ -370,7 +417,40 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       });
     }
 
-    // Se veio de form submit, retornar HTML com redirect client-side
+    // Lembrar dispositivo por 30 dias (fire-and-forget)
+    if (rememberDevice && !user.primeiroAcesso) {
+      const deviceToken = randomUUID().replace(/-/g, "");
+      const ip = getClientIP(req);
+      const ua = req.headers.get("user-agent") || null;
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      prisma.$executeRaw`
+        INSERT INTO DispositivoConfiavel (empresaId, usuarioId, deviceToken, userAgent, ip, nome, expiresAt)
+        VALUES (1, ${user.id}, ${deviceToken}, ${ua}, ${ip}, ${ua ? ua.slice(0, 50) : null}, ${expiresAt})
+      `.catch((e) => logger.warn('[MFA] Falha ao salvar dispositivo confiável', { error: e }));
+      response.cookies.set("deviceTrust", deviceToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 30 * 24 * 60 * 60,
+        path: '/'
+      });
+    }
+
+    // Alerta de novo dispositivo (fire-and-forget)
+    ;(async () => {
+      try {
+        const { checkAndAlertNewDevice } = await import("@/shared/lib/auth/device-alert");
+        await checkAndAlertNewDevice({
+          userId: user.id,
+          ip: getClientIP(req),
+          userAgent: req.headers.get("user-agent") || "",
+          email: user.email,
+          name: user.nomeCompleto || user.email,
+        });
+      } catch (e) {
+        logger.warn('[MFA] Falha ao verificar alerta de novo dispositivo', { error: e });
+      }
+    })();
     // Isso garante que os cookies sejam salvos antes do redirect
     if (shouldRedirect) {
       const html = `<!DOCTYPE html>

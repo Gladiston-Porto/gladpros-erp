@@ -95,6 +95,8 @@ model Empresa {
   // Relations - Tax Compliance
   ownerCompensations   OwnerCompensation[]
   estimatedTaxPayments EstimatedTaxPayment[]
+  ledgerTransactions   LedgerTransaction[]
+  ledgerEntries        LedgerEntry[]
 
   // Relations - Invoices
   invoices Invoice[]
@@ -394,6 +396,7 @@ model CatalogoItem {
 
 model Proposta {
   id                         Int                               @id @default(autoincrement())
+  empresaId                  Int                               @default(1)
   numeroProposta             String                            @unique @db.VarChar(20)
   clienteId                  Int
   dataCriacao                DateTime                          @default(now())
@@ -503,6 +506,7 @@ model Proposta {
   Views                      PropostaView[]
 
   @@index([clienteId])
+  @@index([empresaId])
   @@index([dataCriacao, id])
   @@index([status, dataCriacao, id])
   @@index([status])
@@ -916,6 +920,7 @@ model TentativaLogin {
 
 model Usuario {
   id                           Int                          @id @default(autoincrement())
+  empresaId                    Int?
   email                        String                       @unique
   senha                        String
   nivel                        Usuario_nivel
@@ -933,6 +938,8 @@ model Usuario {
   dataNascimento               DateTime?                    @db.Date
   senhaProvisoria              Boolean                      @default(false)
   primeiroAcesso               Boolean                      @default(false)
+  magicLinkConsumedAt          DateTime?
+  senhaAlteradaEm              DateTime?
   bloqueado                    Boolean                      @default(false)
   bloqueadoEm                  DateTime?
   pinSeguranca                 String?
@@ -1043,6 +1050,10 @@ model Usuario {
   // Preferências do usuário
   UserPreference UserPreference?
 
+  // Segurança — backup codes e dispositivos confiáveis
+  MfaBackupCodes        MfaBackupCode[]
+  DispositivosConfiáveis DispositivoConfiavel[]
+
   // Delegações temporárias
   DelegacoesFeitas     Delegacao[] @relation("DelegacoesFeitas")
   DelegacoesRecebidas  Delegacao[] @relation("DelegacoesRecebidas")
@@ -1056,10 +1067,43 @@ model Usuario {
   InfractionsWaived      WorkerInfraction[] @relation("InfractionWaivedBy")
   TimeOffsApproved       WorkerTimeOff[]    @relation("TimeOffApprovedBy")
 
+  @@index([empresaId])
   @@index([nivel])
   @@index([status])
   @@index([bloqueado])
   @@index([ultimoLoginEm])
+}
+
+// Backup codes para MFA (single-use fallback quando celular não disponível)
+model MfaBackupCode {
+  id        Int       @id @default(autoincrement())
+  empresaId Int
+  usuarioId Int
+  codeHash  String    @db.Char(60)
+  usadoEm   DateTime?
+  criadoEm  DateTime  @default(now())
+  Usuario   Usuario   @relation(fields: [usuarioId], references: [id])
+
+  @@index([empresaId])
+  @@index([usuarioId])
+}
+
+// Dispositivos confiáveis para skip de MFA ("lembrar por 30 dias")
+model DispositivoConfiavel {
+  id          Int      @id @default(autoincrement())
+  empresaId   Int
+  usuarioId   Int
+  deviceToken String   @unique @db.Char(64)
+  userAgent   String?  @db.VarChar(255)
+  ip          String?  @db.VarChar(45)
+  nome        String?  @db.VarChar(100)
+  expiresAt   DateTime
+  criadoEm    DateTime @default(now())
+  Usuario     Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@index([empresaId])
+  @@index([usuarioId])
+  @@index([deviceToken])
 }
 
 model UserPreference {
@@ -1082,6 +1126,7 @@ model UserPreference {
 
 model Delegacao {
   id             Int       @id @default(autoincrement())
+  empresaId      Int
   deleganteId    Int
   delegatarioId  Int
   dataInicio     DateTime
@@ -1097,6 +1142,7 @@ model Delegacao {
   delegatario  Usuario  @relation("DelegacoesRecebidas", fields: [delegatarioId], references: [id])
   canceladaPor Usuario? @relation("DelegacoesCanceladas", fields: [canceladaPorId], references: [id])
 
+  @@index([empresaId])
   @@index([deleganteId])
   @@index([delegatarioId])
   @@index([ativa, dataFim])
@@ -2372,6 +2418,7 @@ model Invoice {
   taxReviewedBy Usuario?          @relation("InvoiceTaxReviewer", fields: [taxReviewedById], references: [id])
   itens         InvoiceItem[]
   pagamentos    InvoicePayment[]
+  ledgerTransaction LedgerTransaction? @relation("InvoiceLedgerTransaction", fields: [ledgerTransactionId], references: [id])
   lembretes     InvoiceReminder[]
 
   // ServiceOrder Link (V3.1)
@@ -2427,14 +2474,18 @@ model InvoicePayment {
   referencia           String?               @db.VarChar(100)
   notas                String?               @db.Text
   ledgerTransactionId  Int?                  @unique
+  estornadoEm          DateTime?
+  estornadoPor         Int?
+  motivoEstorno        String?               @db.VarChar(500)
   gatewayId            String?               @db.VarChar(100)
-  gatewayTransactionId String?               @db.VarChar(255)
+  gatewayTransactionId String?               @unique @db.VarChar(255)
   criadoPor            Int
   criadoEm             DateTime              @default(now())
 
   // Relations
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   criador Usuario @relation(fields: [criadoPor], references: [id])
+  ledgerTransaction LedgerTransaction? @relation("InvoicePaymentLedgerTransaction", fields: [ledgerTransactionId], references: [id])
 
   @@index([invoiceId])
   @@index([dataPagamento])
@@ -3012,6 +3063,76 @@ enum TipoTransacao {
   ESTORNO // Estorno de transação
 }
 
+enum LedgerSourceType {
+  INVOICE
+  INVOICE_PAYMENT
+  EXPENSE_PAYMENT
+  OWNER_COMPENSATION
+  BANK_TRANSFER
+  REVERSAL
+  ADJUSTMENT
+}
+
+enum LedgerStatus {
+  POSTED
+  VOIDED
+  REVERSAL
+}
+
+enum LedgerAccountCode {
+  CASH
+  ACCOUNTS_RECEIVABLE
+  REVENUE
+  EXPENSE
+  OWNER_EQUITY_DRAW
+  OWNER_DISTRIBUTION
+  WAGES_PAYROLL_EXPENSE
+  BANK_TRANSFER_CLEARING
+}
+
+model LedgerTransaction {
+  id          Int              @id @default(autoincrement())
+  empresaId   Int
+  data        DateTime
+  descricao   String?          @db.VarChar(255)
+  sourceType  LedgerSourceType
+  sourceId    Int
+  status      LedgerStatus     @default(POSTED)
+  criadoEm    DateTime         @default(now())
+  atualizadoEm DateTime        @updatedAt
+
+  empresa        Empresa       @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  entries        LedgerEntry[]
+  invoice        Invoice?      @relation("InvoiceLedgerTransaction")
+  invoicePayment InvoicePayment? @relation("InvoicePaymentLedgerTransaction")
+
+  @@unique([empresaId, sourceType, sourceId])
+  @@index([empresaId])
+  @@index([empresaId, data])
+  @@index([status])
+  @@map("ledger_transactions")
+}
+
+model LedgerEntry {
+  id                  Int               @id @default(autoincrement())
+  empresaId           Int
+  ledgerTransactionId Int
+  accountCode         LedgerAccountCode
+  debit               Decimal           @default(0) @db.Decimal(14, 2)
+  credit              Decimal           @default(0) @db.Decimal(14, 2)
+  memo                String?           @db.VarChar(255)
+  criadoEm            DateTime          @default(now())
+  atualizadoEm        DateTime          @updatedAt
+
+  empresa           Empresa            @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  ledgerTransaction LedgerTransaction  @relation(fields: [ledgerTransactionId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+  @@index([ledgerTransactionId])
+  @@index([empresaId, accountCode])
+  @@map("ledger_entries")
+}
+
 enum StatusTransferencia {
   PENDENTE // Aguardando processamento
   PROCESSANDO // Em processamento
@@ -3558,6 +3679,7 @@ enum ServiceOrderPriority {
 
 model ServiceOrder {
   id           Int    @id @default(autoincrement())
+  empresaId    Int    @default(1)
   ticketNumber String @unique @db.VarChar(50)
 
   // Client and Location
@@ -3686,6 +3808,7 @@ model ServiceOrder {
   timeEntryActivities TimeEntryActivity[] @relation("TimeEntryActivityServiceOrder")
 
   @@index([clienteId])
+  @@index([empresaId])
   @@index([status])
   @@index([assignedWorkerId])
   @@index([scheduledDate])

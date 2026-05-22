@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
           valorTotal: true,
           status: true,
           pagamentos: {
+            where: { estornadoEm: null },
             select: { valor: true },
           },
         },

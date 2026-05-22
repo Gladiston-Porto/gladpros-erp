@@ -1,0 +1,49 @@
+# GladPros ERP — Pre-commit Quality Gate
+# Detecta anti-patterns e regressões ANTES do commit.
+#
+# Para bypass de EMERGÊNCIA (proibido em código de produção): git commit --no-verify
+# Ver: docs/architecture/06-production-readiness.md
+#
+# CI roda os mesmos checks → bypass local não escapa.
+
+set -e
+
+echo ""
+echo "🔍 GladPros Quality Gate — Pre-commit"
+echo "─────────────────────────────────────────"
+
+# Camada 0: validação do registro de bugs conhecidos
+echo "▶ Validando relatorios/known-bugs.json..."
+node scripts/validate-known-bugs.mjs
+
+# Camada 1: padrões regex (script atual)
+echo ""
+echo "▶ Health check de anti-patterns (regex)..."
+node scripts/check-module-health.mjs --staged
+
+# Camada 2: Semgrep (regras semânticas / AST)
+# Só roda se semgrep estiver instalado — não bloqueia onboarding de novos devs.
+if command -v semgrep >/dev/null 2>&1; then
+  echo ""
+  echo "▶ Semgrep (regras semânticas GladPros)..."
+  STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' | grep -v node_modules || true)
+  if [ -n "$STAGED_TS" ]; then
+    echo "$STAGED_TS" | xargs semgrep --config=.semgrep/gladpros --metrics=off --error --quiet
+  else
+    echo "  (nenhum .ts/.tsx staged — pulando)"
+  fi
+else
+  echo ""
+  echo "⚠️  semgrep NÃO instalado localmente — pulando Camada 2."
+  echo "   Instale: brew install semgrep | pip install semgrep"
+  echo "   CI ainda roda essa checagem — bypass local não escapa."
+fi
+
+# lint-staged (eslint + prettier nos arquivos staged)
+echo ""
+echo "▶ lint-staged (ESLint + Prettier)..."
+npx lint-staged
+
+echo ""
+echo "✅ Quality Gate passou — commit permitido."
+echo ""

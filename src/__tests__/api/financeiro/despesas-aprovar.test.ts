@@ -7,6 +7,7 @@ jest.mock('@/lib/prisma', () => ({
   prisma: {
     expense: {
       findUnique: jest.fn().mockResolvedValue(null),
+      findFirst: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({ id: 1, valor: 100, status: 'APROVADA' }),
     },
     expenseApproval: {
@@ -70,7 +71,7 @@ describe('POST /api/financeiro/despesas/[id]/aprovar', () => {
     mockRequireUser.mockResolvedValue({ id: '1', role: 'FINANCEIRO', status: 'ATIVO' } as any)
     mockCan.mockReturnValue(true)
     const { prisma } = require('@/lib/prisma')
-    prisma.expense.findUnique.mockResolvedValue(null)
+    prisma.expense.findFirst.mockResolvedValue(null)
     const req = new NextRequest('http://localhost/api/financeiro/despesas/1/aprovar', {
       method: 'POST',
       body: JSON.stringify({ aprovadorId: 1, expenseId: 1 }),
@@ -84,7 +85,7 @@ describe('POST /api/financeiro/despesas/[id]/aprovar', () => {
     mockRequireUser.mockResolvedValue({ id: '1', role: 'FINANCEIRO', status: 'ATIVO', empresaId: 1 } as any)
     mockCan.mockReturnValue(true)
     const { prisma } = require('@/lib/prisma')
-    prisma.expense.findUnique.mockResolvedValue({
+    prisma.expense.findFirst.mockResolvedValue({
       id: 1, valor: 100, status: 'AGUARDANDO_APROVACAO',
       requerAprovacao: true,
       aprovacaoId: 1,
@@ -109,11 +110,40 @@ describe('POST /api/financeiro/despesas/[id]/aprovar', () => {
     expect(body).toHaveProperty('success')
   })
 
+  it('returns 403 when request body spoofs another approver id', async () => {
+    mockRequireUser.mockResolvedValue({ id: '1', role: 'FINANCEIRO', status: 'ATIVO', empresaId: 1 } as any)
+    mockCan.mockReturnValue(true)
+    const { prisma } = require('@/lib/prisma')
+    prisma.expense.findFirst.mockResolvedValue({
+      id: 1,
+      valor: 100,
+      status: 'AGUARDANDO_APROVACAO',
+      requerAprovacao: true,
+      aprovacaoId: 1,
+      aprovacao: {
+        id: 1,
+        aprovadorId: 2,
+        status: 'PENDENTE',
+        nivelAprovacao: 1,
+        aprovador: { id: 2, name: 'Other approver' },
+        proximoAprovadorId: null,
+        proximoAprovador: null,
+      },
+    })
+    const req = new NextRequest('http://localhost/api/financeiro/despesas/1/aprovar', {
+      method: 'POST',
+      body: JSON.stringify({ aprovadorId: 2, acao: 'APROVAR' }),
+    })
+    const ctx = { params: Promise.resolve({ id: '1' }) }
+    const res = await POST(req, ctx)
+    expect(res.status).toBe(403)
+  })
+
   it('returns 500 when Prisma throws DB error', async () => {
     mockRequireUser.mockResolvedValue({ id: '1', role: 'ADMIN', status: 'ATIVO', empresaId: 1 } as any)
     mockCan.mockReturnValue(true)
     const { prisma } = require('@/lib/prisma')
-    prisma.expense.findUnique.mockRejectedValue(new Error('DB connection failed'))
+    prisma.expense.findFirst.mockRejectedValue(new Error('DB connection failed'))
     const req = new NextRequest('http://localhost/api/financeiro/despesas/1/aprovar', {
       method: 'POST',
       body: JSON.stringify({ aprovadorId: 1 }),

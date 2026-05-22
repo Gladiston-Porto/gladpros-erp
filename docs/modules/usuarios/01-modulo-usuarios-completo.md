@@ -1,9 +1,11 @@
 # Módulo Usuários — Documentação Completa de Produção
 
-**Versão:** 2.1  
-**Status:** ✅ Produção  
-**Última atualização:** 2026-05-05  
-**Auditoria realizada por:** GitHub Copilot (production-ready-module protocol)  
+**Versão:** 2.3  
+**Status:** ✅ Production Ready  
+**Última atualização:** 2026-05-18  
+**Auditoria realizada por:** GitHub Copilot (module-audit + production-ready-module protocol)  
+**Auditoria anterior:** 2026-05-18 (v2.2) — P2-1 e P3-1/2/3 corrigidos  
+**Melhorias v2.3:** AuditLog em criação/cancelamento de delegações + verificação de HistoricoSenha ao trocar senha
 
 ---
 

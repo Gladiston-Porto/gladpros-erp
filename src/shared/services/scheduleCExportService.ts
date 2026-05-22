@@ -86,10 +86,13 @@ export async function generateScheduleCReport(
     select: { nome: true, razaoSocial: true, tipoTributacao: true },
   })
 
-  const ownerWorker = await prisma.worker.findFirst({
-    where: { classification: "OWNER_OPERATOR" },
-    select: { name: true },
+  // Look up owner worker via OwnerCompensation (Worker has no empresaId column)
+  const ownerCompForTenant = await prisma.ownerCompensation.findFirst({
+    where: { empresaId },
+    include: { worker: { select: { name: true } } },
+    orderBy: { criadoEm: 'desc' },
   })
+  const ownerWorker = ownerCompForTenant?.worker ?? null
 
   // Tax calculation for the full year
   const taxResult = await calculateTax({
@@ -192,6 +195,14 @@ export async function generateScheduleCReport(
     orderBy: { quarter: "asc" },
   })
 
+  const line28TotalExpenses = Math.max(
+    0,
+    Math.round((taxResult.totalDeductibleExpenses - cogsTotal) * 100) / 100
+  )
+  const line31NetProfit = Math.round(
+    (taxResult.grossRevenue - cogsTotal - line28TotalExpenses) * 100
+  ) / 100
+
   return {
     empresaName: empresa.nome ?? empresa.razaoSocial ?? "GladPros",
     ownerName: ownerWorker?.name ?? "Owner",
@@ -204,8 +215,8 @@ export async function generateScheduleCReport(
       line7_grossIncome: taxResult.grossRevenue - cogsTotal,
     },
     expenses: sortedLines,
-    line28_totalExpenses: taxResult.totalDeductibleExpenses,
-    line31_netProfit: taxResult.netIncome,
+    line28_totalExpenses: line28TotalExpenses,
+    line31_netProfit: line31NetProfit,
     ownerCompensation: {
       totalDraws,
       totalSalary,
@@ -229,7 +240,9 @@ export async function generateScheduleCReport(
 // ── Contractor 1099 Summary ──────────────────────────────────────────────────
 
 export interface Contractor1099Summary {
-  workerId: number
+  contractorId: number
+  workerId?: number
+  fornecedorId?: number
   name: string
   classification: string
   totalPaid: number
@@ -243,53 +256,59 @@ export async function getContractor1099Summary(
   const startOfYear = new Date(taxYear, 0, 1)
   const endOfYear = new Date(taxYear, 11, 31, 23, 59, 59)
 
-  // Get all CONTRACTOR_1099 workers with their payments
-  const contractors = await prisma.worker.findMany({
-    where: {
-      classification: "CONTRACTOR_1099",
-      status: "ACTIVE",
-    },
-    select: {
-      id: true,
-      name: true,
-      classification: true,
-    },
-  })
-
-  // For each contractor, sum paid expenses linked to them
-  // Contractors are paid through expenses with fornecedorId or through direct entries
-  // For now, we look at expenses in the "Contract Labor" category
   const contractLaborCategory = await prisma.expenseCategory.findFirst({
     where: { empresaId, slug: "contract-labor" },
     select: { id: true },
   })
 
-  const results: Contractor1099Summary[] = []
+  if (!contractLaborCategory) {
+    return []
+  }
 
-  for (const contractor of contractors) {
-    // Sum expenses where this contractor logged work entries
-    // OR where expenses are directly linked via fornecedorId
-    const expenseAgg = await prisma.expense.aggregate({
-      where: {
-        empresaId,
-        status: "PAGA",
-        dataPagamento: { gte: startOfYear, lte: endOfYear },
-        categoriaId: contractLaborCategory?.id,
-        // This is a simplified approach — in practice you'd link expenses to specific contractors
+  const contractorPayments = await prisma.expense.findMany({
+    where: {
+      empresaId,
+      status: "PAGA",
+      dataPagamento: { gte: startOfYear, lte: endOfYear },
+      categoriaId: contractLaborCategory.id,
+      OR: [
+        { fornecedorId: { not: null } },
+        { observacoes: { contains: "Worker #" } },
+      ],
+    },
+    select: {
+      valor: true,
+      descricao: true,
+      observacoes: true,
+      fornecedor: {
+        select: {
+          id: true,
+          nome: true,
+        },
       },
-      _sum: { valor: true },
-    })
+    },
+  })
 
-    const totalPaid = Number(expenseAgg._sum.valor ?? 0)
+  const totalsByFornecedor = new Map<number, Contractor1099Summary>()
 
-    results.push({
-      workerId: contractor.id,
-      name: contractor.name,
-      classification: contractor.classification,
-      totalPaid,
+  for (const payment of contractorPayments) {
+    const workerMatch = payment.observacoes?.match(/Worker #(\d+)/)
+    const contractorId = payment.fornecedor?.id ?? (workerMatch ? Number(workerMatch[1]) : null)
+    if (!contractorId) continue
+
+    const existing = totalsByFornecedor.get(contractorId)
+    const totalPaid = (existing?.totalPaid ?? 0) + Number(payment.valor)
+
+    totalsByFornecedor.set(contractorId, {
+      contractorId,
+      fornecedorId: payment.fornecedor?.id,
+      workerId: payment.fornecedor ? undefined : contractorId,
+      name: payment.fornecedor?.nome ?? payment.descricao.replace(/^Pagamento Worker:\s*/i, ""),
+      classification: "CONTRACTOR_1099",
+      totalPaid: Math.round(totalPaid * 100) / 100,
       needs1099: totalPaid >= 600,
     })
   }
 
-  return results.filter((r) => r.totalPaid > 0)
+  return Array.from(totalsByFornecedor.values()).filter((r) => r.totalPaid > 0)
 }

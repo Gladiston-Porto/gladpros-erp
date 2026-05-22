@@ -54,7 +54,7 @@ describe('GET /api/financeiro/tax/regime', () => {
   })
 
   it('returns 200 with tax regime for authorized user', async () => {
-    mockRequireUser.mockResolvedValue({ id: '1', role: 'FINANCEIRO', status: 'ATIVO' } as any)
+    mockRequireUser.mockResolvedValue({ id: '1', role: 'FINANCEIRO', status: 'ATIVO', empresaId: 1 } as any)
     mockCan.mockReturnValue(true)
     const req = new NextRequest('http://localhost/api/financeiro/tax/regime')
     const res = await GET(req)
@@ -62,6 +62,8 @@ describe('GET /api/financeiro/tax/regime', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.tipoTributacao).toBe('LLC_DEFAULT')
+    const { prisma } = require('@/lib/prisma')
+    expect(prisma.empresa.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1 } }))
   })
 })
 
@@ -99,5 +101,35 @@ describe('PUT /api/financeiro/tax/regime', () => {
     const req = new NextRequest('http://localhost/api/financeiro/tax/regime')
     const res = await GET(req)
     expect(res.status).toBe(500)
+  })
+
+  it('uses authenticated empresaId and records old/new regime on update', async () => {
+    mockRequireUser.mockResolvedValue({ id: '1', role: 'ADMIN', status: 'ATIVO', empresaId: 7 } as any)
+    mockCan.mockReturnValue(true)
+    const { prisma } = require('@/lib/prisma')
+    prisma.empresa.findUnique.mockResolvedValueOnce({
+      id: 7,
+      tipoTributacao: 'LLC_DEFAULT',
+    })
+    prisma.empresa.update.mockResolvedValueOnce({
+      id: 7,
+      nome: 'GladPros LLC',
+      tipoTributacao: 'S_CORP',
+      tipoTributacaoDesde: new Date(),
+    })
+
+    const req = new NextRequest('http://localhost/api/financeiro/tax/regime', {
+      method: 'PUT',
+      body: JSON.stringify({ tipoTributacao: 'S_CORP' }),
+    })
+
+    const res = await PUT(req)
+    expect(res.status).toBe(200)
+    expect(prisma.empresa.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 7 } }))
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        diff: expect.stringContaining('tipoTributacaoAnterior'),
+      }),
+    }))
   })
 })

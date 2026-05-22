@@ -39,8 +39,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     const validated = reconcileBankTransactionsSchema.parse(body) as ReconcileBankTransactionsInput;
     
     // Verifica se conta existe
-    const conta = await prisma.bankAccount.findUnique({
-      where: { id: accountId },
+    const conta = await prisma.bankAccount.findFirst({
+      where: { id: accountId, empresaId: user.empresaId },
       select: {
         id: true,
         nome: true,
@@ -59,7 +59,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
     const transacoes = await prisma.bankTransaction.findMany({
       where: {
         id: { in: validated.transactionIds },
-        accountId
+        accountId,
+        empresaId: user.empresaId
       },
       select: {
         id: true,
@@ -114,6 +115,23 @@ export const POST = withErrorHandler(async (request: NextRequest,
         data: {
           ultimaConciliacao: dataReconciliacao
         }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          id: crypto.randomUUID(),
+          userId: Number(user.id),
+          entidade: "BankReconciliation",
+          entidadeId: String(accountId),
+          acao: "RECONCILE",
+          diff: JSON.stringify({
+            accountId,
+            transactionIds: aReconciliar.map(t => t.id),
+            reconciliadas: aReconciliar.length,
+            jaReconciliadas: jaReconciliadas.length,
+            dataReconciliacao: dataReconciliacao.toISOString(),
+          }),
+        },
       });
       
       return {

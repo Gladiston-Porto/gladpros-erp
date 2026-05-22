@@ -9,6 +9,8 @@
 import { prisma } from "@/lib/prisma"
 import { calculateAnnualizedEstimate } from "./taxCalculationEngine"
 import type { QuarterLabel, EstimatedTaxStatus } from "@prisma/client"
+import { Decimal } from "@prisma/client/runtime/library"
+import { postLedgerTransaction } from "./ledgerPostingService"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -128,16 +130,17 @@ export interface RecordPaymentInput {
   taxYear: number
   quarter: QuarterLabel
   paidAmount: number
+  bankAccountId: number
   paidDate?: Date
   notas?: string
   userId: number
 }
 
 export async function recordPayment(input: RecordPaymentInput) {
-  const { empresaId, taxYear, quarter, paidAmount, paidDate, notas, userId } = input
+  const { empresaId, taxYear, quarter, paidAmount, bankAccountId, paidDate, notas, userId } = input
 
-  if (paidAmount < 0) {
-    return { success: false as const, error: "O valor pago não pode ser negativo" }
+  if (paidAmount <= 0) {
+    return { success: false as const, error: "O valor pago deve ser maior que zero" }
   }
 
   const dueDate = getDueDate(quarter, taxYear)
@@ -149,74 +152,163 @@ export async function recordPayment(input: RecordPaymentInput) {
   // Derive status
   const status = deriveStatus(estimatedAmount, paidAmount, dueDate)
 
-  const payment = await prisma.estimatedTaxPayment.upsert({
-    where: {
-      empresaId_taxYear_quarter: { empresaId, taxYear, quarter },
-    },
-    create: {
-      empresaId,
-      taxYear,
-      quarter,
-      dueDate,
-      estimatedAmount,
-      paidAmount,
-      paidDate: paidDate ?? new Date(),
-      status,
-      notas: notas ?? null,
-      criadoPor: userId,
-    },
-    update: {
-      paidAmount,
-      paidDate: paidDate ?? new Date(),
-      status,
-      notas: notas ?? null,
-    },
-  })
+  try {
+    const payment = await prisma.$transaction(async (tx) => {
+    const existing = await tx.estimatedTaxPayment.findUnique({
+      where: {
+        empresaId_taxYear_quarter: { empresaId, taxYear, quarter },
+      },
+      select: { id: true, paidAmount: true },
+    })
 
-  // Audit
-  await prisma.auditLog.create({
-    data: {
-      id: crypto.randomUUID(),
-      userId,
-      entidade: "EstimatedTaxPayment",
-      entidadeId: String(payment.id),
-      acao: "UPSERT",
-      diff: JSON.stringify({
-        quarter,
+    const previousPaid = new Decimal(existing?.paidAmount ?? 0)
+    const newPaid = new Decimal(paidAmount)
+    const movementAmount = newPaid.minus(previousPaid)
+
+    if (movementAmount.lte(0)) {
+      throw new Error("Novo pagamento deve aumentar o valor pago; use ajuste/estorno para reduzir")
+    }
+
+    const bankAccount = await tx.bankAccount.findFirst({
+      where: { id: bankAccountId, empresaId, ativo: true },
+      select: { id: true, saldoAtual: true },
+    })
+
+    if (!bankAccount) {
+      throw new Error("Conta bancária não encontrada ou inativa")
+    }
+
+    const result = await tx.estimatedTaxPayment.upsert({
+      where: {
+        empresaId_taxYear_quarter: { empresaId, taxYear, quarter },
+      },
+      create: {
+        empresaId,
         taxYear,
+        quarter,
+        dueDate,
+        estimatedAmount,
         paidAmount,
+        paidDate: paidDate ?? new Date(),
         status,
-      }),
-    },
+        notas: notas ?? null,
+        criadoPor: userId,
+      },
+      update: {
+        paidAmount,
+        paidDate: paidDate ?? new Date(),
+        status,
+        notas: notas ?? null,
+      },
+    })
+
+    const debited = await tx.bankAccount.updateMany({
+      where: {
+        id: bankAccountId,
+        empresaId,
+        ativo: true,
+        saldoAtual: { gte: movementAmount },
+      },
+      data: { saldoAtual: { decrement: movementAmount } },
+    })
+
+    if (debited.count !== 1) {
+      throw new Error("Saldo bancário insuficiente ou conta alterada durante o pagamento")
+    }
+
+    const updatedAccount = await tx.bankAccount.findUniqueOrThrow({
+      where: { id: bankAccountId },
+      select: { saldoAtual: true },
+    })
+
+    const saldoPosterior = new Decimal(updatedAccount.saldoAtual)
+    const bankTx = await tx.bankTransaction.create({
+      data: {
+        accountId: bankAccountId,
+        empresaId,
+        tipo: "DEBITO",
+        categoria: "ESTIMATED_TAX_PAYMENT",
+        valor: movementAmount,
+        descricao: `Estimated tax ${taxYear} ${quarter}`,
+        documento: null,
+        dataTransacao: paidDate ?? new Date(),
+        saldoAnterior: saldoPosterior.plus(movementAmount),
+        saldoPosterior,
+        metadata: {
+          estimatedTaxPaymentId: result.id,
+          taxYear,
+          quarter,
+        },
+      },
+    })
+
+    await postLedgerTransaction(
+      {
+        empresaId,
+        data: paidDate ?? new Date(),
+        descricao: `Estimated tax ${taxYear} ${quarter}`,
+        sourceType: "ADJUSTMENT",
+        sourceId: bankTx.id,
+        entries: [
+          { accountCode: "EXPENSE", debit: movementAmount, memo: `Estimated tax ${quarter}` },
+          { accountCode: "CASH", credit: movementAmount, memo: "Saída de caixa para estimated tax" },
+        ],
+      },
+      tx
+    )
+
+    await tx.auditLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId,
+        entidade: "EstimatedTaxPayment",
+        entidadeId: String(result.id),
+        acao: "UPSERT",
+        diff: JSON.stringify({
+          quarter,
+          taxYear,
+          paidAmount,
+          bankAccountId,
+          status,
+        }),
+      },
+    })
+
+    return result
   })
 
   return { success: true as const, data: payment }
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : "Erro ao registrar pagamento de estimated tax",
+    }
+  }
 }
 
 // ── Update existing payment ──────────────────────────────────────────────────
 
 export async function updatePayment(
   id: number,
-  data: { paidAmount?: number; paidDate?: Date; notas?: string },
-  userId: number
+  data: { paidDate?: Date; notas?: string },
+  userId: number,
+  empresaId: number
 ) {
-  const existing = await prisma.estimatedTaxPayment.findUnique({
-    where: { id },
+  const existing = await prisma.estimatedTaxPayment.findFirst({
+    where: { id, empresaId },
   })
 
   if (!existing) {
     return { success: false as const, error: "Pagamento não encontrado" }
   }
 
-  const newPaidAmount = data.paidAmount ?? Number(existing.paidAmount)
   const dueDate = existing.dueDate
   const estimatedAmount = Number(existing.estimatedAmount)
-  const status = deriveStatus(estimatedAmount, newPaidAmount, dueDate)
+  const status = deriveStatus(estimatedAmount, Number(existing.paidAmount), dueDate)
 
   const updated = await prisma.estimatedTaxPayment.update({
     where: { id },
     data: {
-      paidAmount: data.paidAmount,
       paidDate: data.paidDate,
       notas: data.notas,
       status,
@@ -231,7 +323,7 @@ export async function updatePayment(
       entidadeId: String(id),
       acao: "UPDATE",
       diff: JSON.stringify({
-        paidAmount: newPaidAmount,
+        paidAmount: Number(existing.paidAmount),
         status,
       }),
     },

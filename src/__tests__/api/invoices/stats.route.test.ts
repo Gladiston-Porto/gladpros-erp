@@ -133,6 +133,20 @@ describe('GET /api/invoices/stats', () => {
     expect(mockPrisma.invoice.aggregate).toHaveBeenCalled();
   });
 
+  it('scopes stats by authenticated empresaId', async () => {
+    mockRequireUser.mockResolvedValue({ ...mockUser, empresaId: 7 } as never);
+
+    const { GET } = await import('@/app/api/invoices/stats/route');
+    await GET(makeRequest());
+
+    expect(mockPrisma.invoice.aggregate).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ empresaId: 7 }),
+    }));
+    expect(mockPrisma.invoice.count).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ empresaId: 7 }),
+    }));
+  });
+
   it('parallel queries used for stats (Promise.all)', async () => {
     const { GET } = await import('@/app/api/invoices/stats/route');
     await GET(makeRequest());

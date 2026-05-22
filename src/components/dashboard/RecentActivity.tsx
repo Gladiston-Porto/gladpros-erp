@@ -58,7 +58,15 @@ const RecentActivityComponent = ({ activities }: RecentActivityProps) => {
               <div key={activity.id} className="flex items-center space-x-4">
                 {getActivityBadge(activity.type)}
                 <span className="flex-1">{activity.description}</span>
-                <span className="text-sm text-muted-foreground">{activity.timestamp}</span>
+                <span className="text-sm text-muted-foreground">
+                  {new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'America/Chicago',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }).format(new Date(activity.timestamp))}
+                </span>
               </div>
             ))
           )}

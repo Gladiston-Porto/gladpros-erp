@@ -46,7 +46,6 @@ export default function NovaContaPage() {
     try {
       const payload = {
         ...data,
-        empresaId: 1,
         digito: data.digito || undefined,
       };
       const res = await authenticatedFetch("/api/financeiro/contas", {

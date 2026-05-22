@@ -6,9 +6,14 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 // ── GET /api/invoices/stats ───────────────────────────────────────────────────
 // Retorna totais financeiros das invoices para os cards de sumário
 
+function canReadInternalInvoices(role: Role) {
+  return role === 'ADMIN' || role === 'GERENTE' || role === 'FINANCEIRO';
+}
+
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const user = await requireUser(req);
-  if (!can(user.role as Role, 'invoices', 'read')) {
+  const role = user.role as Role;
+  if (!can(role, 'invoices', 'read') || !canReadInternalInvoices(role)) {
     return NextResponse.json(
       { error: 'Forbidden', message: 'Sem permissão', success: false },
       { status: 403 },
@@ -17,14 +22,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const [aggregate, countVencidas, countTotal] = await Promise.all([
     prisma.invoice.aggregate({
-      where: { empresaId: 1, status: { notIn: ['CANCELLED'] } },
+      where: { empresaId: user.empresaId, status: { notIn: ['CANCELLED'] } },
       _sum: { valorTotal: true, valorPago: true, saldo: true },
     }),
     prisma.invoice.count({
-      where: { empresaId: 1, status: 'OVERDUE' },
+      where: { empresaId: user.empresaId, status: 'OVERDUE' },
     }),
     prisma.invoice.count({
-      where: { empresaId: 1, status: { notIn: ['CANCELLED'] } },
+      where: { empresaId: user.empresaId, status: { notIn: ['CANCELLED'] } },
     }),
   ]);
 

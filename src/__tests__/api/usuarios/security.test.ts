@@ -30,6 +30,10 @@ jest.mock('@/shared/lib/rbac', () => ({
   requireUser: jest.fn(),
 }));
 
+jest.mock('@/shared/lib/rbac-core', () => ({
+  can: jest.fn().mockReturnValue(true),
+}))
+
 jest.mock('@/lib/api/error-handler', () => ({
   withErrorHandler: jest.fn().mockImplementation((handler: Function) => async (...args: unknown[]) => {
     try {
@@ -44,9 +48,11 @@ jest.mock('@/lib/api/error-handler', () => ({
 }));
 
 import { requireUser } from '@/shared/lib/rbac';
+import { can } from '@/shared/lib/rbac-core';
 import { prisma } from '@/lib/prisma';
 
 const mockRequireUser = requireUser as jest.MockedFunction<typeof requireUser>;
+const mockCan = can as jest.MockedFunction<typeof can>;
 
 function makeRequest(userId = '1') {
   return new NextRequest(`http://localhost/api/usuarios/${userId}/security`);
@@ -75,7 +81,7 @@ describe('GET /api/usuarios/[id]/security', () => {
 
   it('403 — USUARIO acessando outro usuário', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 99, role: 'USUARIO', email: 'u@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({ nivel: 'ADMIN' });
+    mockCan.mockReturnValueOnce(false);
     const { GET } = await import('@/app/api/usuarios/[id]/security/route');
     const res = await GET(makeRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(403);
@@ -93,9 +99,10 @@ describe('GET /api/usuarios/[id]/security', () => {
     const res = await GET(makeRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.id).toBe(5);
-    expect(body.blocked).toBe(false);
-    expect(body.lastSuccessfulLoginAt).toBeTruthy();
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBe(5);
+    expect(body.data.blocked).toBe(false);
+    expect(body.data.lastSuccessfulLoginAt).toBeTruthy();
   });
 
   it('200 — ADMIN pode ver dados de segurança de outro usuário', async () => {
@@ -108,8 +115,9 @@ describe('GET /api/usuarios/[id]/security', () => {
     const res = await GET(makeRequest('2'), { params: Promise.resolve({ id: '2' }) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.blocked).toBe(true);
-    expect(body.blockedAt).toBeTruthy();
+    expect(body.success).toBe(true);
+    expect(body.data.blocked).toBe(true);
+    expect(body.data.blockedAt).toBeTruthy();
   });
 
   it('404 — usuário não encontrado', async () => {
@@ -131,6 +139,7 @@ describe('GET /api/usuarios/[id]/security', () => {
     const res = await GET(makeRequest('3'), { params: Promise.resolve({ id: '3' }) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.blocked).toBe(true);
+    expect(body.success).toBe(true);
+    expect(body.data.blocked).toBe(true);
   });
 });

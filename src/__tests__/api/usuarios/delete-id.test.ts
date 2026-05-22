@@ -1,17 +1,44 @@
 jest.mock('next/server', () => {
   const makeSearchParams = (url: string) => {
-    try { return new URLSearchParams(url.includes('?') ? url.split('?')[1] ?? '' : ''); }
-    catch { return new URLSearchParams(); }
+    try {
+      return new URLSearchParams(url.includes('?') ? (url.split('?')[1] ?? '') : '');
+    } catch {
+      return new URLSearchParams();
+    }
   };
   return {
-    NextRequest: jest.fn().mockImplementation((url: string, init?: { method?: string; body?: string; headers?: Record<string, string> }) => ({
-      url,
-      method: (init?.method ?? 'GET').toUpperCase(),
-      nextUrl: { searchParams: makeSearchParams(url), pathname: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0] },
-      headers: { get: (name: string) => { const h = (init?.headers ?? {}) as Record<string, string>; return h[name] ?? h[name.toLowerCase()] ?? null; } },
-      json: jest.fn().mockImplementation(() => { if (init?.body) { try { return Promise.resolve(JSON.parse(init.body)); } catch { return Promise.resolve({}); } } return Promise.resolve({}); }),
-      text: jest.fn().mockResolvedValue(init?.body ?? ''),
-    })),
+    NextRequest: jest
+      .fn()
+      .mockImplementation(
+        (
+          url: string,
+          init?: { method?: string; body?: string; headers?: Record<string, string> },
+        ) => ({
+          url,
+          method: (init?.method ?? 'GET').toUpperCase(),
+          nextUrl: {
+            searchParams: makeSearchParams(url),
+            pathname: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0],
+          },
+          headers: {
+            get: (name: string) => {
+              const h = (init?.headers ?? {}) as Record<string, string>;
+              return h[name] ?? h[name.toLowerCase()] ?? null;
+            },
+          },
+          json: jest.fn().mockImplementation(() => {
+            if (init?.body) {
+              try {
+                return Promise.resolve(JSON.parse(init.body));
+              } catch {
+                return Promise.resolve({});
+              }
+            }
+            return Promise.resolve({});
+          }),
+          text: jest.fn().mockResolvedValue(init?.body ?? ''),
+        }),
+      ),
     NextResponse: {
       json: jest.fn().mockImplementation((data: unknown, options?: { status?: number }) => ({
         status: options?.status ?? 200,
@@ -59,7 +86,14 @@ jest.mock('@/shared/lib/usuario-query', () => ({
 }));
 
 jest.mock('@/shared/lib/user-hierarchy', () => ({
-  UserRole: { ADMIN: 'ADMIN', GERENTE: 'GERENTE', FINANCEIRO: 'FINANCEIRO', USUARIO: 'USUARIO', ESTOQUE: 'ESTOQUE', CLIENTE: 'CLIENTE' },
+  UserRole: {
+    ADMIN: 'ADMIN',
+    GERENTE: 'GERENTE',
+    FINANCEIRO: 'FINANCEIRO',
+    USUARIO: 'USUARIO',
+    ESTOQUE: 'ESTOQUE',
+    CLIENTE: 'CLIENTE',
+  },
   canManageRole: jest.fn().mockReturnValue(true),
 }));
 
@@ -68,19 +102,33 @@ jest.mock('@/lib/api/logger', () => ({
 }));
 
 jest.mock('@/lib/api/error-handler', () => ({
-  withErrorHandler: jest.fn().mockImplementation((handler: Function) => async (...args: unknown[]) => {
-    try {
-      return await handler(...args);
-    } catch (error) {
-      if (error instanceof Error && error.message === 'UNAUTHENTICATED') {
-        return { status: 401, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Unauthorized', success: false }) };
+  withErrorHandler: jest
+    .fn()
+    .mockImplementation((handler: Function) => async (...args: unknown[]) => {
+      try {
+        return await handler(...args);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'UNAUTHENTICATED') {
+          return {
+            status: 401,
+            headers: new Map(),
+            json: jest.fn().mockResolvedValue({ error: 'Unauthorized', success: false }),
+          };
+        }
+        if (error instanceof Error && error.message === 'FORBIDDEN') {
+          return {
+            status: 403,
+            headers: new Map(),
+            json: jest.fn().mockResolvedValue({ error: 'Forbidden', success: false }),
+          };
+        }
+        return {
+          status: 500,
+          headers: new Map(),
+          json: jest.fn().mockResolvedValue({ error: 'Internal server error', success: false }),
+        };
       }
-      if (error instanceof Error && error.message === 'FORBIDDEN') {
-        return { status: 403, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Forbidden', success: false }) };
-      }
-      return { status: 500, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Internal server error', success: false }) };
-    }
-  }),
+    }),
 }));
 
 jest.mock('@/shared/lib/validation', () => ({
@@ -135,7 +183,10 @@ describe('DELETE /api/usuarios/:id', () => {
   it('400 — deleting last ADMIN', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
     (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
-      id: 2, email: 'admin2@test.com', status: 'ATIVO', nivel: 'ADMIN',
+      id: 2,
+      email: 'admin2@test.com',
+      status: 'ATIVO',
+      nivel: 'ADMIN',
     });
     (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([{ cnt: BigInt(0) }]);
     const { DELETE } = await import('@/app/api/usuarios/[id]/route');
@@ -148,14 +199,43 @@ describe('DELETE /api/usuarios/:id', () => {
   it('200 — happy path soft deletes user (status → INATIVO)', async () => {
     mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
     (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
-      id: 5, email: 'user@test.com', status: 'ATIVO', nivel: 'USUARIO',
+      id: 5,
+      email: 'user@test.com',
+      status: 'ATIVO',
+      nivel: 'USUARIO',
     });
     (prisma.usuario.update as jest.Mock).mockResolvedValueOnce({ id: 5, status: 'INATIVO' });
     const { DELETE } = await import('@/app/api/usuarios/[id]/route');
     const res = await DELETE(makeDeleteRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);
     expect(prisma.usuario.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: 'INATIVO' }) })
+      expect.objectContaining({ data: expect.objectContaining({ status: 'INATIVO' }) }),
+    );
+  });
+
+  // @bug:USUARIOS-P2-003 — regressão: DELETE deve incrementar tokenVersion para invalidar JWTs
+  it('DELETE deve incrementar tokenVersion ao desativar usuário', async () => {
+    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
+    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 5,
+      email: 'user@test.com',
+      status: 'ATIVO',
+      nivel: 'USUARIO',
+    });
+    (prisma.usuario.update as jest.Mock).mockResolvedValueOnce({
+      id: 5,
+      status: 'INATIVO',
+      tokenVersion: 2,
+    });
+    const { DELETE } = await import('@/app/api/usuarios/[id]/route');
+    await DELETE(makeDeleteRequest('5'), { params: Promise.resolve({ id: '5' }) });
+    expect(prisma.usuario.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'INATIVO',
+          tokenVersion: { increment: 1 },
+        }),
+      }),
     );
   });
 });

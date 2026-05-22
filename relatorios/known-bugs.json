@@ -1,0 +1,239 @@
+{
+  "$schema": "./known-bugs.schema.json",
+  "_meta": {
+    "version": "2.0",
+    "purpose": "Rastreamento de bugs conhecidos. O pre-commit hook usa este arquivo para garantir que correções sejam COMPLETAS — todos os arquivos listados em affectedFiles devem estar limpos antes do bug ser marcado FIXED.",
+    "rules": [
+      "Cada bug tem ID único no formato MODULO-PRIORIDADE-NNN.",
+      "Ao encontrar bug, criar entrada com status='OPEN' e listar TODOS os arquivos afetados em affectedFiles.",
+      "Verificar localmente com: node scripts/check-module-health.mjs --module=<modulo>",
+      "Bug só pode ser marcado FIXED quando: (1) padrão sumir de TODOS affectedFiles, (2) regressionTest existir e passar, (3) regra Semgrep correspondente criada (quando aplicável).",
+      "O pre-commit hook bloqueia commits que tocam arquivos de bugs OPEN se o padrão ainda estiver presente.",
+      "JSON deve ter UM ÚNICO objeto raiz. Múltiplos objetos quebram o parser."
+    ],
+    "fields": {
+      "id": "MODULO-PRIORIDADE-NNN (ex: USUARIOS-P2-001)",
+      "status": "OPEN | FIXED | WONTFIX | DUPLICATE",
+      "verificationPattern": "regex que indica violação. null quando regra é semântica (ver semgrepRule).",
+      "semgrepRule": "caminho relativo a .semgrep/gladpros/. null quando não aplicável.",
+      "regressionTest": "caminho relativo para teste com tag @bug:ID. OBRIGATÓRIO antes de marcar FIXED.",
+      "affectedFiles": "lista exaustiva de arquivos com o padrão. NUNCA pode estar vazia se status=OPEN.",
+      "allowedInFiles": "arquivos onde o padrão é PERMITIDO (ex: helpers que implementam o padrão certo)."
+    }
+  },
+  "bugs": [
+    {
+      "id": "USUARIOS-P1-001",
+      "module": "usuarios",
+      "priority": "P1",
+      "title": "INFORMATION_SCHEMA consultada sem cache em export/csv",
+      "description": "export/csv/route.ts executava SELECT em INFORMATION_SCHEMA.COLUMNS a cada request. Custava 150-500ms por chamada. Padrão correto: getUsuarioColumns() com cache TTL 5min.",
+      "status": "FIXED",
+      "detectedAt": "2025-07-24",
+      "auditRef": "auditoria-modulo-usuarios.md#P1-001",
+      "affectedFiles": [
+        "src/app/api/usuarios/export/csv/route.ts"
+      ],
+      "allowedInFiles": [
+        "src/shared/lib/usuario-query.ts",
+        "src/shared/lib/db-metadata.ts"
+      ],
+      "verificationPattern": "INFORMATION_SCHEMA",
+      "semgrepRule": null,
+      "fix": "Substituído por await getUsuarioColumns() de @/shared/lib/usuario-query",
+      "fixedAt": "2025-07-25",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "c62d8b0",
+      "regressionTest": null
+    },
+    {
+      "id": "USUARIOS-P1-002",
+      "module": "usuarios",
+      "priority": "P1",
+      "title": "Endpoints divergentes para mesma operação (toggle-status vs status)",
+      "description": "toggle-status (PUT, flip via ORM) e status (PATCH, valor explícito via SQL raw) cobrem mesma operação com contratos diferentes. Ambos têm tokenVersion. Distinção mantida: toggle-status=frontend, status=automações.",
+      "status": "FIXED",
+      "detectedAt": "2025-07-24",
+      "auditRef": "auditoria-modulo-usuarios.md#P1-002",
+      "affectedFiles": [
+        "src/app/api/usuarios/[id]/toggle-status/route.ts",
+        "src/app/api/usuarios/[id]/status/route.ts"
+      ],
+      "verificationPattern": null,
+      "semgrepRule": null,
+      "fix": "Ambos com tokenVersion + success fields + documentação diferenciada.",
+      "fixedAt": "2025-07-25",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "c62d8b0",
+      "regressionTest": null
+    },
+    {
+      "id": "USUARIOS-P2-001",
+      "module": "usuarios",
+      "priority": "P2",
+      "title": "Respostas de erro sem campo success em sessions e toggle-status",
+      "description": "sessions/route.ts e toggle-status/route.ts retornavam { message } sem success:false.",
+      "status": "FIXED",
+      "detectedAt": "2025-07-24",
+      "auditRef": "auditoria-modulo-usuarios.md#P2-001",
+      "affectedFiles": [
+        "src/app/api/usuarios/[id]/sessions/route.ts",
+        "src/app/api/usuarios/[id]/toggle-status/route.ts"
+      ],
+      "verificationPattern": "\\{ message:",
+      "semgrepRule": null,
+      "fix": "Padronizado { error, message, success: false }.",
+      "fixedAt": "2025-07-25",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "c62d8b0",
+      "regressionTest": null
+    },
+    {
+      "id": "USUARIOS-P2-002",
+      "module": "usuarios",
+      "priority": "P2",
+      "title": "Schema drift: empresaId ausente no model Delegacao",
+      "description": "Model Delegacao no schema.prisma sem empresaId nem @@index([empresaId]).",
+      "status": "FIXED",
+      "detectedAt": "2025-07-24",
+      "auditRef": "auditoria-modulo-usuarios.md#P2-007",
+      "affectedFiles": [
+        "prisma/schema.prisma"
+      ],
+      "verificationPattern": null,
+      "semgrepRule": null,
+      "fix": "Adicionado empresaId Int e @@index([empresaId]).",
+      "fixedAt": "2025-07-25",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "c62d8b0",
+      "regressionTest": null
+    },
+    {
+      "id": "USUARIOS-P3-001",
+      "module": "usuarios",
+      "priority": "P3",
+      "title": "withRetry duplicada em dois arquivos",
+      "description": "Função withRetry em route.ts e [id]/route.ts. Movida para src/lib/utils/retry.ts.",
+      "status": "FIXED",
+      "detectedAt": "2025-07-24",
+      "auditRef": "auditoria-modulo-usuarios.md#P3-001",
+      "affectedFiles": [
+        "src/app/api/usuarios/route.ts",
+        "src/app/api/usuarios/[id]/route.ts"
+      ],
+      "verificationPattern": "function withRetry",
+      "semgrepRule": null,
+      "fix": "Extraído para src/lib/utils/retry.ts.",
+      "fixedAt": "2025-07-24",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "e4d9eea",
+      "regressionTest": null
+    },
+    {
+      "id": "USUARIOS-P3-002",
+      "module": "usuarios",
+      "priority": "P3",
+      "title": "bcrypt salt=10 em dev/create-test-user",
+      "description": "Salt rounds 10 em endpoint dev (padrão é 12).",
+      "status": "FIXED",
+      "detectedAt": "2025-07-24",
+      "auditRef": "auditoria-modulo-usuarios.md#P3-003",
+      "affectedFiles": [
+        "src/app/api/dev/create-test-user/route.ts"
+      ],
+      "verificationPattern": "bcrypt.*10\\b|genSalt.*10\\b|saltRounds.*=.*10",
+      "semgrepRule": null,
+      "fix": "Salt rounds 10 → 12.",
+      "fixedAt": "2025-07-24",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "e4d9eea",
+      "regressionTest": null
+    },
+    {
+      "id": "USUARIOS-P2-003",
+      "module": "usuarios",
+      "priority": "P2",
+      "title": "DELETE de Usuario não incrementa tokenVersion (JWT continua válido)",
+      "description": "src/app/api/usuarios/[id]/route.ts DELETE handler (linha ~574) faz soft-delete setando status='INATIVO' mas não incrementa tokenVersion. Com RBAC_TRUST_JWT=1 em produção, usuário deletado mantém acesso por até 8h. Detectado no 4º ciclo de auditoria (2026-05-21).",
+      "status": "FIXED",
+      "detectedAt": "2026-05-21",
+      "auditRef": "auditoria-4ciclo-2026-05-21#P2-01",
+      "affectedFiles": [
+        "src/app/api/usuarios/[id]/route.ts"
+      ],
+      "verificationPattern": "status:\\s*'INATIVO'(?![\\s\\S]*?tokenVersion)",
+      "semgrepRule": ".semgrep/gladpros/tokenVersion-on-user-deactivation.yml",
+      "fix": "tokenVersion: { increment: 1 } adicionado no data do DELETE handler.",
+      "fixedAt": "2026-05-21",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "FASE3-P2-FIXES",
+      "regressionTest": "src/__tests__/api/usuarios/delete-id.test.ts"
+    },
+    {
+      "id": "USUARIOS-P2-004",
+      "module": "usuarios",
+      "priority": "P2",
+      "title": "delegacoes/[id]/route.ts sem checagem RBAC can()",
+      "description": "src/app/api/usuarios/delegacoes/[id]/route.ts GET e PATCH chamam requireUser mas não fazem can(role, 'usuarios', action). Usuário com role ESTOQUE ou CLIENTE que seja participante de delegação pode acessar/cancelar. Falso positivo no Gate 2 da certificação v3.0.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-21",
+      "auditRef": "auditoria-4ciclo-2026-05-21#P2-02",
+      "affectedFiles": [
+        "src/app/api/usuarios/delegacoes/[id]/route.ts"
+      ],
+      "verificationPattern": null,
+      "semgrepRule": ".semgrep/gladpros/can-check-on-usuarios-route.yml",
+      "fix": "can/Role importados e can() checks adicionados em GET e PATCH de delegacoes/[id]/route.ts.",
+      "fixedAt": "2026-05-21",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "FASE3-P2-FIXES",
+      "regressionTest": null
+    },
+    {
+      "id": "USUARIOS-P2-005",
+      "module": "usuarios",
+      "priority": "P2",
+      "title": "empresaId ausente em findUnique de sub-routes (IDOR potencial)",
+      "description": "Três arquivos fazem findUnique sem incluir empresaId no where, expondo a vazamento cross-tenant futuro: _helpers/access.ts:33, delegacoes/[id]/route.ts:19,91, [id]/toggle-status/route.ts:32. Falso positivo no Gate 3 da certificação v3.0 (declarou ✅ baseado apenas em listagens).",
+      "status": "FIXED",
+      "detectedAt": "2026-05-21",
+      "auditRef": "auditoria-4ciclo-2026-05-21#P2-03",
+      "affectedFiles": [
+        "src/app/api/usuarios/_helpers/access.ts",
+        "src/app/api/usuarios/delegacoes/[id]/route.ts",
+        "src/app/api/usuarios/[id]/toggle-status/route.ts"
+      ],
+      "verificationPattern": null,
+      "semgrepRule": ".semgrep/gladpros/empresaId-on-prisma-where.yml",
+      "fix": "empresaId adicionado ao where em _helpers/access.ts, delegacoes/[id]/route.ts e toggle-status/route.ts.",
+      "fixedAt": "2026-05-21",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "FASE3-P2-FIXES",
+      "regressionTest": "src/__tests__/api/usuarios/user-management-access.test.ts"
+    },
+    {
+      "id": "USUARIOS-P2-006",
+      "module": "usuarios",
+      "priority": "P2",
+      "title": "Diretório de testes duplicado (src/app/api/usuarios/__tests__)",
+      "description": "Existem 2 diretórios de testes: src/app/api/usuarios/__tests__/ (5 arquivos, criados em commit 3ee4e69 do ciclo anterior) e src/__tests__/api/usuarios/ (16 arquivos, oficial). npm test roda ambos, gera conflito de mocks e overhead de CI.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-21",
+      "auditRef": "auditoria-4ciclo-2026-05-21#P2-04",
+      "affectedFiles": [
+        "src/app/api/usuarios/__tests__/[id].route.test.ts",
+        "src/app/api/usuarios/__tests__/route.test.ts",
+        "src/app/api/usuarios/__tests__/sessions.test.ts",
+        "src/app/api/usuarios/__tests__/toggle-status.test.ts",
+        "src/app/api/usuarios/__tests__/user-management-access.test.ts"
+      ],
+      "verificationPattern": null,
+      "semgrepRule": null,
+      "fix": "Diretório duplicado removido. user-management-access.test.ts migrado para src/__tests__/api/usuarios/.",
+      "fixedAt": "2026-05-21",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "FASE3-P2-FIXES",
+      "regressionTest": "src/__tests__/api/usuarios/user-management-access.test.ts"
+    }
+  ]
+}

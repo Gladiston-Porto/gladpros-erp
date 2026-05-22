@@ -19,9 +19,9 @@ export const PUT = withErrorHandler(async (request: NextRequest,
     const params = await context.params;
     const { id } = clienteParamsSchema.parse(params);
 
-    // Verificar se o cliente existe
+    // Verificar se o cliente existe (scoped por empresa)
     const existingCliente = await prisma.cliente.findUnique({
-      where: { id },
+      where: { id, empresaId: user.empresaId as number },
       select: { id: true, status: true, nomeCompleto: true, nomeFantasia: true, razaoSocial: true, tipo: true }
     });
 
@@ -53,9 +53,9 @@ export const PUT = withErrorHandler(async (request: NextRequest,
       }
     }
 
-    // Atualizar cliente
+    // Atualizar cliente (scoped por empresa)
     await prisma.cliente.update({
-      where: { id },
+      where: { id, empresaId: user.empresaId as number },
       data: {
         status: newStatus,
         ativo: newStatus === 'ATIVO',

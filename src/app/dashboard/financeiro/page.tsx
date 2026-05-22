@@ -43,13 +43,12 @@ export default async function DashboardFinanceiroPage() {
   if (!can(user.role as Role, "financeiro", "read")) redirect("/403")
   return (
     <Suspense fallback={<FinanceiroSkeleton />}>
-      <FinanceiroContent />
+      <FinanceiroContent empresaId={user.empresaId} />
     </Suspense>
   )
 }
 
-async function FinanceiroContent() {
-  const empresaId = 1
+async function FinanceiroContent({ empresaId }: { empresaId: number }) {
 
   const [receitasRecebidas, despesasPagas, receitasPendentes, despesasPendentes, contas, transferenciasPendentes] =
     await Promise.all([

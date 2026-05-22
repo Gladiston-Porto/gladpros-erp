@@ -47,10 +47,11 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: { para
   }
 
   // Gerar nova senha provisória e atualizar no banco
+  // magicLinkConsumedAt = NULL reseta o consumo para o novo link funcionar (single-use reset)
   const tempPassword = generateTempPassword(12);
   const senhaHash = await bcrypt.hash(tempPassword, 12);
   await prisma.$executeRaw`
-    UPDATE Usuario SET senha = ${senhaHash}, senhaProvisoria = 1, primeiroAcesso = 1 WHERE id = ${targetId}
+    UPDATE Usuario SET senha = ${senhaHash}, senhaProvisoria = 1, primeiroAcesso = 1, magicLinkConsumedAt = NULL WHERE id = ${targetId}
   `;
 
   // Gerar novo magic link

@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get('pageSize') ?? 50)));
 
   const where = {
-    empresaId: 1,
+    empresaId: user.empresaId,
     deletedAt: null as null,
     ativo: true,
     ...(q ? { nome: { contains: q } } : {}),
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   }
 
   const item = await prisma.catalogoItem.create({
-    data: { ...body.data, empresaId: 1 },
+    data: { ...body.data, empresaId: user.empresaId },
   });
 
   return NextResponse.json(

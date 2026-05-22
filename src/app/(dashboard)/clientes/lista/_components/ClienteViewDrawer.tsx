@@ -276,6 +276,7 @@ export function ClienteViewDrawer({ clienteId, onClose, onEdit }: Props) {
               <p className="text-xs text-muted-foreground">{error}</p>
               <button
                 onClick={onClose}
+                aria-label="Fechar painel de erro"
                 className="mt-2 rounded-xl border border-border px-4 py-2 text-sm transition hover:bg-muted"
               >
                 Fechar
@@ -459,6 +460,7 @@ export function ClienteViewDrawer({ clienteId, onClose, onEdit }: Props) {
             <div className="flex gap-3">
               <button
                 onClick={() => router.push(`/clientes/${cliente.id}`)}
+                aria-label={`Ver página completa de ${cliente.nomeCompleto ?? cliente.razaoSocial ?? 'cliente'}`}
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
               >
                 Ver Página Completa

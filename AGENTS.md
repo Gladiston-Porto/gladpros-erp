@@ -203,8 +203,9 @@ CLIENTE (6)    → Acesso externo limitado
 ```
 
 ### 6.5 Gestão de usuários
-- ADMIN gerencia todos
-- GERENTE gerencia apenas USUARIO, FINANCEIRO, ESTOQUE
+- ADMIN gerencia todos (módulo Usuários: criação de contas, definição de roles, reset de senha)
+- GERENTE **não tem acesso ao módulo Usuários** — gerencia seu time operacionalmente via Projetos, RH e OS
+  - "Gerenciar USUARIO/FINANCEIRO/ESTOQUE" significa alocar, escalar e supervisionar esses colaboradores dentro dos módulos operacionais (projetos, ordens de serviço), não administrar suas contas no sistema
 - demais roles não podem gerenciar usuários
 
 ### 6.6 Matriz de permissões por módulo
@@ -637,7 +638,7 @@ Estas variáveis existem no código e têm impacto direto na performance. Um age
 | Variável | Valor | Efeito quando ativa |
 |----------|-------|---------------------|
 | `TOKEN_VERSION_COLUMN_EXISTS=1` | `1` | Elimina query ao `INFORMATION_SCHEMA` no boot/HMR. Sem ela: até 10s de latência no cold start. |
-| `RBAC_TRUST_JWT=1` | `1` | Elimina 1 query ao banco por request autenticada. O JWT já é verificado pelo middleware com a mesma chave. |
+| `RBAC_TRUST_JWT=1` | `1` | Elimina 1 query ao banco por request autenticada. O JWT já é verificado pelo middleware com a mesma chave. **Ver trade-off abaixo.** |
 | `REDIS_DISABLED=true` | `true` | Força rate-limiter a usar memória. Sem Redis configurado, nunca deixar `REDIS_ENABLED=true`. |
 | `REDIS_URL` ou `REDIS_HOST` | URL real | Habilita Redis para rate-limiting distribuído. Requer Redis real acessível. |
 | `DATABASE_URL` com `?connection_limit=N&pool_timeout=20` | já configurado | Limita pool de conexões Prisma para evitar `Too many connections` no MySQL. |
@@ -646,6 +647,31 @@ Estas variáveis existem no código e têm impacto direto na performance. Um age
 - `TOKEN_VERSION_COLUMN_EXISTS=1` e `RBAC_TRUST_JWT=1` **devem estar presentes em produção** após deploy.
 - Nunca adicionar `REDIS_ENABLED=true` sem Redis real — causa timeout de ~1s no primeiro login após restart.
 - Nunca remover `connection_limit` da `DATABASE_URL` sem justificar.
+
+### ⚠️ Trade-off de segurança: RBAC_TRUST_JWT=1
+
+Com `RBAC_TRUST_JWT=1` ativo, o sistema **não consulta o banco de dados por request**. Isso traz ganho de performance, mas cria uma janela de segurança:
+
+| Situação | Com RBAC_TRUST_JWT=0 | Com RBAC_TRUST_JWT=1 |
+|----------|----------------------|----------------------|
+| Usuário desativado (toggle-status) | Bloqueado **imediatamente** na próxima request | Acesso válido por até **8 horas** (cookie) ou **7 dias** (JWT bruto) |
+| Mudança de role/nivel | Refletida **imediatamente** na próxima request | Só reflete após **novo login** |
+| Incremento de `tokenVersion` (logout forçado) | Bloqueia o token **imediatamente** | **Ignorado** — DB não é consultado |
+
+**JWT no sistema:**
+- Cookie `authToken`: `maxAge = 8h` — janela efetiva para browser normal
+- JWT assinado: `exp = 7d` — janela se o token for extraído do cookie
+
+**Quando usar:**
+- ✅ Produção com alto throughput e sem necessidade de bloqueio imediato
+- ❌ Situações onde um usuário comprometido precisa ser bloqueado em segundos
+
+**Procedimento para bloqueio de emergência com RBAC_TRUST_JWT=1:**
+1. Desativar usuário via `/api/usuarios/[id]/toggle-status` (incrementa `tokenVersion` no DB)
+2. O cookie expira em até 8h naturalmente
+3. Se urgente: rotacionar `JWT_SECRET` no ambiente → invalida **todos** os tokens ativos (impacto global)
+
+**Nunca:** remover `RBAC_TRUST_JWT=1` em produção sem medir o impacto em queries por segundo — cada request autenticada passa a fazer 1 query extra ao banco.
 
 ### ⚠️ Sentry — desativado em desenvolvimento
 
@@ -1003,6 +1029,77 @@ Classificações permitidas:
 - [ ] O fluxo alterado foi validado?
 - [ ] Há risco de regressão em módulo próximo?
 
+### 20.1 Regra de verificação obrigatória para correção de bugs
+
+Quando um bug é corrigido em um arquivo, o agente **deve** rodar o seguinte antes de commitar:
+
+```bash
+# Substituir PADRÃO_ANTIGO pelo padrão que estava errado (ex: INFORMATION_SCHEMA, console.log, etc.)
+grep -rn "PADRÃO_ANTIGO" src/app/api/MODULO/ src/app/(dashboard)/MODULO/
+```
+
+Se o grep retornar qualquer resultado → o fix está **incompleto**. Não commitar.
+
+O resultado do grep deve ser incluído no commit message como evidência:
+```
+fix(modulo): corrigir PADRÃO_ANTIGO
+
+Verificação: grep -rn "PADRÃO_ANTIGO" src/app/api/modulo/ → 0 ocorrências
+Arquivos corrigidos: arquivo1.ts, arquivo2.ts
+```
+
+**Nunca escrever "Corrigido ✅" sem executar a verificação.**
+
+### 20.2 Regra para novas features em módulos auditados
+
+Quando um commit do tipo `feat` modifica um módulo que já passou por auditoria:
+
+1. Todo **novo arquivo** de API deve passar pelo checklist de 15 pontos da seção 20
+2. Todo **novo model Prisma** deve ter: `empresaId Int`, `@@index([empresaId])`, soft-delete se aplicável
+3. Todo **novo link de navegação** no frontend deve apontar para uma página que existe
+4. O **filtro multi-role** ou qualquer novo campo de filtro deve ser testado com valores compostos (ex: `?role=ADMIN,GERENTE`)
+5. Se a feature cria nova funcionalidade visível ao usuário → adicionar `data-testid` nos elementos interativos
+
+**Violação desta regra é a principal causa de "novas auditorias encontrarem novos bugs".**
+
+---
+
+## 20.1 Quando declarar um bug FIXED — critérios obrigatórios
+
+Um bug em `relatorios/known-bugs.json` **só pode ser marcado `status: FIXED`** quando TODOS os critérios abaixo forem verdadeiros. Marcação prematura cria falsa sensação de qualidade e foi causa raiz de regressões anteriores.
+
+### Critérios obrigatórios (todos):
+
+1. **Correção aplicada** — patch existe no código, validado por teste manual ou unit test
+2. **Teste de regressão criado** com tag obrigatória no topo do arquivo:
+   ```ts
+   // @bug:USUARIOS-P2-XX
+   // @description: <descrição curta>
+   describe('REGRESSION USUARIOS-P2-XX', () => { ... })
+   ```
+3. **Teste passa** — `npm test path/to/test.test.ts` retorna verde
+4. **Regra Semgrep adicionada** se o bug é padrão repetível (ex: RBAC ausente, empresaId faltando, tokenVersion não incrementado)
+   - Arquivo em `.semgrep/gladpros/<regra>.yml`
+   - Validada com `semgrep --config .semgrep/gladpros src/`
+5. **Health check passa** — `node scripts/check-module-health.mjs --module=X` verde
+6. **Certificação programática** — `node scripts/certify-module.mjs --module=X` retorna exit 0
+7. **Entrada do known-bugs preenchida**:
+   - `status: "FIXED"`
+   - `regressionTest: "src/__tests__/.../USUARIOS-P2-XX.test.ts"` (path válido)
+   - `semgrepRule: ".semgrep/gladpros/<regra>.yml"` (se aplicável)
+   - `fixedIn: "<commit-sha>"`
+   - `fixedAt: "YYYY-MM-DD"`
+
+### Se falhar QUALQUER critério:
+
+- **Não marcar FIXED.** Manter `status: OPEN` ou criar `status: IN_PROGRESS`.
+- Não é aceitável "comentar que está corrigido" sem teste de regressão.
+- Não é aceitável corrigir 1 bug e marcar 4 como FIXED sem evidência individual.
+
+### Validação automatizada
+
+O script `scripts/certify-module.mjs` valida esses critérios. CI bloqueia merge se inconsistência for detectada. Pre-commit hook avisa localmente. **Não há bypass válido.**
+
 ---
 
 ## 21. Resposta final obrigatória do agente
@@ -1077,3 +1174,86 @@ Se houver dúvida entre duas abordagens, sempre escolher na seguinte ordem de pr
 | Código conciso vs código claro | **Claro** |
 
 **Em caso de incerteza real:** não assumir, não improvisar. Explicar o que foi encontrado, apontar os riscos e sugerir o próximo passo mais seguro antes de agir.
+
+---
+
+## 25. Protocolo obrigatório de verificação de fix
+
+> Este protocolo nasceu da análise de 3 auditorias consecutivas do módulo usuarios que continuaram encontrando os mesmos problemas porque os fixes eram reais mas incompletos: corrigiam N-1 arquivos e esqueciam o N-ésimo.
+
+### Regra de ouro: um fix só está feito quando não existe mais nenhuma ocorrência do padrão antigo em TODO o codebase.
+
+### 25.1 — Antes de declarar um fix como ✅ Corrigido
+
+**Passo 1 — Busca global pelo padrão antigo:**
+```bash
+# Substituir "PADRÃO_ANTIGO" pelo que foi corrigido
+grep -rn "PADRÃO_ANTIGO" src/
+```
+O resultado deve ser **zero linhas**. Se encontrar qualquer ocorrência, o fix está incompleto.
+
+**Passo 2 — Executar o script de health check:**
+```bash
+node scripts/check-module-health.mjs
+# ou para um módulo específico:
+node scripts/check-module-health.mjs --module=usuarios
+```
+Deve retornar `✅ Nenhum anti-pattern encontrado`.
+
+**Passo 3 — Confirmar no commit message com evidência:**
+```
+fix(usuarios): corrige INFORMATION_SCHEMA em export/csv
+
+- export/csv/route.ts:79 — raw query substituída por buildUsuarioSelect()
+- grep INFORMATION_SCHEMA src/ → 1 ocorrência restante (autorizada em usuario-query.ts)
+- node scripts/check-module-health.mjs → P1 limpo
+```
+
+### 25.2 — Ao corrigir um bug que existe em múltiplos arquivos
+
+**Antes de escrever qualquer código:**
+1. Buscar o padrão em TODOS os arquivos do módulo
+2. Listar explicitamente TODOS os arquivos afetados
+3. Só então corrigir — um arquivo de cada vez
+4. Confirmar com grep após cada arquivo
+
+**Exemplo (BUG-05 que falhou 3 auditorias):**
+```bash
+# Passo correto que foi pulado
+grep -rn "INFORMATION_SCHEMA" src/app/api/usuarios/
+# Resultado: route.ts:510, [id]/route.ts:325, export/csv/route.ts:79
+# Corrigir os 3, não apenas os 2 primeiros
+```
+
+### 25.3 — Ao fazer commit de uma nova feature (feat)
+
+Todo commit `feat` que altera ou cria código em módulos existentes deve incluir no corpo do commit:
+- Quais anti-patterns foram verificados na nova feature
+- Resultado de `node scripts/check-module-health.mjs --staged`
+
+### 25.4 — Padrões proibidos e seus arquivos autorizados
+
+| Padrão | Motivo da proibição | Arquivo onde é PERMITIDO |
+|--------|--------------------|-----------------------------|
+| `INFORMATION_SCHEMA` | Performance — query de metadados custosa | `src/shared/lib/usuario-query.ts` |
+| `from "@/server/db"` | Import errado do Prisma | Nenhum (sempre usar `@/lib/prisma`) |
+| `.map(async` em API routes | N+1 queries | Nenhum (usar Promise.all) |
+| `empresaId: 1` hardcoded | IDOR técnica | `src/app/api/dev/` (dev only) |
+| `{ ok: true }` em NextResponse | Formato de resposta inválido | Nenhum |
+| `requireAuth\|requireApiUser` | Auth legado | `src/lib/api/auth.ts` (apenas definição) |
+| `console.log` em API routes | Debug em produção | `src/app/api/dev/` (dev only) |
+
+### 25.5 — Ferramenta de verificação
+
+```bash
+# Verificar o projeto inteiro
+npm run health:check
+
+# Verificar só arquivos staged (pre-commit)
+node scripts/check-module-health.mjs --staged
+
+# Verificar módulo específico
+node scripts/check-module-health.mjs --module=usuarios
+```
+
+O script `scripts/check-module-health.mjs` é o árbitro final. Se ele retorna P1 limpo, o padrão de anti-patterns catalogados está ausente. O hook pre-commit roda isso automaticamente — P1 bloqueia o commit.
