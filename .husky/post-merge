@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+# GladPros ERP — post-merge hook
+# Roda automaticamente após `git merge` ou `git pull` com merge
+#
+# Garante que o ambiente local esteja sincronizado após receber mudanças.
+
+echo ""
+echo "🔄 GladPros — Sincronização Pós-merge"
+echo "─────────────────────────────────────────"
+
+# Verificar se o schema Prisma mudou
+CHANGED_SCHEMA=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep "prisma/schema.prisma" || true)
+
+if [ -n "$CHANGED_SCHEMA" ]; then
+  echo "▶ Schema Prisma mudou — rodando db:generate..."
+  npm run db:generate 2>&1 | tail -5
+  echo "✅ Prisma client regenerado"
+fi
+
+# Verificar se package.json mudou (dependências novas)
+CHANGED_PKG=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep "package.json" || true)
+
+if [ -n "$CHANGED_PKG" ]; then
+  echo "▶ package.json mudou — dependências podem ter sido atualizadas"
+  echo "  Execute: npm install"
+fi
+
+echo ""

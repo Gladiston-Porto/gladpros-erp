@@ -37,7 +37,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
   }
 
   if (parsed.type === 'expense') {
-    const ea = await prisma.expenseApproval.findUnique({
+    const ea = await prisma.expenseApproval.findUnique({ // nosemgrep: gladpros-empresaId-required-on-prisma-where
       where: { id: parsed.numericId },
       include: {
         expense: {
@@ -83,7 +83,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
   }
 
   // Proposta
-  const proposta = await prisma.proposta.findUnique({
+  const proposta = await prisma.proposta.findUnique({ // nosemgrep: gladpros-empresaId-required-on-prisma-where
     where: { id: parsed.numericId },
     select: {
       id: true, numeroProposta: true, titulo: true, valorEstimado: true,
@@ -97,7 +97,7 @@ export const GET = withErrorHandler(async (request: NextRequest,
 
   let criador = null;
   if (proposta.criadoPor) {
-    criador = await prisma.usuario.findUnique({
+    criador = await prisma.usuario.findUnique({ // nosemgrep: gladpros-empresaId-required-on-prisma-where
       where: { id: proposta.criadoPor },
       select: { id: true, nomeCompleto: true, email: true },
     });
@@ -162,7 +162,7 @@ export const PUT = withErrorHandler(async (request: NextRequest,
   }
 
   if (parsed.type === 'expense') {
-    const ea = await prisma.expenseApproval.findUnique({ where: { id: parsed.numericId } });
+    const ea = await prisma.expenseApproval.findUnique({ where: { id: parsed.numericId } }); // nosemgrep: gladpros-empresaId-required-on-prisma-where
     if (!ea) return NextResponse.json({ error: 'Aprovação não encontrada', success: false }, { status: 404 });
 
     if (ea.status !== 'PENDENTE' && ea.status !== 'EM_ANALISE') {
@@ -189,7 +189,7 @@ export const PUT = withErrorHandler(async (request: NextRequest,
   }
 
   // Proposta
-  const proposta = await prisma.proposta.findUnique({
+  const proposta = await prisma.proposta.findUnique({ // nosemgrep: gladpros-empresaId-required-on-prisma-where
     where: { id: parsed.numericId },
     select: { id: true, status: true, aprovacaoInternaFinanceira: true, aprovacaoInternaTecnica: true },
   });

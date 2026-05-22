@@ -13,7 +13,10 @@ function mapExpenseApprovalStatus(status: string): string {
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
   if (!can(user.role as Role, 'aprovacoes', 'read')) {
-    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Sem permissão', success: false },
+      { status: 403 },
+    );
   }
 
   const { searchParams } = new URL(request.url);
@@ -26,7 +29,9 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
   // 1. Expense Approvals
   if (!tipoFilter || tipoFilter === 'despesa') {
-    const expenseWhere: Record<string, unknown> = { expense: { empresaId: 1 } };
+    const expenseWhere: Record<string, unknown> = {
+      expense: { empresaId: Number(user.empresaId) },
+    };
     if (statusFilter === 'aprovado') expenseWhere.status = 'APROVADA';
     else if (statusFilter === 'rejeitado') expenseWhere.status = { in: ['REJEITADA', 'CANCELADA'] };
     else if (!statusFilter || statusFilter === 'em_aprovacao') {
@@ -38,8 +43,12 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       include: {
         expense: {
           select: {
-            id: true, descricao: true, valor: true, tipo: true,
-            dataVencimento: true, criadoEm: true,
+            id: true,
+            descricao: true,
+            valor: true,
+            tipo: true,
+            dataVencimento: true,
+            criadoEm: true,
             usuario: { select: { id: true, nomeCompleto: true, email: true } },
           },
         },
@@ -56,17 +65,23 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         titulo: `Aprovação de Despesa — ${ea.expense.descricao}`,
         tipo: 'despesa',
         solicitante: ea.expense.usuario
-          ? { id: ea.expense.usuario.id, nome: ea.expense.usuario.nomeCompleto, email: ea.expense.usuario.email }
+          ? {
+              id: ea.expense.usuario.id,
+              nome: ea.expense.usuario.nomeCompleto,
+              email: ea.expense.usuario.email,
+            }
           : { id: 0, nome: 'Sistema', email: '' },
-        aprovadores: [{
-          id: ea.aprovador.id,
-          nome: ea.aprovador.nomeCompleto,
-          email: ea.aprovador.email,
-          cargo: ea.tipoAprovador,
-          status: mapExpenseApprovalStatus(ea.status),
-          dataAprovacao: ea.revisadoEm?.toISOString() ?? null,
-          comentario: ea.comentario ?? null,
-        }],
+        aprovadores: [
+          {
+            id: ea.aprovador.id,
+            nome: ea.aprovador.nomeCompleto,
+            email: ea.aprovador.email,
+            cargo: ea.tipoAprovador,
+            status: mapExpenseApprovalStatus(ea.status),
+            dataAprovacao: ea.revisadoEm?.toISOString() ?? null,
+            comentario: ea.comentario ?? null,
+          },
+        ],
         status: mapExpenseApprovalStatus(ea.status),
         prioridade: 'media',
         valor: Number(ea.expense.valor),
@@ -81,13 +96,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   // 2. Proposal Internal Approvals (status ASSINADA = client signed, awaiting internal review)
   if (!tipoFilter || tipoFilter === 'proposta') {
     const propostaWhere: Record<string, unknown> = {
-      empresaId: 1,
+      empresaId: Number(user.empresaId),
       status: 'ASSINADA',
       deletedAt: null,
-      OR: [
-        { aprovacaoInternaFinanceira: false },
-        { aprovacaoInternaTecnica: false },
-      ],
+      OR: [{ aprovacaoInternaFinanceira: false }, { aprovacaoInternaTecnica: false }],
     };
     if (statusFilter && statusFilter !== 'em_aprovacao') {
       // If filtering by other status, skip proposals (they're always em_aprovacao here)
@@ -97,8 +109,13 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     const propostas = await prisma.proposta.findMany({
       where: propostaWhere,
       select: {
-        id: true, numeroProposta: true, titulo: true, valorEstimado: true,
-        criadoEm: true, aprovacaoInternaFinanceira: true, aprovacaoInternaTecnica: true,
+        id: true,
+        numeroProposta: true,
+        titulo: true,
+        valorEstimado: true,
+        criadoEm: true,
+        aprovacaoInternaFinanceira: true,
+        aprovacaoInternaTecnica: true,
         criadoPor: true,
         Cliente: { select: { nomeCompleto: true } },
       },
@@ -107,22 +124,41 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     });
 
     // Fetch creators in a single query
-    const criadoPorIds = propostas.map(p => p.criadoPor).filter((id): id is number => id !== null);
-    const criadores = criadoPorIds.length > 0
-      ? await prisma.usuario.findMany({
-          where: { id: { in: criadoPorIds } },
-          select: { id: true, nomeCompleto: true, email: true },
-        })
-      : [];
-    const criadoresMap = new Map(criadores.map(u => [u.id, u]));
+    const criadoPorIds = propostas
+      .map((p) => p.criadoPor)
+      .filter((id): id is number => id !== null);
+    const criadores =
+      criadoPorIds.length > 0
+        ? await prisma.usuario.findMany({
+            where: { id: { in: criadoPorIds } },
+            select: { id: true, nomeCompleto: true, email: true },
+          })
+        : [];
+    const criadoresMap = new Map(criadores.map((u) => [u.id, u]));
 
     for (const p of propostas) {
       const aprovadores = [];
       if (!p.aprovacaoInternaFinanceira) {
-        aprovadores.push({ id: 0, nome: 'Aprovação Financeira', email: '', cargo: 'FINANCEIRO', status: 'pendente', dataAprovacao: null, comentario: null });
+        aprovadores.push({
+          id: 0,
+          nome: 'Aprovação Financeira',
+          email: '',
+          cargo: 'FINANCEIRO',
+          status: 'pendente',
+          dataAprovacao: null,
+          comentario: null,
+        });
       }
       if (!p.aprovacaoInternaTecnica) {
-        aprovadores.push({ id: 0, nome: 'Aprovação Técnica', email: '', cargo: 'GERENTE', status: 'pendente', dataAprovacao: null, comentario: null });
+        aprovadores.push({
+          id: 0,
+          nome: 'Aprovação Técnica',
+          email: '',
+          cargo: 'GERENTE',
+          status: 'pendente',
+          dataAprovacao: null,
+          comentario: null,
+        });
       }
 
       results.push({
@@ -151,7 +187,12 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     success: true,
     data: results,
     total: results.length,
-    pagination: { page, pageSize, total: results.length, totalPages: Math.ceil(results.length / pageSize) },
+    pagination: {
+      page,
+      pageSize,
+      total: results.length,
+      totalPages: Math.ceil(results.length / pageSize),
+    },
     filters: { status: statusFilter, tipo: tipoFilter },
   });
 });
@@ -161,9 +202,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   return NextResponse.json(
     {
       error: 'Criação via endpoint genérico não suportada',
-      message: 'Aprovações de despesa são criadas via /api/financeiro/despesas. Aprovações de proposta são gerenciadas pelo módulo de Propostas.',
+      message:
+        'Aprovações de despesa são criadas via /api/financeiro/despesas. Aprovações de proposta são gerenciadas pelo módulo de Propostas.',
       success: false,
     },
-    { status: 501 }
+    { status: 501 },
   );
 });

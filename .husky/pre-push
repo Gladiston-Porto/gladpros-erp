@@ -1,0 +1,40 @@
+#!/usr/bin/env sh
+# GladPros ERP — pre-push hook
+# Roda testes unitários antes de enviar código para o GitHub
+#
+# Previne que código quebrado chegue ao CI/CD.
+# O CI vai rodar os mesmos testes — melhor saber antes.
+#
+# Para bypass de EMERGÊNCIA: git push --no-verify
+# Nota: o CI ainda vai rodar e pode bloquear o merge.
+
+set -e
+
+echo ""
+echo "🚀 GladPros — Verificação Pré-push"
+echo "─────────────────────────────────────────"
+
+# Verificar se existem arquivos TypeScript com erros de tipo
+echo "▶ Type check rápido..."
+tsc_output=$(npx tsc --noEmit --project tsconfig.typecheck.json 2>&1) || {
+  echo "$tsc_output" | tail -5
+  echo ""
+  echo "❌ Type check falhou — corrija os erros antes de fazer push"
+  exit 1
+}
+
+echo "✅ Type check OK"
+
+# Rodar testes unitários (excluindo E2E — esses rodam só no CI)
+echo ""
+echo "▶ Rodando testes unitários..."
+test_output=$(npm test -- --passWithNoTests --forceExit 2>&1) || {
+  echo "$test_output" | tail -15
+  echo ""
+  echo "❌ Testes falharam — corrija antes de fazer push"
+  exit 1
+}
+
+echo ""
+echo "✅ Tudo OK — push liberado!"
+echo ""

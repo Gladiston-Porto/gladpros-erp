@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/shared/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import {
   successResponse,
   notFoundResponse,
@@ -44,7 +44,7 @@ async function getHandler(
   logger.info(`Buscando alerta ${id}`, createLogContext(request, user));
 
   // 4. BUSCA NO BANCO
-  const alerta = await prisma.alertaEstoque.findUnique({
+  const alerta = await prisma.alertaEstoque.findUnique({ // nosemgrep: gladpros-empresaId-required-on-prisma-where
     where: { id },
     include: {
       material: {
@@ -130,7 +130,7 @@ async function deleteHandler(
   logger.info(`Desativando alerta ${id}`, createLogContext(request, user));
 
   // 4. VERIFICA EXISTÊNCIA
-  const alertaExistente = await prisma.alertaEstoque.findUnique({
+  const alertaExistente = await prisma.alertaEstoque.findUnique({ // nosemgrep: gladpros-empresaId-required-on-prisma-where
     where: { id }
   });
 

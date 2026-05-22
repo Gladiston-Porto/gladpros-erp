@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# GladPros ERP — commit-msg hook
+# Valida mensagem de commit com commitlint (Conventional Commits)
+#
+# Formato obrigatório:
+#   tipo(escopo): descrição
+#
+# Tipos válidos: feat, fix, docs, style, refactor, test, chore, perf, ci, revert
+# Exemplos válidos:
+#   feat(usuarios): adicionar exportação CSV
+#   fix(usuarios): USUARIOS-P2-003 — DELETE sem tokenVersion
+#   test(financeiro): regression test para FINANCEIRO-P1-001
+#   chore(deps): atualizar eslint-plugin-security para 3.0
+
+npx --no -- commitlint --edit "$1"

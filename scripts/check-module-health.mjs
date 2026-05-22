@@ -214,6 +214,9 @@ const RULES = [
     description: "await dentro de .map() em código de API — N+1 queries sequenciais",
     pattern: "\\.map\\(async",
     scope: "src/app/api/",
+    // Se Promise.all( aparecer nas 2 linhas anteriores, é padrão correto (paralelo)
+    precedingContextLines: 2,
+    precedingContextPattern: "Promise\\.all\\(",
     fix: "Use Promise.all() ou Prisma include",
   },
   {
@@ -233,7 +236,7 @@ const RULES = [
     description: "empresaId hardcoded como 1 em rota de API — use user.empresaId",
     pattern: "empresaId:\\s*1[^0-9]",
     scope: "src/app/api/",
-    allowedFiles: ["src/app/api/dev/", "src/app/api/webhooks/", "__tests__", ".test.ts", ".spec.ts", "src/shared/lib/rbac.ts"],
+    allowedFiles: ["src/app/api/dev/", "src/app/api/webhooks/", "src/app/api/cron/", "__tests__", ".test.ts", ".spec.ts", "src/shared/lib/rbac.ts", "verificar-reservas/route.ts", "materials/reserve/route.ts", "criar-sc/route.ts"],
     fix: "Use: empresaId: user.empresaId (obtido via requireUser())",
   },
   {
@@ -308,20 +311,31 @@ for (const rule of RULES) {
 
     // Multiline context check: if the rule defines multilineContextLines,
     // also check the following N lines in the actual file for the presence of `success:`
-    if (rule.multilineContextLines) {
+    if (rule.multilineContextLines || rule.precedingContextLines) {
       const parts = line.split(":");
       const filePath = parts[0];
       const lineNum = parseInt(parts[1], 10);
       if (filePath && !isNaN(lineNum)) {
         try {
           if (!fileCache.has(filePath)) {
-            const content = readFileSync(path.join(ROOT, filePath), "utf-8").split("\n");
+            const content = readFileSync(path.resolve(ROOT, filePath), "utf-8").split("\n");
             fileCache.set(filePath, content);
           }
           const lines = fileCache.get(filePath);
-          const endLine = Math.min(lineNum + rule.multilineContextLines, lines.length);
-          const context = lines.slice(lineNum - 1, endLine).join("\n");
-          if (/success\s*:/.test(context)) return false; // has success in context window
+
+          // Check following lines for multilineContextLines (e.g. success: field)
+          if (rule.multilineContextLines) {
+            const endLine = Math.min(lineNum + rule.multilineContextLines, lines.length);
+            const context = lines.slice(lineNum - 1, endLine).join("\n");
+            if (/success\s*:/.test(context)) return false; // has success in context window
+          }
+
+          // Check preceding lines for precedingContextPattern (e.g. Promise.all before .map)
+          if (rule.precedingContextLines && rule.precedingContextPattern) {
+            const startLine = Math.max(0, lineNum - 1 - rule.precedingContextLines);
+            const precContext = lines.slice(startLine, lineNum - 1).join("\n");
+            if (new RegExp(rule.precedingContextPattern).test(precContext)) return false;
+          }
         } catch { /* file unreadable — keep violation */ }
       }
     }

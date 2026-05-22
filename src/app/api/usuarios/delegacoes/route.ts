@@ -83,9 +83,9 @@ export const POST = withErrorHandler(async (req: Request) => {
     );
   }
 
-  // Verificar se delegatário existe e é ADMIN ou GERENTE
+  // Verificar se delegatário existe e é ADMIN ou GERENTE (empresaId protege IDOR)
   const delegatario = await prisma.usuario.findUnique({
-    where: { id: delegatarioId },
+    where: { id: delegatarioId, empresaId: Number(authUser.empresaId) },
     select: { id: true, nivel: true, status: true, nomeCompleto: true },
   });
 
