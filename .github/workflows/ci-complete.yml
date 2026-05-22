@@ -3,8 +3,6 @@ name: CI Complete
 on:
   push:
     branches: [main, develop, 'feature/**', 'fix/**', 'chore/**']
-  pull_request:
-    branches: [main, develop]
   schedule:
     # Executa diariamente às 6h UTC (3h BRT) para detectar flakiness
     - cron: '0 6 * * *'
@@ -71,7 +69,7 @@ jobs:
           npx prisma generate
           npx prisma migrate deploy || npx prisma db push --skip-generate
         env:
-          DATABASE_URL: "mysql://root:root@127.0.0.1:3306/gladpros_test"
+          DATABASE_URL: 'mysql://root:root@127.0.0.1:3306/gladpros_test'
 
       - name: Setup upstream remote (fork-safe)
         if: github.event_name == 'pull_request'
@@ -133,11 +131,11 @@ jobs:
         env:
           CI: true
           NODE_ENV: test
-          DATABASE_URL: "mysql://root:root@127.0.0.1:3306/gladpros_test"
+          DATABASE_URL: 'mysql://root:root@127.0.0.1:3306/gladpros_test'
 
       - name: Upload related tests list (on failure)
         if: failure() && github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: related-tests-list-${{ github.run_id }}
           path: |
@@ -265,7 +263,7 @@ jobs:
 
       - name: Upload build artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-logs
           path: |
@@ -358,7 +356,7 @@ jobs:
           DISABLE_MFA_FOR_TESTS: true
           SEED_ADMIN_EMAIL: admin@gladpros.com
           SEED_ADMIN_PASS: Admin123!@#
-          RBAC_TRUST_JWT: "1"
+          RBAC_TRUST_JWT: '1'
 
   # Job 5: Relatório Final
   summary:
