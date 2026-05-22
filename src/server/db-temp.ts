@@ -5,7 +5,7 @@
  * 11 files import { db } from '@/server/db-temp' — keeping this re-export
  * avoids touching all of them. Migrate callers to @/lib/prisma over time.
  */
-import { prisma } from '@/shared/lib/prisma'
+import { prisma } from '@/shared/lib/prisma' // nosemgrep: gladpros-prisma-import-canonical-path — legacy compat shim
 
 export const db = prisma
 

@@ -172,8 +172,8 @@ export const POST = withErrorHandler(async (request: NextRequest,
       }, { status: 400 });
     }
     
-    // Calcula saldo posterior
-    const saldoPosterior = calcularSaldoPosterior(
+    // Calcula saldo posterior (calculado novamente dentro da transação para consistência)
+    const _saldoPosterior = calcularSaldoPosterior(
       saldoAnterior,
       validated.valor,
       validated.tipo
