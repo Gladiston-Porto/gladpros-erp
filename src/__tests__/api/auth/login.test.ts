@@ -76,6 +76,10 @@ jest.mock('../../../shared/lib/audit', () => ({
   },
 }));
 
+jest.mock('../../../shared/lib/mfa-challenge', () => ({
+  createMfaChallenge: jest.fn().mockReturnValue('mock-mfa-challenge'),
+}));
+
 describe('POST /api/auth/login', () => {
   let mockRequest: NextRequest;
 
