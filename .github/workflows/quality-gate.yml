@@ -16,7 +16,6 @@ permissions:
 
 jobs:
   quality-gate:
-    name: Quality Gate (Swiss Cheese)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

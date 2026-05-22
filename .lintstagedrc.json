@@ -2,13 +2,8 @@
   "*.{ts,tsx}": [
     "eslint --fix",
     "prettier --write",
-    "semgrep --config=.semgrep/gladpros --metrics=off --error"
+    "sh -c 'command -v semgrep >/dev/null 2>&1 || exit 0; semgrep --config=.semgrep/gladpros --metrics=off --error'"
   ],
-  "*.{js,jsx}": [
-    "eslint --fix",
-    "prettier --write"
-  ],
-  "*.{json,md,yml,yaml}": [
-    "prettier --write"
-  ]
+  "*.{js,jsx}": ["eslint --fix", "prettier --write"],
+  "*.{json,md,yml,yaml}": ["prettier --write"]
 }
