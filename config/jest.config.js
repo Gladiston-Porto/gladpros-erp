@@ -16,9 +16,8 @@ const config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@/shared/(.*)$': '<rootDir>/src/shared/$1',
-    // Workspace package — resolve from source so tests do not depend on dist artifacts in CI
-    '^@gladpros/ui$': '<rootDir>/packages/ui/src/index.ts',
-    '^@gladpros/ui/(.*)$': '<rootDir>/packages/ui/src/components/$1',
+    // Workspace package — ensures jest.mock('@gladpros/ui/...') resolves correctly
+    '^@gladpros/ui/(.*)$': '<rootDir>/packages/ui/dist/$1.js',
   },
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
