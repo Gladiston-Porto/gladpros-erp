@@ -19,6 +19,32 @@ import { UsersTable } from "./_components/UsersTable";
 import { UsersToolbar } from "./_components/UsersToolbar";
 import type { UserRole, Usuario } from "./_components/types";
 
+// Funções temporárias
+function exportUsersToCSV(users: Usuario[]): void {
+  const headers = ['ID', 'Nome', 'Email', 'Nível', 'Status', 'Telefone', 'Cidade', 'Estado', 'Criado em'];
+  const rows = users.map((u) => [
+    u.id,
+    u.nomeCompleto,
+    u.email,
+    u.role,
+    (u.ativo ?? u.status === 'ATIVO') ? 'Ativo' : 'Inativo',
+    u.telefone ?? '',
+    u.cidade ?? '',
+    u.estado ?? '',
+    u.criadoEm ? new Date(u.criadoEm).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }) : '',
+  ]);
+  const csv = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `usuarios-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 async function getUsers(params?: Record<string, string | number | undefined>, init?: RequestInit) {
   return usersApi.getUsers(params, init);
 }
@@ -52,8 +78,6 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
-  const [activeTotal, setActiveTotal] = useState(0);
-  const [inactiveTotal, setInactiveTotal] = useState(0);
   const [data, setData] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [inactiveAlert, setInactiveAlert] = useState<{ count: number; days: number } | null>(null);
@@ -101,10 +125,8 @@ export default function UsersPage() {
         { signal: ac.signal },
       );
       if (ac.signal.aborted) return;
-      setData(res.data);
-      setTotal(res.pagination.total);
-      setActiveTotal(res.pagination.activeTotal ?? 0);
-      setInactiveTotal(res.pagination.inactiveTotal ?? 0);
+      setData(res.items);
+      setTotal(res.total);
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
         return;
@@ -211,7 +233,6 @@ export default function UsersPage() {
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
-  // BUG-11 fix: heroStats now uses global activeTotal/inactiveTotal from API (not page-scoped counts)
   const heroStats = useMemo(() => {
     const roles: Record<UserRole, number> = {
       ADMIN: 0,
@@ -222,14 +243,17 @@ export default function UsersPage() {
       CLIENTE: 0,
     };
 
+    let activeCount = 0;
     let linkExpiradoCount = 0;
     data.forEach((user) => {
+      const isActive = user.ativo ?? (user.status === "ATIVO");
+      if (isActive) activeCount += 1;
       if (user.linkExpirado === true) linkExpiradoCount += 1;
       roles[user.role] = (roles[user.role] ?? 0) + 1;
     });
 
-    const totalGlobal = activeTotal + inactiveTotal;
-    const activeShare = totalGlobal > 0 ? Math.min(100, Math.round((activeTotal / totalGlobal) * 100)) : 0;
+    const inactiveCount = data.length - activeCount;
+    const activeShare = total ? Math.min(100, Math.round((activeCount / Math.max(total, 1)) * 100)) : 0;
     const topRoles = Object.entries(roles)
       .sort(([, a], [, b]) => b - a)
       .map(([role, count]) => ({ role: role as UserRole, count }))
@@ -237,14 +261,14 @@ export default function UsersPage() {
       .slice(0, 2);
 
     return {
-      active: activeTotal,
-      inactive: inactiveTotal,
+      active: activeCount,
+      inactive: inactiveCount,
       linkExpiradoCount,
       roles,
       topRoles,
       activeShare,
     };
-  }, [data, activeTotal, inactiveTotal]);
+  }, [data, total]);
 
   // Ações em lote
   const handleBulkStatusChange = async (newStatus: boolean) => {
@@ -273,31 +297,11 @@ export default function UsersPage() {
     }
   };
 
-  const handleBulkExportCSV = async () => {
+  const handleBulkExportCSV = () => {
     if (selectedIds.length === 0) return;
     setBulkExportMenuOpen(false);
-    setExporting(true);
-    try {
-      const res = await fetch('/api/usuarios/export/csv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ ids: selectedIds }),
-      });
-      if (!res.ok) throw new Error('Falha ao exportar CSV');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `usuarios-selecionados-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success('Exportado', `CSV de ${selectedIds.length} usuário(s) gerado com sucesso.`);
-    } catch {
-      toast.error('Erro', 'Não foi possível exportar o CSV.');
-    } finally {
-      setExporting(false);
-    }
+    const selectedUsers = data.filter((u) => selectedIds.includes(u.id));
+    exportUsersToCSV(selectedUsers);
   };
 
   const handleBulkExportPDF = async () => {
@@ -427,7 +431,6 @@ export default function UsersPage() {
                 <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                   <button
                     type="button"
-                    data-testid="btn-export-csv"
                     onClick={handleExportCSV}
                     className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition hover:bg-muted"
                   >
@@ -496,8 +499,8 @@ export default function UsersPage() {
           <CardContent className="flex flex-wrap items-center gap-3 py-3 text-sm">
             <span className="text-muted-foreground font-medium">{selectedIds.length} usuário(s) selecionado(s)</span>
             <div className="flex flex-wrap gap-2 md:ml-auto">
-              <button type="button" data-testid="btn-bulk-activate" onClick={() => handleBulkStatusChange(true)} className="rounded-md border border-border px-3 py-1 text-sm text-emerald-600 transition hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">Ativar</button>
-              <button type="button" data-testid="btn-bulk-deactivate" onClick={() => handleBulkStatusChange(false)} className="rounded-md border border-border px-3 py-1 text-sm text-amber-600 transition hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30">Desativar</button>
+              <button type="button" onClick={() => handleBulkStatusChange(true)} className="rounded-md border border-border px-3 py-1 text-sm text-emerald-600 transition hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">Ativar</button>
+              <button type="button" onClick={() => handleBulkStatusChange(false)} className="rounded-md border border-border px-3 py-1 text-sm text-amber-600 transition hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30">Desativar</button>
               <div ref={bulkExportMenuRef} className="relative">
                 <button
                   type="button"
@@ -513,7 +516,6 @@ export default function UsersPage() {
                   <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                     <button
                       type="button"
-                      data-testid="btn-bulk-export-csv"
                       onClick={handleBulkExportCSV}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground transition hover:bg-muted"
                     >

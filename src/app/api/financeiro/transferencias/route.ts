@@ -15,6 +15,7 @@ import {
   createBankTransferSchema,
   bankTransferFiltersSchema,
   validarSaldoDisponivel,
+  calcularSaldoPosterior,
   type CreateBankTransferInput
 } from "@/schemas/bank-account.schema";
 
@@ -259,6 +260,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       }
 
       const saldoOrigemAnterior = Number(fromAccountTx.saldoAtual);
+      const saldoDestinoAnterior = Number(toAccountTx.saldoAtual);
       const validacaoSaldoTx = validarSaldoDisponivel(
         saldoOrigemAnterior,
         fromAccountTx.limiteCredito ? Number(fromAccountTx.limiteCredito) : null,
@@ -288,42 +290,21 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         }
       });
       
-      const amount = new Decimal(validated.valor);
-      const creditLimit = new Decimal(fromAccountTx.limiteCredito ?? 0);
-      const saldoMinimo = amount.minus(creditLimit);
-      const requiredSaldo = saldoMinimo.gt(0) ? saldoMinimo : new Decimal(0);
-      const debited = await tx.bankAccount.updateMany({
-        where: {
-          id: validated.fromAccountId,
-          empresaId: user.empresaId,
-          ativo: true,
-          saldoAtual: { gte: requiredSaldo },
-        },
-        data: { saldoAtual: { decrement: amount } }
-      });
-
-      if (debited.count !== 1) {
-        throw new Error("Saldo insuficiente ou conta alterada durante a transferência");
-      }
-       
-      await tx.bankAccount.update({
-        where: { id: validated.toAccountId },
-        data: { saldoAtual: { increment: amount } }
-      });
-
-      const [updatedFromAccount, updatedToAccount] = await Promise.all([
-        tx.bankAccount.findUniqueOrThrow({
-          where: { id: validated.fromAccountId },
-          select: { saldoAtual: true },
-        }),
-        tx.bankAccount.findUniqueOrThrow({
-          where: { id: validated.toAccountId },
-          select: { saldoAtual: true },
-        }),
-      ]);
-      const novoSaldoOrigem = new Decimal(updatedFromAccount.saldoAtual);
-      const novoSaldoDestino = new Decimal(updatedToAccount.saldoAtual);
-       
+      // Calcula novos saldos
+      const novoSaldoOrigem = calcularSaldoPosterior(
+        saldoOrigemAnterior,
+        validated.valor,
+        "TRANSFERENCIA_SAIDA"
+      );
+      
+      const novoSaldoDestino = calcularSaldoPosterior(
+        saldoDestinoAnterior,
+        validated.valor,
+        "TRANSFERENCIA_ENTRADA"
+      );
+      
+ 
+      
       // Cria transação de saída
       const _transacaoSaida = await tx.bankTransaction.create({
         data: {
@@ -331,11 +312,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
           empresaId: user.empresaId,
           tipo: "TRANSFERENCIA_SAIDA",
           categoria: "Transferência",
-          valor: amount,
+          valor: validated.valor,
           descricao: `Transferência para ${toAccount.nome}`,
           documento: `TRF-${transferencia.id}`,
           dataTransacao: new Date(),
-          saldoAnterior: novoSaldoOrigem.plus(amount),
+          saldoAnterior: saldoOrigemAnterior,
           saldoPosterior: novoSaldoOrigem,
           transferId: transferencia.id,
           reconciliada: true,
@@ -352,16 +333,27 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
           empresaId: user.empresaId,
           tipo: "TRANSFERENCIA_ENTRADA",
           categoria: "Transferência",
-          valor: amount,
+          valor: validated.valor,
           descricao: `Transferência de ${fromAccount.nome}`,
           documento: `TRF-${transferencia.id}`,
           dataTransacao: new Date(),
-          saldoAnterior: novoSaldoDestino.minus(amount),
+          saldoAnterior: saldoDestinoAnterior,
           saldoPosterior: novoSaldoDestino,
           transferId: transferencia.id,
           reconciliada: true,
           dataReconciliacao: new Date()
         }
+      });
+      
+      // Atualiza saldos das contas
+      await tx.bankAccount.update({
+        where: { id: validated.fromAccountId },
+        data: { saldoAtual: { decrement: new Decimal(validated.valor) } }
+      });
+      
+      await tx.bankAccount.update({
+        where: { id: validated.toAccountId },
+        data: { saldoAtual: { increment: new Decimal(validated.valor) } }
       });
       
       // Atualiza status da transferência

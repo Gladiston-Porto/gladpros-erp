@@ -3,7 +3,6 @@ import { requireUser, can, type Role } from '@/shared/lib/rbac';
 import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { Decimal } from '@prisma/client/runtime/library';
-import { Prisma } from '@prisma/client';
 
 export const POST = withErrorHandler(
   async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -24,9 +23,9 @@ export const POST = withErrorHandler(
       );
     }
 
-    // Buscar proposta com etapas e materiais — filtered by empresaId for tenant isolation
-    const proposta = await prisma.proposta.findFirst({
-      where: { id: propostaId, empresaId: user.empresaId, deletedAt: null },
+    // Buscar proposta com etapas e materiais
+    const proposta = await prisma.proposta.findUnique({
+      where: { id: propostaId, deletedAt: null },
       include: {
         PropostaEtapa: true,
         PropostaMaterial: true,
@@ -54,14 +53,7 @@ export const POST = withErrorHandler(
 
     // Verificar se já existe invoice para esta proposta (evitar duplicatas)
     const existing = await prisma.invoice.findFirst({
-      where: {
-        empresaId: user.empresaId,
-        status: { not: 'CANCELLED' },
-        OR: [
-          { propostaId },
-          ...(proposta.projetoId ? [{ projetoId: proposta.projetoId }] : []),
-        ],
-      },
+      where: { propostaId },
       select: { id: true, numeroInvoice: true },
     });
 
@@ -159,106 +151,54 @@ export const POST = withErrorHandler(
     const hoje = new Date();
     const dataStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(hoje).replace(/-/g, '');
 
-    let invoice: { id: number; numeroInvoice: string; valorTotal: Decimal; status: string } | null = null;
+    const invoice = await prisma.$transaction(async (tx) => {
+      const count = await tx.invoice.count({
+        where: { numeroInvoice: { startsWith: `INV-${dataStr}` } },
+      });
+      const numeroInvoice = `INV-${dataStr}-${String(count + 1).padStart(4, '0')}`;
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        invoice = await prisma.$transaction(async (tx) => {
-          // Re-check for duplicate inside transaction to prevent double-billing race condition
-          const duplicateCheck = await tx.invoice.findFirst({
-            where: {
-              empresaId: user.empresaId,
-              status: { not: 'CANCELLED' },
-              OR: [
-                { propostaId },
-                ...(proposta.projetoId ? [{ projetoId: proposta.projetoId }] : []),
-              ],
-            },
-            select: { id: true, numeroInvoice: true },
-          });
-          if (duplicateCheck) {
-            throw new Error(`DUPLICATE:${duplicateCheck.id}:${duplicateCheck.numeroInvoice}`);
-          }
+      const created = await tx.invoice.create({
+        data: {
+          numeroInvoice,
+          clienteId: proposta.clienteId,
+          propostaId,
+          dataVencimento,
+          subtotal: new Decimal(subtotal),
+          descontoValor: new Decimal(0),
+          descontoPercentual: new Decimal(0),
+          taxRate: new Decimal(taxRate),
+          taxAmount: new Decimal(taxAmount),
+          valorTotal: new Decimal(valorTotal),
+          valorPago: new Decimal(0),
+          saldo: new Decimal(valorTotal),
+          status: 'DRAFT',
+          notas: `Invoice gerada a partir da proposta ${proposta.numeroProposta}`,
+          criadoPor: Number(user.id),
+          empresaId: user.empresaId,
+          itens: { create: itens },
+        },
+        select: { id: true, numeroInvoice: true, valorTotal: true, status: true },
+      });
 
-          const count = await tx.invoice.count({
-            where: { numeroInvoice: { startsWith: `INV-${dataStr}` } },
-          });
-          const numeroInvoice = `INV-${dataStr}-${String(count + 1 + attempt).padStart(4, '0')}`;
+      await tx.auditLog.create({
+        data: {
+          id: crypto.randomUUID(),
+          userId: Number(user.id),
+          entidade: 'Invoice',
+          entidadeId: String(created.id),
+          acao: 'CREATE',
+          diff: JSON.stringify({
+            origem: 'gerar_invoice_proposta',
+            propostaId,
+            numeroProposta: proposta.numeroProposta,
+            numeroInvoice,
+            valorTotal,
+          }),
+        },
+      });
 
-          const created = await tx.invoice.create({
-            data: {
-              numeroInvoice,
-              clienteId: proposta.clienteId,
-              propostaId,
-              dataVencimento,
-              subtotal: new Decimal(subtotal),
-              descontoValor: new Decimal(0),
-              descontoPercentual: new Decimal(0),
-              taxRate: new Decimal(taxRate),
-              taxAmount: new Decimal(taxAmount),
-              valorTotal: new Decimal(valorTotal),
-              valorPago: new Decimal(0),
-              saldo: new Decimal(valorTotal),
-              status: 'DRAFT',
-              notas: `Invoice gerada a partir da proposta ${proposta.numeroProposta}`,
-              criadoPor: Number(user.id),
-              empresaId: user.empresaId,
-              itens: { create: itens },
-            },
-            select: { id: true, numeroInvoice: true, valorTotal: true, status: true },
-          });
-
-          await tx.auditLog.create({
-            data: {
-              id: crypto.randomUUID(),
-              userId: Number(user.id),
-              entidade: 'Invoice',
-              entidadeId: String(created.id),
-              acao: 'CREATE',
-              diff: JSON.stringify({
-                origem: 'gerar_invoice_proposta',
-                propostaId,
-                numeroProposta: proposta.numeroProposta,
-                numeroInvoice,
-                valorTotal,
-              }),
-            },
-          });
-
-          return created;
-        });
-        break;
-      } catch (error) {
-        // Race-condition duplicate detected inside transaction
-        if (error instanceof Error && error.message.startsWith('DUPLICATE:')) {
-          const [, dupId, dupNum] = error.message.split(':');
-          return NextResponse.json(
-            {
-              error: 'Conflict',
-              message: `Já existe uma invoice para esta proposta: ${dupNum}`,
-              invoiceId: Number(dupId),
-              success: false,
-            },
-            { status: 409 },
-          );
-        }
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2002' &&
-          attempt < 2
-        ) {
-          continue;
-        }
-        throw error;
-      }
-    }
-
-    if (!invoice) {
-      return NextResponse.json(
-        { error: 'Conflict', message: 'Não foi possível gerar número único para invoice', success: false },
-        { status: 409 },
-      );
-    }
+      return created;
+    });
 
     return NextResponse.json(
       { data: { invoiceId: invoice.id, numeroInvoice: invoice.numeroInvoice, valorTotal: invoice.valorTotal }, success: true },

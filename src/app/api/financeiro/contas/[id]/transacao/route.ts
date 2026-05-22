@@ -12,10 +12,10 @@ import { requireUser } from "@/shared/lib/rbac";
 import { can, type Role } from "@/shared/lib/rbac-core";
 import {
   createBankTransactionSchema,
+  calcularSaldoPosterior,
   validarSaldoDisponivel,
   type CreateBankTransactionInput
 } from "@/schemas/bank-account.schema";
-import { postLedgerTransaction } from "@/shared/services/ledgerPostingService";
 
 /**
  * POST - Criar nova transação bancária
@@ -172,6 +172,13 @@ export const POST = withErrorHandler(async (request: NextRequest,
       }, { status: 400 });
     }
     
+    // Calcula saldo posterior
+    const saldoPosterior = calcularSaldoPosterior(
+      saldoAnterior,
+      validated.valor,
+      validated.tipo
+    );
+    
     // Cria transação e atualiza saldo da conta em transação
     const resultado = await prisma.$transaction(async (tx) => {
       const contaAtual = await tx.bankAccount.findFirst({
@@ -195,82 +202,19 @@ export const POST = withErrorHandler(async (request: NextRequest,
         throw new Error(validacaoSaldoTx.mensagem);
       }
 
-      if (validated.revenueId) {
-        const claimedRevenue = await tx.revenue.updateMany({
-          where: {
-            id: validated.revenueId,
-            empresaId: user.empresaId,
-            status: "PENDENTE",
-          },
-          data: {
-            status: "RECEBIDA",
-            dataPagamento: validated.dataTransacao,
-          },
-        });
-
-        if (claimedRevenue.count !== 1) {
-          throw new Error("Receita já foi liquidada ou alterada por outra transação");
-        }
-      }
-
-      if (validated.expenseId) {
-        const claimedExpense = await tx.expense.updateMany({
-          where: {
-            id: validated.expenseId,
-            empresaId: user.empresaId,
-            status: "APROVADA",
-          },
-          data: {
-            status: "PAGA",
-            dataPagamento: validated.dataTransacao,
-          },
-        });
-
-        if (claimedExpense.count !== 1) {
-          throw new Error("Despesa já foi paga/rejeitada ou alterada por outra transação");
-        }
-      }
-
-      const creditTypes = ["CREDITO", "TRANSFERENCIA_ENTRADA", "JUROS", "ESTORNO"];
-      const isCredit = creditTypes.includes(validated.tipo);
-      const amount = new Decimal(validated.valor);
-
-      if (isCredit) {
-        await tx.bankAccount.update({
-          where: { id: accountId },
-          data: { saldoAtual: { increment: amount } },
-        });
-      } else {
-        const updated = await tx.bankAccount.updateMany({
-          where: {
-            id: accountId,
-            empresaId: user.empresaId,
-            ativo: true,
-            saldoAtual: { gte: amount },
-          },
-          data: { saldoAtual: { decrement: amount } },
-        });
-        if (updated.count === 0) {
-          throw new Error("Saldo insuficiente ou conta alterada durante a transação");
-        }
-      }
-
-      const updatedAccount = await tx.bankAccount.findUniqueOrThrow({
-        where: { id: accountId },
-        select: { saldoAtual: true },
-      });
-      const saldoPosteriorTx = Number(updatedAccount.saldoAtual);
-      const saldoAnteriorFinal = isCredit
-        ? new Decimal(updatedAccount.saldoAtual).minus(amount)
-        : new Decimal(updatedAccount.saldoAtual).plus(amount);
+      const saldoPosteriorTx = calcularSaldoPosterior(
+        saldoAnteriorTx,
+        validated.valor,
+        validated.tipo
+      );
 
       // Cria transação
       const transacao = await tx.bankTransaction.create({
         data: {
           ...validated,
           empresaId: user.empresaId,
-          saldoAnterior: saldoAnteriorFinal,
-            
+          saldoAnterior: saldoAnteriorTx,
+           
           saldoPosterior: saldoPosteriorTx
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
@@ -299,26 +243,35 @@ export const POST = withErrorHandler(async (request: NextRequest,
         }
       });
       
-      await postLedgerTransaction(
-        {
-          empresaId: user.empresaId,
-          data: validated.dataTransacao,
-          descricao: `Transação bancária #${transacao.id}: ${validated.descricao}`,
-          sourceType: "BANK_TRANSFER",
-          sourceId: transacao.id,
-          entries:
-            validated.tipo === "CREDITO"
-              ? [
-                { accountCode: "CASH", debit: new Decimal(validated.valor), memo: validated.descricao },
-                { accountCode: "REVENUE", credit: new Decimal(validated.valor), memo: "Entrada bancária manual" },
-              ]
-              : [
-                { accountCode: "EXPENSE", debit: new Decimal(validated.valor), memo: validated.descricao },
-                { accountCode: "CASH", credit: new Decimal(validated.valor), memo: "Saída bancária manual" },
-              ],
-        },
-        tx
-      );
+      const saldoDelta = saldoPosteriorTx - saldoAnteriorTx;
+
+      // Atualiza saldo da conta de forma incremental para evitar sobrescrever concorrência.
+      await tx.bankAccount.update({
+        where: { id: accountId },
+        data: { saldoAtual: { increment: new Decimal(saldoDelta) } }
+      });
+      
+      // Se vinculado a receita, atualiza status para PAGO
+      if (validated.revenueId) {
+        await tx.revenue.update({
+          where: { id: validated.revenueId },
+          data: {
+            status: "RECEBIDA",
+            dataPagamento: validated.dataTransacao
+          }
+        });
+      }
+      
+      // Se vinculado a despesa, atualiza status para PAGA
+      if (validated.expenseId) {
+        await tx.expense.update({
+          where: { id: validated.expenseId },
+          data: {
+            status: "PAGA",
+            dataPagamento: validated.dataTransacao
+          }
+        });
+      }
       
       return transacao;
     });
