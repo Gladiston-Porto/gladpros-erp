@@ -32,7 +32,7 @@ jobs:
           cache: 'npm'
 
       - name: Install deps
-        run: npm ci --prefer-offline --no-audit
+        run: npm ci --prefer-offline --no-audit --legacy-peer-deps
 
       - name: 🔒 Camada 0 — Validar known-bugs.json
         run: npm run known-bugs:validate
@@ -66,6 +66,6 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-      - run: npm ci --prefer-offline --no-audit
+      - run: npm ci --prefer-offline --no-audit --legacy-peer-deps
       - run: npm run db:generate
       - run: npm test -- --ci --reporters=default
