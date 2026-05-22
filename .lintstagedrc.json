@@ -1,6 +1,14 @@
 {
-  "*.{ts,tsx,js,jsx}": [
+  "*.{ts,tsx}": [
     "eslint --fix",
+    "prettier --write",
+    "semgrep --config=.semgrep/gladpros --metrics=off --error"
+  ],
+  "*.{js,jsx}": [
+    "eslint --fix",
+    "prettier --write"
+  ],
+  "*.{json,md,yml,yaml}": [
     "prettier --write"
   ]
 }
