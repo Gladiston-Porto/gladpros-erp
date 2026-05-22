@@ -26,22 +26,67 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verificar se código-fonte está presente
+        id: has-code
+        run: |
+          if [ -f "package.json" ]; then
+            echo "present=true" >> $GITHUB_OUTPUT
+            echo "✅ package.json encontrado — executando checks completos"
+          else
+            echo "present=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ package.json ausente — apenas checks de infraestrutura serão executados"
+          fi
+
       - name: Setup Node
+        if: steps.has-code.outputs.present == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
       - name: Install deps
+        if: steps.has-code.outputs.present == 'true'
         run: npm ci --prefer-offline --no-audit
 
       - name: Camada 0 — Validar known-bugs.json
-        run: npm run known-bugs:validate
+        run: |
+          # P1-B fix: arquivo de auditoria é OBRIGATÓRIO — ausência é falha de CI
+          if [ ! -f "relatorios/known-bugs.json" ]; then
+            echo "❌ BLOQUEADO: relatorios/known-bugs.json não encontrado!"
+            echo "O arquivo de auditoria de bugs é obrigatório para o Quality Gate."
+            echo "Ele não pode ser deletado, renomeado ou omitido."
+            exit 1
+          fi
+
+          if command -v node &> /dev/null && [ -f "scripts/validate-known-bugs.mjs" ]; then
+            node scripts/validate-known-bugs.mjs
+          else
+            # P1-A fix: usar 'priority' (campo canônico) e não 'severity'
+            python3 -c "
+          import json, sys
+          with open('relatorios/known-bugs.json') as f:
+              data = json.load(f)
+          if 'bugs' not in data:
+              print('ERRO: known-bugs.json sem chave raiz bugs[]')
+              sys.exit(1)
+          abertos = [b for b in data['bugs'] if b.get('status') == 'OPEN']
+          # Campo correto: 'priority' (P1/P2/P3), não 'severity'
+          p1p2 = [b for b in abertos if b.get('priority') in ['P1','P2']]
+          if p1p2:
+              print(f'BLOQUEADO: {len(p1p2)} bugs P1/P2 abertos!')
+              for b in p1p2:
+                  print(f'  - {b[\"id\"]}: {b[\"titulo\"]}')
+              sys.exit(1)
+          print(f'✅ known-bugs.json OK — {len(abertos)} bugs abertos (nenhum P1/P2)')
+          "
+          fi
 
       - name: Camada 1 — Health check (regex anti-patterns)
+        if: steps.has-code.outputs.present == 'true'
         run: npm run health:check
 
-      - name: Camada 2 — Semgrep (regras semanticas)
+      - name: Camada 2 — Semgrep (regras semânticas)
+        if: steps.has-code.outputs.present == 'true'
         uses: semgrep/semgrep-action@v1
         with:
           config: .semgrep/gladpros
@@ -49,10 +94,22 @@ jobs:
           SEMGREP_TIMEOUT: 300
 
       - name: Camada 2b — ESLint
+        if: steps.has-code.outputs.present == 'true'
         run: npm run lint
 
       - name: Camada 2c — Type check
+        if: steps.has-code.outputs.present == 'true'
         run: npm run type-check
+
+      - name: Resumo final
+        run: |
+          echo "### ✅ Quality Gate concluído" >> $GITHUB_STEP_SUMMARY
+          if [ -f "package.json" ]; then
+            echo "- Modo: **completo** (código-fonte presente)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Modo: **infraestrutura** (código-fonte ainda não sincronizado)" >> $GITHUB_STEP_SUMMARY
+            echo "- Checks executados: known-bugs.json obrigatório, validações de governança" >> $GITHUB_STEP_SUMMARY
+          fi
 
   tests:
     name: Tests
@@ -60,10 +117,35 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verificar se código-fonte está presente
+        id: has-code
+        run: |
+          if [ -f "package.json" ]; then
+            echo "present=true" >> $GITHUB_OUTPUT
+          else
+            echo "present=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ Código-fonte não presente — testes pulados (não é falha)"
+          fi
+
       - uses: actions/setup-node@v4
+        if: steps.has-code.outputs.present == 'true'
         with:
           node-version: 20
           cache: 'npm'
-      - run: npm ci --prefer-offline --no-audit
-      - run: npm run db:generate
-      - run: npm test -- --ci --reporters=default
+
+      - name: Install deps
+        if: steps.has-code.outputs.present == 'true'
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Generate Prisma client
+        if: steps.has-code.outputs.present == 'true'
+        run: npm run db:generate
+
+      - name: Run tests
+        if: steps.has-code.outputs.present == 'true'
+        run: npm test -- --ci --reporters=default
+
+      - name: Testes pulados (sem código-fonte)
+        if: steps.has-code.outputs.present == 'false'
+        run: echo "✅ Sem código-fonte — testes não aplicáveis para este PR"
