@@ -2,9 +2,7 @@ name: Smoke Tests
 
 on:
   push:
-    branches: [ main, develop, 'fix/*' ]
-  pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop, 'fix/*']
 
 concurrency:
   group: smoke-tests-${{ github.workflow }}-${{ github.ref }}
@@ -30,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
