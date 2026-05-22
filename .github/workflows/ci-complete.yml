@@ -150,7 +150,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.0
+        image: mariadb:10.11
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: gladpros_test
