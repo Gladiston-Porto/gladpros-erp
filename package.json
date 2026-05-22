@@ -118,7 +118,7 @@
     "dompurify": "^3.2.7",
     "exceljs": "^4.4.0",
     "framer-motion": "^12.23.12",
-    "grammy": "^1.42.0",
+    "grammy": "^1.43.0",
     "html2canvas": "^1.4.1",
     "ioredis": "^5.7.0",
     "isomorphic-dompurify": "^3.14.0",
