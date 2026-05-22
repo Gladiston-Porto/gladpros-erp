@@ -53,9 +53,6 @@ jobs:
       - name: 🛡️ Camada 2b — ESLint
         run: npm run lint
 
-      - name: 🏗️ Build @gladpros/ui (required for type-check)
-        run: npm run build --workspace=packages/ui
-
       - name: 📐 Camada 2c — Type check
         run: npm run type-check
 
