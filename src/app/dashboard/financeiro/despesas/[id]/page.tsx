@@ -1,6 +1,6 @@
 /**
  * Página: Detalhes da Despesa
- * 
+ *
  * Features:
  * - Visualização completa da despesa
  * - Histórico de aprovação
@@ -12,7 +12,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useConfirm } from '@gladpros/ui/confirm-dialog';
-import { 
+import {
   ArrowLeft,
   Edit,
   Trash2,
@@ -28,7 +28,7 @@ import {
   Package,
   Tag,
   Hash,
-  MessageSquare
+  MessageSquare,
 } from 'lucide-react';
 
 interface Expense {
@@ -108,7 +108,7 @@ export default function DespesaDetalhesPage() {
     if (id) {
       loadExpense();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadExpense = async () => {
@@ -138,13 +138,13 @@ export default function DespesaDetalhesPage() {
       message: 'Esta ação é irreversível. A despesa será cancelada permanentemente.',
       confirmText: 'Cancelar despesa',
       tone: 'danger',
-    })
+    });
     if (!confirmed) return;
 
     try {
       setActionLoading(true);
       const response = await fetch(`/api/financeiro/despesas/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
       });
 
       const data = await response.json();
@@ -166,18 +166,19 @@ export default function DespesaDetalhesPage() {
   const handleRejeitar = async () => {
     const confirmed = await confirm({
       title: 'Rejeitar despesa?',
-      message: 'Esta ação é irreversível. A despesa será rejeitada e o solicitante será notificado.',
+      message:
+        'Esta ação é irreversível. A despesa será rejeitada e o solicitante será notificado.',
       confirmText: 'Rejeitar',
       tone: 'danger',
-    })
-    if (!confirmed) return
-    router.push(`/dashboard/financeiro/despesas/${id}/rejeitar`)
-  }
+    });
+    if (!confirmed) return;
+    router.push(`/dashboard/financeiro/despesas/${id}/rejeitar`);
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'USD',
     }).format(value);
   };
 
@@ -190,22 +191,27 @@ export default function DespesaDetalhesPage() {
   };
 
   const getStatusBadge = (status: string) => {
-     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const badges: Record<string, { color: string; icon: any; label: string }> = {
       PENDENTE: { color: 'bg-muted text-foreground', icon: Clock, label: 'Pendente' },
-      AGUARDANDO_APROVACAO: { color: 'bg-yellow-100 text-yellow-700', icon: AlertTriangle, label: 'Aguardando Aprovação' },
+      AGUARDANDO_APROVACAO: {
+        color: 'bg-yellow-100 text-yellow-700',
+        icon: AlertTriangle,
+        label: 'Aguardando Aprovação',
+      },
       APROVADA: { color: 'bg-green-100 text-green-700', icon: CheckCircle, label: 'Aprovada' },
       REJEITADA: { color: 'bg-destructive/10 text-destructive', icon: XCircle, label: 'Rejeitada' },
       PAGA: { color: 'bg-brand-primary/10 text-brand-primary', icon: CheckCircle, label: 'Paga' },
-      CANCELADA: { color: 'bg-muted text-muted-foreground', icon: XCircle, label: 'Cancelada' }
+      CANCELADA: { color: 'bg-muted text-muted-foreground', icon: XCircle, label: 'Cancelada' },
     };
 
     const badge = badges[status] || badges.PENDENTE;
     const Icon = badge.icon;
 
     return (
-      <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${badge.color}`}>
+      <span
+        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${badge.color}`}
+      >
         <Icon className="w-4 h-4" />
         {badge.label}
       </span>
@@ -240,9 +246,10 @@ export default function DespesaDetalhesPage() {
     );
   }
 
-  const isOverdue = new Date(expense.dataVencimento) < new Date() && 
-                     expense.status !== 'PAGA' && 
-                     expense.status !== 'CANCELADA';
+  const isOverdue =
+    new Date(expense.dataVencimento) < new Date() &&
+    expense.status !== 'PAGA' &&
+    expense.status !== 'CANCELADA';
 
   return (
     <div className="min-h-screen bg-muted p-6">
@@ -256,22 +263,24 @@ export default function DespesaDetalhesPage() {
             <ArrowLeft className="w-5 h-5" />
             Voltar
           </button>
-          
+
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground">{expense.descricao}</h1>
               <p className="text-muted-foreground mt-1">Despesa #{expense.id}</p>
             </div>
             <div className="flex items-center gap-3">
-              {expense.status !== 'PAGA' && expense.status !== 'CANCELADA' && expense.status !== 'AGUARDANDO_APROVACAO' && (
-                <button
-                  onClick={() => router.push(`/dashboard/financeiro/despesas/${id}/editar`)}
-                  className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-2xl hover:bg-muted"
-                >
-                  <Edit className="w-4 h-4" />
-                  Editar
-                </button>
-              )}
+              {expense.status !== 'PAGA' &&
+                expense.status !== 'CANCELADA' &&
+                expense.status !== 'AGUARDANDO_APROVACAO' && (
+                  <button
+                    onClick={() => router.push(`/dashboard/financeiro/despesas/${id}/editar`)}
+                    className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-2xl hover:bg-muted"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Editar
+                  </button>
+                )}
               {expense.status !== 'PAGA' && expense.status !== 'CANCELADA' && (
                 <button
                   onClick={handleDelete}
@@ -296,7 +305,9 @@ export default function DespesaDetalhesPage() {
                   <DollarSign className="w-8 h-8 text-destructive" />
                   <div>
                     <p className="text-sm text-muted-foreground">Valor da Despesa</p>
-                    <p className="text-3xl font-bold text-destructive">{formatCurrency(expense.valor)}</p>
+                    <p className="text-3xl font-bold text-destructive">
+                      {formatCurrency(expense.valor)}
+                    </p>
                   </div>
                 </div>
                 {getStatusBadge(expense.status)}
@@ -317,9 +328,12 @@ export default function DespesaDetalhesPage() {
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Categoria</p>
-                  <span 
+                  <span
                     className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium"
-                    style={{ backgroundColor: `${expense.categoria.cor}20`, color: expense.categoria.cor }}
+                    style={{
+                      backgroundColor: `${expense.categoria.cor}20`,
+                      color: expense.categoria.cor,
+                    }}
                   >
                     <Tag className="w-4 h-4" />
                     {expense.categoria.nome}
@@ -348,7 +362,9 @@ export default function DespesaDetalhesPage() {
                   <p className="text-sm text-muted-foreground mb-1">Data de Vencimento</p>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <p className={`font-medium ${isOverdue ? 'text-destructive' : 'text-foreground'}`}>
+                    <p
+                      className={`font-medium ${isOverdue ? 'text-destructive' : 'text-foreground'}`}
+                    >
                       {formatDate(expense.dataVencimento)}
                     </p>
                   </div>
@@ -359,7 +375,9 @@ export default function DespesaDetalhesPage() {
                     <p className="text-sm text-muted-foreground mb-1">Data de Pagamento</p>
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-600" />
-                      <p className="font-medium text-foreground">{formatDate(expense.dataPagamento)}</p>
+                      <p className="font-medium text-foreground">
+                        {formatDate(expense.dataPagamento)}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -409,31 +427,41 @@ export default function DespesaDetalhesPage() {
 
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Nível de Aprovação</p>
-                      <p className="font-medium text-foreground">Nível {expense.aprovacao.nivelAprovacao}</p>
+                      <p className="font-medium text-foreground">
+                        Nível {expense.aprovacao.nivelAprovacao}
+                      </p>
                     </div>
 
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Tipo de Aprovador</p>
-                      <p className="font-medium text-foreground">{expense.aprovacao.tipoAprovador}</p>
+                      <p className="font-medium text-foreground">
+                        {expense.aprovacao.tipoAprovador}
+                      </p>
                     </div>
 
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Aprovador</p>
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-muted-foreground" />
-                        <p className="font-medium text-foreground">{expense.aprovacao.aprovador.nome}</p>
+                        <p className="font-medium text-foreground">
+                          {expense.aprovacao.aprovador.nome}
+                        </p>
                       </div>
                     </div>
 
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Solicitado em</p>
-                      <p className="font-medium text-foreground">{formatDateTime(expense.aprovacao.solicitadoEm)}</p>
+                      <p className="font-medium text-foreground">
+                        {formatDateTime(expense.aprovacao.solicitadoEm)}
+                      </p>
                     </div>
 
                     {expense.aprovacao.revisadoEm && (
                       <div>
                         <p className="text-sm text-muted-foreground mb-1">Revisado em</p>
-                        <p className="font-medium text-foreground">{formatDateTime(expense.aprovacao.revisadoEm)}</p>
+                        <p className="font-medium text-foreground">
+                          {formatDateTime(expense.aprovacao.revisadoEm)}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -441,14 +469,18 @@ export default function DespesaDetalhesPage() {
                   {expense.aprovacao.justificativa && (
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Justificativa</p>
-                      <p className="text-foreground bg-muted p-3 rounded-2xl">{expense.aprovacao.justificativa}</p>
+                      <p className="text-foreground bg-muted p-3 rounded-2xl">
+                        {expense.aprovacao.justificativa}
+                      </p>
                     </div>
                   )}
 
                   {expense.aprovacao.comentario && (
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Comentário do Aprovador</p>
-                      <p className="text-foreground bg-muted p-3 rounded-2xl">{expense.aprovacao.comentario}</p>
+                      <p className="text-foreground bg-muted p-3 rounded-2xl">
+                        {expense.aprovacao.comentario}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -480,7 +512,7 @@ export default function DespesaDetalhesPage() {
             {/* Informações Adicionais */}
             <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
               <h3 className="font-semibold text-foreground mb-4">Informações Adicionais</h3>
-              
+
               <div className="space-y-4">
                 {expense.fornecedor && (
                   <div>
@@ -489,7 +521,9 @@ export default function DespesaDetalhesPage() {
                       <Package className="w-4 h-4 text-muted-foreground mt-1" />
                       <div>
                         <p className="font-medium text-foreground">{expense.fornecedor.nome}</p>
-                        <p className="text-sm text-muted-foreground">{expense.fornecedor.documento}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {expense.fornecedor.documento}
+                        </p>
                       </div>
                     </div>
                   </div>

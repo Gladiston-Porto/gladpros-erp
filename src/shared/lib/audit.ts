@@ -34,19 +34,21 @@ export class AuditLogger {
   static async log(event: AuditEvent): Promise<void> {
     try {
       // Log no console para desenvolvimento
-       
+
       // eslint-disable-next-line no-console
       console.log(`[AUDIT] ${event.status} - ${event.action}`, {
-        user: event.userEmail || `ID:${event.userId}` || 'Anonymous',
-        resource: event.resource ? `${event.resource}${event.resourceId ? `:${event.resourceId}` : ''}` : undefined,
+        user: event.userEmail ?? (event.userId ? `ID:${event.userId}` : 'Anonymous'),
+        resource: event.resource
+          ? `${event.resource}${event.resourceId ? `:${event.resourceId}` : ''}`
+          : undefined,
         ip: event.ip,
         details: event.details,
-        timestamp: event.timestamp || new Date()
+        timestamp: event.timestamp || new Date(),
       });
 
       // Mapear ação para enum do Prisma
       let acaoEnum: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' = 'LOGIN';
-      
+
       switch (event.action) {
         case 'LOGIN_ATTEMPT':
         case 'LOGIN':
@@ -71,12 +73,14 @@ export class AuditLogger {
           acaoEnum = 'LOGIN'; // Fallback
       }
 
-      const payload = event.details ? JSON.stringify({
-        action: event.action,
-        status: event.status,
-        userAgent: event.userAgent,
-        ...event.details
-      }) : null;
+      const payload = event.details
+        ? JSON.stringify({
+            action: event.action,
+            status: event.status,
+            userAgent: event.userAgent,
+            ...event.details,
+          })
+        : null;
 
       await prisma.$executeRaw`
         INSERT INTO Auditoria (tabela, registroId, acao, usuarioId, ip, payload)
@@ -89,7 +93,6 @@ export class AuditLogger {
           ${payload}
         )
       `;
-
     } catch (error) {
       console.error('[AUDIT] Erro no sistema de auditoria:', error);
     }
@@ -98,50 +101,61 @@ export class AuditLogger {
   // Helpers para extrair informações da request
   static getClientInfo(req: NextRequest) {
     const forwarded = req.headers.get('x-forwarded-for');
-    const ip = forwarded ? forwarded.split(',')[0].trim() : 
-               req.headers.get('x-real-ip') || 
-               req.headers.get('cf-connecting-ip') || 
-               'unknown';
-    
+    const ip = forwarded
+      ? forwarded.split(',')[0].trim()
+      : req.headers.get('x-real-ip') || req.headers.get('cf-connecting-ip') || 'unknown';
+
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
     return { ip, userAgent };
   }
 
   // Logs específicos para diferentes ações
-  static async logLogin(userId: number, email: string, req: NextRequest, success: boolean, details?: Record<string, unknown>) {
+  static async logLogin(
+    userId: number,
+    email: string,
+    req: NextRequest,
+    success: boolean,
+    details?: Record<string, unknown>,
+  ) {
     const { ip, userAgent } = this.getClientInfo(req);
-    
+
     await this.log({
       userId,
       userEmail: email,
       action: 'LOGIN_ATTEMPT',
       details: {
         success,
-        ...details
+        ...details,
       },
       ip,
       userAgent,
-      status: success ? 'SUCCESS' : 'FAILURE'
+      status: success ? 'SUCCESS' : 'FAILURE',
     });
   }
 
   static async logLogout(userId: number, email: string, req: NextRequest) {
     const { ip, userAgent } = this.getClientInfo(req);
-    
+
     await this.log({
       userId,
       userEmail: email,
       action: 'LOGOUT',
       ip,
       userAgent,
-      status: 'SUCCESS'
+      status: 'SUCCESS',
     });
   }
 
-  static async logMFA(userId: number, email: string, req: NextRequest, success: boolean, attempts: number) {
+  static async logMFA(
+    userId: number,
+    email: string,
+    req: NextRequest,
+    success: boolean,
+    attempts: number,
+  ) {
     const { ip, userAgent } = this.getClientInfo(req);
-    
+
     await this.log({
       userId,
       userEmail: email,
@@ -149,66 +163,77 @@ export class AuditLogger {
       details: {
         success,
         attempts,
-        timestamp: new Date()
+        timestamp: new Date(),
       },
       ip,
       userAgent,
-      status: success ? 'SUCCESS' : 'FAILURE'
+      status: success ? 'SUCCESS' : 'FAILURE',
     });
   }
 
-  static async logPasswordChange(userId: number, email: string, req: NextRequest, type: 'RESET' | 'CHANGE') {
+  static async logPasswordChange(
+    userId: number,
+    email: string,
+    req: NextRequest,
+    type: 'RESET' | 'CHANGE',
+  ) {
     const { ip, userAgent } = this.getClientInfo(req);
-    
+
     await this.log({
       userId,
       userEmail: email,
       action: 'PASSWORD_CHANGE',
       details: {
         type,
-        timestamp: new Date()
+        timestamp: new Date(),
       },
       ip,
       userAgent,
-      status: 'SUCCESS'
+      status: 'SUCCESS',
     });
   }
 
   static async logFirstAccess(userId: number, email: string, req: NextRequest) {
     const { ip, userAgent } = this.getClientInfo(req);
-    
+
     await this.log({
       userId,
       userEmail: email,
       action: 'FIRST_ACCESS_SETUP',
       details: {
-        completedAt: new Date()
+        completedAt: new Date(),
       },
       ip,
       userAgent,
-      status: 'SUCCESS'
+      status: 'SUCCESS',
     });
   }
 
   static async logUnauthorizedAccess(req: NextRequest, resource: string) {
     const { ip, userAgent } = this.getClientInfo(req);
-    
+
     await this.log({
       action: 'UNAUTHORIZED_ACCESS',
       resource,
       details: {
         attemptedUrl: req.url,
-        method: req.method
+        method: req.method,
       },
       ip,
       userAgent,
-      status: 'WARNING'
+      status: 'WARNING',
     });
   }
 
-  static async logDataAccess(userId: number, email: string, req: NextRequest, resource: string, resourceId?: string) {
+  static async logDataAccess(
+    userId: number,
+    email: string,
+    req: NextRequest,
+    resource: string,
+    resourceId?: string,
+  ) {
     const { ip, userAgent } = this.getClientInfo(req);
-    
+
     await this.log({
       userId,
       userEmail: email,
@@ -217,17 +242,25 @@ export class AuditLogger {
       resourceId,
       details: {
         method: req.method,
-        url: req.url
+        url: req.url,
       },
       ip,
       userAgent,
-      status: 'SUCCESS'
+      status: 'SUCCESS',
     });
   }
 
-  static async logDataModification(userId: number, email: string, req: NextRequest, resource: string, resourceId: string, operation: 'CREATE' | 'UPDATE' | 'DELETE', changes?: Record<string, unknown>) {
+  static async logDataModification(
+    userId: number,
+    email: string,
+    req: NextRequest,
+    resource: string,
+    resourceId: string,
+    operation: 'CREATE' | 'UPDATE' | 'DELETE',
+    changes?: Record<string, unknown>,
+  ) {
     const { ip, userAgent } = this.getClientInfo(req);
-    
+
     await this.log({
       userId,
       userEmail: email,
@@ -237,11 +270,11 @@ export class AuditLogger {
       details: {
         operation,
         changes,
-        timestamp: new Date()
+        timestamp: new Date(),
       },
       ip,
       userAgent,
-      status: 'SUCCESS'
+      status: 'SUCCESS',
     });
   }
 
@@ -294,7 +327,7 @@ export class AuditLogger {
     entidade: string,
     entidadeId: number | string,
     acao: string,
-    diff?: Record<string, unknown>
+    diff?: Record<string, unknown>,
   ) {
     // Mapear ação string → enum
     const acaoEnum = this.mapAcaoEnum(acao);
@@ -303,7 +336,8 @@ export class AuditLogger {
       await prisma.auditoria.create({
         data: {
           tabela: entidade,
-          registroId: typeof entidadeId === 'number' ? entidadeId : parseInt(String(entidadeId)) || 0,
+          registroId:
+            typeof entidadeId === 'number' ? entidadeId : parseInt(String(entidadeId)) || 0,
           acao: acaoEnum,
           usuarioId: userId,
           payload: diff ? JSON.stringify(diff) : undefined,
@@ -317,16 +351,13 @@ export class AuditLogger {
   /**
    * Busca histórico de uma entidade (substitui AuditService.getEntityHistory).
    */
-  static async getEntityHistory(
-    entidade: string,
-    entidadeId: number | string,
-    limit = 50
-  ) {
+  static async getEntityHistory(entidade: string, entidadeId: number | string, limit = 50) {
     try {
       return await prisma.auditoria.findMany({
         where: {
           tabela: entidade,
-          registroId: typeof entidadeId === 'number' ? entidadeId : parseInt(String(entidadeId)) || 0,
+          registroId:
+            typeof entidadeId === 'number' ? entidadeId : parseInt(String(entidadeId)) || 0,
         },
         include: {
           Usuario: {
@@ -349,10 +380,7 @@ export class AuditLogger {
     try {
       return await prisma.auditoria.findMany({
         where: {
-          OR: [
-            { usuarioId: userId },
-            { tabela: 'Usuario', registroId: userId },
-          ],
+          OR: [{ usuarioId: userId }, { tabela: 'Usuario', registroId: userId }],
         },
         include: {
           Usuario: {
@@ -434,7 +462,12 @@ export const AuditoriaService = {
       details: { duration },
       status: 'SUCCESS',
     }),
-  registrarCriacaoUsuario: (userId: number, dados: Record<string, unknown>, adminId?: number, ip?: string) =>
+  registrarCriacaoUsuario: (
+    userId: number,
+    dados: Record<string, unknown>,
+    adminId?: number,
+    ip?: string,
+  ) =>
     AuditLogger.log({
       userId: adminId ?? userId,
       action: 'CREATE_USER',
@@ -444,7 +477,13 @@ export const AuditoriaService = {
       details: dados,
       status: 'SUCCESS',
     }),
-  registrarAtualizacaoUsuario: (userId: number, before: Record<string, unknown>, after: Record<string, unknown>, adminId?: number, ip?: string) =>
+  registrarAtualizacaoUsuario: (
+    userId: number,
+    before: Record<string, unknown>,
+    after: Record<string, unknown>,
+    adminId?: number,
+    ip?: string,
+  ) =>
     AuditLogger.log({
       userId: adminId ?? userId,
       action: 'UPDATE_USER',
@@ -454,7 +493,12 @@ export const AuditoriaService = {
       details: { before, after },
       status: 'SUCCESS',
     }),
-  registrarExclusaoUsuario: (userId: number, dados: Record<string, unknown>, adminId?: number, ip?: string) =>
+  registrarExclusaoUsuario: (
+    userId: number,
+    dados: Record<string, unknown>,
+    adminId?: number,
+    ip?: string,
+  ) =>
     AuditLogger.log({
       userId: adminId ?? userId,
       action: 'DELETE_USER',

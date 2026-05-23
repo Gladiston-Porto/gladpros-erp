@@ -328,15 +328,13 @@ describe('POST /api/invoices/[id]/payments', () => {
             .mockResolvedValueOnce(mockInvoice)
             .mockResolvedValueOnce({ ...mockInvoice, valorPago: 1000, saldo: 0 }),
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          update: jest
-            .fn()
-            .mockResolvedValue({
-              id: 1,
-              status: 'PAID',
-              valorPago: 1000,
-              saldo: 0,
-              valorTotal: 1000,
-            }),
+          update: jest.fn().mockResolvedValue({
+            id: 1,
+            status: 'PAID',
+            valorPago: 1000,
+            saldo: 0,
+            valorTotal: 1000,
+          }),
         },
         bankAccount: {
           update: jest.fn().mockResolvedValue({ saldoAtual: 1000 }),

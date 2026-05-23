@@ -1,8 +1,8 @@
 /**
  * Componente de Formulário de Projeto
- * 
+ *
  * Usado tanto para criação quanto edição de projetos
- * 
+ *
  * Features:
  * - Validação com Zod
  * - Campos com máscaras
@@ -17,7 +17,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -40,7 +39,6 @@ import {
   PROJETO_STATUS_LABELS,
   PROJETO_PRIORIDADE_LABELS,
 } from '@/lib/projetos/constants';
-import {  } from '@/lib/projetos/formatting';
 import { calculateMargin } from '@/lib/projetos/calculations';
 import { useProjetoOperations } from '@/hooks/projetos/useProjetoOperations';
 
@@ -59,25 +57,24 @@ export default function ProjetoForm({
   onCancel,
   loading: externalLoading = false,
 }: ProjetoFormProps) {
-  const _router = useRouter();
-   
   const isEditing = !!projeto;
-  
-  const { createProjeto, updateProjeto, loading: operationLoading } = useProjetoOperations({
+
+  const {
+    createProjeto,
+    updateProjeto,
+    loading: operationLoading,
+  } = useProjetoOperations({
     onSuccess: () => {},
     onError: (error: string) => {
       alert(error);
     },
   });
-  
+
   const loading = externalLoading || operationLoading;
 
   const {
     register,
     handleSubmit,
-     
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    control,
     watch,
     setValue,
     formState: { errors, isSubmitting },
@@ -115,8 +112,10 @@ export default function ProjetoForm({
   // Estados para autocomplete
   const [clientes, setClientes] = useState<Array<{ id: number; nome: string }>>([]);
   const [responsaveis, setResponsaveis] = useState<Array<{ id: number; nome: string }>>([]);
-  const [propostas, setPropostas] = useState<Array<{ id: number; numero: string; titulo: string }>>([]);
-  
+  const [propostas, setPropostas] = useState<Array<{ id: number; numero: string; titulo: string }>>(
+    [],
+  );
+
   const [searchCliente, setSearchCliente] = useState('');
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [selectedClienteNome, setSelectedClienteNome] = useState('');
@@ -131,7 +130,7 @@ export default function ProjetoForm({
     if (valorEstimado && custoPrevisto) {
       const margem = calculateMargin(valorEstimado, custoPrevisto);
       setValue('margemPrevista', Number(margem.toFixed(2)));
-      
+
       const lucro = valorEstimado - custoPrevisto;
       setValue('lucroPrevisto', Number(lucro.toFixed(2)));
     }
@@ -142,7 +141,7 @@ export default function ProjetoForm({
     if (valorEstimado && custoReal) {
       const margem = calculateMargin(valorEstimado, custoReal);
       setValue('margemReal', Number(margem.toFixed(2)));
-      
+
       const lucro = valorEstimado - custoReal;
       setValue('lucroReal', Number(lucro.toFixed(2)));
     }
@@ -154,19 +153,18 @@ export default function ProjetoForm({
       try {
         const response = await fetch('/api/clientes?pageSize=100');
         const result = await response.json();
-        
+
         if (result.data) {
           setClientes(
             result.data.map((c: { id: number; nomeCompletoOuRazao: string }) => ({
               id: c.id,
               nome: c.nomeCompletoOuRazao,
-            }))
+            })),
           );
         }
-       
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (error) {
-      }
+
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (error) {}
     };
 
     loadClientes();
@@ -178,19 +176,17 @@ export default function ProjetoForm({
       try {
         const response = await fetch('/api/usuarios?pageSize=100');
         const result = await response.json();
-        
+
         if (result.data) {
           setResponsaveis(
             result.data.map((u: { id: number; nome: string }) => ({
               id: u.id,
               nome: u.nome,
-            }))
+            })),
           );
-         
         }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (error) {
-      }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (error) {}
     };
 
     loadResponsaveis();
@@ -204,20 +200,18 @@ export default function ProjetoForm({
         try {
           const response = await fetch(`/api/propostas?clienteId=${clienteId}&status=aprovada`);
           const result = await response.json();
-          
+
           if (result.data) {
             setPropostas(
               result.data.map((p: { id: number; numero: string; titulo: string }) => ({
                 id: p.id,
                 numero: p.numero,
                 titulo: p.titulo,
-              }))
-             
+              })),
             );
           }
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (error) {
-        }
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (error) {}
       };
 
       loadPropostas();
@@ -228,7 +222,7 @@ export default function ProjetoForm({
 
   // Filtrar clientes pela busca
   const filteredClientes = clientes.filter((c) =>
-    c.nome?.toLowerCase().includes(searchCliente.toLowerCase())
+    c.nome?.toLowerCase().includes(searchCliente.toLowerCase()),
   );
 
   const handleClienteSelect = (cliente: { id: number; nome: string }) => {
@@ -245,7 +239,7 @@ export default function ProjetoForm({
         await onSubmit(data);
         return;
       }
-      
+
       // Caso contrário, usa a operação padrão
       let resultado: Projeto;
       if (isEditing && projeto) {
@@ -253,15 +247,14 @@ export default function ProjetoForm({
       } else {
         resultado = await createProjeto(data);
       }
-      
+
       // Chama callback de sucesso se fornecido
-       
+
       if (onSuccess) {
         onSuccess(resultado);
       }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (error) {
-    }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (error) {}
   };
 
   return (
@@ -276,9 +269,7 @@ export default function ProjetoForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Cliente */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Cliente *
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Cliente *</label>
             <div className="relative">
               <div className="relative">
                 <Search
@@ -342,9 +333,7 @@ export default function ProjetoForm({
               ))}
             </select>
             {!clienteId && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                Selecione um cliente primeiro
-              </p>
+              <p className="mt-1 text-sm text-muted-foreground">Selecione um cliente primeiro</p>
             )}
           </div>
 
@@ -371,9 +360,7 @@ export default function ProjetoForm({
 
           {/* Descrição */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Descrição
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Descrição</label>
             <textarea
               {...register('descricao')}
               rows={4}
@@ -392,9 +379,7 @@ export default function ProjetoForm({
 
           {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Status
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Status</label>
             <select
               {...register('status')}
               className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
@@ -409,9 +394,7 @@ export default function ProjetoForm({
 
           {/* Prioridade */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Prioridade
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Prioridade</label>
             <select
               {...register('prioridade')}
               className="w-full px-4 py-2 border border-border rounded-2xl focus:ring-2 focus:ring-ring"
@@ -466,9 +449,7 @@ export default function ProjetoForm({
               }`}
             />
             {errors.dataInicioPrevista && (
-              <p className="mt-1 text-sm text-destructive">
-                {errors.dataInicioPrevista.message}
-              </p>
+              <p className="mt-1 text-sm text-destructive">{errors.dataInicioPrevista.message}</p>
             )}
           </div>
 
@@ -531,9 +512,7 @@ export default function ProjetoForm({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Valor Estimado */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Valor Estimado
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Valor Estimado</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                 $
@@ -550,9 +529,7 @@ export default function ProjetoForm({
 
           {/* Custo Previsto */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Custo Previsto
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Custo Previsto</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                 $
@@ -583,9 +560,7 @@ export default function ProjetoForm({
 
           {/* Lucro Previsto (calculado automaticamente) */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Lucro Previsto
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Lucro Previsto</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                 $
@@ -604,9 +579,7 @@ export default function ProjetoForm({
           {isEditing && (
             <>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Custo Real
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-2">Custo Real</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                     $
@@ -637,9 +610,7 @@ export default function ProjetoForm({
 
               {/* Lucro Real (calculado) */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Lucro Real
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-2">Lucro Real</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                     $
@@ -685,9 +656,7 @@ export default function ProjetoForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Localidade */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Cidade/Estado
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Cidade/Estado</label>
             <input
               type="text"
               {...register('localidade')}
@@ -722,7 +691,7 @@ export default function ProjetoForm({
           <X size={20} />
           Cancelar
         </button>
-        
+
         <button
           type="submit"
           disabled={isSubmitting || loading}

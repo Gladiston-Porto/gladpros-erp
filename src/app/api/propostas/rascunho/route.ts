@@ -1,39 +1,66 @@
 import { withErrorHandler } from '@/lib/api/error-handler';
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/shared/lib/rbac";
-import { can, type Role } from "@/shared/lib/rbac-core";
-import { updatePropostaSchema } from "@/schemas/proposta.schema";
-import { adaptPropostaFormToAPI } from "@/components/propostas/adapter";
-import type { PropostaFormData } from "@/components/propostas/types";
-import type { PropostaMaterial_status, PropostaEtapa_status, PropertyType, ServiceCategory, ContractType, TaxMode, Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida } from "@prisma/client";
-import { calculateInvoiceTax } from "@/shared/services/salesTaxService";
-import { getUnsupportedBillingTrigger, unsupportedBillingTriggerMessage } from "@/domains/proposals/services/billingTriggerPolicy";
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
+import { updatePropostaSchema } from '@/schemas/proposta.schema';
+import { adaptPropostaFormToAPI } from '@/components/propostas/adapter';
+import type { PropostaFormData } from '@/components/propostas/types';
+import type {
+  PropostaMaterial_status,
+  PropostaEtapa_status,
+  PropertyType,
+  ServiceCategory,
+  ContractType,
+  TaxMode,
+  Proposta_gatilhoFaturamento,
+  Proposta_formaPagamentoPreferida,
+} from '@prisma/client';
+import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
+import {
+  getUnsupportedBillingTrigger,
+  unsupportedBillingTriggerMessage,
+} from '@/domains/proposals/services/billingTriggerPolicy';
 
 function normalizeFormaPagamento(value?: string): Proposta_formaPagamentoPreferida | undefined {
   if (!value) return undefined;
-  const validValues: Proposta_formaPagamentoPreferida[] = ['PIX','CARTAO','BOLETO','TRANSFERENCIA','DINHEIRO','CHEQUE','INVOICE','CHECK','ACH','CREDIT_CARD'];
-  if (validValues.includes(value as Proposta_formaPagamentoPreferida)) return value as Proposta_formaPagamentoPreferida;
+  const validValues: Proposta_formaPagamentoPreferida[] = [
+    'PIX',
+    'CARTAO',
+    'BOLETO',
+    'TRANSFERENCIA',
+    'DINHEIRO',
+    'CHEQUE',
+    'INVOICE',
+    'CHECK',
+    'ACH',
+    'CREDIT_CARD',
+  ];
+  if (validValues.includes(value as Proposta_formaPagamentoPreferida))
+    return value as Proposta_formaPagamentoPreferida;
   return undefined;
 }
 
-const rascunhoSchema = z.object({
-  id: z.number().int().positive().optional(),
-}).passthrough()
+const rascunhoSchema = z
+  .object({
+    id: z.number().int().positive().optional(),
+  })
+  .passthrough();
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
   if (!can(user.role as Role, 'propostas', 'create')) {
-    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Sem permissão', success: false },
+      { status: 403 },
+    );
   }
 
   const raw = await request.json().catch(() => ({}));
-  const body = rascunhoSchema.safeParse(raw).success
-    ? rascunhoSchema.parse(raw)
-    : {}
+  const body = rascunhoSchema.safeParse(raw).success ? rascunhoSchema.parse(raw) : {};
   const propostaId = body?.id ? Number(body.id) : null;
 
   // Attempt full save if schema is valid and proposta is a RASCUNHO
@@ -52,8 +79,12 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         const unsupportedTrigger = getUnsupportedBillingTrigger(payload.gatilhoFaturamento);
         if (unsupportedTrigger) {
           return NextResponse.json(
-            { error: 'Unsupported billing trigger', message: unsupportedBillingTriggerMessage(unsupportedTrigger), success: false },
-            { status: 400 }
+            {
+              error: 'Unsupported billing trigger',
+              message: unsupportedBillingTriggerMessage(unsupportedTrigger),
+              success: false,
+            },
+            { status: 400 },
           );
         }
 
@@ -108,7 +139,9 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
               exclusoes: payload.exclusoes,
               condicoesGerais: payload.condicoesGerais,
               internalEstimate: JSON.stringify(payload.estimativasInternas),
-              gatilhoFaturamento: payload.gatilhoFaturamento as Proposta_gatilhoFaturamento | undefined,
+              gatilhoFaturamento: payload.gatilhoFaturamento as
+                | Proposta_gatilhoFaturamento
+                | undefined,
               percentualSinal: payload.percentualSinal,
               formaPagamentoPreferida: normalizeFormaPagamento(payload.formaPreferida),
               instrucoesPagamento: payload.instrucoesFaturamento,
@@ -122,7 +155,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
           await tx.propostaMaterial.deleteMany({ where: { propostaId } });
           if (payload.materiais.length > 0) {
             await tx.propostaMaterial.createMany({
-              data: payload.materiais.map(m => ({
+              data: payload.materiais.map((m) => ({
                 propostaId,
                 estoqueItemId: m.estoqueItemId,
                 codigo: m.codigo,
@@ -147,7 +180,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
           await tx.propostaEtapa.deleteMany({ where: { propostaId } });
           if (payload.etapas.length > 0) {
             await tx.propostaEtapa.createMany({
-              data: payload.etapas.map(e => ({
+              data: payload.etapas.map((e) => ({
                 propostaId,
                 servico: e.servico,
                 descricao: e.descricao,

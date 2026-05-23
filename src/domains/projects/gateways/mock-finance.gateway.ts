@@ -1,7 +1,7 @@
 /**
  * Mock Finance Gateway
  * Fase 7: Integração Financeira
- * 
+ *
  * Implementação mock do gateway financeiro para desenvolvimento/testes
  * Simula comportamento do futuro módulo financeiro real
  */
@@ -15,7 +15,6 @@ import {
   ListarInvoicesResponse,
   RespostaFinanceira,
   ResumoFinanceiroProjeto,
-  StatusInvoice,
   ItemInvoice,
 } from '../interfaces/finance-gateway.interface';
 
@@ -53,7 +52,7 @@ export class MockFinanceGateway implements IFinanceGateway {
    * Simula latência de rede
    */
   private async simularLatencia(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, this.latenciaMs));
+    await new Promise((resolve) => setTimeout(resolve, this.latenciaMs));
   }
 
   /**
@@ -83,8 +82,8 @@ export class MockFinanceGateway implements IFinanceGateway {
         descricao: 'Serviços conforme proposta',
         tipo: 'SERVICO',
         quantidade: 1,
-        valorUnitario: 5000.00,
-        valorTotal: 5000.00,
+        valorUnitario: 5000.0,
+        valorTotal: 5000.0,
         observacao: 'Valor base da proposta',
       });
     }
@@ -95,8 +94,8 @@ export class MockFinanceGateway implements IFinanceGateway {
         descricao: 'Materiais utilizados no projeto',
         tipo: 'MATERIAL',
         quantidade: 1,
-        valorUnitario: 1500.00,
-        valorTotal: 1500.00,
+        valorUnitario: 1500.0,
+        valorTotal: 1500.0,
         observacao: 'Materiais consolidados',
       });
     }
@@ -178,31 +177,28 @@ export class MockFinanceGateway implements IFinanceGateway {
     let invoices = Array.from(invoicesEmMemoria.values());
 
     if (filtros.projetoId) {
-      invoices = invoices.filter(i => i.projetoId === filtros.projetoId);
+      invoices = invoices.filter((i) => i.projetoId === filtros.projetoId);
     }
 
     if (filtros.clienteId) {
-      invoices = invoices.filter(i => i.clienteId === filtros.clienteId);
+      invoices = invoices.filter((i) => i.clienteId === filtros.clienteId);
     }
 
     if (filtros.status) {
-      invoices = invoices.filter(i => i.status === filtros.status);
+      invoices = invoices.filter((i) => i.status === filtros.status);
     }
 
     if (filtros.dataEmissaoInicio) {
-      invoices = invoices.filter(i => i.dataEmissao >= filtros.dataEmissaoInicio!);
+      invoices = invoices.filter((i) => i.dataEmissao >= filtros.dataEmissaoInicio!);
     }
 
     if (filtros.dataEmissaoFim) {
-      invoices = invoices.filter(i => i.dataEmissao <= filtros.dataEmissaoFim!);
+      invoices = invoices.filter((i) => i.dataEmissao <= filtros.dataEmissaoFim!);
     }
 
     if (filtros.apenasVencidos) {
       const hoje = new Date();
-      invoices = invoices.filter(i => 
-        i.dataVencimento < hoje && 
-        i.status === 'PENDENTE'
-      );
+      invoices = invoices.filter((i) => i.dataVencimento < hoje && i.status === 'PENDENTE');
     }
 
     // Ordena por data de emissão (mais recentes primeiro)
@@ -294,7 +290,12 @@ export class MockFinanceGateway implements IFinanceGateway {
   /**
    * Cancela um invoice
    */
-  async cancelarInvoice(invoiceId: string, motivo: string, usuarioId: number, _empresaId: number): Promise<RespostaFinanceira> {
+  async cancelarInvoice(
+    invoiceId: string,
+    motivo: string,
+    usuarioId: number,
+    _empresaId: number,
+  ): Promise<RespostaFinanceira> {
     await this.simularLatencia();
 
     const invoice = invoicesEmMemoria.get(invoiceId);
@@ -345,13 +346,14 @@ export class MockFinanceGateway implements IFinanceGateway {
   async obterResumoFinanceiro(projetoId: number): Promise<ResumoFinanceiroProjeto> {
     await this.simularLatencia();
 
-    const invoices = Array.from(invoicesEmMemoria.values())
-      .filter(i => i.projetoId === projetoId);
+    const invoices = Array.from(invoicesEmMemoria.values()).filter(
+      (i) => i.projetoId === projetoId,
+    );
 
-    const valorOrcado = 10000.00; // Mock da proposta
-    const valorMateriais = 2500.00; // Mock dos materiais
-    const valorMaoDeObra = 1200.00; // Mock da mão de obra
-    const valorDespesas = 300.00; // Mock das despesas diretas
+    const valorOrcado = 10000.0; // Mock da proposta
+    const valorMateriais = 2500.0; // Mock dos materiais
+    const valorMaoDeObra = 1200.0; // Mock da mão de obra
+    const valorDespesas = 300.0; // Mock das despesas diretas
     const custoRealTotal = valorMateriais + valorMaoDeObra + valorDespesas;
 
     const valorFaturado = invoices.reduce((acc, i) => acc + i.valorTotal, 0);
@@ -359,16 +361,14 @@ export class MockFinanceGateway implements IFinanceGateway {
     const valorPendente = valorFaturado - valorPago;
 
     const totalInvoices = invoices.length;
-    const invoicesPendentes = invoices.filter(i => i.status === 'PENDENTE').length;
-    const invoicesPagos = invoices.filter(i => i.status === 'PAGO').length;
-    const invoicesVencidos = invoices.filter(i => 
-      i.status === 'PENDENTE' && i.dataVencimento < new Date()
+    const invoicesPendentes = invoices.filter((i) => i.status === 'PENDENTE').length;
+    const invoicesPagos = invoices.filter((i) => i.status === 'PAGO').length;
+    const invoicesVencidos = invoices.filter(
+      (i) => i.status === 'PENDENTE' && i.dataVencimento < new Date(),
     ).length;
 
     const margem = valorFaturado - custoRealTotal;
-    const percentualMargem = valorFaturado > 0 
-      ? (margem / valorFaturado) * 100 
-      : 0;
+    const percentualMargem = valorFaturado > 0 ? (margem / valorFaturado) * 100 : 0;
 
     return {
       projetoId,

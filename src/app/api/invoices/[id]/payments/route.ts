@@ -25,15 +25,7 @@ function mapToFormaPagamento(method: string): string {
 const createPaymentSchema = z.object({
   valor: z.number().positive(),
   dataPagamento: z.string().datetime(),
-  metodoPagamento: z.enum([
-    'BANK_TRANSFER',
-    'CHECK',
-    'CARD',
-    'CASH',
-    'STRIPE',
-    'SQUARE',
-    'OTHER',
-  ]),
+  metodoPagamento: z.enum(['BANK_TRANSFER', 'CHECK', 'CARD', 'CASH', 'STRIPE', 'SQUARE', 'OTHER']),
   bankAccountId: z.number().int().positive().optional(),
   referencia: z.string().max(100).optional(),
   notas: z.string().optional(),
@@ -78,7 +70,15 @@ export const POST = withErrorHandler(
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, empresaId: user.empresaId },
-      select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true, clienteId: true, empresaId: true },
+      select: {
+        id: true,
+        valorTotal: true,
+        valorPago: true,
+        saldo: true,
+        status: true,
+        clienteId: true,
+        empresaId: true,
+      },
     });
 
     if (!invoice) {
@@ -125,16 +125,30 @@ export const POST = withErrorHandler(
     const result = await prisma.$transaction(async (tx) => {
       const currentInvoice = await tx.invoice.findFirst({
         where: { id: invoiceId, empresaId: user.empresaId },
-        select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true, clienteId: true, empresaId: true },
+        select: {
+          id: true,
+          valorTotal: true,
+          valorPago: true,
+          saldo: true,
+          status: true,
+          clienteId: true,
+          empresaId: true,
+        },
       });
 
-      if (!currentInvoice || currentInvoice.status === 'PAID' || currentInvoice.status === 'CANCELLED') {
+      if (
+        !currentInvoice ||
+        currentInvoice.status === 'PAID' ||
+        currentInvoice.status === 'CANCELLED'
+      ) {
         throw new Error('Invoice não está disponível para pagamento');
       }
 
       const currentSaldo = Number(currentInvoice.saldo);
       if (body.valor > currentSaldo + 0.01) {
-        throw new Error(`Valor (${body.valor}) excede o saldo da invoice (${currentSaldo.toFixed(2)})`);
+        throw new Error(
+          `Valor (${body.valor}) excede o saldo da invoice (${currentSaldo.toFixed(2)})`,
+        );
       }
 
       const novoValorPago = Number(currentInvoice.valorPago) + body.valor;
@@ -227,7 +241,7 @@ export const POST = withErrorHandler(
               dataVencimento: new Date(body.dataPagamento),
               dataPagamento: new Date(body.dataPagamento),
               tipo: 'SERVICO',
-               
+
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
               status: 'RECEBIDA',

@@ -5,9 +5,9 @@
 
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { Badge } from '@gladpros/ui/badge'
-import { Button } from '@gladpros/ui/button'
-import { ModulePageHeader } from '@gladpros/ui/module-page-header'
+import { Badge } from '@gladpros/ui/badge';
+import { Button } from '@gladpros/ui/button';
+import { ModulePageHeader } from '@gladpros/ui/module-page-header';
 import { StatCard } from '@gladpros/ui/stat-card';
 import {
   Package,
@@ -37,8 +37,8 @@ function formatUSD(value: number): string {
 function getStatusGeral(alertas: number, materiaisAbaixo: number) {
   const total = alertas + materiaisAbaixo;
   if (total === 0) return { label: 'Normal', variant: 'success' as const, icon: CheckCircle };
-  if (total < 5)   return { label: 'Atenção', variant: 'warning' as const, icon: AlertCircle };
-  return              { label: 'Crítico', variant: 'error' as const, icon: AlertTriangle };
+  if (total < 5) return { label: 'Atenção', variant: 'warning' as const, icon: AlertCircle };
+  return { label: 'Crítico', variant: 'error' as const, icon: AlertTriangle };
 }
 
 // Módulos de navegação com identidade visual por sub-área
@@ -98,12 +98,6 @@ export default async function DashboardEstoquePage() {
   todayStart.setHours(0, 0, 0, 0);
 
   const [
-     
-     
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    totalMateriais,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    totalEquipamentos,
     alertasPendentes,
     movimentacoesHoje,
     materiaisComCusto,
@@ -111,8 +105,6 @@ export default async function DashboardEstoquePage() {
     materiaisAbaixoMinimo,
     reservadoTotal,
   ] = await Promise.all([
-    prisma.material.count(),
-    prisma.equipamento.count(),
     prisma.alertaEstoque.count({ where: { ativo: true, dataResolvido: null } }),
     prisma.materialMovimentacao.count({ where: { criadoEm: { gte: todayStart } } }),
     prisma.material.findMany({
@@ -130,14 +122,16 @@ export default async function DashboardEstoquePage() {
         GROUP BY m.id, m.estoque_minimo
         HAVING COALESCE(SUM(ms.quantidade), 0) < m.estoque_minimo AND m.estoque_minimo > 0
       ) as subq
-    `.then(r => Number(r[0]?.count || 0)).catch(() => 0),
+    `
+      .then((r) => Number(r[0]?.count || 0))
+      .catch(() => 0),
     prisma.materialSaldo
       .aggregate({ _sum: { reservado: true } })
-      .then(r => Number(r._sum.reservado || 0)),
+      .then((r) => Number(r._sum.reservado || 0)),
   ]);
 
-  const materiaisComSaldo = materiaisComCusto.filter(mat =>
-    mat.saldos.reduce((s, saldo) => s + Number(saldo.quantidade), 0) > 0
+  const materiaisComSaldo = materiaisComCusto.filter(
+    (mat) => mat.saldos.reduce((s, saldo) => s + Number(saldo.quantidade), 0) > 0,
   ).length;
 
   const valorEstoque = materiaisComCusto.reduce((acc, mat) => {
@@ -150,17 +144,13 @@ export default async function DashboardEstoquePage() {
 
   return (
     <div className="space-y-6">
-
       {/* ── Header do módulo ─────────────────────────────────────────── */}
       <ModulePageHeader
         title="Estoque"
         description="Materiais, equipamentos, movimentações e compras"
         icon={<Package />}
         accentColor="#0098DA"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Estoque' },
-        ]}
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Estoque' }]}
         badges={
           <Badge variant={status.variant} className="text-xs">
             <StatusIcon className="size-3 mr-1" />
@@ -236,11 +226,15 @@ export default async function DashboardEstoquePage() {
                         {mod.description}
                       </p>
                     </div>
-                    <div className={`grid shrink-0 size-8 place-content-center rounded-lg text-white [&_svg]:size-4 ${mod.iconClass}`}>
+                    <div
+                      className={`grid shrink-0 size-8 place-content-center rounded-lg text-white [&_svg]:size-4 ${mod.iconClass}`}
+                    >
                       <Icon />
                     </div>
                   </div>
-                  <div className={`mt-3 flex items-center gap-1 text-xs font-medium ${mod.linkClass}`}>
+                  <div
+                    className={`mt-3 flex items-center gap-1 text-xs font-medium ${mod.linkClass}`}
+                  >
                     Acessar
                     <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
                   </div>
@@ -258,11 +252,36 @@ export default async function DashboardEstoquePage() {
         </p>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { href: '/estoque/materiais/novo',           label: 'Novo Material',       icon: Plus,          color: '#0098DA' },
-            { href: '/estoque/equipamentos/novo',         label: 'Novo Equipamento',    icon: Plus,          color: '#FF8C00' },
-            { href: '/estoque/movimentacoes/nova',        label: 'Nova Movimentação',   icon: ArrowUpDown,   color: '#10B981' },
-            { href: '/estoque/compras/nova',              label: 'Nova Compra',         icon: ShoppingCart,  color: '#7C3AED' },
-            { href: '/estoque/solicitacoes-compra/nova',  label: 'Nova Solicitação SC', icon: ClipboardList, color: '#FF8C00' },
+            {
+              href: '/estoque/materiais/novo',
+              label: 'Novo Material',
+              icon: Plus,
+              color: '#0098DA',
+            },
+            {
+              href: '/estoque/equipamentos/novo',
+              label: 'Novo Equipamento',
+              icon: Plus,
+              color: '#FF8C00',
+            },
+            {
+              href: '/estoque/movimentacoes/nova',
+              label: 'Nova Movimentação',
+              icon: ArrowUpDown,
+              color: '#10B981',
+            },
+            {
+              href: '/estoque/compras/nova',
+              label: 'Nova Compra',
+              icon: ShoppingCart,
+              color: '#7C3AED',
+            },
+            {
+              href: '/estoque/solicitacoes-compra/nova',
+              label: 'Nova Solicitação SC',
+              icon: ClipboardList,
+              color: '#FF8C00',
+            },
           ].map((action) => {
             const Icon = action.icon;
             return (
@@ -286,14 +305,20 @@ export default async function DashboardEstoquePage() {
           <AlertTriangle className="size-4 flex-shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-              {alertasPendentes} alerta{alertasPendentes > 1 ? 's' : ''} pendente{alertasPendentes > 1 ? 's' : ''}
+              {alertasPendentes} alerta{alertasPendentes > 1 ? 's' : ''} pendente
+              {alertasPendentes > 1 ? 's' : ''}
             </p>
             <p className="text-xs text-amber-800/80 dark:text-amber-300/70 mt-0.5">
-              Verifique os materiais abaixo do estoque mínimo e equipamentos com manutenção pendente.
+              Verifique os materiais abaixo do estoque mínimo e equipamentos com manutenção
+              pendente.
             </p>
           </div>
           <Link href="/estoque/alertas">
-            <Button variant="outline" size="sm" className="flex-shrink-0 border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-shrink-0 border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300"
+            >
               Ver alertas
               <ArrowRight className="size-3" />
             </Button>
