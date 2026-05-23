@@ -19,7 +19,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.0
+        image: mariadb:10.11
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: gladpros_test
@@ -44,7 +44,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Create .env from example
         run: cp .env.example .env
@@ -63,11 +63,10 @@ jobs:
             sleep 2
           done
 
-      - name: Setup database for unit tests
+      - name: Setup database env for unit tests
         run: |
           echo "DATABASE_URL=mysql://root:root@127.0.0.1:3306/gladpros_test" > .env
           npx prisma generate
-          npx prisma migrate deploy || npx prisma db push --skip-generate
         env:
           DATABASE_URL: 'mysql://root:root@127.0.0.1:3306/gladpros_test'
 
@@ -151,7 +150,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.0
+        image: mariadb:10.11
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: gladpros_test
@@ -176,7 +175,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Wait for MySQL
         run: |
@@ -201,7 +200,7 @@ jobs:
           echo "NODE_ENV=test" >> .env.test
 
       - name: Setup test database
-        run: npx prisma migrate deploy
+        run: npx prisma migrate deploy || npx prisma db push --skip-generate
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/gladpros_test
 
@@ -241,7 +240,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Build project
         run: npm run build
@@ -305,7 +304,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Wait for MySQL
         run: |

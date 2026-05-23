@@ -9,10 +9,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 // Estorna (remove) um pagamento e recalcula valorPago / saldo / status da invoice
 
 export const DELETE = withErrorHandler(
-  async (
-    req: NextRequest,
-    context: { params: Promise<{ id: string; paymentId: string }> },
-  ) => {
+  async (req: NextRequest, context: { params: Promise<{ id: string; paymentId: string }> }) => {
     const user = await requireUser(req);
     if (!can(user.role as Role, 'invoices', 'update')) {
       return NextResponse.json(
@@ -34,7 +31,7 @@ export const DELETE = withErrorHandler(
 
     const payment = await prisma.invoicePayment.findUnique({
       where: { id: paymentIdInt },
-      select: { id: true, invoiceId: true, valor: true },
+      select: { id: true, invoiceId: true, valor: true, bankAccountId: true },
     });
 
     if (!payment || payment.invoiceId !== invoiceId) {
@@ -54,6 +51,24 @@ export const DELETE = withErrorHandler(
         { error: 'Not found', message: 'Invoice não encontrada', success: false },
         { status: 404 },
       );
+    }
+
+    // Check bank account balance before reversal (reversal debits the account)
+    if (payment.bankAccountId) {
+      const bankAccount = await prisma.bankAccount.findFirst({
+        where: { id: payment.bankAccountId, empresaId: user.empresaId },
+        select: { id: true, saldoAtual: true },
+      });
+      if (!bankAccount || Number(bankAccount.saldoAtual) < Number(payment.valor)) {
+        return NextResponse.json(
+          {
+            error: 'Validation failed',
+            message: 'Saldo bancário insuficiente para estorno',
+            success: false,
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -79,6 +94,41 @@ export const DELETE = withErrorHandler(
         },
         select: { id: true, status: true, valorPago: true, saldo: true, valorTotal: true },
       });
+
+      // Reverse bank account balance and create ledger/bank transaction records
+      if (payment.bankAccountId) {
+        const saldoAnterior = new Decimal(0);
+        const saldoPosterior = new Decimal(0);
+
+        await tx.bankAccount.updateMany({
+          where: { id: payment.bankAccountId, empresaId: user.empresaId },
+          data: { saldoAtual: { decrement: Number(payment.valor) } },
+        });
+
+        await tx.bankTransaction.create({
+          data: {
+            accountId: payment.bankAccountId,
+            tipo: 'DEBITO',
+            categoria: 'INVOICE_PAYMENT_REVERSAL',
+            valor: new Decimal(Number(payment.valor)),
+            descricao: `Estorno Invoice #${invoiceId} - pagamento #${paymentIdInt}`,
+            empresaId: user.empresaId,
+            dataTransacao: new Date(),
+            saldoAnterior,
+            saldoPosterior,
+          },
+        });
+
+        await tx.ledgerTransaction.create({
+          data: {
+            sourceType: 'REVERSAL',
+            sourceId: paymentIdInt,
+            empresaId: user.empresaId,
+            data: new Date(),
+            descricao: `Estorno Invoice #${invoiceId} - pagamento #${paymentIdInt}`,
+          },
+        });
+      }
 
       await tx.auditLog.create({
         data: {

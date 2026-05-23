@@ -1,10 +1,10 @@
-const nextJest = require('next/jest')
+const nextJest = require('next/jest');
 
 /** @type {import('jest').Config} */
 const createJestConfig = nextJest({
   // Provide the path to your Next.js app to load next.config.js and .env files
   dir: './',
-})
+});
 
 // Add any custom config to be passed to Jest
 const config = {
@@ -16,6 +16,9 @@ const config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@/shared/(.*)$': '<rootDir>/src/shared/$1',
+    // Workspace package — resolve from source so tests do not depend on dist artifacts in CI
+    '^@gladpros/ui$': '<rootDir>/packages/ui/src/index.ts',
+    '^@gladpros/ui/(.*)$': '<rootDir>/packages/ui/src/components/$1',
   },
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
@@ -66,24 +69,20 @@ const config = {
     '/__tests__/database/',
     'integration.test.ts',
   ],
-  modulePathIgnorePatterns: [
-    '<rootDir>/docs/archived/',
-  ],
-  watchPathIgnorePatterns: [
-    '<rootDir>/docs/archived/',
-  ],
+  modulePathIgnorePatterns: ['<rootDir>/docs/archived/'],
+  watchPathIgnorePatterns: ['<rootDir>/docs/archived/'],
   testEnvironmentOptions: {
     customExportConditions: [''],
   },
-}
+};
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
 // We wrap it to forcibly override transformIgnorePatterns since next/jest overrides our custom value
-const baseConfig = createJestConfig(config)
+const baseConfig = createJestConfig(config);
 module.exports = async () => {
-  const resolved = await baseConfig()
+  const resolved = await baseConfig();
   resolved.transformIgnorePatterns = [
     '/node_modules/(?!(jsdom|parse5|nwsapi|cssstyle|whatwg-url|jose)/)',
-  ]
-  return resolved
-}
+  ];
+  return resolved;
+};

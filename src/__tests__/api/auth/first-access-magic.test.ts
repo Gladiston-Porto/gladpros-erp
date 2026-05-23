@@ -3,25 +3,32 @@
 
 jest.mock('next/server', () => {
   const makeSearchParams = (url: string) => {
-    try { return new URLSearchParams(url.includes('?') ? url.split('?')[1] ?? '' : ''); }
-    catch { return new URLSearchParams(); }
+    try {
+      return new URLSearchParams(url.includes('?') ? (url.split('?')[1] ?? '') : '');
+    } catch {
+      return new URLSearchParams();
+    }
   };
   return {
-    NextRequest: jest.fn().mockImplementation((url: string, init?: { method?: string; headers?: Record<string, string> }) => ({
-      url,
-      method: (init?.method ?? 'GET').toUpperCase(),
-      nextUrl: {
-        searchParams: makeSearchParams(url),
-        pathname: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0],
-      },
-      headers: {
-        get: (name: string) => {
-          const h = (init?.headers ?? {}) as Record<string, string>;
-          return h[name] ?? h[name.toLowerCase()] ?? null;
-        },
-      },
-      cookies: { get: jest.fn() },
-    })),
+    NextRequest: jest
+      .fn()
+      .mockImplementation(
+        (url: string, init?: { method?: string; headers?: Record<string, string> }) => ({
+          url,
+          method: (init?.method ?? 'GET').toUpperCase(),
+          nextUrl: {
+            searchParams: makeSearchParams(url),
+            pathname: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0],
+          },
+          headers: {
+            get: (name: string) => {
+              const h = (init?.headers ?? {}) as Record<string, string>;
+              return h[name] ?? h[name.toLowerCase()] ?? null;
+            },
+          },
+          cookies: { get: jest.fn() },
+        }),
+      ),
     NextResponse: {
       json: jest.fn().mockImplementation((data: unknown, options?: { status?: number }) => ({
         status: options?.status ?? 200,
@@ -42,6 +49,7 @@ jest.mock('next/server', () => {
 jest.mock('@/lib/prisma', () => ({
   prisma: {
     $queryRaw: jest.fn(),
+    $executeRaw: jest.fn().mockResolvedValue(1),
   },
 }));
 
@@ -72,7 +80,9 @@ const mockSignAuth = signAuthJWT as jest.MockedFunction<typeof signAuthJWT>;
 const BASE_URL = 'http://localhost:3000';
 
 function makeReq(token?: string) {
-  const url = token ? `${BASE_URL}/api/auth/first-access/magic?token=${token}` : `${BASE_URL}/api/auth/first-access/magic`;
+  const url = token
+    ? `${BASE_URL}/api/auth/first-access/magic?token=${token}`
+    : `${BASE_URL}/api/auth/first-access/magic`;
   return new NextRequest(url);
 }
 
@@ -83,6 +93,7 @@ const activeUser = {
   status: 'ATIVO',
   primeiroAcesso: 1,
   tokenVersion: 0,
+  magicLinkConsumedAt: null,
 };
 
 describe('GET /api/auth/first-access/magic', () => {
@@ -97,7 +108,7 @@ describe('GET /api/auth/first-access/magic', () => {
       const req = makeReq();
       await GET(req);
       expect(NextResponse.redirect).toHaveBeenCalledWith(
-        expect.objectContaining({ pathname: '/login' })
+        expect.objectContaining({ pathname: '/login' }),
       );
       const callArg = (NextResponse.redirect as jest.Mock).mock.calls[0][0] as URL;
       expect(callArg.searchParams.get('erro')).toBe('magic-link-invalido');
@@ -177,7 +188,7 @@ describe('GET /api/auth/first-access/magic', () => {
           sub: '42',
           role: 'USUARIO',
           email: activeUser.email,
-        })
+        }),
       );
 
       // Deve redirecionar para /primeiro-acesso com userId
@@ -193,7 +204,7 @@ describe('GET /api/auth/first-access/magic', () => {
         expect.objectContaining({
           httpOnly: true,
           maxAge: 30 * 60,
-        })
+        }),
       );
     });
   });
@@ -201,7 +212,7 @@ describe('GET /api/auth/first-access/magic', () => {
   describe('Rate limiting', () => {
     it('redireciona para /login?erro=magic-link-rate-limit quando limite é atingido', async () => {
       const { RateLimiter } = jest.requireMock('@/shared/lib/rate-limit') as {
-        RateLimiter: jest.MockedClass<{ new(): { isAllowed: jest.Mock } }>
+        RateLimiter: jest.MockedClass<{ new (): { isAllowed: jest.Mock } }>;
       };
       RateLimiter.mockImplementationOnce(() => ({
         isAllowed: jest.fn().mockResolvedValue({ allowed: false, message: 'Too many requests' }),

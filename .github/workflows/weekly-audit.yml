@@ -55,7 +55,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.has-code.outputs.present == 'true'
-        run: npm ci --ignore-scripts
+        run: npm ci --ignore-scripts --legacy-peer-deps
 
       - name: Semgrep full scan
         if: steps.has-code.outputs.present == 'true'

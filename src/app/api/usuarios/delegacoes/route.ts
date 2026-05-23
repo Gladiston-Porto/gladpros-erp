@@ -1,12 +1,12 @@
 // src/app/api/usuarios/delegacoes/route.ts
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-import { withErrorHandler } from "@/lib/api/error-handler";
-import { requireUser } from "@/shared/lib/rbac";
-import { can, type Role } from "@/shared/lib/rbac-core";
-import { UserRole } from "@/shared/lib/user-hierarchy";
-import { AuditLogger } from "@/shared/lib/audit";
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { z } from 'zod';
+import { withErrorHandler } from '@/lib/api/error-handler';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
+import { UserRole } from '@/shared/lib/user-hierarchy';
+import { AuditLogger } from '@/shared/lib/audit';
 
 const criarDelegacaoSchema = z.object({
   delegatarioId: z.number().int().positive(),
@@ -19,8 +19,8 @@ const criarDelegacaoSchema = z.object({
 export const GET = withErrorHandler(async (req: Request) => {
   const authUser = await requireUser(req);
 
-  if (!can(authUser.role as Role, "usuarios", "read")) {
-    return NextResponse.json({ error: "Forbidden", success: false }, { status: 403 });
+  if (!can(authUser.role as Role, 'usuarios', 'read')) {
+    return NextResponse.json({ error: 'Forbidden', success: false }, { status: 403 });
   }
 
   const isAdmin = authUser.role === UserRole.ADMIN;
@@ -32,7 +32,7 @@ export const GET = withErrorHandler(async (req: Request) => {
       delegante: { select: { id: true, nomeCompleto: true, email: true, nivel: true } },
       delegatario: { select: { id: true, nomeCompleto: true, email: true, nivel: true } },
     },
-    orderBy: { criadoEm: "desc" },
+    orderBy: { criadoEm: 'desc' },
     take: 50,
   });
 
@@ -46,16 +46,20 @@ export const POST = withErrorHandler(async (req: Request) => {
   // Only ADMIN can create delegations — 'create' is the correct action for a write operation.
   if (!can(authUser.role as Role, 'usuarios', 'create')) {
     return NextResponse.json(
-      { error: "Forbidden", message: "Apenas ADMIN pode criar delegações.", success: false },
-      { status: 403 }
+      { error: 'Forbidden', message: 'Apenas ADMIN pode criar delegações.', success: false },
+      { status: 403 },
     );
   }
 
   const body = criarDelegacaoSchema.safeParse(await req.json().catch(() => ({})));
   if (!body.success) {
     return NextResponse.json(
-      { error: "Dados inválidos", message: body.error.issues[0]?.message ?? "Verifique os campos.", success: false },
-      { status: 400 }
+      {
+        error: 'Dados inválidos',
+        message: body.error.issues[0]?.message ?? 'Verifique os campos.',
+        success: false,
+      },
+      { status: 400 },
     );
   }
 
@@ -66,20 +70,20 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   if (fim <= inicio) {
     return NextResponse.json(
-      { error: "Data de fim deve ser posterior à data de início.", success: false },
-      { status: 400 }
+      { error: 'Data de fim deve ser posterior à data de início.', success: false },
+      { status: 400 },
     );
   }
   if (fim <= new Date()) {
     return NextResponse.json(
-      { error: "Data de fim deve ser no futuro.", success: false },
-      { status: 400 }
+      { error: 'Data de fim deve ser no futuro.', success: false },
+      { status: 400 },
     );
   }
   if (delegatarioId === deleganteId) {
     return NextResponse.json(
-      { error: "Não é possível delegar para si mesmo.", success: false },
-      { status: 400 }
+      { error: 'Não é possível delegar para si mesmo.', success: false },
+      { status: 400 },
     );
   }
 
@@ -89,18 +93,18 @@ export const POST = withErrorHandler(async (req: Request) => {
     select: { id: true, nivel: true, status: true, nomeCompleto: true },
   });
 
-  if (!delegatario || delegatario.status !== "ATIVO") {
+  if (!delegatario || delegatario.status !== 'ATIVO') {
     return NextResponse.json(
-      { error: "Usuário delegatário não encontrado ou inativo.", success: false },
-      { status: 404 }
+      { error: 'Usuário delegatário não encontrado ou inativo.', success: false },
+      { status: 404 },
     );
   }
 
   const nivelDelegatario = String(delegatario.nivel).toUpperCase();
   if (nivelDelegatario !== UserRole.ADMIN && nivelDelegatario !== UserRole.GERENTE) {
     return NextResponse.json(
-      { error: "Delegatário deve ser ADMIN ou GERENTE.", success: false },
-      { status: 400 }
+      { error: 'Delegatário deve ser ADMIN ou GERENTE.', success: false },
+      { status: 400 },
     );
   }
 
@@ -111,13 +115,18 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   if (delegacaoAtiva) {
     return NextResponse.json(
-      { error: "Já existe uma delegação ativa para este usuário. Cancele a anterior antes de criar uma nova.", success: false },
-      { status: 409 }
+      {
+        error:
+          'Já existe uma delegação ativa para este usuário. Cancele a anterior antes de criar uma nova.',
+        success: false,
+      },
+      { status: 409 },
     );
   }
 
   const delegacao = await prisma.delegacao.create({
     data: {
+      empresaId: Number(authUser.empresaId),
       deleganteId,
       delegatarioId,
       dataInicio: inicio,
@@ -136,8 +145,8 @@ export const POST = withErrorHandler(async (req: Request) => {
     await AuditLogger.log({
       userId: Number(authUser.id),
       userEmail: authUser.email,
-      action: "CREATE_DELEGACAO",
-      resource: "Delegacao",
+      action: 'CREATE_DELEGACAO',
+      resource: 'Delegacao',
       resourceId: String(delegacao.id),
       details: {
         deleganteId,
@@ -147,7 +156,7 @@ export const POST = withErrorHandler(async (req: Request) => {
         dataFim: fim.toISOString(),
         motivo: motivo ?? null,
       },
-      status: "SUCCESS",
+      status: 'SUCCESS',
     });
   } catch {
     // auditoria não deve quebrar o fluxo

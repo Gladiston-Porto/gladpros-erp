@@ -2,14 +2,14 @@
 // Rota pública — valida token e redireciona para o deep link do Telegram
 // Worker clica no link → abre Telegram → /start {token} → conta vinculada
 
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ token: string }> }
+  { params }: { params: Promise<{ token: string }> },
 ) {
-  const { token } = await params
+  const { token } = await params;
 
   const record = await prisma.telegramLinkToken.findUnique({
     where: { token },
@@ -17,47 +17,64 @@ export async function GET(
       id: true,
       used: true,
       expiresAt: true,
-      worker: { select: { nome: true } },
+      worker: { select: { name: true } },
     },
-  })
+  });
 
   if (!record) {
-    return new NextResponse(linkPageHtml("Link inválido", "Este link não existe ou foi removido.", "❌"), {
-      status: 404,
-      headers: { "Content-Type": "text/html" },
-    })
+    return new NextResponse(
+      linkPageHtml('Link inválido', 'Este link não existe ou foi removido.', '❌'),
+      {
+        status: 404,
+        headers: { 'Content-Type': 'text/html' },
+      },
+    );
   }
 
   if (record.used) {
-    return new NextResponse(linkPageHtml("Link já utilizado", "Este link já foi usado. Peça ao administrador para gerar um novo.", "⚠️"), {
-      status: 410,
-      headers: { "Content-Type": "text/html" },
-    })
+    return new NextResponse(
+      linkPageHtml(
+        'Link já utilizado',
+        'Este link já foi usado. Peça ao administrador para gerar um novo.',
+        '⚠️',
+      ),
+      {
+        status: 410,
+        headers: { 'Content-Type': 'text/html' },
+      },
+    );
   }
 
   if (new Date() > record.expiresAt) {
-    return new NextResponse(linkPageHtml("Link expirado", "Este link expirou após 24 horas. Peça ao administrador para gerar um novo.", "⏰"), {
-      status: 410,
-      headers: { "Content-Type": "text/html" },
-    })
+    return new NextResponse(
+      linkPageHtml(
+        'Link expirado',
+        'Este link expirou após 24 horas. Peça ao administrador para gerar um novo.',
+        '⏰',
+      ),
+      {
+        status: 410,
+        headers: { 'Content-Type': 'text/html' },
+      },
+    );
   }
 
-  const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? "GladProsBot"
-  const deepLink = `https://t.me/${botUsername}?start=${token}`
+  const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? 'GladProsBot';
+  const deepLink = `https://t.me/${botUsername}?start=${token}`;
 
   // Redireciona imediatamente para abrir o Telegram
   return new NextResponse(
     linkPageHtml(
-      "Abrindo Telegram...",
-      `Olá, ${record.worker.nome}! Clique no botão abaixo para vincular sua conta ao GladPros.`,
-      "📱",
-      deepLink
+      'Abrindo Telegram...',
+      `Olá, ${record.worker.name}! Clique no botão abaixo para vincular sua conta ao GladPros.`,
+      '📱',
+      deepLink,
     ),
     {
       status: 200,
-      headers: { "Content-Type": "text/html" },
-    }
-  )
+      headers: { 'Content-Type': 'text/html' },
+    },
+  );
 }
 
 function linkPageHtml(title: string, message: string, icon: string, deepLink?: string) {
@@ -81,15 +98,15 @@ function linkPageHtml(title: string, message: string, icon: string, deepLink?: s
             padding: 14px 24px; border-radius: 12px; font-weight: 600; font-size: 16px; }
     a.btn:hover { background: #006899; }
   </style>
-  ${deepLink ? `<meta http-equiv="refresh" content="1;url=${deepLink}">` : ""}
+  ${deepLink ? `<meta http-equiv="refresh" content="1;url=${deepLink}">` : ''}
 </head>
 <body>
   <div class="card">
     <div class="icon">${icon}</div>
     <h1>${title}</h1>
     <p>${message}</p>
-    ${deepLink ? `<a class="btn" href="${deepLink}">🔗 Abrir no Telegram</a>` : ""}
+    ${deepLink ? `<a class="btn" href="${deepLink}">🔗 Abrir no Telegram</a>` : ''}
   </div>
 </body>
-</html>`
+</html>`;
 }

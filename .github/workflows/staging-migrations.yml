@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: 20
       - name: Install deps
-        run: npm ci
+        run: npm ci --legacy-peer-deps
       - name: Run migrations
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
