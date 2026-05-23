@@ -1,14 +1,14 @@
 // src/app/api/rh/payroll/calculate/route.ts
-import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
-import { requireUser } from "@/shared/lib/rbac"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { requireUser } from '@/shared/lib/rbac';
+import { prisma } from '@/lib/prisma';
 
-export const runtime = "nodejs"
+export const runtime = 'nodejs';
 
 const calculateSchema = z.object({
   periodId: z.number().int().positive(),
-})
+});
 
 /**
  * POST /api/rh/payroll/calculate
@@ -16,49 +16,53 @@ const calculateSchema = z.object({
  * ADMIN only.
  */
 export async function POST(request: NextRequest) {
-  const user = await requireUser(request)
+  const user = await requireUser(request);
 
-  if (user.role !== "ADMIN") {
+  if (user.role !== 'ADMIN') {
     return NextResponse.json(
-      { error: "Forbidden", message: "Apenas ADMIN pode calcular payroll", success: false },
-      { status: 403 }
-    )
+      { error: 'Forbidden', message: 'Apenas ADMIN pode calcular payroll', success: false },
+      { status: 403 },
+    );
   }
 
-  const body = calculateSchema.safeParse(await request.json())
+  const body = calculateSchema.safeParse(await request.json());
   if (!body.success) {
     return NextResponse.json(
-      { error: "Validation failed", message: body.error.issues[0]?.message ?? "Dados inválidos", success: false },
-      { status: 400 }
-    )
+      {
+        error: 'Validation failed',
+        message: body.error.issues[0]?.message ?? 'Dados inválidos',
+        success: false,
+      },
+      { status: 400 },
+    );
   }
 
-  const { periodId } = body.data
+  const { periodId } = body.data;
 
   // 1. Find the period — must be OPEN and belong to this empresa
   const period = await prisma.payrollPeriod.findFirst({
     where: { id: periodId, empresaId: user.empresaId },
     select: { id: true, status: true, startDate: true, endDate: true },
-  })
+  });
 
   if (!period) {
     return NextResponse.json(
-      { error: "Not Found", message: "Período não encontrado", success: false },
-      { status: 404 }
-    )
+      { error: 'Not Found', message: 'Período não encontrado', success: false },
+      { status: 404 },
+    );
   }
 
-  if (period.status !== "OPEN") {
+  if (period.status !== 'OPEN') {
     return NextResponse.json(
-      { error: "Conflict", message: "Apenas períodos OPEN podem ser calculados", success: false },
-      { status: 409 }
-    )
+      { error: 'Conflict', message: 'Apenas períodos OPEN podem ser calculados', success: false },
+      { status: 409 },
+    );
   }
 
   // 2. Fetch all APPROVED time entries in the date range
   const timeEntries = await prisma.timeEntry.findMany({
     where: {
-      status: "APPROVED",
+      status: 'APPROVED',
       workDate: { gte: period.startDate, lte: period.endDate },
     },
     select: {
@@ -66,20 +70,17 @@ export async function POST(request: NextRequest) {
       regularMinutes: true,
       overtimeMinutes: true,
     },
-  })
+  });
 
   // 3. Group by workerId
-  const byWorker = new Map<
-    number,
-    { regularMinutes: number; overtimeMinutes: number }
-  >()
+  const byWorker = new Map<number, { regularMinutes: number; overtimeMinutes: number }>();
 
   for (const entry of timeEntries) {
-    const existing = byWorker.get(entry.workerId) ?? { regularMinutes: 0, overtimeMinutes: 0 }
+    const existing = byWorker.get(entry.workerId) ?? { regularMinutes: 0, overtimeMinutes: 0 };
     byWorker.set(entry.workerId, {
       regularMinutes: existing.regularMinutes + (entry.regularMinutes ?? 0),
       overtimeMinutes: existing.overtimeMinutes + (entry.overtimeMinutes ?? 0),
-    })
+    });
   }
 
   if (byWorker.size === 0) {
@@ -92,17 +93,17 @@ export async function POST(request: NextRequest) {
         workersWithMissingRate: [],
       },
       success: true,
-    })
+    });
   }
 
   // 4. Fetch workers
-  const workerIds = Array.from(byWorker.keys())
+  const workerIds = Array.from(byWorker.keys());
   const workers = await prisma.worker.findMany({
     where: { id: { in: workerIds }, deletadoEm: null },
     select: { id: true, name: true, defaultHourlyRate: true },
-  })
+  });
 
-  const workerMap = new Map(workers.map((w) => [w.id, w]))
+  const workerMap = new Map(workers.map((w) => [w.id, w]));
 
   // 5. Fetch non-waived penalties for these workers in the period range
   const infractions = await prisma.workerInfraction.findMany({
@@ -111,49 +112,47 @@ export async function POST(request: NextRequest) {
       penaltyApplied: true,
       waived: false,
       waivedAt: null,
-      penaltyDeductedInPeriodId: null,
       occurredAt: { gte: period.startDate, lte: period.endDate },
     },
     select: { id: true, workerId: true, penaltyAmount: true },
-  })
+  });
 
   // Group penalties by workerId
-  const penaltiesByWorker = new Map<number, { ids: number[]; total: number }>()
+  const penaltiesByWorker = new Map<number, { ids: number[]; total: number }>();
   for (const inf of infractions) {
-    const existing = penaltiesByWorker.get(inf.workerId) ?? { ids: [], total: 0 }
-    existing.ids.push(inf.id)
-    existing.total += Number(inf.penaltyAmount ?? 0)
-    penaltiesByWorker.set(inf.workerId, existing)
+    const existing = penaltiesByWorker.get(inf.workerId) ?? { ids: [], total: 0 };
+    existing.ids.push(inf.id);
+    existing.total += Number(inf.penaltyAmount ?? 0);
+    penaltiesByWorker.set(inf.workerId, existing);
   }
 
   // 6. Calculate and upsert
-  let entriesCreated = 0
-  let entriesUpdated = 0
-  let totalGrossPay = 0
-  const workersWithMissingRate: string[] = []
-  const infractionsToMark: number[] = []
+  let entriesCreated = 0;
+  let entriesUpdated = 0;
+  let totalGrossPay = 0;
+  const workersWithMissingRate: string[] = [];
 
   for (const [wid, minutes] of byWorker) {
-    const worker = workerMap.get(wid)
-    if (!worker) continue
+    const worker = workerMap.get(wid);
+    if (!worker) continue;
 
     if (!worker.defaultHourlyRate) {
-      workersWithMissingRate.push(worker.name)
-      continue
+      workersWithMissingRate.push(worker.name);
+      continue;
     }
 
-    const rate = Number(worker.defaultHourlyRate)
-    const regularPay = (minutes.regularMinutes / 60) * rate
-    const overtimePay = (minutes.overtimeMinutes / 60) * rate * 1.5
-    const penalties = penaltiesByWorker.get(wid)
-    const penaltyDeductions = penalties?.total ?? 0
-    const grossPay = regularPay + overtimePay - penaltyDeductions
+    const rate = Number(worker.defaultHourlyRate);
+    const regularPay = (minutes.regularMinutes / 60) * rate;
+    const overtimePay = (minutes.overtimeMinutes / 60) * rate * 1.5;
+    const penalties = penaltiesByWorker.get(wid);
+    const penaltyDeductions = penalties?.total ?? 0;
+    const grossPay = regularPay + overtimePay - penaltyDeductions;
 
     // Check if entry already exists
     const existing = await prisma.payrollEntry.findUnique({
       where: { periodId_workerId: { periodId, workerId: wid } },
       select: { id: true },
-    })
+    });
 
     if (existing) {
       await prisma.payrollEntry.update({
@@ -167,8 +166,8 @@ export async function POST(request: NextRequest) {
           penaltyDeductions,
           grossPay,
         },
-      })
-      entriesUpdated++
+      });
+      entriesUpdated++;
     } else {
       await prisma.payrollEntry.create({
         data: {
@@ -183,23 +182,11 @@ export async function POST(request: NextRequest) {
           penaltyDeductions,
           grossPay,
         },
-      })
-      entriesCreated++
+      });
+      entriesCreated++;
     }
 
-    totalGrossPay += grossPay
-
-    if (penalties?.ids.length) {
-      infractionsToMark.push(...penalties.ids)
-    }
-  }
-
-  // 7. Mark infractions as deducted in this period
-  if (infractionsToMark.length > 0) {
-    await prisma.workerInfraction.updateMany({
-      where: { id: { in: infractionsToMark } },
-      data: { penaltyDeductedInPeriodId: periodId },
-    })
+    totalGrossPay += grossPay;
   }
 
   return NextResponse.json({
@@ -211,5 +198,5 @@ export async function POST(request: NextRequest) {
       workersWithMissingRate,
     },
     success: true,
-  })
+  });
 }

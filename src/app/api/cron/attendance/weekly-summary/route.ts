@@ -5,28 +5,28 @@
  * Sends each worker a weekly summary of their approved/auto-closed
  * time entries, total hours, overtime, and any penalties.
  */
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { sendMail } from '@/shared/lib/mailer'
-import { sendTelegramMessage } from '@/shared/lib/telegram'
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { sendMail } from '@/shared/lib/mailer';
+import { sendTelegramMessage } from '@/shared/lib/telegram';
 
-const fmt$ = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+const fmt$ = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   // Week = Mon–Sun (current week ending today, Saturday)
-  const now = new Date()
-  const weekEnd = new Date(now)
-  weekEnd.setHours(23, 59, 59, 999)
+  const now = new Date();
+  const weekEnd = new Date(now);
+  weekEnd.setHours(23, 59, 59, 999);
 
-  const weekStart = new Date(now)
-  weekStart.setDate(now.getDate() - 6) // go back 6 days (Mon)
-  weekStart.setHours(0, 0, 0, 0)
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - 6); // go back 6 days (Mon)
+  weekStart.setHours(0, 0, 0, 0);
 
   const workers = await prisma.worker.findMany({
     where: { deletadoEm: null },
@@ -44,34 +44,37 @@ export async function GET(request: NextRequest) {
         where: { occurredAt: { gte: weekStart, lte: weekEnd } },
       },
     },
-  })
+  });
 
-  let summariesSent = 0
+  let summariesSent = 0;
 
   for (const worker of workers) {
-    if (worker.timeEntries.length === 0) continue
+    if (worker.timeEntries.length === 0) continue;
 
-    const workerName = worker.name ?? worker.usuario?.nomeCompleto ?? `Worker #${worker.id}`
-    const workerEmail = worker.email ?? worker.usuario?.email
+    const workerName = worker.name ?? worker.usuario?.nomeCompleto ?? `Worker #${worker.id}`;
+    const workerEmail = worker.email ?? worker.usuario?.email;
 
-    const totalMinutes = worker.timeEntries.reduce((sum, e) => sum + (e.totalMinutes ?? 0), 0)
-    const regularMinutes = worker.timeEntries.reduce((sum, e) => sum + (e.regularMinutes ?? 0), 0)
-    const overtimeMinutes = worker.timeEntries.reduce((sum, e) => sum + (e.overtimeMinutes ?? 0), 0)
+    const totalMinutes = worker.timeEntries.reduce((sum, e) => sum + (e.totalMinutes ?? 0), 0);
+    const regularMinutes = worker.timeEntries.reduce((sum, e) => sum + (e.regularMinutes ?? 0), 0);
+    const overtimeMinutes = worker.timeEntries.reduce(
+      (sum, e) => sum + (e.overtimeMinutes ?? 0),
+      0,
+    );
 
-    const totalHours = (totalMinutes / 60).toFixed(1)
-    const regularHours = (regularMinutes / 60).toFixed(1)
-    const overtimeHours = (overtimeMinutes / 60).toFixed(1)
+    const totalHours = (totalMinutes / 60).toFixed(1);
+    const regularHours = (regularMinutes / 60).toFixed(1);
+    const overtimeHours = (overtimeMinutes / 60).toFixed(1);
 
-    const hourlyRate = Number(worker.defaultHourlyRate)
-    const regularPay = (regularMinutes / 60) * hourlyRate
-    const overtimePay = (overtimeMinutes / 60) * hourlyRate * 1.5
-    const estimatedGross = regularPay + overtimePay
+    const hourlyRate = Number(worker.defaultHourlyRate);
+    const regularPay = (regularMinutes / 60) * hourlyRate;
+    const overtimePay = (overtimeMinutes / 60) * hourlyRate * 1.5;
+    const estimatedGross = regularPay + overtimePay;
 
-    const penaltiesThisWeek = worker.infractions.filter((i) => i.penaltyApplied && !i.waived)
+    const penaltiesThisWeek = worker.infractions.filter((i) => i.penaltyApplied && !i.waived);
     const penaltyTotal = penaltiesThisWeek.reduce(
       (sum, i) => sum + (i.penaltyAmount ? Number(i.penaltyAmount) : 0),
-      0
-    )
+      0,
+    );
 
     const entryRows = worker.timeEntries
       .map((e) => {
@@ -80,17 +83,13 @@ export async function GET(request: NextRequest) {
           weekday: 'short',
           month: 'short',
           day: 'numeric',
-        })
-        const hours = ((e.totalMinutes ?? 0) / 60).toFixed(1)
+        });
+        const hours = ((e.totalMinutes ?? 0) / 60).toFixed(1);
         const statusBadge =
-          e.source === 'AUTO_CLOSED'
-            ? ' ⚠️'
-            : e.status === 'APPROVED'
-              ? ' ✅'
-              : ''
-        return `<tr><td>${date}</td><td>${hours}h${statusBadge}</td></tr>`
+          e.source === 'AUTO_CLOSED' ? ' ⚠️' : e.status === 'APPROVED' ? ' ✅' : '';
+        return `<tr><td>${date}</td><td>${hours}h${statusBadge}</td></tr>`;
       })
-      .join('')
+      .join('');
 
     const html = `
       <h2 style="color:#0098DA;">📊 Resumo semanal — ${workerName}</h2>
@@ -109,37 +108,37 @@ export async function GET(request: NextRequest) {
       </p>
 
       <p>
-        💵 Estimativa de pagamento (${fmt$(hourlyRate)}/h):<br>
-        Regular: <strong>${fmt$(regularPay)}</strong><br>
-        Overtime (1.5×): <strong>${fmt$(overtimePay)}</strong><br>
-        ${penaltyTotal > 0 ? `Penalidades: <strong style="color:red;">-${fmt$(penaltyTotal)}</strong><br>` : ''}
-        <strong>Estimativa bruta: ${fmt$(estimatedGross - penaltyTotal)}</strong>
+        💵 Estimativa de pagamento (${fmt$.format(hourlyRate)}/h):<br>
+        Regular: <strong>${fmt$.format(regularPay)}</strong><br>
+        Overtime (1.5×): <strong>${fmt$.format(overtimePay)}</strong><br>
+        ${penaltyTotal > 0 ? `Penalidades: <strong style="color:red;">-${fmt$.format(penaltyTotal)}</strong><br>` : ''}
+        <strong>Estimativa bruta: ${fmt$.format(estimatedGross - penaltyTotal)}</strong>
       </p>
 
       ${worker.infractions.length > 0 ? `<p>⚠️ Você teve <strong>${worker.infractions.length} infração(ões)</strong> esta semana. Verifique seu histórico no app.</p>` : ''}
 
       <p style="color:#666;font-size:12px;">⚠️ Valores estimados. O pagamento oficial é calculado ao fechar o período de folha.</p>
       <p>— GladPros ERP</p>
-    `
+    `;
 
     if (workerEmail) {
-      await sendMail(workerEmail, `📊 Seu resumo semanal — GladPros`, html).catch(() => {})
+      await sendMail(workerEmail, `📊 Seu resumo semanal — GladPros`, html).catch(() => {});
     }
 
     // Compact Telegram summary
     if (worker.telegramLink) {
-      const chatId = worker.telegramLink.telegramId.toString()
+      const chatId = worker.telegramLink.telegramId.toString();
       const telegramText =
         `📊 *Resumo da semana*\n\n` +
         `🕐 Total: *${totalHours}h* (regular: ${regularHours}h, OT: ${overtimeHours}h)\n` +
-        `💵 Estimativa: *${fmt$(estimatedGross - penaltyTotal)}*` +
-        (penaltyTotal > 0 ? `\n⚠️ Penalidades: -${fmt$(penaltyTotal)}` : '') +
-        `\n\nDetalhes enviados por email.`
-      await sendTelegramMessage(chatId, telegramText).catch(() => {})
+        `💵 Estimativa: *${fmt$.format(estimatedGross - penaltyTotal)}*` +
+        (penaltyTotal > 0 ? `\n⚠️ Penalidades: -${fmt$.format(penaltyTotal)}` : '') +
+        `\n\nDetalhes enviados por email.`;
+      await sendTelegramMessage(chatId, telegramText).catch(() => {});
     }
 
-    summariesSent++
+    summariesSent++;
   }
 
-  return NextResponse.json({ summariesSent })
+  return NextResponse.json({ summariesSent });
 }

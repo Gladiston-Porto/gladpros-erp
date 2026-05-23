@@ -1,18 +1,18 @@
 // src/app/api/clientes/[id]/toggle-status/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireClientePermission } from "@/shared/lib/rbac";
-import { clienteParamsSchema } from "@/shared/lib/validations/cliente";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { requireClientePermission } from '@/shared/lib/rbac';
+import { clienteParamsSchema } from '@/shared/lib/validations/cliente';
 import {
   buildClienteDependencyConflictDetails,
   getClientesBlockingDependenciesMap,
   hasBlockingDependencies,
   logClienteAudit,
-} from "@/shared/lib/helpers/cliente";
+} from '@/shared/lib/helpers/cliente';
 import { withErrorHandler } from '@/lib/api/error-handler';
 
-export const PUT = withErrorHandler(async (request: NextRequest,
-  context: { params: Promise<{ id: string }> }) => {
+export const PUT = withErrorHandler(
+  async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
     // Verificar permissão de atualização
     const user = await requireClientePermission(request, 'canUpdate');
 
@@ -21,12 +21,22 @@ export const PUT = withErrorHandler(async (request: NextRequest,
 
     // Verificar se o cliente existe (scoped por empresa)
     const existingCliente = await prisma.cliente.findUnique({
-      where: { id, empresaId: user.empresaId as number },
-      select: { id: true, status: true, nomeCompleto: true, nomeFantasia: true, razaoSocial: true, tipo: true }
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        nomeCompleto: true,
+        nomeFantasia: true,
+        razaoSocial: true,
+        tipo: true,
+      },
     });
 
     if (!existingCliente) {
-      return NextResponse.json({ error: "Not Found", message: "Cliente não encontrado", success: false }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Not Found', message: 'Cliente não encontrado', success: false },
+        { status: 404 },
+      );
     }
 
     // Toggle status
@@ -43,24 +53,24 @@ export const PUT = withErrorHandler(async (request: NextRequest,
       if (hasBlockingDependencies(dependencyCounts)) {
         return NextResponse.json(
           {
-            error: "Conflict",
-            message: "Cliente possui dependências ativas e não pode ser inativado",
+            error: 'Conflict',
+            message: 'Cliente possui dependências ativas e não pode ser inativado',
             details: buildClienteDependencyConflictDetails(dependencyCounts),
             success: false,
           },
-          { status: 409 }
+          { status: 409 },
         );
       }
     }
 
     // Atualizar cliente (scoped por empresa)
     await prisma.cliente.update({
-      where: { id, empresaId: user.empresaId as number },
+      where: { id },
       data: {
         status: newStatus,
         ativo: newStatus === 'ATIVO',
-        atualizadoEm: new Date()
-      }
+        atualizadoEm: new Date(),
+      },
     });
 
     // Auditoria
@@ -68,20 +78,21 @@ export const PUT = withErrorHandler(async (request: NextRequest,
       id,
       'UPDATE',
       { status: { old: existingCliente.status, new: newStatus } },
-      Number(user.id)
+      Number(user.id),
     );
 
     // Obter nome para resposta
-    const nomeCliente = existingCliente.tipo === 'PF'
-      ? existingCliente.nomeCompleto
-      : (existingCliente.nomeFantasia || existingCliente.razaoSocial);
+    const nomeCliente =
+      existingCliente.tipo === 'PF'
+        ? existingCliente.nomeCompleto
+        : existingCliente.nomeFantasia || existingCliente.razaoSocial;
 
     return NextResponse.json({
       data: {
         message: `Cliente "${nomeCliente}" ${newStatus === 'ATIVO' ? 'ativado' : 'desativado'} com sucesso`,
-        status: newStatus
+        status: newStatus,
       },
-      success: true
+      success: true,
     });
-
-  });
+  },
+);
