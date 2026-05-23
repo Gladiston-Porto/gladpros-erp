@@ -41,9 +41,6 @@ import {
   Camera,
   KeyRound,
   Sliders,
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Briefcase,
 } from 'lucide-react';
 import { useConfirm } from '@gladpros/ui/confirm-dialog';
 import { useTheme } from '@/components/ThemeProvider';
