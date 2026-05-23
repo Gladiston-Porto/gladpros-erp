@@ -123,11 +123,6 @@ async function postHandler(request: NextRequest) {
   }
   const dados = parsed.data;
 
-  // Calcular valor estimado total
-  const valorEstimado = dados.itens.reduce((acc, item) => {
-    return acc + (item.custoEstimado ?? 0) * item.quantidadeSolicitada;
-  }, 0);
-
   const sc = await prisma.$transaction(async (tx) => {
     const nova = await tx.solicitacaoCompra.create({
       data: {

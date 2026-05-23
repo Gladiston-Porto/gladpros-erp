@@ -6,8 +6,8 @@ import { AlertCircle, CheckCircle, Clock, DollarSign, Plus } from 'lucide-react'
 import { useToast } from '@gladpros/ui/toast';
 import { useConfirm } from '@gladpros/ui/confirm-dialog';
 
-import { Button } from '@gladpros/ui/button'
-import { Card, CardContent } from '@gladpros/ui/card'
+import { Button } from '@gladpros/ui/button';
+import { Card, CardContent } from '@gladpros/ui/card';
 import { ModulePageHeader } from '@gladpros/ui/module-page-header';
 import { FileText as InvoiceIcon } from 'lucide-react';
 
@@ -17,11 +17,7 @@ import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import { InvoicesFiltersCard } from './_components/InvoicesFiltersCard';
 import { InvoicesTableCard } from './_components/InvoicesTableCard';
 import { formatInvoiceCurrency, normalizeInvoiceListItem } from './_components/invoice-utils';
-import type {
-  InvoiceListFilters,
-  InvoiceListItem,
-  InvoicePagination,
-} from './_components/types';
+import type { InvoiceListFilters, InvoiceListItem, InvoicePagination } from './_components/types';
 
 const INITIAL_PAGINATION: InvoicePagination = {
   total: 0,
@@ -122,7 +118,7 @@ export default function InvoicesPage() {
     const controller = new AbortController();
     void fetchInvoices(controller.signal);
     return () => controller.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pagination.page,
     pagination.limit,
@@ -147,11 +143,11 @@ export default function InvoicesPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
+      const contentDisposition = response.headers.get('Content-Disposition') || '';
+      const rawFilename = /filename="([^"]+)"/i.exec(contentDisposition)?.[1];
+      const safeFilename = rawFilename?.replace(/[^a-zA-Z0-9._-]/g, '');
       link.download =
-        response.headers
-          .get('Content-Disposition')
-          ?.split('filename="')[1]
-          ?.replace('"', '') || `invoice-${invoiceId}.pdf`;
+        safeFilename && safeFilename.length > 0 ? safeFilename : `invoice-${invoiceId}.pdf`;
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);
@@ -166,7 +162,10 @@ export default function InvoicesPage() {
   const handleSendEmail = async (invoiceId: number, event: React.MouseEvent) => {
     event.stopPropagation();
 
-    const confirmed = await confirm({ title: 'Enviar invoice', message: 'Enviar esta invoice por email ao cliente?' });
+    const confirmed = await confirm({
+      title: 'Enviar invoice',
+      message: 'Enviar esta invoice por email ao cliente?',
+    });
     if (!confirmed) return;
 
     try {
@@ -196,14 +195,11 @@ export default function InvoicesPage() {
         description="Gerencie suas faturas e recebimentos"
         icon={<InvoiceIcon />}
         accentColor="#0098DA"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Invoices' },
-        ]}
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Invoices' }]}
         actions={
           <div className="flex gap-2">
             <Button
-                          variant="outline"
+              variant="outline"
               onClick={() => router.push('/invoices/relatorios')}
               size="default"
             >
@@ -227,7 +223,9 @@ export default function InvoicesPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Faturado</p>
-                  <p className="text-lg font-bold text-foreground">{formatInvoiceCurrency(stats.totalFaturado)}</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatInvoiceCurrency(stats.totalFaturado)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -240,7 +238,9 @@ export default function InvoicesPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Recebido</p>
-                  <p className="text-lg font-bold text-foreground">{formatInvoiceCurrency(stats.totalRecebido)}</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatInvoiceCurrency(stats.totalRecebido)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -253,7 +253,9 @@ export default function InvoicesPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Pendente</p>
-                  <p className="text-lg font-bold text-foreground">{formatInvoiceCurrency(stats.totalPendente)}</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatInvoiceCurrency(stats.totalPendente)}
+                  </p>
                 </div>
               </div>
             </CardContent>

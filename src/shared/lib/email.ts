@@ -33,14 +33,18 @@ export class EmailService {
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: process.env.SMTP_SECURE === 'true',
       user: process.env.SMTP_USER || '',
-      pass: process.env.SMTP_PASS || ''
+      pass: process.env.SMTP_PASS || '',
     };
   }
 
   /** Reseta o singleton para que a próxima chamada recrie o transporter (ex: após falha SMTP). */
   static reset(): void {
     if (this.transporter) {
-      try { (this.transporter as { close?: () => void }).close?.(); } catch { /* ignore */ }
+      try {
+        (this.transporter as { close?: () => void }).close?.();
+      } catch {
+        /* ignore */
+      }
     }
     this.transporter = null;
     this.isInitialized = false;
@@ -66,7 +70,7 @@ export class EmailService {
 
     this.initializingPromise = (async () => {
       const config = this.getConfig();
-      
+
       // Sem pool: false = uma conexão por sendMail — mais resiliente a falhas temporárias.
       // Pool manteria conexões em estado quebrado após timeout/queda do servidor.
       this.transporter = nodemailer.createTransport({
@@ -75,18 +79,17 @@ export class EmailService {
         secure: config.secure,
         auth: {
           user: config.user,
-          pass: config.pass
+          pass: config.pass,
         },
         tls: {
-          rejectUnauthorized: false
+          rejectUnauthorized: false,
         },
         connectionTimeout: 10000, // 10s para conectar
-        greetingTimeout: 10000,   // 10s para greeting SMTP
-        socketTimeout: 30000      // 30s para operações no socket
+        greetingTimeout: 10000, // 10s para greeting SMTP
+        socketTimeout: 30000, // 30s para operações no socket
       });
 
       if (shouldDebugEmail()) {
-         
         // eslint-disable-next-line no-console
         console.log('[Email] Transporter configurado (sem pool, resiliente a falhas temporárias)');
       }
@@ -143,7 +146,7 @@ export class EmailService {
     userName,
     code,
     expiresInMinutes = 5,
-    isFirstAccess = false
+    isFirstAccess = false,
   }: {
     to: string;
     userName: string;
@@ -156,14 +159,14 @@ export class EmailService {
         userName,
         code,
         expiresInMinutes,
-        isFirstAccess
+        isFirstAccess,
       });
 
       return await this.sendEmail({
         to,
         subject: template.subject,
         html: template.html,
-        text: template.text
+        text: template.text,
       });
     } catch (error) {
       console.error('[Email] Erro ao enviar MFA:', error);
@@ -175,7 +178,7 @@ export class EmailService {
     to,
     userName,
     resetLink,
-    expiresInHours = 1
+    expiresInHours = 1,
   }: {
     to: string;
     userName: string;
@@ -186,16 +189,16 @@ export class EmailService {
       const template = this.getPasswordResetTemplate({
         userName,
         resetLink,
-        expiresInHours
+        expiresInHours,
       });
 
       const result = await this.sendEmail({
         to,
         subject: template.subject,
         html: template.html,
-        text: template.text
+        text: template.text,
       });
-      return result
+      return result;
     } catch (error) {
       console.error('[Email] Erro ao enviar reset:', error);
       return { success: false, error: (error as Error).message };
@@ -206,7 +209,7 @@ export class EmailService {
     to,
     userName,
     provisionalPassword,
-    expiresInDays = 7
+    expiresInDays = 7,
   }: {
     to: string;
     userName: string;
@@ -217,14 +220,14 @@ export class EmailService {
       const template = this.getProvisionalPasswordTemplate({
         userName,
         provisionalPassword,
-        expiresInDays
+        expiresInDays,
       });
 
       return await this.sendEmail({
         to,
         subject: template.subject,
         html: template.html,
-        text: template.text
+        text: template.text,
       });
     } catch (error) {
       console.error('[Email] Erro ao enviar senha provisória:', error);
@@ -257,7 +260,10 @@ export class EmailService {
         // nos testes E2E. Em produção esta branch nunca é atingida.
         const globalForMail = global as unknown as {
           __lastMail?: { to: string; subject: string; html: string; sentAt: string };
-          __mailByRecipient?: Record<string, { to: string; subject: string; html: string; sentAt: string }>;
+          __mailByRecipient?: Record<
+            string,
+            { to: string; subject: string; html: string; sentAt: string }
+          >;
         };
         const mailEntry = { to, subject, html, sentAt: new Date().toISOString() };
         globalForMail.__lastMail = mailEntry; // backward compat — single-slot
@@ -267,16 +273,9 @@ export class EmailService {
         if (shouldDebugEmail()) {
           // eslint-disable-next-line no-console
           console.log('\n📧 [EMAIL DEV/E2E MODE]');
+          const attachmentCount = attachments?.length ?? 0;
           // eslint-disable-next-line no-console
-          console.log('Para:', to);
-          // eslint-disable-next-line no-console
-          if (bcc) console.log('BCC:', bcc);
-          // eslint-disable-next-line no-console
-          console.log('Assunto:', subject);
-          // eslint-disable-next-line no-console
-          if (attachments?.length) console.log('Anexos:', attachments.map(a => a.filename).join(', '));
-          // eslint-disable-next-line no-console
-          console.log('Conteúdo:', text || html.replace(/<[^>]*>/g, ''));
+          console.log(`Email capturado em memória (meta only): attachments=${attachmentCount}`);
           // eslint-disable-next-line no-console
           console.log('📧 [/EMAIL DEV/E2E MODE]\n');
         }
@@ -284,38 +283,40 @@ export class EmailService {
       }
 
       const transporter = await this.getTransporter();
-      
+
       // Use SMTP_FROM as-is if it already contains display name + email,
       // otherwise wrap SMTP_USER with display name
-      const fromAddress = process.env.SMTP_FROM || 
-        (process.env.SMTP_USER ? `"GladPros Sistema" <${process.env.SMTP_USER}>` : 'noreply@gladpros.com');
+      const fromAddress =
+        process.env.SMTP_FROM ||
+        (process.env.SMTP_USER
+          ? `"GladPros Sistema" <${process.env.SMTP_USER}>`
+          : 'noreply@gladpros.com');
 
       const mailOptions = {
         from: fromAddress,
         to,
         subject,
         html,
-        text: text || html.replace(/<[^>]*>/g, ''),
+        ...(text ? { text } : {}),
         ...(bcc ? { bcc } : {}),
         ...(attachments?.length ? { attachments } : {}),
       };
 
       const info = await transporter.sendMail(mailOptions);
-      
+
       // Reset lastFailedAt em caso de sucesso (SMTP voltou ao ar)
       this.lastFailedAt = null;
-      return { 
-        success: true, 
-        messageId: info.messageId 
+      return {
+        success: true,
+        messageId: info.messageId,
       };
-
     } catch (error) {
       // Marcar falha para que o singleton possa se auto-resetar na próxima tentativa
       this.lastFailedAt = Date.now();
       console.error('[Email] Erro ao enviar:', error);
-      return { 
-        success: false, 
-        error: (error as Error).message 
+      return {
+        success: false,
+        error: (error as Error).message,
       };
     }
   }
@@ -324,7 +325,7 @@ export class EmailService {
     userName,
     code,
     expiresInMinutes,
-    isFirstAccess
+    isFirstAccess,
   }: {
     userName: string;
     code: string;
@@ -334,7 +335,7 @@ export class EmailService {
     const accessType = isFirstAccess ? 'primeiro acesso' : 'login';
     const subject = `GladPros — Código de verificação: ${code}`;
     const preheader = `Seu código de verificação para ${accessType} na GladPros.`;
-    
+
     const content = `
       <p>Olá, <strong>${userName}</strong>!</p>
       <p>Você solicitou <strong>${accessType}</strong> em sua conta GladPros. Para continuar, use o código de verificação abaixo:</p>
@@ -358,9 +359,9 @@ export class EmailService {
     const html = renderBaseTemplate({
       subject,
       preheader,
-      title: "Código de Verificação",
+      title: 'Código de Verificação',
       subtitle: `Confirmação necessária para ${accessType}`,
-      content
+      content,
     });
 
     const text = `
@@ -384,14 +385,14 @@ Este email foi enviado automaticamente pelo sistema GladPros.
     return {
       subject,
       html,
-      text
+      text,
     };
   }
 
   private static getPasswordResetTemplate({
     userName,
     resetLink,
-    expiresInHours
+    expiresInHours,
   }: {
     userName: string;
     resetLink: string;
@@ -399,7 +400,7 @@ Este email foi enviado automaticamente pelo sistema GladPros.
   }): EmailTemplate {
     const subject = 'GladPros — Redefinição de senha solicitada';
     const preheader = 'Link para redefinir sua senha na GladPros. Expire em breve.';
-    
+
     const content = `
       <p>Olá, <strong>${userName}</strong>!</p>
       <p>Recebemos uma solicitação para <strong>redefinir a senha</strong> da sua conta GladPros.</p>
@@ -426,27 +427,28 @@ Este email foi enviado automaticamente pelo sistema GladPros.
     const html = renderBaseTemplate({
       subject,
       preheader,
-      title: "Redefinição de Senha",
-      subtitle: "Solicitação para alteração da sua senha de acesso",
+      title: 'Redefinição de Senha',
+      subtitle: 'Solicitação para alteração da sua senha de acesso',
       content,
       ctaButton: {
-        text: "Redefinir Minha Senha",
-        url: resetLink
+        text: 'Redefinir Minha Senha',
+        url: resetLink,
       },
-      footerNote: "Se você não solicitou a redefinição de senha, pode ignorar este email com segurança."
+      footerNote:
+        'Se você não solicitou a redefinição de senha, pode ignorar este email com segurança.',
     });
 
     return {
       subject,
       html,
-      text: `GladPros - Redefinição de senha\n\nOlá, ${userName}\n\nRecebemos uma solicitação para redefinir sua senha.\nClique no link: ${resetLink}\n\nEste link expira em ${expiresInHours} hora(s).`
+      text: `GladPros - Redefinição de senha\n\nOlá, ${userName}\n\nRecebemos uma solicitação para redefinir sua senha.\nClique no link: ${resetLink}\n\nEste link expira em ${expiresInHours} hora(s).`,
     };
   }
 
   private static getProvisionalPasswordTemplate({
     userName,
     provisionalPassword,
-    expiresInDays
+    expiresInDays,
   }: {
     userName: string;
     provisionalPassword: string;
@@ -455,7 +457,7 @@ Este email foi enviado automaticamente pelo sistema GladPros.
     const subject = 'GladPros — Bem-vindo! Sua senha provisória';
     const preheader = 'Sua conta foi criada. Use a senha provisória para o primeiro acesso.';
     const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login`;
-    
+
     const content = `
       <p>Olá, <strong>${userName}</strong>!</p>
       <p>Sua conta foi criada com sucesso no sistema GladPros! Para acessar pela primeira vez, use as credenciais abaixo:</p>
@@ -497,19 +499,19 @@ Este email foi enviado automaticamente pelo sistema GladPros.
       subject,
       preheader,
       title: `Bem-vindo, ${userName}!`,
-      subtitle: "Sua conta foi criada com sucesso",
+      subtitle: 'Sua conta foi criada com sucesso',
       content,
       ctaButton: {
-        text: "Acessar Sistema",
-        url: loginUrl
+        text: 'Acessar Sistema',
+        url: loginUrl,
       },
-      footerNote: "Em caso de dúvidas, entre em contato com o suporte."
+      footerNote: 'Em caso de dúvidas, entre em contato com o suporte.',
     });
 
     return {
       subject,
       html,
-      text: `GladPros - Bem-vindo!\n\nOlá, ${userName}\n\nSua conta foi criada! Senha provisória: ${provisionalPassword}\n\nEsta senha expira em ${expiresInDays} dias.\n\nAltere-a no primeiro acesso para maior segurança.`
+      text: `GladPros - Bem-vindo!\n\nOlá, ${userName}\n\nSua conta foi criada! Senha provisória: ${provisionalPassword}\n\nEsta senha expira em ${expiresInDays} dias.\n\nAltere-a no primeiro acesso para maior segurança.`,
     };
   }
 
@@ -519,7 +521,7 @@ Este email foi enviado automaticamente pelo sistema GladPros.
     proposalNumber,
     proposalTitle,
     proposalValue,
-    currency = 'USD'
+    currency = 'USD',
   }: {
     to: string;
     clientName: string;
@@ -531,7 +533,9 @@ Este email foi enviado automaticamente pelo sistema GladPros.
     try {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       const valorFormatado = proposalValue
-        ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(proposalValue))
+        ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(
+            Number(proposalValue),
+          )
         : 'A definir';
 
       const subject = `GladPros — Proposta ${proposalNumber} enviada para sua análise`;
@@ -556,21 +560,21 @@ Este email foi enviado automaticamente pelo sistema GladPros.
       const html = renderBaseTemplate({
         subject,
         preheader,
-        title: "Nova Proposta",
+        title: 'Nova Proposta',
         subtitle: `Proposta ${proposalNumber} aguardando sua análise`,
         content,
         ctaButton: {
-          text: "Ver Proposta",
-          url: `${appUrl}/propostas`
+          text: 'Ver Proposta',
+          url: `${appUrl}/propostas`,
         },
-        footerNote: "Este email foi enviado automaticamente. Em caso de dúvidas, entre em contato."
+        footerNote: 'Este email foi enviado automaticamente. Em caso de dúvidas, entre em contato.',
       });
 
       return await this.sendEmail({
         to,
         subject,
         html,
-        text: `GladPros - Nova Proposta\n\nOlá, ${clientName}\n\nProposta ${proposalNumber}: ${proposalTitle}\nValor: ${valorFormatado}\n\nAcesse o sistema para visualizar.`
+        text: `GladPros - Nova Proposta\n\nOlá, ${clientName}\n\nProposta ${proposalNumber}: ${proposalTitle}\nValor: ${valorFormatado}\n\nAcesse o sistema para visualizar.`,
       });
     } catch (error) {
       console.error('[Email] Erro ao enviar notificação de proposta:', error);

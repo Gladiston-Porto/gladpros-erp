@@ -1,7 +1,7 @@
 /**
  * API: COMPRAS - RECEBIMENTO
  * Arquivo: src/app/api/estoque/compras/[id]/receber/route.ts
- * 
+ *
  * Endpoint:
  * - POST /api/estoque/compras/[id]/receber - Recebe compra e atualiza estoque
  */
@@ -17,7 +17,7 @@ import {
   withErrorHandler,
   logger,
   createLogContext,
-  forbiddenResponse
+  forbiddenResponse,
 } from '@/lib/api';
 import { ApiErrorCode } from '@/lib/api/types';
 import { requireUser } from '@/shared/lib/rbac';
@@ -26,15 +26,12 @@ import { recalcCustoMedio } from '@/server/services/materialCostService';
 
 /**
  * POST /api/estoque/compras/[id]/receber
- * 
+ *
  * Recebe compra e atualiza estoque (cria entradas e lotes se necessário)
- * 
+ *
  * @permissao PURCHASE_ESTOQUE
  */
-async function handler(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+async function handler(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser(request);
 
   if (!can(user.role as Role, 'estoque', 'update')) {
@@ -53,24 +50,36 @@ async function handler(
 
   // 5. VALIDAÇÃO ZOD
   const receberSchema = z.object({
-    dataRecebimento: z.string().transform(val => new Date(val)),
-    itensRecebidos: z.array(z.object({
-      itemId: z.number().int().positive(),
-      quantidadeRecebida: z.number().positive(),
-      localizacaoId: z.number().int().positive(),
-      lote: z.object({
-        codigoLote: z.string().min(1).max(50),
-        dataFabricacao: z.string().transform(val => new Date(val)).optional(),
-        dataValidade: z.string().transform(val => new Date(val)).optional()
-      }).optional()
-    })).min(1, 'Deve informar pelo menos 1 item para receber')
+    dataRecebimento: z.string().transform((val) => new Date(val)),
+    itensRecebidos: z
+      .array(
+        z.object({
+          itemId: z.number().int().positive(),
+          quantidadeRecebida: z.number().positive(),
+          localizacaoId: z.number().int().positive(),
+          lote: z
+            .object({
+              codigoLote: z.string().min(1).max(50),
+              dataFabricacao: z
+                .string()
+                .transform((val) => new Date(val))
+                .optional(),
+              dataValidade: z
+                .string()
+                .transform((val) => new Date(val))
+                .optional(),
+            })
+            .optional(),
+        }),
+      )
+      .min(1, 'Deve informar pelo menos 1 item para receber'),
   });
 
   const validation = receberSchema.safeParse(body);
   if (!validation.success) {
-    const errors = validation.error.issues.map(err => ({
+    const errors = validation.error.issues.map((err) => ({
       field: err.path.join('.'),
-      message: err.message
+      message: err.message,
     }));
     return validationErrorResponse(errors);
   }
@@ -91,20 +100,19 @@ async function handler(
               id: true,
               materialId: true,
               baseQtyPerUnit: true,
-              packageType: true
-            }
+              packageType: true,
+            },
           },
           equipamento: {
             select: {
               id: true,
-              status: true
-            }
-          }
-        }
-      }
-    }
+              status: true,
+            },
+          },
+        },
+      },
+    },
   });
-
 
   if (!compra) {
     return notFoundResponse('Compra não encontrada');
@@ -114,27 +122,29 @@ async function handler(
   if (compra.status === 'CANCELADA') {
     return businessErrorResponse(
       'Não é possível receber uma compra cancelada',
-      ApiErrorCode.INVALID_STATE
+      ApiErrorCode.INVALID_STATE,
     );
   }
 
   // 9. VALIDAÇÃO: todos itens informados existem
-  const idsItensInformados = dados.itensRecebidos.map(i => i.itemId);
-  const itensExistentes = compra.itens.filter(i => idsItensInformados.includes(i.id));
+  const idsItensInformados = dados.itensRecebidos.map((i) => i.itemId);
+  const itensExistentes = compra.itens.filter((i) => idsItensInformados.includes(i.id));
 
   if (itensExistentes.length !== idsItensInformados.length) {
-    return validationErrorResponse([{
-      field: 'itensRecebidos',
-      message: 'Um ou mais itens informados não pertencem a esta compra'
-    }]);
+    return validationErrorResponse([
+      {
+        field: 'itensRecebidos',
+        message: 'Um ou mais itens informados não pertencem a esta compra',
+      },
+    ]);
   }
 
   // 10. VALIDAÇÃO: itens já recebidos
-  const itensJaRecebidos = itensExistentes.filter(i => i.dataRecebimento !== null);
+  const itensJaRecebidos = itensExistentes.filter((i) => i.dataRecebimento !== null);
   if (itensJaRecebidos.length > 0) {
     return businessErrorResponse(
       `${itensJaRecebidos.length} item(ns) já foi(ram) recebido(s)`,
-      ApiErrorCode.INVALID_STATE
+      ApiErrorCode.INVALID_STATE,
     );
   }
 
@@ -143,7 +153,7 @@ async function handler(
     const movimentacoesCriadas = [];
 
     for (const itemReceber of dados.itensRecebidos) {
-      const item = itensExistentes.find(i => i.id === itemReceber.itemId)!;
+      const item = itensExistentes.find((i) => i.id === itemReceber.itemId)!;
 
       // Se item é de material (direto ou via embalagem), criar movimentação de entrada
       // Determina materialId: pode vir direto ou via embalagem
@@ -160,7 +170,8 @@ async function handler(
           qtyBase = itemReceber.quantidadeRecebida * Number(item.materialEmbalagem.baseQtyPerUnit);
           // Converte custo por embalagem → custo por unidade base
           if (item.custoUnitario) {
-            custoUnitarioBase = Number(item.custoUnitario) / Number(item.materialEmbalagem.baseQtyPerUnit);
+            custoUnitarioBase =
+              Number(item.custoUnitario) / Number(item.materialEmbalagem.baseQtyPerUnit);
           }
         } else if (item.custoUnitario) {
           custoUnitarioBase = Number(item.custoUnitario);
@@ -173,8 +184,8 @@ async function handler(
               materialId: materialIdFinal,
               codigoLote: itemReceber.lote.codigoLote,
               dataFabricacao: itemReceber.lote.dataFabricacao,
-              dataValidade: itemReceber.lote.dataValidade
-            }
+              dataValidade: itemReceber.lote.dataValidade,
+            },
           });
           loteId = novoLote.id;
         }
@@ -192,8 +203,8 @@ async function handler(
             motivo: item.materialEmbalagem
               ? `Recebimento compra #${id} (${itemReceber.quantidadeRecebida} × ${item.materialEmbalagem.packageType} = ${qtyBase} un. base)`
               : `Recebimento compra #${id}${compra.numeroNf ? ` (NF ${compra.numeroNf})` : ''}`,
-            criadoPor: Number(user.id)
-          }
+            criadoPor: Number(user.id),
+          },
         });
 
         movimentacoesCriadas.push(movimentacao);
@@ -204,16 +215,16 @@ async function handler(
           where: {
             materialId: materialIdFinal,
             loteId: loteId ?? null,
-            localizacaoId: itemReceber.localizacaoId
-          }
+            localizacaoId: itemReceber.localizacaoId,
+          },
         });
 
         if (existingSaldo) {
           await tx.materialSaldo.update({
             where: { id: existingSaldo.id },
             data: {
-              quantidade: { increment: qtyBase } // Incrementa em unidade base
-            }
+              quantidade: { increment: qtyBase }, // Incrementa em unidade base
+            },
           });
         } else {
           await tx.materialSaldo.create({
@@ -222,8 +233,8 @@ async function handler(
               loteId: loteId ?? null,
               localizacaoId: itemReceber.localizacaoId,
               quantidade: qtyBase, // Quantidade em unidade base
-              reservado: 0
-            }
+              reservado: 0,
+            },
           });
         }
 
@@ -241,7 +252,7 @@ async function handler(
           data: {
             status: 'DISPONIVEL',
             // Opcional: registrar observação sobre recebimento
-          }
+          },
         });
       }
 
@@ -250,40 +261,38 @@ async function handler(
         where: { id: item.id },
         data: {
           dataRecebimento: dados.dataRecebimento,
-          recebidoPor: Number(user.id)
-        }
+          recebidoPor: Number(user.id),
+        },
       });
     }
 
-
     // Verifica se todos itens foram recebidos
     const todosItensAtualizados = await tx.compraItem.findMany({
-      where: { compraId: id }
+      where: { compraId: id },
     });
 
-    const todosRecebidos = todosItensAtualizados.every(i => i.dataRecebimento !== null);
+    const todosRecebidos = todosItensAtualizados.every((i) => i.dataRecebimento !== null);
 
     // Atualiza status da compra
     await tx.compra.update({
       where: { id },
       data: {
         status: todosRecebidos ? 'RECEBIDA' : 'PARCIAL',
-        dataEntrega: dados.dataRecebimento
-      }
+        dataEntrega: dados.dataRecebimento,
+      },
     });
 
     // Cria Expense quando compra fica RECEBIDA (idempotente)
-    let expenseId: number | null = null;
     if (todosRecebidos) {
       // Verificar se já existe Expense para esta compra (idempotência)
       const existingExpense = await tx.expense.findFirst({
-        where: { compraId: id }
+        where: { compraId: id },
       });
 
       if (!existingExpense) {
         // Buscar Empresa do usuário
         const empresa = await tx.empresa.findFirst({
-          where: { ativo: true }
+          where: { ativo: true },
         });
 
         if (empresa) {
@@ -291,8 +300,8 @@ async function handler(
           let categoria = await tx.expenseCategory.findFirst({
             where: {
               empresaId: empresa.id,
-              nome: { contains: 'Compra' }
-            }
+              nome: { contains: 'Compra' },
+            },
           });
 
           if (!categoria) {
@@ -300,19 +309,19 @@ async function handler(
               data: {
                 empresaId: empresa.id,
                 nome: 'Compras de Estoque',
-                cor: '#F59E0B'
-              }
+                cor: '#F59E0B',
+              },
             });
           }
 
           // Buscar compra com fornecedor para preencher dados
           const compraCompleta = await tx.compra.findUnique({
             where: { id },
-            include: { fornecedor: true }
+            include: { fornecedor: true },
           });
 
           // Criar a Expense vinculada à compra
-          const newExpense = await tx.expense.create({
+          await tx.expense.create({
             data: {
               empresaId: empresa.id,
               categoriaId: categoria.id,
@@ -325,15 +334,10 @@ async function handler(
               dataEmissao: compraCompleta?.dataCompra || new Date(),
               dataVencimento: compraCompleta?.dataEntrega || new Date(),
               compraId: id,
-              criadoPor: Number(user.id)
-            }
+              criadoPor: Number(user.id),
+            },
           });
-          expenseId = newExpense.id;
         }
-      } else {
-         
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        expenseId = existingExpense.id;
       }
     }
 
@@ -345,19 +349,19 @@ async function handler(
           fornecedor: {
             select: {
               id: true,
-              nome: true
-            }
-          }
-        }
+              nome: true,
+            },
+          },
+        },
       }),
-      movimentacoes: movimentacoesCriadas.length
+      movimentacoes: movimentacoesCriadas.length,
     };
   });
 
   // 12. LOG SUCESSO
   logger.info(
     `Compra ${id} recebida: ${dados.itensRecebidos.length} itens, ${resultado.movimentacoes} movimentações`,
-    createLogContext(request, user)
+    createLogContext(request, user),
   );
 
   // 13. RESPOSTA
@@ -365,9 +369,9 @@ async function handler(
     {
       compra: resultado.compra,
       itensRecebidos: dados.itensRecebidos.length,
-      movimentacoesCriadas: resultado.movimentacoes
+      movimentacoesCriadas: resultado.movimentacoes,
     },
-    `Compra recebida com sucesso: ${dados.itensRecebidos.length} item(ns)`
+    `Compra recebida com sucesso: ${dados.itensRecebidos.length} item(ns)`,
   );
 }
 

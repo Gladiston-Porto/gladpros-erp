@@ -1,7 +1,7 @@
 /**
  * Mock Triage Gateway
  * Fase 6: Gatilhos de Triagem
- * 
+ *
  * Implementação mock do gateway de triagem para desenvolvimento/testes
  * Simula comportamento do futuro módulo de triagem real
  */
@@ -15,7 +15,6 @@ import {
   ListarTriagensResponse,
   RespostaTriagem,
   EstatisticasTriagem,
-  StatusTriagem,
 } from '../interfaces/triage-gateway.interface';
 
 /**
@@ -39,7 +38,7 @@ export class MockTriageGateway implements ITriageGateway {
    * Simula latência de rede
    */
   private async simularLatencia(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, this.latenciaMs));
+    await new Promise((resolve) => setTimeout(resolve, this.latenciaMs));
   }
 
   /**
@@ -143,36 +142,37 @@ export class MockTriageGateway implements ITriageGateway {
     let triagens = Array.from(triagensEmMemoria.values());
 
     if (filtros.projetoId) {
-      triagens = triagens.filter(t => t.projetoId === filtros.projetoId);
+      triagens = triagens.filter((t) => t.projetoId === filtros.projetoId);
     }
 
     if (filtros.tipo) {
-      triagens = triagens.filter(t => t.tipo === filtros.tipo);
+      triagens = triagens.filter((t) => t.tipo === filtros.tipo);
     }
 
     if (filtros.status) {
-      triagens = triagens.filter(t => t.status === filtros.status);
+      triagens = triagens.filter((t) => t.status === filtros.status);
     }
 
     if (filtros.prioridade) {
-      triagens = triagens.filter(t => t.prioridade === filtros.prioridade);
+      triagens = triagens.filter((t) => t.prioridade === filtros.prioridade);
     }
 
     if (filtros.dataInicio) {
-      triagens = triagens.filter(t => t.aberturaEm >= filtros.dataInicio!);
+      triagens = triagens.filter((t) => t.aberturaEm >= filtros.dataInicio!);
     }
 
     if (filtros.dataFim) {
-      triagens = triagens.filter(t => t.aberturaEm <= filtros.dataFim!);
+      triagens = triagens.filter((t) => t.aberturaEm <= filtros.dataFim!);
     }
 
     if (filtros.apenasEmAtraso) {
       const agora = new Date();
-      triagens = triagens.filter(t => 
-        t.prazoEstimado && 
-        t.prazoEstimado < agora && 
-        t.status !== 'CONCLUIDA' &&
-        t.status !== 'CANCELADA'
+      triagens = triagens.filter(
+        (t) =>
+          t.prazoEstimado &&
+          t.prazoEstimado < agora &&
+          t.status !== 'CONCLUIDA' &&
+          t.status !== 'CANCELADA',
       );
     }
 
@@ -203,9 +203,7 @@ export class MockTriageGateway implements ITriageGateway {
     await this.simularLatencia();
 
     return Array.from(triagensEmMemoria.values()).filter(
-      t => 
-        t.projetoId === projetoId && 
-        (t.status === 'PENDENTE' || t.status === 'EM_ANDAMENTO')
+      (t) => t.projetoId === projetoId && (t.status === 'PENDENTE' || t.status === 'EM_ANDAMENTO'),
     );
   }
 
@@ -215,25 +213,27 @@ export class MockTriageGateway implements ITriageGateway {
   async obterEstatisticas(projetoId: number): Promise<EstatisticasTriagem> {
     await this.simularLatencia();
 
-    const triagens = Array.from(triagensEmMemoria.values())
-      .filter(t => t.projetoId === projetoId);
+    const triagens = Array.from(triagensEmMemoria.values()).filter(
+      (t) => t.projetoId === projetoId,
+    );
 
-    const pendentes = triagens.filter(t => t.status === 'PENDENTE').length;
-    const emAndamento = triagens.filter(t => t.status === 'EM_ANDAMENTO').length;
-    const concluidas = triagens.filter(t => t.status === 'CONCLUIDA').length;
-    const canceladas = triagens.filter(t => t.status === 'CANCELADA').length;
+    const pendentes = triagens.filter((t) => t.status === 'PENDENTE').length;
+    const emAndamento = triagens.filter((t) => t.status === 'EM_ANDAMENTO').length;
+    const concluidas = triagens.filter((t) => t.status === 'CONCLUIDA').length;
+    const canceladas = triagens.filter((t) => t.status === 'CANCELADA').length;
 
     const agora = new Date();
-    const emAtraso = triagens.filter(t =>
-      t.prazoEstimado &&
-      t.prazoEstimado < agora &&
-      t.status !== 'CONCLUIDA' &&
-      t.status !== 'CANCELADA'
+    const emAtraso = triagens.filter(
+      (t) =>
+        t.prazoEstimado &&
+        t.prazoEstimado < agora &&
+        t.status !== 'CONCLUIDA' &&
+        t.status !== 'CANCELADA',
     ).length;
 
     // Calcula tempo médio de conclusão
     const triagensConcluidasComTempo = triagens.filter(
-      t => t.status === 'CONCLUIDA' && t.conclusaoEm
+      (t) => t.status === 'CONCLUIDA' && t.conclusaoEm,
     );
 
     let tempoMedioConclusao: number | undefined;
@@ -263,9 +263,7 @@ export class MockTriageGateway implements ITriageGateway {
     await this.simularLatencia();
 
     const triagens = Array.from(triagensEmMemoria.values()).filter(
-      t =>
-        t.projetoId === projetoId &&
-        (t.status === 'PENDENTE' || t.status === 'EM_ANDAMENTO')
+      (t) => t.projetoId === projetoId && (t.status === 'PENDENTE' || t.status === 'EM_ANDAMENTO'),
     );
 
     return triagens.length > 0;

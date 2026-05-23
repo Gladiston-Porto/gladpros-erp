@@ -1,303 +1,286 @@
 /**
  * API REST - DASHBOARD FINANCEIRO
- * 
+ *
  * GET /api/financeiro/dashboard - Obter resumo financeiro consolidado
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { requireUser } from "@/shared/lib/rbac";
-import { can, type Role } from "@/shared/lib/rbac-core";
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 
 /**
  * GET - Obter dashboard financeiro com resumo de contas e transações
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
-    const user = await requireUser(request);
-    if (!can(user.role as Role, "financeiro", "read")) {
-      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
-    }
-    const { searchParams } = new URL(request.url);
-    
-     
-     
-    const empresaId = user.empresaId;
-    
-    // Define período (padrão: últimos 30 dias)
-    const dataFim = new Date();
-    const dataInicio = new Date();
-    dataInicio.setDate(dataInicio.getDate() - 30);
-    
-    // Se período especificado via query params
-    if (searchParams.get("dataInicio")) {
-      dataInicio.setTime(new Date(searchParams.get("dataInicio")!).getTime());
-    }
-    
-    if (searchParams.get("dataFim")) {
-      dataFim.setTime(new Date(searchParams.get("dataFim")!).getTime());
-    }
-    
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const user = await requireUser(request);
+  if (!can(user.role as Role, 'financeiro', 'read')) {
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Sem permissão', success: false },
+      { status: 403 },
+    );
+  }
+  const { searchParams } = new URL(request.url);
 
-    // Busca dados consolidados
-    const [
-      contas,
-       
-      totalContas,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      transacoesPeriodo,
-      transferencias,
-      transacoesNaoReconciliadas,
-      transacoesPorTipo,
-      transacoesPorCategoria,
-      // Cross-module: A/R invoices
-      invoicesAR,
-      invoicesOverdue,
-      // Cross-module: A/P expenses
-      expensesAP,
-      expensesVencidas,
-      // Cross-module: pipeline projects
-      projetosAtivosCount,
-      projetosAtivosSoma,
-      // Monthly revenue/expense
-      receitasMes,
-      despesasMes,
-    ] = await Promise.all([
-      // Contas ativas com saldos
-      prisma.bankAccount.findMany({
-        where: {
-          empresaId,
-          ativo: true
-        },
-        select: {
-          id: true,
-          nome: true,
-          banco: true,
-          tipo: true,
-          saldoAtual: true,
-          limiteCredito: true,
-          principal: true,
-          ultimaConciliacao: true
-        },
-        orderBy: [
-          { principal: "desc" },
-          { saldoAtual: "desc" }
-        ]
-      }),
-      
-      // Totais gerais
-      prisma.bankAccount.aggregate({
-        where: {
-          empresaId,
-          ativo: true
-        },
-        _sum: {
-          saldoAtual: true,
-          limiteCredito: true
-        },
-        _count: true
-      }),
-      
-      // Transações do período
-      prisma.bankTransaction.findMany({
-        where: {
-          empresaId,
-          dataTransacao: {
-            gte: dataInicio,
-            lte: dataFim
-          }
-        },
-        select: {
-          tipo: true,
-          valor: true,
-          dataTransacao: true
-        }
-      }),
-      
-      // Transferências do período
-      prisma.bankTransfer.groupBy({
-        by: ["status"],
-        where: {
-          empresaId,
-          dataAgendamento: {
-            gte: dataInicio,
-            lte: dataFim
-          }
-        },
-        _sum: {
-          valor: true
-        },
-        _count: true
-      }),
-      
-      // Transações não reconciliadas
-      prisma.bankTransaction.aggregate({
-        where: {
-          empresaId,
-          reconciliada: false
-        },
-        _sum: {
-          valor: true
-        },
-        _count: true
-      }),
-      
-      // Agregação por tipo de transação
-      prisma.bankTransaction.groupBy({
-        by: ["tipo"],
-        where: {
-          empresaId,
-          dataTransacao: {
-            gte: dataInicio,
-            lte: dataFim
-          }
-        },
-        _sum: {
-          valor: true
-        },
-        _count: true
-      }),
-      
-      // Top categorias
-      prisma.bankTransaction.groupBy({
-        by: ["categoria"],
-        where: {
-          empresaId,
-          dataTransacao: {
-            gte: dataInicio,
-            lte: dataFim
-          },
-          categoria: { not: null }
-        },
-        _sum: {
-          valor: true
-        },
-        _count: true,
-        orderBy: {
-          _sum: {
-            valor: "desc"
-          }
-        },
-        take: 10
-      }),
-      // A/R: Invoices abertas (SENT + VIEWED + PARTIAL_PAID)
-      prisma.invoice.aggregate({
-        where: { empresaId, status: { in: ["SENT", "VIEWED", "PARTIAL_PAID"] } },
-        _sum: { saldo: true },
-        _count: true,
-      }),
-      // A/R: Invoices OVERDUE
-      prisma.invoice.aggregate({
-        where: { empresaId, status: "OVERDUE" },
-        _sum: { saldo: true },
-        _count: true,
-      }),
-      // A/P: Despesas a pagar
-      prisma.expense.aggregate({
-        where: { empresaId, status: { in: ["PENDENTE", "AGUARDANDO_APROVACAO", "APROVADA"] } },
-        _sum: { valor: true },
-        _count: true,
-      }),
-      // A/P: Despesas já vencidas não pagas
-      prisma.expense.aggregate({
-        where: {
-          empresaId,
-          status: { in: ["PENDENTE", "AGUARDANDO_APROVACAO", "APROVADA"] },
-          dataVencimento: { lt: todayStart },
-        },
-        _sum: { valor: true },
-        _count: true,
-      }),
-      // Pipeline: projetos ativos (count + soma separados para evitar tipo complexo)
-      prisma.projeto.count({
-        where: {
-          status: { in: ["em_execucao", "planejado", "em_inspecao"] },
-        },
-      }),
-      prisma.projeto.aggregate({
-        where: {
-          status: { in: ["em_execucao", "planejado", "em_inspecao"] },
-        },
-        _sum: { valorEstimado: true },
-      }),
-      // Receitas do mês (recebidas)
-      prisma.revenue.aggregate({
-        where: { empresaId, dataVencimento: { gte: startOfMonth, lte: endOfMonth }, status: "RECEBIDA" },
-        _sum: { valor: true },
-        _count: true,
-      }),
-      // Despesas do mês (pagas)
-      prisma.expense.aggregate({
-        where: { empresaId, dataVencimento: { gte: startOfMonth, lte: endOfMonth }, status: "PAGA" },
-        _sum: { valor: true },
-        _count: true,
-      }),
-    ]);
-    
- 
-    
-    // Cross-module computed values
-    const saldoTotalContas = Number(totalContas._sum?.saldoAtual) || 0;
-    const totalAR = Number(invoicesAR._sum?.saldo ?? 0) + Number(invoicesOverdue._sum?.saldo ?? 0);
-    const totalOverdue = Number(invoicesOverdue._sum?.saldo ?? 0);
-    const totalAP = Number(expensesAP._sum?.valor ?? 0);
-    const totalAPVencidas = Number(expensesVencidas._sum?.valor ?? 0);
-    const cashPosition = saldoTotalContas + totalAR;
-    const cashflowGap = totalAP - cashPosition;
-    const cashflowNegativo = cashPosition < totalAP;
-    const totalPipeline = Number(projetosAtivosSoma._sum?.valorEstimado ?? 0);
+  const empresaId = user.empresaId;
 
-    // Processa resumo por tipo
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const resumoPorTipo = transacoesPorTipo.reduce((acc: any, item) => {
-      acc[item.tipo] = {
-        total: Number(item._sum.valor) || 0,
-        quantidade: item._count
-      };
-      return acc;
-    }, {});
-    
-    // Calcula totais de créditos e débitos
-    const totalCreditos = transacoesPorTipo
-      .filter(t => ["CREDITO", "TRANSFERENCIA_ENTRADA", "JUROS"].includes(t.tipo))
-      .reduce((sum, t) => sum + (Number(t._sum.valor) || 0), 0);
-    
-    const totalDebitos = transacoesPorTipo
-      .filter(t => ["DEBITO", "TRANSFERENCIA_SAIDA", "TAXA"].includes(t.tipo))
-      .reduce((sum, t) => sum + (Number(t._sum.valor) || 0), 0);
-    
-    const saldoPeriodo = totalCreditos - totalDebitos;
-    
-    // Calcula saldo total disponível (saldo + limites)
-    const saldoTotal = Number(totalContas._sum.saldoAtual) || 0;
-    const limitesTotal = Number(totalContas._sum.limiteCredito) || 0;
-     
-    const saldoDisponivel = saldoTotal + limitesTotal;
-    
-    // Resumo de transferências por status
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const transferenciasPorStatus = transferencias.reduce((acc: any, t) => {
-      acc[t.status] = {
-        total: Number(t._sum.valor) || 0,
-        quantidade: t._count
-      };
-      return acc;
-    }, {});
-    
-    // Evolução diária (últimos 7 dias)
-    const ultimosSete = new Date();
-    ultimosSete.setDate(ultimosSete.getDate() - 7);
-    
-    const evolucaoDiaria = await prisma.$queryRaw<Array<{
+  // Define período (padrão: últimos 30 dias)
+  const dataFim = new Date();
+  const dataInicio = new Date();
+  dataInicio.setDate(dataInicio.getDate() - 30);
+
+  // Se período especificado via query params
+  if (searchParams.get('dataInicio')) {
+    dataInicio.setTime(new Date(searchParams.get('dataInicio')!).getTime());
+  }
+
+  if (searchParams.get('dataFim')) {
+    dataFim.setTime(new Date(searchParams.get('dataFim')!).getTime());
+  }
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Busca dados consolidados
+  const [
+    contas,
+    totalContas,
+    transferencias,
+    transacoesNaoReconciliadas,
+    transacoesPorTipo,
+    transacoesPorCategoria,
+    // Cross-module: A/R invoices
+    invoicesAR,
+    invoicesOverdue,
+    // Cross-module: A/P expenses
+    expensesAP,
+    expensesVencidas,
+    // Cross-module: pipeline projects
+    projetosAtivosCount,
+    projetosAtivosSoma,
+    // Monthly revenue/expense
+    receitasMes,
+    despesasMes,
+  ] = await Promise.all([
+    // Contas ativas com saldos
+    prisma.bankAccount.findMany({
+      where: {
+        empresaId,
+        ativo: true,
+      },
+      select: {
+        id: true,
+        nome: true,
+        banco: true,
+        tipo: true,
+        saldoAtual: true,
+        limiteCredito: true,
+        principal: true,
+        ultimaConciliacao: true,
+      },
+      orderBy: [{ principal: 'desc' }, { saldoAtual: 'desc' }],
+    }),
+
+    // Totais gerais
+    prisma.bankAccount.aggregate({
+      where: {
+        empresaId,
+        ativo: true,
+      },
+      _sum: {
+        saldoAtual: true,
+        limiteCredito: true,
+      },
+      _count: true,
+    }),
+
+    // Transferências do período
+    prisma.bankTransfer.groupBy({
+      by: ['status'],
+      where: {
+        empresaId,
+        dataAgendamento: {
+          gte: dataInicio,
+          lte: dataFim,
+        },
+      },
+      _sum: {
+        valor: true,
+      },
+      _count: true,
+    }),
+
+    // Transações não reconciliadas
+    prisma.bankTransaction.aggregate({
+      where: {
+        empresaId,
+        reconciliada: false,
+      },
+      _sum: {
+        valor: true,
+      },
+      _count: true,
+    }),
+
+    // Agregação por tipo de transação
+    prisma.bankTransaction.groupBy({
+      by: ['tipo'],
+      where: {
+        empresaId,
+        dataTransacao: {
+          gte: dataInicio,
+          lte: dataFim,
+        },
+      },
+      _sum: {
+        valor: true,
+      },
+      _count: true,
+    }),
+
+    // Top categorias
+    prisma.bankTransaction.groupBy({
+      by: ['categoria'],
+      where: {
+        empresaId,
+        dataTransacao: {
+          gte: dataInicio,
+          lte: dataFim,
+        },
+        categoria: { not: null },
+      },
+      _sum: {
+        valor: true,
+      },
+      _count: true,
+      orderBy: {
+        _sum: {
+          valor: 'desc',
+        },
+      },
+      take: 10,
+    }),
+    // A/R: Invoices abertas (SENT + VIEWED + PARTIAL_PAID)
+    prisma.invoice.aggregate({
+      where: { empresaId, status: { in: ['SENT', 'VIEWED', 'PARTIAL_PAID'] } },
+      _sum: { saldo: true },
+      _count: true,
+    }),
+    // A/R: Invoices OVERDUE
+    prisma.invoice.aggregate({
+      where: { empresaId, status: 'OVERDUE' },
+      _sum: { saldo: true },
+      _count: true,
+    }),
+    // A/P: Despesas a pagar
+    prisma.expense.aggregate({
+      where: { empresaId, status: { in: ['PENDENTE', 'AGUARDANDO_APROVACAO', 'APROVADA'] } },
+      _sum: { valor: true },
+      _count: true,
+    }),
+    // A/P: Despesas já vencidas não pagas
+    prisma.expense.aggregate({
+      where: {
+        empresaId,
+        status: { in: ['PENDENTE', 'AGUARDANDO_APROVACAO', 'APROVADA'] },
+        dataVencimento: { lt: todayStart },
+      },
+      _sum: { valor: true },
+      _count: true,
+    }),
+    // Pipeline: projetos ativos (count + soma separados para evitar tipo complexo)
+    prisma.projeto.count({
+      where: {
+        status: { in: ['em_execucao', 'planejado', 'em_inspecao'] },
+      },
+    }),
+    prisma.projeto.aggregate({
+      where: {
+        status: { in: ['em_execucao', 'planejado', 'em_inspecao'] },
+      },
+      _sum: { valorEstimado: true },
+    }),
+    // Receitas do mês (recebidas)
+    prisma.revenue.aggregate({
+      where: {
+        empresaId,
+        dataVencimento: { gte: startOfMonth, lte: endOfMonth },
+        status: 'RECEBIDA',
+      },
+      _sum: { valor: true },
+      _count: true,
+    }),
+    // Despesas do mês (pagas)
+    prisma.expense.aggregate({
+      where: { empresaId, dataVencimento: { gte: startOfMonth, lte: endOfMonth }, status: 'PAGA' },
+      _sum: { valor: true },
+      _count: true,
+    }),
+  ]);
+
+  // Cross-module computed values
+  const saldoTotalContas = Number(totalContas._sum?.saldoAtual) || 0;
+  const totalAR = Number(invoicesAR._sum?.saldo ?? 0) + Number(invoicesOverdue._sum?.saldo ?? 0);
+  const totalOverdue = Number(invoicesOverdue._sum?.saldo ?? 0);
+  const totalAP = Number(expensesAP._sum?.valor ?? 0);
+  const totalAPVencidas = Number(expensesVencidas._sum?.valor ?? 0);
+  const cashPosition = saldoTotalContas + totalAR;
+  const cashflowGap = totalAP - cashPosition;
+  const cashflowNegativo = cashPosition < totalAP;
+  const totalPipeline = Number(projetosAtivosSoma._sum?.valorEstimado ?? 0);
+
+  // Processa resumo por tipo
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const resumoPorTipo = transacoesPorTipo.reduce((acc: any, item) => {
+    acc[item.tipo] = {
+      total: Number(item._sum.valor) || 0,
+      quantidade: item._count,
+    };
+    return acc;
+  }, {});
+
+  // Calcula totais de créditos e débitos
+  const totalCreditos = transacoesPorTipo
+    .filter((t) => ['CREDITO', 'TRANSFERENCIA_ENTRADA', 'JUROS'].includes(t.tipo))
+    .reduce((sum, t) => sum + (Number(t._sum.valor) || 0), 0);
+
+  const totalDebitos = transacoesPorTipo
+    .filter((t) => ['DEBITO', 'TRANSFERENCIA_SAIDA', 'TAXA'].includes(t.tipo))
+    .reduce((sum, t) => sum + (Number(t._sum.valor) || 0), 0);
+
+  const saldoPeriodo = totalCreditos - totalDebitos;
+
+  // Calcula saldo total disponível (saldo + limites)
+  const saldoTotal = Number(totalContas._sum.saldoAtual) || 0;
+  const limitesTotal = Number(totalContas._sum.limiteCredito) || 0;
+
+  const saldoDisponivel = saldoTotal + limitesTotal;
+
+  // Resumo de transferências por status
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transferenciasPorStatus = transferencias.reduce((acc: any, t) => {
+    acc[t.status] = {
+      total: Number(t._sum.valor) || 0,
+      quantidade: t._count,
+    };
+    return acc;
+  }, {});
+
+  // Evolução diária (últimos 7 dias)
+  const ultimosSete = new Date();
+  ultimosSete.setDate(ultimosSete.getDate() - 7);
+
+  const evolucaoDiaria = await prisma.$queryRaw<
+    Array<{
       data: Date;
       creditos: number;
       debitos: number;
       saldo: number;
-    }>>`
+    }>
+  >`
       SELECT 
         DATE(dataTransacao) as data,
         SUM(CASE WHEN tipo IN ('CREDITO', 'TRANSFERENCIA_ENTRADA', 'JUROS') THEN valor ELSE 0 END) as creditos,
@@ -312,21 +295,22 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       GROUP BY DATE(dataTransacao)
       ORDER BY data ASC
     `;
-    
-    // Contas que precisam reconciliação (mais de 7 dias sem reconciliar)
-    const seteDiasAtras = new Date();
-    seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
-    
-    const contasPendentesConciliacao = contas.filter(c => 
-      !c.ultimaConciliacao || c.ultimaConciliacao < seteDiasAtras
-    );
-    
-    return NextResponse.json({
+
+  // Contas que precisam reconciliação (mais de 7 dias sem reconciliar)
+  const seteDiasAtras = new Date();
+  seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+
+  const contasPendentesConciliacao = contas.filter(
+    (c) => !c.ultimaConciliacao || c.ultimaConciliacao < seteDiasAtras,
+  );
+
+  return NextResponse.json(
+    {
       success: true,
       data: {
         periodo: {
           inicio: dataInicio,
-          fim: dataFim
+          fim: dataFim,
         },
         resumo: {
           saldoTotal,
@@ -338,26 +322,26 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           saldoPeriodo,
           transacoesNaoReconciliadas: {
             quantidade: transacoesNaoReconciliadas._count,
-            valor: Number(transacoesNaoReconciliadas._sum.valor) || 0
-          }
+            valor: Number(transacoesNaoReconciliadas._sum.valor) || 0,
+          },
         },
-        contas: contas.map(c => ({
+        contas: contas.map((c) => ({
           ...c,
           saldoDisponivel: Number(c.saldoAtual) + (Number(c.limiteCredito) || 0),
-          precisaConciliacao: !c.ultimaConciliacao || c.ultimaConciliacao < seteDiasAtras
+          precisaConciliacao: !c.ultimaConciliacao || c.ultimaConciliacao < seteDiasAtras,
         })),
         transacoesPorTipo: resumoPorTipo,
         transferenciasPorStatus,
-        topCategorias: transacoesPorCategoria.map(c => ({
+        topCategorias: transacoesPorCategoria.map((c) => ({
           categoria: c.categoria,
           total: Number(c._sum.valor) || 0,
-          quantidade: c._count
+          quantidade: c._count,
         })),
-        evolucaoDiaria: evolucaoDiaria.map(e => ({
+        evolucaoDiaria: evolucaoDiaria.map((e) => ({
           data: e.data,
           creditos: Number(e.creditos),
           debitos: Number(e.debitos),
-          saldo: Number(e.saldo)
+          saldo: Number(e.saldo),
         })),
         alertas: {
           contasPendentesConciliacao: contasPendentesConciliacao.length,
@@ -390,7 +374,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           despesasCount: despesasMes._count,
           resultado: Number(receitasMes._sum.valor ?? 0) - Number(despesasMes._sum.valor ?? 0),
         },
-      }
-    }, { status: 200 });
-    
-  });
+      },
+    },
+    { status: 200 },
+  );
+});

@@ -3,9 +3,9 @@
  * Serviço para registro de histórico e auditoria de projetos
  */
 
-import { prisma } from "@/lib/prisma";
-import { ProjetoHistorico, AcaoHistorico } from "../entities";
-import { ListarHistoricoDTO, PaginatedResponse, ProjetoHistoricoResponseDTO } from "../dtos";
+import { prisma } from '@/lib/prisma';
+import { ProjetoHistorico, AcaoHistorico } from '../entities';
+import { ListarHistoricoDTO, PaginatedResponse, ProjetoHistoricoResponseDTO } from '../dtos';
 
 export interface RegistrarHistoricoDTO {
   projetoId: number;
@@ -21,14 +21,14 @@ export class ProjectHistoryService {
    * Registra um evento no histórico do projeto
    */
   async registrar(data: RegistrarHistoricoDTO): Promise<ProjetoHistorico> {
-    return await this.prisma.projetoHistorico.create({
+    return (await this.prisma.projetoHistorico.create({
       data: {
         projetoId: data.projetoId,
         usuarioId: data.usuarioId,
         acao: data.acao,
         detalhes: data.detalhes ?? null,
       },
-    }) as unknown as ProjetoHistorico;
+    })) as unknown as ProjetoHistorico;
   }
 
   /**
@@ -36,7 +36,7 @@ export class ProjectHistoryService {
    */
   async listar(
     projetoId: number,
-    filtros: ListarHistoricoDTO
+    filtros: ListarHistoricoDTO,
   ): Promise<PaginatedResponse<ProjetoHistorico>> {
     const { pagina = 1, limite = 50, acoes, usuarioId, dataInicio, dataFim } = filtros;
     const skip = (pagina - 1) * limite;
@@ -101,7 +101,7 @@ export class ProjectHistoryService {
    * Busca histórico por ID
    */
   async buscarPorId(id: number): Promise<ProjetoHistorico | null> {
-    return await this.prisma.projetoHistorico.findUnique({
+    return (await this.prisma.projetoHistorico.findUnique({
       where: { id },
       include: {
         Usuario: {
@@ -119,7 +119,7 @@ export class ProjectHistoryService {
           },
         },
       },
-    }) as unknown as ProjetoHistorico | null;
+    })) as unknown as ProjetoHistorico | null;
   }
 
   /**
@@ -127,9 +127,9 @@ export class ProjectHistoryService {
    */
   async obterUltimoEvento(
     projetoId: number,
-    acao: AcaoHistorico
+    acao: AcaoHistorico,
   ): Promise<ProjetoHistorico | null> {
-    return await this.prisma.projetoHistorico.findFirst({
+    return (await this.prisma.projetoHistorico.findFirst({
       where: {
         projetoId,
         acao,
@@ -146,7 +146,7 @@ export class ProjectHistoryService {
           },
         },
       },
-    }) as unknown as ProjetoHistorico | null;
+    })) as unknown as ProjetoHistorico | null;
   }
 
   /**
