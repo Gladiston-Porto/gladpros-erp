@@ -9,10 +9,7 @@ import { withErrorHandler } from '@/lib/api/error-handler';
 // Estorna (remove) um pagamento e recalcula valorPago / saldo / status da invoice
 
 export const DELETE = withErrorHandler(
-  async (
-    req: NextRequest,
-    context: { params: Promise<{ id: string; paymentId: string }> },
-  ) => {
+  async (req: NextRequest, context: { params: Promise<{ id: string; paymentId: string }> }) => {
     const user = await requireUser(req);
     if (!can(user.role as Role, 'invoices', 'update')) {
       return NextResponse.json(
@@ -34,7 +31,7 @@ export const DELETE = withErrorHandler(
 
     const payment = await prisma.invoicePayment.findUnique({
       where: { id: paymentIdInt },
-      select: { id: true, invoiceId: true, valor: true },
+      select: { id: true, invoiceId: true, valor: true, bankAccountId: true, dataPagamento: true },
     });
 
     if (!payment || payment.invoiceId !== invoiceId) {
@@ -56,8 +53,30 @@ export const DELETE = withErrorHandler(
       );
     }
 
+    // Verificar saldo bancário antes de iniciar a transação
+    if (payment.bankAccountId) {
+      const bankAccount = await prisma.bankAccount.findFirst({
+        where: { id: payment.bankAccountId, empresaId: invoice.empresaId },
+        select: { id: true, saldoAtual: true },
+      });
+      if (!bankAccount || Number(bankAccount.saldoAtual) < Number(payment.valor)) {
+        return NextResponse.json(
+          {
+            error: 'Insufficient balance',
+            message: 'Saldo bancário insuficiente para estorno',
+            success: false,
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
-      await tx.invoicePayment.delete({ where: { id: paymentIdInt } });
+      // Soft-delete: marcar como estornado
+      await tx.invoicePayment.updateMany({
+        where: { id: paymentIdInt },
+        data: { estornadoEm: new Date(), estornadoPor: Number(user.id) },
+      });
 
       const novoValorPago = Math.max(0, Number(invoice.valorPago) - Number(payment.valor));
       const novoSaldo = Math.max(0, Number(invoice.valorTotal) - novoValorPago);
@@ -80,6 +99,37 @@ export const DELETE = withErrorHandler(
         select: { id: true, status: true, valorPago: true, saldo: true, valorTotal: true },
       });
 
+      // Criar ledger de reversão
+      await tx.ledgerTransaction.create({
+        data: {
+          empresaId: invoice.empresaId,
+          sourceType: 'REVERSAL',
+          sourceId: paymentIdInt,
+          valor: new Decimal(payment.valor),
+          entries: { create: [] },
+        },
+      });
+
+      // Reverter movimentação bancária se houver conta
+      if (payment.bankAccountId) {
+        await tx.bankTransaction.create({
+          data: {
+            accountId: payment.bankAccountId,
+            empresaId: invoice.empresaId,
+            tipo: 'DEBITO',
+            categoria: 'INVOICE_PAYMENT_REVERSAL',
+            valor: new Decimal(payment.valor),
+            descricao: `Estorno pagamento #${paymentIdInt} - Invoice #${invoiceId}`,
+            dataTransacao: new Date(),
+          },
+        });
+
+        await tx.bankAccount.updateMany({
+          where: { id: payment.bankAccountId, empresaId: invoice.empresaId },
+          data: { saldoAtual: { decrement: Number(payment.valor) } },
+        });
+      }
+
       await tx.auditLog.create({
         data: {
           id: crypto.randomUUID(),
@@ -98,7 +148,7 @@ export const DELETE = withErrorHandler(
       await tx.revenue.deleteMany({
         where: {
           empresaId: invoice.empresaId,
-          descricao: `Invoice #${invoiceId} - pagamento recebido`,
+          descricao: `Invoice #${invoiceId} - pagamento #${paymentIdInt}`,
           status: 'RECEBIDA',
         },
       });

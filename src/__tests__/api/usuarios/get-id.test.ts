@@ -1,17 +1,44 @@
 jest.mock('next/server', () => {
   const makeSearchParams = (url: string) => {
-    try { return new URLSearchParams(url.includes('?') ? url.split('?')[1] ?? '' : ''); }
-    catch { return new URLSearchParams(); }
+    try {
+      return new URLSearchParams(url.includes('?') ? (url.split('?')[1] ?? '') : '');
+    } catch {
+      return new URLSearchParams();
+    }
   };
   return {
-    NextRequest: jest.fn().mockImplementation((url: string, init?: { method?: string; body?: string; headers?: Record<string, string> }) => ({
-      url,
-      method: (init?.method ?? 'GET').toUpperCase(),
-      nextUrl: { searchParams: makeSearchParams(url), pathname: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0] },
-      headers: { get: (name: string) => { const h = (init?.headers ?? {}) as Record<string, string>; return h[name] ?? h[name.toLowerCase()] ?? null; } },
-      json: jest.fn().mockImplementation(() => { if (init?.body) { try { return Promise.resolve(JSON.parse(init.body)); } catch { return Promise.resolve({}); } } return Promise.resolve({}); }),
-      text: jest.fn().mockResolvedValue(init?.body ?? ''),
-    })),
+    NextRequest: jest
+      .fn()
+      .mockImplementation(
+        (
+          url: string,
+          init?: { method?: string; body?: string; headers?: Record<string, string> },
+        ) => ({
+          url,
+          method: (init?.method ?? 'GET').toUpperCase(),
+          nextUrl: {
+            searchParams: makeSearchParams(url),
+            pathname: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0],
+          },
+          headers: {
+            get: (name: string) => {
+              const h = (init?.headers ?? {}) as Record<string, string>;
+              return h[name] ?? h[name.toLowerCase()] ?? null;
+            },
+          },
+          json: jest.fn().mockImplementation(() => {
+            if (init?.body) {
+              try {
+                return Promise.resolve(JSON.parse(init.body));
+              } catch {
+                return Promise.resolve({});
+              }
+            }
+            return Promise.resolve({});
+          }),
+          text: jest.fn().mockResolvedValue(init?.body ?? ''),
+        }),
+      ),
     NextResponse: {
       json: jest.fn().mockImplementation((data: unknown, options?: { status?: number }) => ({
         status: options?.status ?? 200,
@@ -54,7 +81,14 @@ jest.mock('@/shared/lib/usuario-query', () => ({
 }));
 
 jest.mock('@/shared/lib/user-hierarchy', () => ({
-  UserRole: { ADMIN: 'ADMIN', GERENTE: 'GERENTE', FINANCEIRO: 'FINANCEIRO', USUARIO: 'USUARIO', ESTOQUE: 'ESTOQUE', CLIENTE: 'CLIENTE' },
+  UserRole: {
+    ADMIN: 'ADMIN',
+    GERENTE: 'GERENTE',
+    FINANCEIRO: 'FINANCEIRO',
+    USUARIO: 'USUARIO',
+    ESTOQUE: 'ESTOQUE',
+    CLIENTE: 'CLIENTE',
+  },
   canManageRole: jest.fn().mockReturnValue(true),
 }));
 
@@ -63,19 +97,33 @@ jest.mock('@/lib/api/logger', () => ({
 }));
 
 jest.mock('@/lib/api/error-handler', () => ({
-  withErrorHandler: jest.fn().mockImplementation((handler: Function) => async (...args: unknown[]) => {
-    try {
-      return await handler(...args);
-    } catch (error) {
-      if (error instanceof Error && error.message === 'UNAUTHENTICATED') {
-        return { status: 401, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Unauthorized', success: false }) };
+  withErrorHandler: jest
+    .fn()
+    .mockImplementation((handler: Function) => async (...args: unknown[]) => {
+      try {
+        return await handler(...args);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'UNAUTHENTICATED') {
+          return {
+            status: 401,
+            headers: new Map(),
+            json: jest.fn().mockResolvedValue({ error: 'Unauthorized', success: false }),
+          };
+        }
+        if (error instanceof Error && error.message === 'FORBIDDEN') {
+          return {
+            status: 403,
+            headers: new Map(),
+            json: jest.fn().mockResolvedValue({ error: 'Forbidden', success: false }),
+          };
+        }
+        return {
+          status: 500,
+          headers: new Map(),
+          json: jest.fn().mockResolvedValue({ error: 'Internal server error', success: false }),
+        };
       }
-      if (error instanceof Error && error.message === 'FORBIDDEN') {
-        return { status: 403, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Forbidden', success: false }) };
-      }
-      return { status: 500, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Internal server error', success: false }) };
-    }
-  }),
+    }),
 }));
 
 jest.mock('@/shared/lib/validation', () => ({
@@ -91,7 +139,13 @@ function makeRequest(id: string) {
   return new NextRequest(`http://localhost/api/usuarios/${id}`);
 }
 
-const mockUser = { id: 5, email: 'user@test.com', nomeCompleto: 'Test User', nivel: 'USUARIO', status: 'ATIVO' };
+const mockUser = {
+  id: 5,
+  email: 'user@test.com',
+  nomeCompleto: 'Test User',
+  nivel: 'USUARIO',
+  status: 'ATIVO',
+};
 
 describe('GET /api/usuarios/:id', () => {
   beforeEach(() => {
@@ -107,7 +161,11 @@ describe('GET /api/usuarios/:id', () => {
 
   it('403 — no read permission (not own, not gerente)', async () => {
     // ESTOQUE has no access to usuarios module (only ADMIN, GERENTE, USUARIO:RO are mapped)
-    mockRequireUser.mockResolvedValueOnce({ id: 99, role: 'ESTOQUE', email: 'other@test.com' } as any);
+    mockRequireUser.mockResolvedValueOnce({
+      id: 99,
+      role: 'ESTOQUE',
+      email: 'other@test.com',
+    } as any);
     const { GET } = await import('@/app/api/usuarios/[id]/route');
     const res = await GET(makeRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(403);
@@ -129,11 +187,15 @@ describe('GET /api/usuarios/:id', () => {
     const res = await GET(makeRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.id).toBe(5);
+    expect(body.data.id).toBe(5);
   });
 
   it('200 — user can read own profile', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 5, role: 'USUARIO', email: 'user@test.com' } as any);
+    mockRequireUser.mockResolvedValueOnce({
+      id: 5,
+      role: 'USUARIO',
+      email: 'user@test.com',
+    } as any);
     (prisma.$queryRawUnsafe as jest.Mock).mockResolvedValueOnce([mockUser]);
     (prisma.worker.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const { GET } = await import('@/app/api/usuarios/[id]/route');

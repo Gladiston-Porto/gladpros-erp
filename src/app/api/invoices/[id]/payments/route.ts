@@ -25,15 +25,7 @@ function mapToFormaPagamento(method: string): string {
 const createPaymentSchema = z.object({
   valor: z.number().positive(),
   dataPagamento: z.string().datetime(),
-  metodoPagamento: z.enum([
-    'BANK_TRANSFER',
-    'CHECK',
-    'CARD',
-    'CASH',
-    'STRIPE',
-    'SQUARE',
-    'OTHER',
-  ]),
+  metodoPagamento: z.enum(['BANK_TRANSFER', 'CHECK', 'CARD', 'CASH', 'STRIPE', 'SQUARE', 'OTHER']),
   bankAccountId: z.number().int().positive().optional(),
   referencia: z.string().max(100).optional(),
   notas: z.string().optional(),
@@ -78,7 +70,15 @@ export const POST = withErrorHandler(
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, empresaId: user.empresaId },
-      select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true, clienteId: true, empresaId: true },
+      select: {
+        id: true,
+        valorTotal: true,
+        valorPago: true,
+        saldo: true,
+        status: true,
+        clienteId: true,
+        empresaId: true,
+      },
     });
 
     if (!invoice) {
@@ -125,16 +125,30 @@ export const POST = withErrorHandler(
     const result = await prisma.$transaction(async (tx) => {
       const currentInvoice = await tx.invoice.findFirst({
         where: { id: invoiceId, empresaId: user.empresaId },
-        select: { id: true, valorTotal: true, valorPago: true, saldo: true, status: true, clienteId: true, empresaId: true },
+        select: {
+          id: true,
+          valorTotal: true,
+          valorPago: true,
+          saldo: true,
+          status: true,
+          clienteId: true,
+          empresaId: true,
+        },
       });
 
-      if (!currentInvoice || currentInvoice.status === 'PAID' || currentInvoice.status === 'CANCELLED') {
+      if (
+        !currentInvoice ||
+        currentInvoice.status === 'PAID' ||
+        currentInvoice.status === 'CANCELLED'
+      ) {
         throw new Error('Invoice não está disponível para pagamento');
       }
 
       const currentSaldo = Number(currentInvoice.saldo);
       if (body.valor > currentSaldo + 0.01) {
-        throw new Error(`Valor (${body.valor}) excede o saldo da invoice (${currentSaldo.toFixed(2)})`);
+        throw new Error(
+          `Valor (${body.valor}) excede o saldo da invoice (${currentSaldo.toFixed(2)})`,
+        );
       }
 
       const novoValorPago = Number(currentInvoice.valorPago) + body.valor;
@@ -187,53 +201,41 @@ export const POST = withErrorHandler(
         },
       });
 
-      // Auto-create Revenue record when invoice is fully paid. This is critical:
+      // Auto-create Revenue record for each payment received. This is critical:
       // if revenue posting fails, the payment must roll back to keep Financeiro correct.
-      if (novoStatus === 'PAID') {
-        const revenueDescription = `Invoice #${invoiceId} - pagamento recebido`;
-        const existingRevenue = await tx.revenue.findFirst({
-          where: {
-            empresaId: currentInvoice.empresaId,
-            descricao: revenueDescription,
-            status: 'RECEBIDA',
-          },
+      {
+        const revenueDescription = `Invoice #${invoiceId} - pagamento #${payment.id}`;
+        let defaultCategory = await tx.revenueCategory.findFirst({
+          where: { empresaId: currentInvoice.empresaId },
           select: { id: true },
         });
-
-        if (!existingRevenue) {
-          let defaultCategory = await tx.revenueCategory.findFirst({
-            where: { empresaId: currentInvoice.empresaId },
-            select: { id: true },
-          });
-          if (!defaultCategory) {
-            defaultCategory = await tx.revenueCategory.create({
-              data: {
-                empresaId: currentInvoice.empresaId,
-                nome: 'Pagamentos de Invoice',
-                descricao: 'Categoria padrão para receitas geradas por invoices pagas',
-                cor: '#0098DA',
-              },
-              select: { id: true },
-            });
-          }
-          await tx.revenue.create({
+        if (!defaultCategory) {
+          defaultCategory = await tx.revenueCategory.create({
             data: {
               empresaId: currentInvoice.empresaId,
-              categoriaId: defaultCategory.id,
-              clienteId: currentInvoice.clienteId ?? undefined,
-              descricao: revenueDescription,
-              valor: new Decimal(currentInvoice.valorTotal),
-              dataEmissao: new Date(body.dataPagamento),
-              dataVencimento: new Date(body.dataPagamento),
-              dataPagamento: new Date(body.dataPagamento),
-              tipo: 'SERVICO',
-               
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
-              status: 'RECEBIDA',
+              nome: 'Pagamentos de Invoice',
+              descricao: 'Categoria padrão para receitas geradas por invoices pagas',
+              cor: '#0098DA',
             },
+            select: { id: true },
           });
         }
+        await tx.revenue.create({
+          data: {
+            empresaId: currentInvoice.empresaId,
+            categoriaId: defaultCategory.id,
+            clienteId: currentInvoice.clienteId ?? undefined,
+            descricao: revenueDescription,
+            valor: new Decimal(body.valor),
+            dataEmissao: new Date(body.dataPagamento),
+            dataVencimento: new Date(body.dataPagamento),
+            dataPagamento: new Date(body.dataPagamento),
+            tipo: 'SERVICO',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
+            status: 'RECEBIDA',
+          },
+        });
       }
 
       return { payment, invoice: updatedInvoice };

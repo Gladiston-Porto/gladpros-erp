@@ -23,9 +23,9 @@ export const POST = withErrorHandler(
       );
     }
 
-    // Buscar proposta com etapas e materiais
-    const proposta = await prisma.proposta.findUnique({
-      where: { id: propostaId, deletedAt: null },
+    // Buscar proposta com etapas e materiais (escopo por empresaId para evitar acesso cross-tenant)
+    const proposta = await prisma.proposta.findFirst({
+      where: { id: propostaId, empresaId: user.empresaId, deletedAt: null },
       include: {
         PropostaEtapa: true,
         PropostaMaterial: true,
@@ -118,7 +118,7 @@ export const POST = withErrorHandler(
           desconto: 0,
           subtotal: qty * price,
           taxavel: true,
-          ordem: (proposta.PropostaEtapa.length + idx),
+          ordem: proposta.PropostaEtapa.length + idx,
         });
       });
     }
@@ -149,7 +149,9 @@ export const POST = withErrorHandler(
     dataVencimento.setDate(dataVencimento.getDate() + 30);
 
     const hoje = new Date();
-    const dataStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(hoje).replace(/-/g, '');
+    const dataStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' })
+      .format(hoje)
+      .replace(/-/g, '');
 
     const invoice = await prisma.$transaction(async (tx) => {
       const count = await tx.invoice.count({
@@ -201,7 +203,14 @@ export const POST = withErrorHandler(
     });
 
     return NextResponse.json(
-      { data: { invoiceId: invoice.id, numeroInvoice: invoice.numeroInvoice, valorTotal: invoice.valorTotal }, success: true },
+      {
+        data: {
+          invoiceId: invoice.id,
+          numeroInvoice: invoice.numeroInvoice,
+          valorTotal: invoice.valorTotal,
+        },
+        success: true,
+      },
       { status: 201 },
     );
   },
