@@ -127,17 +127,15 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
     setPrazos((prev) => ({ ...prev, validade_proposta: `${y}-${m}-${d}` }));
   }, [prazos.tempo_para_aceite, autoValidade]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [permite, setPermite] = useState<StatusPermite>(
+  const [permite] = useState<StatusPermite>(
     initialData?.permite || StatusPermiteValues.NAO_NECESSARIO,
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [quaisPermites, setQuaisPermites] = useState(initialData?.quaisPermites || '');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [normas, setNormas] = useState(initialData?.normas || '');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [inspecoes, setInspecoes] = useState(initialData?.inspecoes || '');
+  const [quaisPermites] = useState(initialData?.quaisPermites || '');
+
+  const [normas] = useState(initialData?.normas || '');
+
+  const [inspecoes] = useState(initialData?.inspecoes || '');
 
   const [comerciais, setComerciais] = useState<ComerciaisInfo>(
     initialData?.comerciais || {
@@ -167,8 +165,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
 
   const [etapas, setEtapas] = useState<Etapa[]>(initialData?.etapas || []);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [faturamento, setFaturamento] = useState<FaturamentoInfo>(
+  const [faturamento] = useState<FaturamentoInfo>(
     initialData?.faturamento || {
       gatilho: 'na_aprovacao',
       percentual_sinal: 40,
@@ -179,8 +176,8 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
   );
 
   const [obsCliente, setObsCliente] = useState(initialData?.obsCliente || '');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [obsInternas, setObsInternas] = useState(initialData?.obsInternas || '');
+
+  const [obsInternas] = useState(initialData?.obsInternas || '');
 
   // Tax classification state
   const [propertyType, setPropertyType] = useState<PropostaFormData['propertyType']>(

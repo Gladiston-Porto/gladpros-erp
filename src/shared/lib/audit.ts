@@ -47,7 +47,7 @@ export class AuditLogger {
       });
 
       // Mapear ação para enum do Prisma
-      let acaoEnum: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' = 'LOGIN';
+      let acaoEnum: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT';
 
       switch (event.action) {
         case 'LOGIN_ATTEMPT':
