@@ -7,10 +7,16 @@ import { seedUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
-test.describe.serial('06 — Export CSV/PDF', () => {
-  test.beforeAll(async () => { await seedUsuarios(); });
-  test.afterAll(async () => { await teardownUsuarios(); });
-  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
+test.describe('06 — Export CSV/PDF', () => {
+  test.beforeAll(async () => {
+    await seedUsuarios();
+  });
+  test.afterAll(async () => {
+    await teardownUsuarios();
+  });
+  test.beforeEach(async ({ request }) => {
+    await resetRateLimits(request);
+  });
 
   // ─── CSV ───
   test.describe('CSV Export', () => {
@@ -36,7 +42,10 @@ test.describe.serial('06 — Export CSV/PDF', () => {
       });
       const csv = await res.text();
       // Every data cell is wrapped in quotes
-      const dataLines = csv.split('\n').slice(1).filter(l => l.trim());
+      const dataLines = csv
+        .split('\n')
+        .slice(1)
+        .filter((l) => l.trim());
       for (const line of dataLines) {
         expect(line).toMatch(/^"/);
       }
@@ -49,7 +58,10 @@ test.describe.serial('06 — Export CSV/PDF', () => {
       });
       expect(res.status()).toBe(200);
       const csv = await res.text();
-      const dataLines = csv.split('\n').slice(1).filter(l => l.trim());
+      const dataLines = csv
+        .split('\n')
+        .slice(1)
+        .filter((l) => l.trim());
       expect(dataLines.length).toBeGreaterThanOrEqual(2); // admin + admin2
       for (const line of dataLines) {
         expect(line).toContain('ADMIN');
@@ -63,7 +75,10 @@ test.describe.serial('06 — Export CSV/PDF', () => {
       });
       expect(res.status()).toBe(200);
       const csv = await res.text();
-      const dataLines = csv.split('\n').slice(1).filter(l => l.trim());
+      const dataLines = csv
+        .split('\n')
+        .slice(1)
+        .filter((l) => l.trim());
       for (const line of dataLines) {
         expect(line).toContain('INATIVO');
       }
@@ -76,7 +91,10 @@ test.describe.serial('06 — Export CSV/PDF', () => {
       });
       expect(res.status()).toBe(200);
       const csv = await res.text();
-      const dataLines = csv.split('\n').slice(1).filter(l => l.trim());
+      const dataLines = csv
+        .split('\n')
+        .slice(1)
+        .filter((l) => l.trim());
       expect(dataLines.length).toBeGreaterThanOrEqual(1);
       expect(dataLines[0]).toContain('admin@test.com');
     });

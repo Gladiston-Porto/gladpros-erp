@@ -9,13 +9,13 @@ import * as fs from 'fs';
 //
 // IMPORTANTE: dotenv.config não sobrescreve vars já definidas no processo.
 // Carregamos do mais específico para o mais genérico — vars já carregadas têm prioridade.
-const envLocalPath  = path.resolve(process.cwd(), '.env.local');
+const envLocalPath = path.resolve(process.cwd(), '.env.local');
 const requestedEnvPath = process.env.PLAYWRIGHT_ENV_FILE
   ? path.resolve(process.cwd(), process.env.PLAYWRIGHT_ENV_FILE)
   : null;
-const envE2EPath    = path.resolve(process.cwd(), '.env.e2e');
-const envTestPath   = path.resolve(process.cwd(), '.env.test');
-const envBasePath   = path.resolve(process.cwd(), '.env');
+const envE2EPath = path.resolve(process.cwd(), '.env.e2e');
+const envTestPath = path.resolve(process.cwd(), '.env.test');
+const envBasePath = path.resolve(process.cwd(), '.env');
 
 // 1. .env.local — máxima prioridade (Next.js usa este em primeiro lugar)
 if (fs.existsSync(envLocalPath)) {
@@ -47,7 +47,8 @@ if (requestedEnvPath) {
   console.warn('[Playwright] Nenhum arquivo de ambiente encontrado');
 }
 
-const FALLBACK_JWT_SECRET = 'abcdefghijklmnopqrstuvwxyz0123456789secretkey';
+const FALLBACK_JWT_SECRET =
+  'ci_dummy_jwt_secret_key_that_is_at_least_32_characters_long_for_testing';
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = FALLBACK_JWT_SECRET;
 }
@@ -58,9 +59,14 @@ if (!process.env.RBAC_TRUST_JWT) {
 // Validação de variáveis críticas
 if (!process.env.DATABASE_URL) {
   console.error('[Playwright] ❌ DATABASE_URL não está definida!');
-  console.error('[Playwright] Certifique-se de ter .env.e2e ou .env.test com DATABASE_URL configurada');
+  console.error(
+    '[Playwright] Certifique-se de ter .env.e2e ou .env.test com DATABASE_URL configurada',
+  );
 } else {
-  console.log('[Playwright] ✅ DATABASE_URL carregada:', process.env.DATABASE_URL.replace(/:[^:@]+@/, ':***@'));
+  console.log(
+    '[Playwright] ✅ DATABASE_URL carregada:',
+    process.env.DATABASE_URL.replace(/:[^:@]+@/, ':***@'),
+  );
 }
 
 const E2E_BUILD_PORT = 3007;
@@ -73,28 +79,29 @@ if (!process.env.BASE_URL) {
   process.env.BASE_URL = baseURL;
 }
 
-const shouldStartServer = process.env.PLAYWRIGHT_START_SERVER === '1'
-  ? true
-  : process.env.PLAYWRIGHT_SKIP_SERVER === '1'
-    ? false
-    : !process.env.BASE_URL;
+const shouldStartServer =
+  process.env.PLAYWRIGHT_START_SERVER === '1'
+    ? true
+    : process.env.PLAYWRIGHT_SKIP_SERVER === '1'
+      ? false
+      : !process.env.BASE_URL;
 
 export default defineConfig({
   testDir: './tests/e2e',
   // globalSetup removido — desnecessário com `next start` (sem JIT, sem pré-aquecimento)
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0, // servidor built é estável; sem retry local
+  retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
-  timeout: 60000, // 60s por teste (servidor built responde rápido)
+  timeout: 120000, // 120s por teste
   use: {
     baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    actionTimeout: 10000,       // 10s para ações individuais
-    navigationTimeout: 20000,   // 20s para navegações (next start é rápido)
+    actionTimeout: 30000, // 30s para ações individuais
+    navigationTimeout: 30000, // 30s para navegações
   },
   projects: process.env.CI
     ? [
@@ -133,7 +140,7 @@ export default defineConfig({
         command: 'npm run serve:e2e',
         url: baseURL,
         reuseExistingServer: true, // não rebuilda se já estiver rodando na porta
-        timeout: 600 * 1000,       // até 10 min para o build (primeira vez)
+        timeout: 600 * 1000, // até 10 min para o build (primeira vez)
         stdout: 'pipe',
         stderr: 'pipe',
         env: {

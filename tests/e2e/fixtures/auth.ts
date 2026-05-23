@@ -84,13 +84,19 @@ export const mockUsers = {
  * Generate JWT token for a mock user
  */
 export async function generateAuthToken(user: AuthUser): Promise<string> {
-  return await signAuthJWT({
+  const token = await signAuthJWT({
     sub: user.id,
     email: user.email,
     role: user.role,
     status: user.status,
     tokenVersion: user.tokenVersion,
   });
+  const secretLen = process.env.JWT_SECRET?.length || 0;
+  const secretPreview = process.env.JWT_SECRET?.substring(0, 20) + '...';
+  console.log(
+    `[Auth] Token for ${user.email}: JWT_SECRET length=${secretLen}, preview="${secretPreview}", token_length=${token.length}`,
+  );
+  return token;
 }
 
 /**
@@ -98,11 +104,15 @@ export async function generateAuthToken(user: AuthUser): Promise<string> {
  */
 export async function getAuthHeaders(user: AuthUser): Promise<Record<string, string>> {
   const token = await generateAuthToken(user);
-  return {
-    'Authorization': `Bearer ${token}`,
+  const headers = {
+    Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
-    'Cookie': `authToken=${token}`,
+    Cookie: `authToken=${token}`,
   };
+  console.log(
+    `[Auth] Headers for ${user.email}: Authorization=${headers.Authorization.substring(0, 30)}..., Cookie=${headers.Cookie.substring(0, 30)}...`,
+  );
+  return headers;
 }
 
 /**

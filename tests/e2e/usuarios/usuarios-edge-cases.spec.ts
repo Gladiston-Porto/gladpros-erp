@@ -12,9 +12,15 @@ import { seedUsuarios, cleanupUsuarios } from '../fixtures/usuarios-seed';
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe.serial('Edge Cases — Módulo Usuários', () => {
-  test.beforeAll(async () => { await seedUsuarios(); });
-  test.afterAll(async () => { await cleanupUsuarios(); });
-  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
+  test.beforeAll(async () => {
+    await seedUsuarios();
+  });
+  test.afterAll(async () => {
+    await cleanupUsuarios();
+  });
+  test.beforeEach(async ({ request }) => {
+    await resetRateLimits(request);
+  });
 
   // ── Strings extremas ──
 
@@ -30,7 +36,10 @@ test.describe.serial('Edge Cases — Módulo Usuários', () => {
     expect([400, 422]).toContain(res.status());
   });
 
-  test('POST email com 320 caracteres (limite RFC 5321) → 400', async ({ request, adminHeaders }) => {
+  test('POST email com 320 caracteres (limite RFC 5321) → 400', async ({
+    request,
+    adminHeaders,
+  }) => {
     const local = 'a'.repeat(64);
     const domain = 'b'.repeat(251) + '.com';
     const res = await request.post(`${BASE}/api/usuarios`, {
@@ -54,7 +63,10 @@ test.describe.serial('Edge Cases — Módulo Usuários', () => {
 
   // ── Injeção: XSS na criação ──
 
-  test('POST nome com payload XSS é armazenado como texto (sem execução)', async ({ request, adminHeaders }) => {
+  test('POST nome com payload XSS é armazenado como texto (sem execução)', async ({
+    request,
+    adminHeaders,
+  }) => {
     const xssEmail = `xss-${Date.now()}@edge-test.com`;
     const xssPayload = '<script>alert("xss")</script>';
     const res = await request.post(`${BASE}/api/usuarios`, {
@@ -83,7 +95,10 @@ test.describe.serial('Edge Cases — Módulo Usuários', () => {
     expect(res.status()).not.toBe(500);
   });
 
-  test("GET ?q=\" OR \"1\"=\"1 não retorna todos os registros (injection guard)", async ({ request, adminHeaders }) => {
+  test('GET ?q=" OR "1"="1 não retorna todos os registros (injection guard)', async ({
+    request,
+    adminHeaders,
+  }) => {
     const malicious = encodeURIComponent('" OR "1"="1');
     const res = await request.get(`${BASE}/api/usuarios?q=${malicious}`, { headers: adminHeaders });
     expect(res.status()).not.toBe(500);
@@ -91,7 +106,10 @@ test.describe.serial('Edge Cases — Módulo Usuários', () => {
 
   // ── Unicode no nome ──
 
-  test('POST nome com emoji e caracteres unicode → 201 ou 400 (nunca 500)', async ({ request, adminHeaders }) => {
+  test('POST nome com emoji e caracteres unicode → 201 ou 400 (nunca 500)', async ({
+    request,
+    adminHeaders,
+  }) => {
     const res = await request.post(`${BASE}/api/usuarios`, {
       headers: adminHeaders,
       data: {
@@ -111,7 +129,7 @@ test.describe.serial('Edge Cases — Módulo Usuários', () => {
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.items).toHaveLength(0);
+    expect(body.data).toHaveLength(0);
   });
 
   test('GET pageSize=0 → 400 ou trata como default', async ({ request, adminHeaders }) => {
@@ -119,13 +137,16 @@ test.describe.serial('Edge Cases — Módulo Usuários', () => {
     expect([200, 400]).toContain(res.status());
   });
 
-  test('GET pageSize=200 (acima do máximo) → 200 ou 400, nunca retorna 200+ itens se houver limite', async ({ request, adminHeaders }) => {
+  test('GET pageSize=200 (acima do máximo) → 200 ou 400, nunca retorna 200+ itens se houver limite', async ({
+    request,
+    adminHeaders,
+  }) => {
     const res = await request.get(`${BASE}/api/usuarios?pageSize=200`, { headers: adminHeaders });
     expect([200, 400]).toContain(res.status());
     if (res.status() === 200) {
       const body = await res.json();
       // Se a rota impõe limite (ex: max 100), deve respeitar
-      expect(body.items.length).toBeLessThanOrEqual(200);
+      expect(body.data.length).toBeLessThanOrEqual(200);
     }
   });
 
@@ -137,7 +158,7 @@ test.describe.serial('Edge Cases — Módulo Usuários', () => {
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    for (const u of body.items) {
+    for (const u of body.data) {
       expect(u.role).toBe('ADMIN');
     }
   });
@@ -146,14 +167,17 @@ test.describe.serial('Edge Cases — Módulo Usuários', () => {
     const res = await request.get(`${BASE}/api/usuarios?status=ATIVO`, { headers: adminHeaders });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    for (const u of body.items) {
+    for (const u of body.data) {
       expect(u.status).toBe('ATIVO');
     }
   });
 
   // ── Idempotência ──
 
-  test('POST com mesmo email duas vezes → segundo retorna 409', async ({ request, adminHeaders }) => {
+  test('POST com mesmo email duas vezes → segundo retorna 409', async ({
+    request,
+    adminHeaders,
+  }) => {
     const email = `idempotent-${Date.now()}@edge-test.com`;
     const payload = { email, nomeCompleto: 'Idempotent User', role: 'USUARIO' };
     const res1 = await request.post(`${BASE}/api/usuarios`, {

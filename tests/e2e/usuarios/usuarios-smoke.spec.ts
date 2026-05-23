@@ -12,7 +12,9 @@ import { test, expect, mockUsers, getAuthHeaders, resetRateLimits } from '../fix
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe('Smoke — Módulo Usuários', () => {
-  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
+  test.beforeEach(async ({ request }) => {
+    await resetRateLimits(request);
+  });
   // ── Autenticação: rotas protegidas retornam 401 sem token ──
 
   test('GET /api/usuarios sem auth → 401', async ({ request }) => {
@@ -67,16 +69,19 @@ test.describe('Smoke — Módulo Usuários', () => {
     const res = await request.get(`${BASE}/api/usuarios`, { headers: adminHeaders });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body).toHaveProperty('items');
-    expect(body).toHaveProperty('total');
-    expect(Array.isArray(body.items)).toBe(true);
+    expect(body).toHaveProperty('data');
+    expect(body).toHaveProperty('pagination');
+    expect(Array.isArray(body.data)).toBe(true);
   });
 
-  test('GET /api/usuarios?pageSize=1 com ADMIN → 200 e 1 item', async ({ request, adminHeaders }) => {
+  test('GET /api/usuarios?pageSize=1 com ADMIN → 200 e 1 item', async ({
+    request,
+    adminHeaders,
+  }) => {
     const res = await request.get(`${BASE}/api/usuarios?pageSize=1`, { headers: adminHeaders });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.items.length).toBeLessThanOrEqual(1);
+    expect(body.data.length).toBeLessThanOrEqual(1);
   });
 
   // ── Content-Type ──
@@ -91,7 +96,7 @@ test.describe('Smoke — Módulo Usuários', () => {
   test('GET /api/usuarios não expõe senhaHash', async ({ request, adminHeaders }) => {
     const res = await request.get(`${BASE}/api/usuarios`, { headers: adminHeaders });
     const body = await res.json();
-    for (const user of body.items) {
+    for (const user of body.data) {
       expect(user).not.toHaveProperty('senhaHash');
       expect(user).not.toHaveProperty('senha');
     }

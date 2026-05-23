@@ -10,10 +10,16 @@ import { seedUsuarios, teardownUsuarios } from '../fixtures/usuarios-seed';
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
-test.describe.serial('04 — Validação E2E', () => {
-  test.beforeAll(async () => { await seedUsuarios(); });
-  test.afterAll(async () => { await teardownUsuarios(); });
-  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
+test.describe('04 — Validação E2E', () => {
+  test.beforeAll(async () => {
+    await seedUsuarios();
+  });
+  test.afterAll(async () => {
+    await teardownUsuarios();
+  });
+  test.beforeEach(async ({ request }) => {
+    await resetRateLimits(request);
+  });
 
   // ─── Telefone ───
   test.describe('Telefone', () => {
@@ -128,7 +134,7 @@ test.describe.serial('04 — Validação E2E', () => {
 
       const detail = await request.get(`${BASE}/api/usuarios/3`, { headers: adminHeaders });
       const body = await detail.json();
-      expect(body.dataNascimento).toBe('05/18/1979');
+      expect(body.data.dataNascimento).toBe('05/18/1979');
     });
 
     test('aceita YYYY-MM-DD', async ({ request, adminHeaders }) => {

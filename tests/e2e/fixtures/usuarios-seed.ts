@@ -43,53 +43,134 @@ export interface SeedUser {
 const DEFAULT_PASSWORD = 'TestSenha123!';
 
 export const seedUsers: SeedUser[] = [
-  { id: 1, email: 'admin@test.com', nomeCompleto: 'Admin Test', nivel: 'ADMIN', status: 'ATIVO', senha: DEFAULT_PASSWORD },
-  { id: 2, email: 'gerente@test.com', nomeCompleto: 'Gerente Test', nivel: 'GERENTE', status: 'ATIVO', senha: DEFAULT_PASSWORD },
-  { id: 3, email: 'usuario@test.com', nomeCompleto: 'Usuario Test', nivel: 'USUARIO', status: 'ATIVO', senha: DEFAULT_PASSWORD },
-  { id: 4, email: 'estoque@test.com', nomeCompleto: 'Estoque Test', nivel: 'ESTOQUE', status: 'ATIVO', senha: DEFAULT_PASSWORD },
-  { id: 5, email: 'financeiro@test.com', nomeCompleto: 'Financeiro Test', nivel: 'FINANCEIRO', status: 'ATIVO', senha: DEFAULT_PASSWORD },
-  { id: 6, email: 'cliente@test.com', nomeCompleto: 'Cliente Test', nivel: 'CLIENTE', status: 'ATIVO', senha: DEFAULT_PASSWORD },
-  { id: 7, email: 'admin2@test.com', nomeCompleto: 'Admin Extra Test', nivel: 'ADMIN', status: 'ATIVO', senha: DEFAULT_PASSWORD },
+  {
+    id: 1,
+    email: 'admin@test.com',
+    nomeCompleto: 'Admin Test',
+    nivel: 'ADMIN',
+    status: 'ATIVO',
+    senha: DEFAULT_PASSWORD,
+  },
+  {
+    id: 2,
+    email: 'gerente@test.com',
+    nomeCompleto: 'Gerente Test',
+    nivel: 'GERENTE',
+    status: 'ATIVO',
+    senha: DEFAULT_PASSWORD,
+  },
+  {
+    id: 3,
+    email: 'usuario@test.com',
+    nomeCompleto: 'Usuario Test',
+    nivel: 'USUARIO',
+    status: 'ATIVO',
+    senha: DEFAULT_PASSWORD,
+  },
+  {
+    id: 4,
+    email: 'estoque@test.com',
+    nomeCompleto: 'Estoque Test',
+    nivel: 'ESTOQUE',
+    status: 'ATIVO',
+    senha: DEFAULT_PASSWORD,
+  },
+  {
+    id: 5,
+    email: 'financeiro@test.com',
+    nomeCompleto: 'Financeiro Test',
+    nivel: 'FINANCEIRO',
+    status: 'ATIVO',
+    senha: DEFAULT_PASSWORD,
+  },
+  {
+    id: 6,
+    email: 'cliente@test.com',
+    nomeCompleto: 'Cliente Test',
+    nivel: 'CLIENTE',
+    status: 'ATIVO',
+    senha: DEFAULT_PASSWORD,
+  },
+  {
+    id: 7,
+    email: 'admin2@test.com',
+    nomeCompleto: 'Admin Extra Test',
+    nivel: 'ADMIN',
+    status: 'ATIVO',
+    senha: DEFAULT_PASSWORD,
+  },
 ];
 
 export async function seedUsuarios(): Promise<void> {
+  console.log('[Seed] Starting seedUsuarios()...');
   const hash = await bcrypt.hash(DEFAULT_PASSWORD, 4);
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
   // Clear conflicting emails first (a different row may own the email)
-  const emails = seedUsers.map(u => u.email);
-  const ids = seedUsers.map(u => u.id);
+  const emails = seedUsers.map((u) => u.email);
+  const ids = seedUsers.map((u) => u.id);
   const emailPh = emails.map(() => '?').join(',');
   const idPh = ids.map(() => '?').join(',');
-  await prisma.$executeRawUnsafe(
-    `DELETE FROM Usuario WHERE email IN (${emailPh}) AND id NOT IN (${idPh})`,
-    ...emails, ...ids
-  );
+
+  try {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM Usuario WHERE email IN (${emailPh}) AND id NOT IN (${idPh})`,
+      ...emails,
+      ...ids,
+    );
+    console.log('[Seed] Cleared conflicting emails');
+  } catch (e) {
+    console.log('[Seed] Email cleanup failed (table might not exist yet):', (e as any).message);
+  }
 
   for (const u of seedUsers) {
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO Usuario (id, email, senha, nivel, status, nomeCompleto, endereco1, endereco2, cidade, criadoEm, atualizadoEm, tokenVersion)
-       VALUES (?, ?, ?, ?, ?, ?, '', '', '', ?, ?, 1)
-       ON DUPLICATE KEY UPDATE
-         email = VALUES(email),
-         senha = VALUES(senha),
-         nivel = VALUES(nivel),
-         status = VALUES(status),
-         nomeCompleto = VALUES(nomeCompleto),
-         tokenVersion = 1,
-         atualizadoEm = VALUES(atualizadoEm)`,
-      u.id, u.email, hash, u.nivel, u.status, u.nomeCompleto, now, now
-    );
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO Usuario (id, email, senha, nivel, status, nomeCompleto, endereco1, endereco2, cidade, criadoEm, atualizadoEm, tokenVersion, empresaId)
+         VALUES (?, ?, ?, ?, ?, ?, '', '', '', ?, ?, 1, 1)
+         ON DUPLICATE KEY UPDATE
+           email = VALUES(email),
+           senha = VALUES(senha),
+           nivel = VALUES(nivel),
+           status = VALUES(status),
+           nomeCompleto = VALUES(nomeCompleto),
+           tokenVersion = 1,
+           empresaId = 1,
+           atualizadoEm = VALUES(atualizadoEm)`,
+        u.id,
+        u.email,
+        hash,
+        u.nivel,
+        u.status,
+        u.nomeCompleto,
+        now,
+        now,
+      );
+      console.log(`[Seed] Created/updated user: ${u.email} (id=${u.id}, role=${u.nivel})`);
+    } catch (e) {
+      console.error(`[Seed] Failed to seed user ${u.email}:`, (e as any).message);
+      throw e;
+    }
   }
+  console.log('[Seed] seedUsuarios() complete!');
 }
 
 export async function cleanupUsuarios(): Promise<void> {
-  const ids = seedUsers.map(u => u.id);
+  const ids = seedUsers.map((u) => u.id);
   const placeholders = ids.map(() => '?').join(',');
 
-  await prisma.$executeRawUnsafe(`DELETE FROM Auditoria WHERE registroId IN (${placeholders}) AND tabela = 'Usuario'`, ...ids);
-  await prisma.$executeRawUnsafe(`DELETE FROM Auditoria WHERE usuarioId IN (${placeholders})`, ...ids);
-  await prisma.$executeRawUnsafe(`DELETE FROM SessaoAtiva WHERE usuarioId IN (${placeholders})`, ...ids);
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM Auditoria WHERE registroId IN (${placeholders}) AND tabela = 'Usuario'`,
+    ...ids,
+  );
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM Auditoria WHERE usuarioId IN (${placeholders})`,
+    ...ids,
+  );
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM SessaoAtiva WHERE usuarioId IN (${placeholders})`,
+    ...ids,
+  );
 
   // Delete users created by tests (emails ending in @e2e-test.com)
   await prisma.$executeRawUnsafe(`DELETE FROM Usuario WHERE email LIKE '%@e2e-test.com'`);
@@ -113,15 +194,23 @@ async function cleanDependentRows(ids: number[]): Promise<void> {
   for (const table of fkTables) {
     try {
       const col = table === 'AuditLog' ? 'userId' : 'usuarioId';
-      await prisma.$executeRawUnsafe(`DELETE FROM \`${table}\` WHERE \`${col}\` IN (${ph})`, ...ids);
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM \`${table}\` WHERE \`${col}\` IN (${ph})`,
+        ...ids,
+      );
     } catch {
       // table might not exist — skip
     }
   }
   // Auditoria by registroId
   try {
-    await prisma.$executeRawUnsafe(`DELETE FROM Auditoria WHERE registroId IN (${ph}) AND tabela = 'Usuario'`, ...ids);
-  } catch { /* skip */ }
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM Auditoria WHERE registroId IN (${ph}) AND tabela = 'Usuario'`,
+      ...ids,
+    );
+  } catch {
+    /* skip */
+  }
 }
 
 export async function teardownUsuarios(): Promise<void> {

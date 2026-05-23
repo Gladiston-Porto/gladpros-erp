@@ -14,12 +14,21 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
   let createdUserId: number | null = null;
   const testEmail = `crud-${Date.now()}@e2e-test.com`;
 
-  test.beforeAll(async () => { await seedUsuarios(); });
-  test.afterAll(async () => { await teardownUsuarios(); });
-  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
+  test.beforeAll(async () => {
+    await seedUsuarios();
+  });
+  test.afterAll(async () => {
+    await teardownUsuarios();
+  });
+  test.beforeEach(async ({ request }) => {
+    await resetRateLimits(request);
+  });
 
   // ── POST: criar usuário ──
-  test('POST /api/usuarios cria usuário com senha provisória', async ({ request, adminHeaders }) => {
+  test('POST /api/usuarios cria usuário com senha provisória', async ({
+    request,
+    adminHeaders,
+  }) => {
     const res = await request.post(`${BASE}/api/usuarios`, {
       headers: adminHeaders,
       data: {
@@ -42,14 +51,17 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
   });
 
   // ── GET list: novo usuário aparece ──
-  test('GET /api/usuarios lista inclui o usuário recém-criado', async ({ request, adminHeaders }) => {
+  test('GET /api/usuarios lista inclui o usuário recém-criado', async ({
+    request,
+    adminHeaders,
+  }) => {
     const res = await request.get(`${BASE}/api/usuarios?q=${encodeURIComponent(testEmail)}`, {
       headers: adminHeaders,
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.items.length).toBeGreaterThanOrEqual(1);
-    const found = body.items.find((u: { email: string }) => u.email === testEmail);
+    expect(body.data.length).toBeGreaterThanOrEqual(1);
+    const found = body.data.find((u: { email: string }) => u.email === testEmail);
     expect(found).toBeTruthy();
     expect(found.role).toBe('USUARIO');
   });
@@ -59,9 +71,9 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
     const res = await request.get(`${BASE}/api/usuarios?pageSize=1`, { headers: adminHeaders });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.items.length).toBe(1);
-    expect(body.total).toBeGreaterThan(1);
-    expect(body.pageSize).toBe(1);
+    expect(body.data.length).toBe(1);
+    expect(body.pagination.total).toBeGreaterThan(1);
+    expect(body.pagination.pageSize).toBe(1);
   });
 
   // ── GET list: filtros role + status ──
@@ -69,7 +81,7 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
     const res = await request.get(`${BASE}/api/usuarios?role=ADMIN`, { headers: adminHeaders });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    for (const u of body.items) {
+    for (const u of body.data) {
       expect(u.role).toBe('ADMIN');
     }
   });
@@ -78,18 +90,24 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
     const res = await request.get(`${BASE}/api/usuarios?status=ATIVO`, { headers: adminHeaders });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    for (const u of body.items) {
+    for (const u of body.data) {
       expect(u.status).toBe('ATIVO');
     }
   });
 
   // ── GET list: sort ──
   test('GET /api/usuarios sort por email ASC', async ({ request, adminHeaders }) => {
-    const res = await request.get(`${BASE}/api/usuarios?sortKey=email&sortDir=asc`, { headers: adminHeaders });
+    const res = await request.get(`${BASE}/api/usuarios?sortKey=email&sortDir=asc`, {
+      headers: adminHeaders,
+    });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    const emails = body.items.map((u: { email: string }) => u.email);
-    const collator = new Intl.Collator('en-US', { sensitivity: 'base', ignorePunctuation: true, numeric: true });
+    const emails = body.data.map((u: { email: string }) => u.email);
+    const collator = new Intl.Collator('en-US', {
+      sensitivity: 'base',
+      ignorePunctuation: true,
+      numeric: true,
+    });
     const sorted = [...emails].sort(collator.compare);
     expect(emails).toEqual(sorted);
   });
@@ -103,13 +121,15 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
   // ── GET detail ──
   test('GET /api/usuarios/:id retorna detalhes completos', async ({ request, adminHeaders }) => {
     expect(createdUserId).toBeTruthy();
-    const res = await request.get(`${BASE}/api/usuarios/${createdUserId}`, { headers: adminHeaders });
+    const res = await request.get(`${BASE}/api/usuarios/${createdUserId}`, {
+      headers: adminHeaders,
+    });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.email).toBe(testEmail);
-    expect(body.nomeCompleto).toBe('CRUD Test User');
-    expect(body.role).toBe('USUARIO');
-    expect(body.cidade).toBe('Dallas');
+    expect(body.data.email).toBe(testEmail);
+    expect(body.data.nomeCompleto).toBe('CRUD Test User');
+    expect(body.data.role).toBe('USUARIO');
+    expect(body.data.cidade).toBe('Dallas');
   });
 
   test('GET /api/usuarios/999999999 retorna 404', async ({ request, adminHeaders }) => {
@@ -123,17 +143,22 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
   });
 
   // ── PATCH: atualizar campos ──
-  test('PATCH /api/usuarios/:id atualiza nomeCompleto e telefone', async ({ request, adminHeaders }) => {
+  test('PATCH /api/usuarios/:id atualiza nomeCompleto e telefone', async ({
+    request,
+    adminHeaders,
+  }) => {
     const res = await request.patch(`${BASE}/api/usuarios/${createdUserId}`, {
       headers: adminHeaders,
       data: { nomeCompleto: 'Updated CRUD User', telefone: '2145551234' },
     });
     expect(res.status()).toBe(200);
 
-    const detail = await request.get(`${BASE}/api/usuarios/${createdUserId}`, { headers: adminHeaders });
+    const detail = await request.get(`${BASE}/api/usuarios/${createdUserId}`, {
+      headers: adminHeaders,
+    });
     const body = await detail.json();
-    expect(body.nomeCompleto).toBe('Updated CRUD User');
-    expect(body.telefone).toContain('214');
+    expect(body.data.nomeCompleto).toBe('Updated CRUD User');
+    expect(body.data.telefone).toContain('214');
   });
 
   // ── PATCH: atualizar role ──
@@ -144,9 +169,11 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
     });
     expect(res.status()).toBe(200);
 
-    const detail = await request.get(`${BASE}/api/usuarios/${createdUserId}`, { headers: adminHeaders });
+    const detail = await request.get(`${BASE}/api/usuarios/${createdUserId}`, {
+      headers: adminHeaders,
+    });
     const body = await detail.json();
-    expect(body.role).toBe('FINANCEIRO');
+    expect(body.data.role).toBe('FINANCEIRO');
 
     // rollback
     await request.patch(`${BASE}/api/usuarios/${createdUserId}`, {
@@ -156,35 +183,51 @@ test.describe.serial('01 — Usuários CRUD (ADMIN)', () => {
   });
 
   // ── PUT toggle-status: idempotência ──
-  test('PUT toggle-status ciclo completo: ATIVO → INATIVO → ATIVO', async ({ request, adminHeaders }) => {
+  test('PUT toggle-status ciclo completo: ATIVO → INATIVO → ATIVO', async ({
+    request,
+    adminHeaders,
+  }) => {
     // ATIVO → INATIVO
-    const r1 = await request.put(`${BASE}/api/usuarios/${createdUserId}/toggle-status`, { headers: adminHeaders });
+    const r1 = await request.put(`${BASE}/api/usuarios/${createdUserId}/toggle-status`, {
+      headers: adminHeaders,
+    });
     expect(r1.status()).toBe(200);
     const b1 = await r1.json();
     expect(b1.data.status).toBe('INATIVO');
 
     // INATIVO → ATIVO
-    const r2 = await request.put(`${BASE}/api/usuarios/${createdUserId}/toggle-status`, { headers: adminHeaders });
+    const r2 = await request.put(`${BASE}/api/usuarios/${createdUserId}/toggle-status`, {
+      headers: adminHeaders,
+    });
     expect(r2.status()).toBe(200);
     const b2 = await r2.json();
     expect(b2.data.status).toBe('ATIVO');
   });
 
   // ── DELETE: soft-delete ──
-  test('DELETE /api/usuarios/:id soft-deletes (status INATIVO)', async ({ request, adminHeaders }) => {
-    const res = await request.delete(`${BASE}/api/usuarios/${createdUserId}`, { headers: adminHeaders });
+  test('DELETE /api/usuarios/:id soft-deletes (status INATIVO)', async ({
+    request,
+    adminHeaders,
+  }) => {
+    const res = await request.delete(`${BASE}/api/usuarios/${createdUserId}`, {
+      headers: adminHeaders,
+    });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.ok).toBe(true);
+    expect(body.success).toBe(true);
 
-    const detail = await request.get(`${BASE}/api/usuarios/${createdUserId}`, { headers: adminHeaders });
+    const detail = await request.get(`${BASE}/api/usuarios/${createdUserId}`, {
+      headers: adminHeaders,
+    });
     const user = await detail.json();
-    expect(user.status).toBe('INATIVO');
+    expect(user.data.status).toBe('INATIVO');
   });
 
   // ── DELETE: idempotente ──
   test('DELETE /api/usuarios/:id idempotente se já inativo', async ({ request, adminHeaders }) => {
-    const res = await request.delete(`${BASE}/api/usuarios/${createdUserId}`, { headers: adminHeaders });
+    const res = await request.delete(`${BASE}/api/usuarios/${createdUserId}`, {
+      headers: adminHeaders,
+    });
     expect(res.status()).toBe(200);
   });
 
