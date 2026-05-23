@@ -9,7 +9,6 @@ import {
   ProjectEvent,
   ProjectEventType,
   EventHandler,
-  EventSubscription,
   EventProcessingResult,
   EventPriority,
 } from './types';

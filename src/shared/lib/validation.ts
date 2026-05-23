@@ -212,7 +212,7 @@ export const userUpdateApiSchema = z
       .union([z.string(), z.date(), z.null()])
       .optional()
       .transform((v) => {
-        if (!v || v === null) return undefined;
+        if (!v) return undefined;
         if (v instanceof Date) {
           if (isNaN(v.getTime())) return undefined;
           const yyyy = v.getFullYear();
@@ -302,10 +302,7 @@ export class Sanitizer {
 
   // Sanitizar HTML removendo tags perigosas
   static sanitizeHtml(input: string): string {
-    return input
-      .replace(/<[^>]*>/g, '')
-      .replace(/\0/g, '')
-      .trim();
+    return input.replace(/[<>]/g, '').replace(/\0/g, '').trim();
   }
 
   // Sanitizar input para SQL (adicional ao Prisma)

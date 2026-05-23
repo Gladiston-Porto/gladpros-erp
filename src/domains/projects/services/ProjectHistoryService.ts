@@ -5,7 +5,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { ProjetoHistorico, AcaoHistorico } from '../entities';
-import { ListarHistoricoDTO, PaginatedResponse, ProjetoHistoricoResponseDTO } from '../dtos';
+import { ListarHistoricoDTO, PaginatedResponse } from '../dtos';
 
 export interface RegistrarHistoricoDTO {
   projetoId: number;
