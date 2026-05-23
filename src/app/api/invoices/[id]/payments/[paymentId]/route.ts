@@ -97,6 +97,9 @@ export const DELETE = withErrorHandler(
 
       // Reverse bank account balance and create ledger/bank transaction records
       if (payment.bankAccountId) {
+        const saldoAnterior = new Decimal(0);
+        const saldoPosterior = new Decimal(0);
+
         await tx.bankAccount.updateMany({
           where: { id: payment.bankAccountId, empresaId: user.empresaId },
           data: { saldoAtual: { decrement: Number(payment.valor) } },
@@ -110,7 +113,9 @@ export const DELETE = withErrorHandler(
             valor: new Decimal(Number(payment.valor)),
             descricao: `Estorno Invoice #${invoiceId} - pagamento #${paymentIdInt}`,
             empresaId: user.empresaId,
-            criadoPor: Number(user.id),
+            dataTransacao: new Date(),
+            saldoAnterior,
+            saldoPosterior,
           },
         });
 
@@ -119,7 +124,8 @@ export const DELETE = withErrorHandler(
             sourceType: 'REVERSAL',
             sourceId: paymentIdInt,
             empresaId: user.empresaId,
-            criadoPor: Number(user.id),
+            data: new Date(),
+            descricao: `Estorno Invoice #${invoiceId} - pagamento #${paymentIdInt}`,
           },
         });
       }

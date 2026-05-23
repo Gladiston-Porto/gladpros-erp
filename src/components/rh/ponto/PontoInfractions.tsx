@@ -1,104 +1,104 @@
-"use client"
+'use client';
 
 // PontoInfractions — histórico de infrações para ADMIN/GERENTE
 // Permite abonar penalidades com justificativa
 
-import { useState, useEffect, useCallback } from "react"
-import { AlertTriangle, CheckCircle, RefreshCw, Shield } from "lucide-react"
+import { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, CheckCircle, RefreshCw, Shield } from 'lucide-react';
 
 interface Infraction {
-  id: number
-  type: string
-  occurredAt: string
-  cycleNumber: number
-  cyclePosition: number
-  penaltyApplied: boolean
-  penaltyAmount: string | null
-  waived: boolean
-  waivedAt: string | null
-  waivedReason: string | null
-  alertSentToAdmin: boolean
+  id: number;
+  type: string;
+  occurredAt: string;
+  cycleNumber: number;
+  cyclePosition: number;
+  penaltyApplied: boolean;
+  penaltyAmount: string | null;
+  waived: boolean;
+  waivedAt: string | null;
+  waivedReason: string | null;
+  alertSentToAdmin: boolean;
   worker: {
-    id: number
-    name: string | null
-    usuario: { nomeCompleto: string | null } | null
-  }
-  waivedBy: { nomeCompleto: string | null } | null
+    id: number;
+    name: string | null;
+    usuario: { nomeCompleto: string | null } | null;
+  };
+  waivedBy: { nomeCompleto: string | null } | null;
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  FORGOT_CLOCK_OUT: "Esqueceu de registrar saída",
-  FORGOT_CLOCK_IN: "Esqueceu de registrar entrada",
-}
+  FORGOT_CLOCK_OUT: 'Esqueceu de registrar saída',
+  FORGOT_CLOCK_IN: 'Esqueceu de registrar entrada',
+};
 
-const fmt$ = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+const fmt$ = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 export default function PontoInfractions() {
-  const [infractions, setInfractions] = useState<Infraction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [waiveModal, setWaiveModal] = useState<{ id: number; workerName: string } | null>(null)
-  const [waiveReason, setWaiveReason] = useState("")
-  const [actionLoading, setActionLoading] = useState<number | null>(null)
-  const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null)
+  const [infractions, setInfractions] = useState<Infraction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [waiveModal, setWaiveModal] = useState<{ id: number; workerName: string } | null>(null);
+  const [waiveReason, setWaiveReason] = useState('');
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
 
-  const showToast = (msg: string, type: "ok" | "err") => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string, type: 'ok' | 'err') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const fetchInfractions = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch("/api/rh/infractions?pageSize=50")
-      const data = await res.json()
-      if (data.success) setInfractions(data.data)
+      const res = await fetch('/api/rh/infractions?pageSize=50');
+      const data = await res.json();
+      if (data.success) setInfractions(data.data);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    fetchInfractions()
-  }, [fetchInfractions])
+    fetchInfractions();
+  }, [fetchInfractions]);
 
   const handleWaive = async () => {
-    if (!waiveModal || !waiveReason.trim()) return
-    setActionLoading(waiveModal.id)
+    if (!waiveModal || !waiveReason.trim()) return;
+    setActionLoading(waiveModal.id);
     try {
       const res = await fetch(`/api/rh/infractions/${waiveModal.id}/waive`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: waiveReason }),
-      })
+      });
       if (res.ok) {
-        showToast("Penalidade abonada com sucesso", "ok")
-        setWaiveModal(null)
-        setWaiveReason("")
-        fetchInfractions()
+        showToast('Penalidade abonada com sucesso', 'ok');
+        setWaiveModal(null);
+        setWaiveReason('');
+        fetchInfractions();
       } else {
-        const d = await res.json()
-        showToast(d.message ?? "Erro ao abonar", "err")
+        const d = await res.json();
+        showToast(d.message ?? 'Erro ao abonar', 'err');
       }
     } finally {
-      setActionLoading(null)
+      setActionLoading(null);
     }
-  }
+  };
 
   const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-US", {
-      timeZone: "America/Chicago",
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })
+    new Date(iso).toLocaleDateString('en-US', {
+      timeZone: 'America/Chicago',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
         <div className="animate-spin rounded-full h-8 w-8 border-4 border-brand-primary border-t-transparent" />
       </div>
-    )
+    );
   }
 
   return (
@@ -107,9 +107,9 @@ export default function PontoInfractions() {
       {toast && (
         <div
           className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl text-sm font-medium shadow-lg ${
-            toast.type === "ok"
-              ? "bg-green-500/10 text-green-600 border border-green-500/20"
-              : "bg-destructive/10 text-destructive border border-destructive/20"
+            toast.type === 'ok'
+              ? 'bg-green-500/10 text-green-600 border border-green-500/20'
+              : 'bg-destructive/10 text-destructive border border-destructive/20'
           }`}
         >
           {toast.msg}
@@ -141,13 +141,14 @@ export default function PontoInfractions() {
         </div>
       ) : (
         infractions.map((inf) => {
-          const workerName = inf.worker.name ?? inf.worker.usuario?.nomeCompleto ?? `#${inf.worker.id}`
+          const workerName =
+            inf.worker.name ?? inf.worker.usuario?.nomeCompleto ?? `#${inf.worker.id}`;
 
           return (
             <div
               key={inf.id}
               className={`rounded-2xl bg-card border p-4 space-y-2 ${
-                inf.waived ? "border-border opacity-60" : "border-border"
+                inf.waived ? 'border-border opacity-60' : 'border-border'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -174,13 +175,13 @@ export default function PontoInfractions() {
 
               {inf.penaltyApplied && inf.penaltyAmount && !inf.waived && (
                 <p className="text-sm font-medium text-destructive">
-                  Penalidade: {fmt$(Number(inf.penaltyAmount))}
+                  Penalidade: {fmt$.format(Number(inf.penaltyAmount))}
                 </p>
               )}
 
               {inf.waived && inf.waivedReason && (
                 <p className="text-xs text-muted-foreground">
-                  Abonado por {inf.waivedBy?.nomeCompleto ?? "—"}: {inf.waivedReason}
+                  Abonado por {inf.waivedBy?.nomeCompleto ?? '—'}: {inf.waivedReason}
                 </p>
               )}
 
@@ -198,7 +199,7 @@ export default function PontoInfractions() {
                 </div>
               )}
             </div>
-          )
+          );
         })
       )}
 
@@ -228,7 +229,10 @@ export default function PontoInfractions() {
                 Confirmar
               </button>
               <button
-                onClick={() => { setWaiveModal(null); setWaiveReason("") }}
+                onClick={() => {
+                  setWaiveModal(null);
+                  setWaiveReason('');
+                }}
                 aria-label="Cancelar abono"
                 className="flex-1 py-2.5 rounded-xl bg-card border border-border text-foreground text-sm font-medium hover:bg-muted transition-colors"
               >
@@ -239,5 +243,5 @@ export default function PontoInfractions() {
         </div>
       )}
     </div>
-  )
+  );
 }
