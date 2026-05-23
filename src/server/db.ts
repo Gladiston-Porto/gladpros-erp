@@ -1,1 +1,1 @@
-export { prisma } from "@/shared/lib/prisma"; // nosemgrep: gladpros-prisma-import-canonical-path — legacy compat shim
+export { prisma } from '@/shared/lib/prisma'; // nosemgrep: semgrep.gladpros.gladpros-prisma-import-canonical-path — legacy compat shim
