@@ -268,7 +268,6 @@ export default function ProcurementHubPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null);
-
   const [, setProcessing] = useState(false);
 
   const loadData = useCallback(async () => {

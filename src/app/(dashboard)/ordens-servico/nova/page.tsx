@@ -1,58 +1,58 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
-import { FilePlus } from 'lucide-react';
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { FilePlus } from "lucide-react";
 
-import { Button } from '@gladpros/ui/button';
-import { ModulePageHeader } from '@gladpros/ui/module-page-header';
-import { useToast } from '@gladpros/ui/toast';
-import { Input } from '@gladpros/ui/input';
+import { Button } from "@gladpros/ui/button"
+import { ModulePageHeader } from "@gladpros/ui/module-page-header"
+import { useToast } from "@gladpros/ui/toast";
+import { Input } from "@gladpros/ui/input";
 
-import { authenticatedFetch } from '@/lib/api/client';
+import { authenticatedFetch } from "@/lib/api/client";
 
-import { ServiceOrderClientSection } from './_components/ServiceOrderClientSection';
-import { ServiceOrderMaterialsSection } from './_components/ServiceOrderMaterialsSection';
-import { ServiceOrderScheduleSection } from './_components/ServiceOrderScheduleSection';
-import { ServiceOrderScopeSection } from './_components/ServiceOrderScopeSection';
+import { ServiceOrderClientSection } from "./_components/ServiceOrderClientSection";
+import { ServiceOrderMaterialsSection } from "./_components/ServiceOrderMaterialsSection";
+import { ServiceOrderScheduleSection } from "./_components/ServiceOrderScheduleSection";
+import { ServiceOrderScopeSection } from "./_components/ServiceOrderScopeSection";
 import type {
   PlannedMaterial,
   ServiceOrderClient,
   ServiceOrderFormState,
   StockMaterial,
-} from './_components/types';
+} from "./_components/types";
 
 const INITIAL_FORM: ServiceOrderFormState = {
   clienteId: 0,
-  title: '',
-  description: '',
-  scheduleType: 'FIXED',
-  scheduledDate: '',
-  scheduleDateStart: '',
-  scheduleDateEnd: '',
-  estimatedHours: '',
-  hourlyRate: '',
-  materialSupply: 'COMPANY_PROVIDES',
+  title: "",
+  description: "",
+  scheduleType: "FIXED",
+  scheduledDate: "",
+  scheduleDateStart: "",
+  scheduleDateEnd: "",
+  estimatedHours: "",
+  hourlyRate: "",
+  materialSupply: "COMPANY_PROVIDES",
   sameClientAddress: true,
-  serviceAddressLine1: '',
-  serviceCity: '',
-  serviceState: 'TX',
-  serviceZip: '',
-  servicePhone: '',
-  serviceContactName: '',
-  endClientName: '',
-  endClientPhone: '',
-  endClientEmail: '',
-  endClientNotes: '',
+  serviceAddressLine1: "",
+  serviceCity: "",
+  serviceState: "TX",
+  serviceZip: "",
+  servicePhone: "",
+  serviceContactName: "",
+  endClientName: "",
+  endClientPhone: "",
+  endClientEmail: "",
+  endClientNotes: "",
   assignedWorkerId: undefined,
-  priority: 'MEDIUM',
-  agreedClientPrice: '',
-  materialEstimate: '',
-  laborEstimate: '',
-  propertyType: 'RESIDENTIAL',
-  serviceCategory: 'REPAIR',
-  contractType: 'LUMP_SUM',
+  priority: "MEDIUM",
+  agreedClientPrice: "",
+  materialEstimate: "",
+  laborEstimate: "",
+  propertyType: "RESIDENTIAL",
+  serviceCategory: "REPAIR",
+  contractType: "LUMP_SUM",
 };
 
 export default function NovaOrdemServicoPage() {
@@ -61,22 +61,22 @@ export default function NovaOrdemServicoPage() {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<ServiceOrderClient[]>([]);
-  const [searchClient, setSearchClient] = useState('');
+  const [searchClient, setSearchClient] = useState("");
   const [stockMaterials, setStockMaterials] = useState<StockMaterial[]>([]);
   const [stockMaterialsLoaded, setStockMaterialsLoaded] = useState(false);
   const [plannedMaterials, setPlannedMaterials] = useState<PlannedMaterial[]>([]);
   const [showMaterialSearch, setShowMaterialSearch] = useState(false);
-  const [materialSearch, setMaterialSearch] = useState('');
+  const [materialSearch, setMaterialSearch] = useState("");
   const [pendingMaterial, setPendingMaterial] = useState<StockMaterial | null>(null);
-  const [pendingQty, setPendingQty] = useState('1');
+  const [pendingQty, setPendingQty] = useState("1");
   const [scopeItems, setScopeItems] = useState<string[]>([]);
-  const [newScopeItem, setNewScopeItem] = useState('');
+  const [newScopeItem, setNewScopeItem] = useState("");
   const [form, setForm] = useState<ServiceOrderFormState>(INITIAL_FORM);
   const [carryOverSource, setCarryOverSource] = useState<string | null>(null);
 
   // Carry-over: if ?propostaId=X is in URL, pre-fill financial fields from proposta
   useEffect(() => {
-    const propostaId = searchParams.get('propostaId');
+    const propostaId = searchParams.get("propostaId");
     if (!propostaId) return;
     authenticatedFetch(`/api/propostas/${propostaId}`)
       .then((r) => r.json())
@@ -85,9 +85,7 @@ export default function NovaOrdemServicoPage() {
         if (!p?.id) return;
         setForm((prev) => ({
           ...prev,
-          ...(p.precoPropostaCliente
-            ? { agreedClientPrice: String(Number(p.precoPropostaCliente)) }
-            : {}),
+          ...(p.precoPropostaCliente ? { agreedClientPrice: String(Number(p.precoPropostaCliente)) } : {}),
           ...(p.valorEstimado ? { materialEstimate: String(Number(p.valorEstimado)) } : {}),
           ...(p.clienteId ? { clienteId: p.clienteId } : {}),
           ...(p.titulo ? { title: p.titulo } : {}),
@@ -95,9 +93,7 @@ export default function NovaOrdemServicoPage() {
         }));
         setCarryOverSource(`Proposta #${p.numeroProposta || propostaId}`);
       })
-      .catch(() => {
-        /* silent — carry-over is best-effort */
-      });
+      .catch(() => {/* silent — carry-over is best-effort */});
   }, [searchParams]);
 
   useEffect(() => {
@@ -105,7 +101,7 @@ export default function NovaOrdemServicoPage() {
 
     async function loadClients() {
       try {
-        const response = await authenticatedFetch('/api/clients', {
+        const response = await authenticatedFetch("/api/clients", {
           signal: controller.signal,
         });
         if (!response.ok) {
@@ -113,9 +109,9 @@ export default function NovaOrdemServicoPage() {
         }
 
         const data = await response.json();
-        setClients(Array.isArray(data) ? data : (data.data ?? []));
+        setClients(Array.isArray(data) ? data : data.data ?? []);
       } catch (error) {
-        if ((error as Error).name === 'AbortError') {
+        if ((error as Error).name === "AbortError") {
           return;
         }
       }
@@ -128,13 +124,15 @@ export default function NovaOrdemServicoPage() {
 
   const selectedClient = useMemo(
     () => clients.find((client) => client.id === form.clienteId),
-    [clients, form.clienteId],
+    [clients, form.clienteId]
   );
 
   const filteredClients = useMemo(
     () =>
-      clients.filter((client) => client.name.toLowerCase().includes(searchClient.toLowerCase())),
-    [clients, searchClient],
+      clients.filter((client) =>
+        client.name.toLowerCase().includes(searchClient.toLowerCase())
+      ),
+    [clients, searchClient]
   );
 
   const loadStockMaterials = async () => {
@@ -143,21 +141,17 @@ export default function NovaOrdemServicoPage() {
     }
 
     try {
-      const response = await authenticatedFetch('/api/estoque/materiais?limit=100');
+      const response = await authenticatedFetch("/api/estoque/materiais?limit=100");
       if (!response.ok) {
         return;
       }
       const data = await response.json();
-      const raw: Record<string, unknown>[] = Array.isArray(data.data)
-        ? data.data
-        : Array.isArray(data)
-          ? data
-          : [];
+      const raw: Record<string, unknown>[] = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
       setStockMaterials(
         raw.map((m) => ({
           id: m.id as number,
           nome: m.nome as string,
-          unidade: ((m.unidade as Record<string, unknown> | null)?.codigo as string) ?? '',
+          unidade: (m.unidade as Record<string, unknown> | null)?.codigo as string ?? '',
           quantidadeEstoque: Number(m.saldoTotal ?? 0),
           precoUnitario: Number(m.ultimoCusto ?? m.custoMedio ?? 0),
           embalagens: Array.isArray(m.embalagens)
@@ -169,7 +163,7 @@ export default function NovaOrdemServicoPage() {
                 precoCompra: Number(e.precoCompra),
               }))
             : [],
-        })),
+        }))
       );
       setStockMaterialsLoaded(true);
     } catch {
@@ -181,11 +175,11 @@ export default function NovaOrdemServicoPage() {
     event.preventDefault();
 
     if (!form.clienteId) {
-      toast.error('Selecione um cliente');
+      toast.error("Selecione um cliente");
       return;
     }
     if (!form.title.trim()) {
-      toast.error('Informe o título do serviço');
+      toast.error("Informe o título do serviço");
       return;
     }
 
@@ -193,16 +187,20 @@ export default function NovaOrdemServicoPage() {
     try {
       const payload = {
         ...form,
-        estimatedHours: form.estimatedHours ? parseFloat(form.estimatedHours) : undefined,
+        estimatedHours: form.estimatedHours
+          ? parseFloat(form.estimatedHours)
+          : undefined,
         hourlyRate: form.hourlyRate ? parseFloat(form.hourlyRate) : undefined,
         scheduledDate:
-          form.scheduleType === 'FIXED' && form.scheduledDate ? form.scheduledDate : undefined,
+          form.scheduleType === "FIXED" && form.scheduledDate
+            ? form.scheduledDate
+            : undefined,
         scheduleDateStart:
-          form.scheduleType === 'FLEXIBLE' && form.scheduleDateStart
+          form.scheduleType === "FLEXIBLE" && form.scheduleDateStart
             ? form.scheduleDateStart
             : undefined,
         scheduleDateEnd:
-          form.scheduleType === 'FLEXIBLE' && form.scheduleDateEnd
+          form.scheduleType === "FLEXIBLE" && form.scheduleDateEnd
             ? form.scheduleDateEnd
             : undefined,
         ...(form.agreedClientPrice && { agreedClientPrice: parseFloat(form.agreedClientPrice) }),
@@ -213,15 +211,15 @@ export default function NovaOrdemServicoPage() {
         contractType: form.contractType,
       };
 
-      const response = await authenticatedFetch('/api/service-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await authenticatedFetch("/api/service-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Erro ao criar');
+        throw new Error(data.error || "Erro ao criar");
       }
 
       const result = await response.json();
@@ -230,8 +228,8 @@ export default function NovaOrdemServicoPage() {
       const materialResults = await Promise.allSettled(
         plannedMaterials.map((material) =>
           authenticatedFetch(`/api/service-orders/${created.id}/materials`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               materialId: material.materialId,
               name: material.name,
@@ -246,25 +244,25 @@ export default function NovaOrdemServicoPage() {
                 embalagemUnitAtTime: material.embalagemUnitAtTime,
               }),
             }),
-          }),
-        ),
+          })
+        )
       );
 
       const scopeResults = await Promise.allSettled(
         scopeItems.map((item, index) =>
           authenticatedFetch(`/api/service-orders/${created.id}/scope-items`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ description: item, sortOrder: index }),
-          }),
-        ),
+          })
+        )
       );
 
       const savedMats = materialResults.filter(
-        (result) => result.status === 'fulfilled' && result.value.ok,
+        (result) => result.status === "fulfilled" && result.value.ok
       ).length;
       const savedScope = scopeResults.filter(
-        (result) => result.status === 'fulfilled' && result.value.ok,
+        (result) => result.status === "fulfilled" && result.value.ok
       ).length;
 
       const extras: string[] = [];
@@ -274,19 +272,19 @@ export default function NovaOrdemServicoPage() {
       if (scopeItems.length > 0) {
         extras.push(`${savedScope}/${scopeItems.length} tarefas`);
       }
-      const detail = extras.length > 0 ? ` (${extras.join(', ')})` : '';
+      const detail = extras.length > 0 ? ` (${extras.join(", ")})` : "";
       toast.success(`OS ${created.ticketNumber} criada!${detail}`);
       router.push(`/ordens-servico/${created.id}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro');
+      toast.error(error instanceof Error ? error.message : "Erro");
     } finally {
       setLoading(false);
     }
   };
 
   const inputCls =
-    'mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring';
-  const labelCls = 'text-sm text-muted-foreground';
+    "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring";
+  const labelCls = "text-sm text-muted-foreground";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -367,12 +365,9 @@ export default function NovaOrdemServicoPage() {
         {/* Tax Classification Section */}
         <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
           <div>
-            <h3 className="font-semibold text-foreground">
-              Classificação Fiscal (Texas Sales Tax)
-            </h3>
+            <h3 className="font-semibold text-foreground">Classificação Fiscal (Texas Sales Tax)</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Determine se sales tax se aplica a este serviço. Residencial + lump-sum = sem cobrança
-              de tax ao cliente.
+              Determine se sales tax se aplica a este serviço. Residencial + lump-sum = sem cobrança de tax ao cliente.
             </p>
           </div>
 
@@ -381,9 +376,7 @@ export default function NovaOrdemServicoPage() {
               <label className="text-sm font-medium text-foreground">Tipo de Propriedade</label>
               <select
                 value={form.propertyType}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, propertyType: e.target.value as typeof f.propertyType }))
-                }
+                onChange={e => setForm(f => ({ ...f, propertyType: e.target.value as typeof f.propertyType }))}
                 className="w-full h-10 rounded-xl bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand-primary"
                 aria-label="Tipo de propriedade"
               >
@@ -399,12 +392,7 @@ export default function NovaOrdemServicoPage() {
               <label className="text-sm font-medium text-foreground">Categoria do Serviço</label>
               <select
                 value={form.serviceCategory}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    serviceCategory: e.target.value as typeof f.serviceCategory,
-                  }))
-                }
+                onChange={e => setForm(f => ({ ...f, serviceCategory: e.target.value as typeof f.serviceCategory }))}
                 className="w-full h-10 rounded-xl bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand-primary"
                 aria-label="Categoria do serviço"
               >
@@ -423,9 +411,7 @@ export default function NovaOrdemServicoPage() {
               <label className="text-sm font-medium text-foreground">Tipo de Contrato</label>
               <select
                 value={form.contractType}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, contractType: e.target.value as typeof f.contractType }))
-                }
+                onChange={e => setForm(f => ({ ...f, contractType: e.target.value as typeof f.contractType }))}
                 className="w-full h-10 rounded-xl bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-brand-primary"
                 aria-label="Tipo de contrato"
               >
@@ -438,40 +424,26 @@ export default function NovaOrdemServicoPage() {
           {/* Tax preview */}
           <div className="rounded-xl bg-muted/50 p-3 text-sm flex items-start gap-2">
             <span className="mt-0.5">
-              {form.propertyType === 'RESIDENTIAL' && form.contractType === 'LUMP_SUM' && (
-                <span className="text-green-600 dark:text-green-400">
-                  ✓ Residencial + Lump-Sum: <strong>Sem sales tax</strong> cobrado ao cliente.
-                  Empresa paga tax na compra de materiais.
-                </span>
+              {form.propertyType === "RESIDENTIAL" && form.contractType === "LUMP_SUM" && (
+                <span className="text-green-600 dark:text-green-400">✓ Residencial + Lump-Sum: <strong>Sem sales tax</strong> cobrado ao cliente. Empresa paga tax na compra de materiais.</span>
               )}
-              {form.propertyType === 'RESIDENTIAL' && form.contractType === 'SEPARATED' && (
-                <span className="text-blue-600 dark:text-blue-400">
-                  ℹ Residencial + Separado: Sales tax aplicado somente em materiais (não em mão de
-                  obra).
-                </span>
+              {form.propertyType === "RESIDENTIAL" && form.contractType === "SEPARATED" && (
+                <span className="text-blue-600 dark:text-blue-400">ℹ Residencial + Separado: Sales tax aplicado somente em materiais (não em mão de obra).</span>
               )}
-              {form.propertyType === 'COMMERCIAL' && (
-                <span className="text-yellow-600 dark:text-yellow-400">
-                  ⚠ Comercial: Sales tax de 8.25% aplicado sobre o subtotal total.
-                </span>
+              {form.propertyType === "COMMERCIAL" && (
+                <span className="text-yellow-600 dark:text-yellow-400">⚠ Comercial: Sales tax de 8.25% aplicado sobre o subtotal total.</span>
               )}
-              {(form.propertyType === 'MIXED_USE' ||
-                form.propertyType === 'EXEMPT_ORGANIZATION' ||
-                form.propertyType === 'GOVERNMENT') && (
-                <span className="text-orange-600 dark:text-orange-400">
-                  ⚠ Requer revisão manual por ADMIN ou Financeiro antes de enviar o invoice.
-                </span>
+              {(form.propertyType === "MIXED_USE" || form.propertyType === "EXEMPT_ORGANIZATION" || form.propertyType === "GOVERNMENT") && (
+                <span className="text-orange-600 dark:text-orange-400">⚠ Requer revisão manual por ADMIN ou Financeiro antes de enviar o invoice.</span>
               )}
             </span>
           </div>
 
           {/* Out-of-state warning */}
-          {form.serviceState && form.serviceState.trim().toUpperCase() !== 'TX' && (
+          {form.serviceState && form.serviceState.trim().toUpperCase() !== "TX" && (
             <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 flex items-start gap-2">
               <span className="text-yellow-600 dark:text-yellow-400 font-medium text-sm">
-                ⚠ Serviço fora do Texas ({form.serviceState.toUpperCase()}): Sales tax deste estado
-                será revisada manualmente. O invoice não poderá ser enviado até revisão por ADMIN ou
-                Financeiro.
+                ⚠ Serviço fora do Texas ({form.serviceState.toUpperCase()}): Sales tax deste estado será revisada manualmente. O invoice não poderá ser enviado até revisão por ADMIN ou Financeiro.
               </span>
             </div>
           )}
@@ -483,15 +455,13 @@ export default function NovaOrdemServicoPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
-                Valor Acordado com Cliente
-              </label>
+              <label className="text-sm font-medium text-foreground">Valor Acordado com Cliente</label>
               <Input
                 type="number"
                 step="0.01"
                 placeholder="0.00"
                 value={form.agreedClientPrice}
-                onChange={(e) => setForm((f) => ({ ...f, agreedClientPrice: e.target.value }))}
+                onChange={e => setForm(f => ({ ...f, agreedClientPrice: e.target.value }))}
                 className="bg-background border-border"
                 aria-label="Valor acordado com o cliente"
               />
@@ -505,22 +475,20 @@ export default function NovaOrdemServicoPage() {
                 step="0.01"
                 placeholder="0.00"
                 value={form.materialEstimate}
-                onChange={(e) => setForm((f) => ({ ...f, materialEstimate: e.target.value }))}
+                onChange={e => setForm(f => ({ ...f, materialEstimate: e.target.value }))}
                 className="bg-background border-border"
                 aria-label="Estimativa de material"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
-                Estimativa de Mão de Obra
-              </label>
+              <label className="text-sm font-medium text-foreground">Estimativa de Mão de Obra</label>
               <Input
                 type="number"
                 step="0.01"
                 placeholder="0.00"
                 value={form.laborEstimate}
-                onChange={(e) => setForm((f) => ({ ...f, laborEstimate: e.target.value }))}
+                onChange={e => setForm(f => ({ ...f, laborEstimate: e.target.value }))}
                 className="bg-background border-border"
                 aria-label="Estimativa de mão de obra"
               />
@@ -541,29 +509,18 @@ export default function NovaOrdemServicoPage() {
 
                 let badge = 'bg-green-500/10 text-green-600';
                 let statusLabel = '✅ OK';
-                if (costRatio > 1.1) {
-                  badge = 'bg-destructive/10 text-destructive';
-                  statusLabel = '⛔ Prejuízo projetado';
-                } else if (costRatio > 1.0) {
-                  badge = 'bg-red-500/10 text-red-600';
-                  statusLabel = '🔴 CRÍTICO — custo > receita';
-                } else if (costRatio >= 0.85) {
-                  badge = 'bg-orange-500/10 text-orange-600';
-                  statusLabel = '🟠 Alerta — margem baixa';
-                } else if (costRatio >= 0.7) {
-                  badge = 'bg-yellow-500/10 text-yellow-600';
-                  statusLabel = '⚠️ Atenção — margem reduzida';
-                }
+                if (costRatio > 1.1)       { badge = 'bg-destructive/10 text-destructive'; statusLabel = '⛔ Prejuízo projetado'; }
+                else if (costRatio > 1.0)  { badge = 'bg-red-500/10 text-red-600';         statusLabel = '🔴 CRÍTICO — custo > receita'; }
+                else if (costRatio >= 0.85) { badge = 'bg-orange-500/10 text-orange-600';   statusLabel = '🟠 Alerta — margem baixa'; }
+                  
+                else if (costRatio >= 0.70) { badge = 'bg-yellow-500/10 text-yellow-600';   statusLabel = '⚠️ Atenção — margem reduzida'; }
 
-                const fmt = (v: number) =>
-                  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
+                const fmt = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
                 return (
                   <>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground font-medium">Previsão de margem</span>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge}`}>
-                        {statusLabel}
-                      </span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge}`}>{statusLabel}</span>
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Custo total estimado</span>
@@ -575,9 +532,7 @@ export default function NovaOrdemServicoPage() {
                     </div>
                     <div className="flex justify-between text-xs border-t border-border pt-1">
                       <span className="text-muted-foreground">Margem projetada</span>
-                      <span
-                        className={`font-bold ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}
-                      >
+                      <span className={`font-bold ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                         {fmt(profit)} ({marginPct.toFixed(1)}%)
                       </span>
                     </div>
@@ -593,7 +548,7 @@ export default function NovaOrdemServicoPage() {
             Cancelar
           </Button>
           <Button type="submit" disabled={loading}>
-            {loading ? 'Criando...' : 'Criar Ordem de Serviço'}
+            {loading ? "Criando..." : "Criar Ordem de Serviço"}
           </Button>
         </div>
       </form>

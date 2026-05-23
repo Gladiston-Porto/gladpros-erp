@@ -34,12 +34,15 @@ export const GET = withErrorHandler(
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    // Ler o arquivo (evita TOCTOU entre stat/readFile)
     let fileBuffer: Buffer;
     try {
       fileBuffer = await readFile(filePath);
-    } catch {
-      return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'EISDIR') {
+        return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 });
+      }
+      throw error;
     }
 
     // Determinar o tipo MIME baseado na extensão
