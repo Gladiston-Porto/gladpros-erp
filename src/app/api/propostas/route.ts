@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { adaptPropostaFormToAPI } from '@/components/propostas/adapter';
-import { PropostaFormData } from '@/components/propostas/types';
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { adaptPropostaFormToAPI } from "@/components/propostas/adapter";
+import { PropostaFormData } from "@/components/propostas/types";
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { createPropostaSchema } from '@/schemas/proposta.schema';
 import { requireUser } from '@/shared/lib/rbac';
@@ -9,59 +10,23 @@ import { can, type Role } from '@/shared/lib/rbac-core';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
 import { generateNumeroProposta } from '@/shared/lib/services/proposta-numbering';
 import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
-import {
-  getUnsupportedBillingTrigger,
-  unsupportedBillingTriggerMessage,
-} from '@/domains/proposals/services/billingTriggerPolicy';
-import type {
-  Prisma,
-  Proposta_gatilhoFaturamento,
-  Proposta_formaPagamentoPreferida,
-  Proposta_status,
-  PropostaMaterial_status,
-  PropostaEtapa_status,
-  PropertyType,
-  ServiceCategory,
-  ContractType,
-  TaxMode,
-} from '@prisma/client';
+import { getUnsupportedBillingTrigger, unsupportedBillingTriggerMessage } from '@/domains/proposals/services/billingTriggerPolicy';
+import type { Prisma, Proposta_gatilhoFaturamento, Proposta_formaPagamentoPreferida, Proposta_status, PropostaMaterial_status, PropostaEtapa_status, PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
 
 /** Normaliza texto livre de forma de pagamento para o enum do Prisma. */
 function normalizeFormaPagamento(value?: string): Proposta_formaPagamentoPreferida | undefined {
   if (!value) return undefined;
   const map: Record<string, Proposta_formaPagamentoPreferida> = {
-    invoice: 'INVOICE',
-    check: 'CHECK',
-    cheque: 'CHEQUE',
-    ach: 'ACH',
-    'ach transfer': 'ACH',
-    wire: 'TRANSFERENCIA',
-    'credit card': 'CREDIT_CARD',
-    cartao: 'CARTAO',
-    card: 'CREDIT_CARD',
-    pix: 'PIX',
-    boleto: 'BOLETO',
-    cash: 'DINHEIRO',
-    dinheiro: 'DINHEIRO',
-    transferencia: 'TRANSFERENCIA',
-    transfer: 'TRANSFERENCIA',
+    'invoice': 'INVOICE', 'check': 'CHECK', 'cheque': 'CHEQUE',
+    'ach': 'ACH', 'ach transfer': 'ACH', 'wire': 'TRANSFERENCIA',
+    'credit card': 'CREDIT_CARD', 'cartao': 'CARTAO', 'card': 'CREDIT_CARD',
+    'pix': 'PIX', 'boleto': 'BOLETO', 'cash': 'DINHEIRO', 'dinheiro': 'DINHEIRO',
+    'transferencia': 'TRANSFERENCIA', 'transfer': 'TRANSFERENCIA',
   };
   const normalized = map[value.toLowerCase().trim()];
   // Se já é um valor válido do enum, aceita direto
-  const validValues: Proposta_formaPagamentoPreferida[] = [
-    'PIX',
-    'CARTAO',
-    'BOLETO',
-    'TRANSFERENCIA',
-    'DINHEIRO',
-    'CHEQUE',
-    'INVOICE',
-    'CHECK',
-    'ACH',
-    'CREDIT_CARD',
-  ];
-  if (validValues.includes(value as Proposta_formaPagamentoPreferida))
-    return value as Proposta_formaPagamentoPreferida;
+  const validValues: Proposta_formaPagamentoPreferida[] = ['PIX','CARTAO','BOLETO','TRANSFERENCIA','DINHEIRO','CHEQUE','INVOICE','CHECK','ACH','CREDIT_CARD'];
+  if (validValues.includes(value as Proposta_formaPagamentoPreferida)) return value as Proposta_formaPagamentoPreferida;
   return normalized; // undefined se não mapeado (campo é opcional)
 }
 
@@ -95,10 +60,7 @@ function computePropostaTax(payload: {
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
   if (!can(user.role as Role, 'propostas', 'read')) {
-    return NextResponse.json(
-      { error: 'Forbidden', message: 'Sem permissão', success: false },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -113,13 +75,13 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
   // Whitelist to prevent Prisma injection — same pattern as OS module
   const SORT_WHITELIST: Record<string, Prisma.PropostaOrderByWithRelationInput> = {
-    criadoEm: { criadoEm: sortDir },
+    criadoEm:       { criadoEm: sortDir },
     numeroProposta: { numeroProposta: sortDir },
-    titulo: { titulo: sortDir },
-    status: { status: sortDir },
-    valorEstimado: { valorEstimado: sortDir },
-    valor: { valorEstimado: sortDir }, // alias used by frontend
-    cliente: { Cliente: { nomeCompleto: sortDir } },
+    titulo:         { titulo: sortDir },
+    status:         { status: sortDir },
+    valorEstimado:  { valorEstimado: sortDir },
+    valor:          { valorEstimado: sortDir }, // alias used by frontend
+    cliente:        { Cliente: { nomeCompleto: sortDir } },
   };
   const orderBy = SORT_WHITELIST[sortKey] ?? SORT_WHITELIST['criadoEm'];
 
@@ -130,7 +92,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     where.OR = [
       { numeroProposta: { contains: search } },
       { titulo: { contains: search } },
-      { Cliente: { nomeCompleto: { contains: search } } },
+      { Cliente: { nomeCompleto: { contains: search } } }
     ];
   }
 
@@ -142,10 +104,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       orderBy,
       include: {
         Cliente: { select: { id: true, nomeCompleto: true, email: true } },
-        _count: { select: { PropostaMaterial: true, PropostaEtapa: true, AnexoProposta: true } },
-      },
+        _count: { select: { PropostaMaterial: true, PropostaEtapa: true, AnexoProposta: true } }
+      }
     }),
-    prisma.proposta.count({ where }),
+    prisma.proposta.count({ where })
   ]);
 
   const mapped = items.map((p) => {
@@ -164,12 +126,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       diasAteVencimento,
       aprovacaoInternaFinanceira: p.aprovacaoInternaFinanceira ?? false,
       aprovacaoInternaTecnica: p.aprovacaoInternaTecnica ?? false,
-      cliente: p.Cliente
-        ? { id: p.Cliente.id, nome: p.Cliente.nomeCompleto, email: p.Cliente.email }
-        : null,
+      cliente: p.Cliente ? { id: p.Cliente.id, nome: p.Cliente.nomeCompleto, email: p.Cliente.email } : null,
       etapasCount: p._count?.PropostaEtapa ?? 0,
       materiaisCount: p._count?.PropostaMaterial ?? 0,
-      anexosCount: p._count?.AnexoProposta ?? 0,
+      anexosCount: p._count?.AnexoProposta ?? 0
     };
   });
 
@@ -187,37 +147,27 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 });
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  const rl = await apiRateLimit.isAllowed(request);
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', message: rl.message, success: false },
-      {
-        status: 429,
-        headers: { 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': rl.resetTime.toString() },
-      },
-    );
-  }
-  const user = await requireUser(request);
-  if (!can(user.role as Role, 'propostas', 'create')) {
-    return NextResponse.json(
-      { error: 'Forbidden', message: 'Sem permissão', success: false },
-      { status: 403 },
-    );
-  }
-  const body = createPropostaSchema.parse(await request.json()) as unknown as PropostaFormData;
-  const payload = adaptPropostaFormToAPI(body);
-  const unsupportedTrigger = getUnsupportedBillingTrigger(payload.gatilhoFaturamento);
-  if (unsupportedTrigger) {
-    return NextResponse.json(
-      {
-        error: 'Unsupported billing trigger',
-        message: unsupportedBillingTriggerMessage(unsupportedTrigger),
-        success: false,
-      },
-      { status: 400 },
-    );
-  }
-  try {
+    const rl = await apiRateLimit.isAllowed(request);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', message: rl.message, success: false },
+        { status: 429, headers: { 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': rl.resetTime.toString() } }
+      );
+    }
+    const user = await requireUser(request);
+    if (!can(user.role as Role, 'propostas', 'create')) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    }
+    const body = createPropostaSchema.parse(await request.json()) as unknown as PropostaFormData;
+    const payload = adaptPropostaFormToAPI(body);
+    const unsupportedTrigger = getUnsupportedBillingTrigger(payload.gatilhoFaturamento);
+    if (unsupportedTrigger) {
+      return NextResponse.json(
+        { error: 'Unsupported billing trigger', message: unsupportedBillingTriggerMessage(unsupportedTrigger), success: false },
+        { status: 400 }
+      );
+    }
+    try {
     const numeroProposta = await generateNumeroProposta();
     const taxFields = computePropostaTax({
       valorEstimado: payload.valorEstimado,
@@ -228,7 +178,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     });
 
     const newProposta = await prisma.proposta.create({
-      data: {
+      data: ({
         numeroProposta,
         clienteId: payload.clienteId,
         titulo: payload.titulo || 'Sem título',
@@ -273,7 +223,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         atualizadoEm: new Date(),
         // Relations
         PropostaMaterial: {
-          create: payload.materiais.map((m) => ({
+          create: payload.materiais.map(m => ({
             estoqueItemId: m.estoqueItemId,
             codigo: m.codigo,
             nome: m.nome,
@@ -289,10 +239,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             embalagemBaseQtyAtTime: m.embalagemBaseQtyAtTime,
             embalagemPrecoAtTime: m.embalagemPrecoAtTime,
             embalagemUnitAtTime: m.embalagemUnitAtTime,
-          })),
+          }))
         },
         PropostaEtapa: {
-          create: payload.etapas.map((e) => ({
+          create: payload.etapas.map(e => ({
             servico: e.servico,
             descricao: e.descricao,
             ordem: e.ordem,
@@ -301,34 +251,29 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             duracaoEstimadaHoras: e.duracaoEstimadaHoras,
             custoMaoObraEstimado: e.custoMaoObraEstimado,
             status: e.status as PropostaEtapa_status | undefined,
-          })),
-        },
-      } as unknown as Prisma.PropostaCreateInput,
+          }))
+        }
+      }) as unknown as Prisma.PropostaCreateInput,
       include: {
         Cliente: true,
         PropostaMaterial: true,
-        PropostaEtapa: true,
-      },
+        PropostaEtapa: true
+      }
     });
 
-    return NextResponse.json(
-      {
-        data: newProposta,
-        message: 'Proposta criada com sucesso',
-        success: true,
-      },
-      { status: 201 },
-    );
+    return NextResponse.json({
+      data: newProposta,
+      message: 'Proposta criada com sucesso',
+      success: true,
+    }, { status: 201 });
   } catch (error: unknown) {
     if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code: string }).code === 'P2002'
+      typeof error === 'object' && error !== null &&
+      'code' in error && (error as { code: string }).code === 'P2002'
     ) {
       return NextResponse.json(
         { error: 'Conflict', message: 'Já existe uma proposta com este número', success: false },
-        { status: 409 },
+        { status: 409 }
       );
     }
     throw error;

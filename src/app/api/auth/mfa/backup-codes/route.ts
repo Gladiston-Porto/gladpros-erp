@@ -2,31 +2,31 @@
 // Geração e consulta de backup codes para MFA
 // POST — gera 8 novos códigos (invalida os anteriores, retorna plaintext UMA VEZ)
 // GET  — retorna status: total, remaining, generatedAt
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requireUser } from '@/shared/lib/rbac';
-import { withErrorHandler } from '@/lib/api/error-handler';
-import { randomBytes } from 'crypto';
-import bcrypt from 'bcryptjs';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/shared/lib/rbac";
+import { withErrorHandler } from "@/lib/api/error-handler";
+import { randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
 
 const BACKUP_CODE_COUNT = 8;
 const CODE_LENGTH = 10;
 
 function generateCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I, O, 0, 1 (confusos)
-  const maxUnbiased = Math.floor(256 / chars.length) * chars.length;
-  let code = '';
-  while (code.length < CODE_LENGTH) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem I, O, 0, 1 (confusos)
+  const maxUnbiased = 256 - (256 % chars.length);
+  let out = "";
+
+  while (out.length < CODE_LENGTH) {
     const bytes = randomBytes(CODE_LENGTH);
     for (const byte of bytes) {
       if (byte >= maxUnbiased) continue;
-      let index = byte;
-      while (index >= chars.length) index -= chars.length;
-      code += chars[index];
-      if (code.length === CODE_LENGTH) break;
+      out += chars[byte % chars.length];
+      if (out.length === CODE_LENGTH) break;
     }
   }
-  return code;
+
+  return out;
 }
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
@@ -71,25 +71,23 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   // Invalidar anteriores e criar novos em transação
   await prisma.$transaction([
     prisma.$executeRaw`DELETE FROM MfaBackupCode WHERE usuarioId = ${userId}`,
-    ...hashes.map(
-      (hash) =>
-        prisma.$executeRaw`
+    ...hashes.map(hash =>
+      prisma.$executeRaw`
         INSERT INTO MfaBackupCode (empresaId, usuarioId, codeHash, criadoEm)
         VALUES (1, ${userId}, ${hash}, NOW())
-      `,
+      `
     ),
   ]);
 
   // Formata os códigos em grupos de 5 caracteres para facilitar leitura: ABCDE-FGHIJ
-  const formatted = plainCodes.map((c) => `${c.slice(0, 5)}-${c.slice(5)}`);
+  const formatted = plainCodes.map(c => `${c.slice(0, 5)}-${c.slice(5)}`);
 
   return NextResponse.json({
     success: true,
     data: {
       codes: formatted,
       total: BACKUP_CODE_COUNT,
-      warning:
-        'Guarde esses códigos em local seguro. Cada código pode ser usado apenas uma vez. Esta é a única vez que serão exibidos.',
+      warning: "Guarde esses códigos em local seguro. Cada código pode ser usado apenas uma vez. Esta é a única vez que serão exibidos.",
     },
   });
 });

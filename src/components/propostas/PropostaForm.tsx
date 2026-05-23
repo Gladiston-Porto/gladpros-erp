@@ -132,9 +132,7 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
   );
 
   const [quaisPermites] = useState(initialData?.quaisPermites || '');
-
   const [normas] = useState(initialData?.normas || '');
-
   const [inspecoes] = useState(initialData?.inspecoes || '');
 
   const [comerciais, setComerciais] = useState<ComerciaisInfo>(
@@ -176,7 +174,6 @@ export default function PropostaForm({ initialData, propostaId }: PropostaFormPr
   );
 
   const [obsCliente, setObsCliente] = useState(initialData?.obsCliente || '');
-
   const [obsInternas] = useState(initialData?.obsInternas || '');
 
   // Tax classification state

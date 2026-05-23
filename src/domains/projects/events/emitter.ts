@@ -1,7 +1,7 @@
 /**
  * Project Event Emitter
  * Fase 8: Sistema de Eventos e Notificações
- *
+ * 
  * Event Bus interno para publicação e subscrição de eventos do módulo Projects
  */
 
@@ -32,10 +32,13 @@ export class ProjectEventEmitter {
   /**
    * Registra um handler para um ou mais tipos de eventos
    */
-  on(eventTypes: ProjectEventType | ProjectEventType[], handler: EventHandler): void {
+  on(
+    eventTypes: ProjectEventType | ProjectEventType[],
+    handler: EventHandler
+  ): void {
     const types = Array.isArray(eventTypes) ? eventTypes : [eventTypes];
 
-    types.forEach((eventType) => {
+    types.forEach(eventType => {
       if (!this.handlers.has(eventType)) {
         this.handlers.set(eventType, new Set());
       }
@@ -84,7 +87,7 @@ export class ProjectEventEmitter {
    */
   async emit(event: ProjectEvent): Promise<EventProcessingResult> {
     const startTime = Date.now();
-
+    
     // Adiciona ao histórico
     this.addToHistory(event);
 
@@ -122,7 +125,10 @@ export class ProjectEventEmitter {
           duration: Date.now() - handlerStartTime,
           error: errorMessage,
         });
-        console.error(`[ProjectEventEmitter] Erro ao processar evento ${event.eventType}:`, error);
+        console.error(
+          `[ProjectEventEmitter] Erro ao processar evento ${event.eventType}:`,
+          error
+        );
       }
     }
 
@@ -136,7 +142,7 @@ export class ProjectEventEmitter {
    * Emite um evento de forma síncrona (fire and forget)
    */
   emitSync(event: ProjectEvent): void {
-    this.emit(event).catch((error) => {
+    this.emit(event).catch(error => {
       console.error('[ProjectEventEmitter] Erro ao emitir evento:', error);
     });
   }
@@ -144,23 +150,25 @@ export class ProjectEventEmitter {
   /**
    * Obtém o histórico de eventos
    */
-  getHistory(filters?: {
-    eventType?: ProjectEventType;
-    projetoId?: number;
-    since?: Date;
-    limit?: number;
-  }): ProjectEvent[] {
+  getHistory(
+    filters?: {
+      eventType?: ProjectEventType;
+      projetoId?: number;
+      since?: Date;
+      limit?: number;
+    }
+  ): ProjectEvent[] {
     let history = [...this.eventHistory];
 
     if (filters) {
       if (filters.eventType) {
-        history = history.filter((e) => e.eventType === filters.eventType);
+        history = history.filter(e => e.eventType === filters.eventType);
       }
       if (filters.projetoId) {
-        history = history.filter((e) => e.projetoId === filters.projetoId);
+        history = history.filter(e => e.projetoId === filters.projetoId);
       }
       if (filters.since) {
-        history = history.filter((e) => e.timestamp >= filters.since!);
+        history = history.filter(e => e.timestamp >= filters.since!);
       }
       if (filters.limit) {
         history = history.slice(-filters.limit);
@@ -187,13 +195,13 @@ export class ProjectEventEmitter {
     globalHandlerCount: number;
   } {
     const eventsByType: Record<string, number> = {};
-
-    this.eventHistory.forEach((event) => {
+    
+    this.eventHistory.forEach(event => {
       eventsByType[event.eventType] = (eventsByType[event.eventType] || 0) + 1;
     });
 
     let totalHandlers = this.globalHandlers.size;
-    this.handlers.forEach((handlers) => {
+    this.handlers.forEach(handlers => {
       totalHandlers += handlers.size;
     });
 
@@ -210,7 +218,7 @@ export class ProjectEventEmitter {
    */
   private addToHistory(event: ProjectEvent): void {
     this.eventHistory.push(event);
-
+    
     // Mantém apenas os últimos N eventos
     if (this.eventHistory.length > this.maxHistorySize) {
       this.eventHistory.shift();
@@ -301,7 +309,7 @@ export function createEvent(
     usuarioId?: number;
     priority?: EventPriority;
     metadata?: Record<string, any>;
-  },
+  }
 ): ProjectEvent {
   return {
     eventId: `evt_${Date.now()}_${Math.random().toString(36).substring(7)}`,
