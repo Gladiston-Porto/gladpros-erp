@@ -78,7 +78,7 @@ jest.mock('../../../lib/api/logger', () => ({
 
 jest.mock('../../../shared/lib/mfa-challenge', () => ({
   verifyMfaChallenge: jest.fn().mockReturnValue(true),
-  createMfaChallenge: jest.fn().mockReturnValue('valid-challenge-token'),
+  createMfaChallenge: jest.fn().mockReturnValue('mock-challenge'),
 }));
 
 const mockUser = {
@@ -139,7 +139,7 @@ describe('POST /api/auth/mfa/verify', () => {
     (mockRequest.json as jest.Mock).mockResolvedValue({
       userId: 1,
       code: '123456',
-      challenge: 'valid-challenge-token',
+      challenge: 'mock-challenge',
     });
 
     const response = await POST(mockRequest);
@@ -155,7 +155,7 @@ describe('POST /api/auth/mfa/verify', () => {
     (mockRequest.json as jest.Mock).mockResolvedValue({
       userId: 1,
       code: '000000',
-      challenge: 'valid-challenge-token',
+      challenge: 'mock-challenge',
     });
 
     const response = await POST(mockRequest);
@@ -171,7 +171,7 @@ describe('POST /api/auth/mfa/verify', () => {
     (mockRequest.json as jest.Mock).mockResolvedValue({
       userId: 999,
       code: '123456',
-      challenge: 'valid-challenge-token',
+      challenge: 'mock-challenge',
     });
 
     const response = await POST(mockRequest);
@@ -186,7 +186,7 @@ describe('POST /api/auth/mfa/verify', () => {
     (mockRequest.json as jest.Mock).mockResolvedValue({
       userId: 1,
       code: '123456',
-      challenge: 'valid-challenge-token',
+      challenge: 'mock-challenge',
     });
 
     const response = await POST(mockRequest);
@@ -207,7 +207,7 @@ describe('POST /api/auth/mfa/verify', () => {
     (mockRequest.json as jest.Mock).mockResolvedValue({
       userId: 1,
       code: '123456',
-      challenge: 'valid-challenge-token',
+      challenge: 'mock-challenge',
       tipoAcao: 'PRIMEIRO_ACESSO',
     });
 

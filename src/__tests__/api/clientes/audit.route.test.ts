@@ -7,7 +7,7 @@ import {} from 'next/server';
 jest.mock('@/shared/lib/rbac', () => ({
   requireUser: jest.fn(),
   hasRole: jest.fn(),
-  requireClientePermission: jest.fn().mockResolvedValue({ id: '1', role: 'ADMIN' }),
+  requireClientePermission: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/shared/lib/audit', () => ({
@@ -17,10 +17,11 @@ jest.mock('@/shared/lib/audit', () => ({
 }));
 
 import { GET } from '@/app/api/clientes/[id]/audit/route';
-import { requireClientePermission } from '@/shared/lib/rbac';
+import { requireUser, hasRole } from '@/shared/lib/rbac';
 import { AuditService } from '@/shared/lib/audit';
 
-const mockRequireClientePermission = requireClientePermission as jest.Mock;
+const mockRequireUser = requireUser as jest.Mock;
+const mockHasRole = hasRole as jest.Mock;
 const mockGetHistory = AuditService.getEntityHistory as jest.Mock;
 
 const sampleHistory = [
@@ -53,7 +54,8 @@ function makeContext(id: string) {
 describe('/api/clientes/[id]/audit - GET', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRequireClientePermission.mockResolvedValue({ id: '1', role: 'ADMIN' });
+    mockRequireUser.mockResolvedValue({ id: '1', role: 'ADMIN' });
+    mockHasRole.mockReturnValue(true);
     mockGetHistory.mockResolvedValue(sampleHistory);
   });
 
@@ -81,13 +83,13 @@ describe('/api/clientes/[id]/audit - GET', () => {
   });
 
   it('returns 200 when role is USUARIO (has read access to clientes)', async () => {
-    mockRequireClientePermission.mockResolvedValue({ id: '5', role: 'USUARIO' });
+    mockRequireUser.mockResolvedValue({ id: '5', role: 'USUARIO' });
     const res = await GET(makeRequest('5'), makeContext('5'));
     expect(res.status).toBe(200);
   });
 
   it('returns 200 when role is FINANCEIRO (has read access to clientes)', async () => {
-    mockRequireClientePermission.mockResolvedValue({ id: '3', role: 'FINANCEIRO' });
+    mockRequireUser.mockResolvedValue({ id: '3', role: 'FINANCEIRO' });
     const res = await GET(makeRequest('5'), makeContext('5'));
     expect(res.status).toBe(200);
   });

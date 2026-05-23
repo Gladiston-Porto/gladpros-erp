@@ -60,6 +60,10 @@ describe('POST /api/auth/forgot-password', () => {
     } as unknown as NextRequest;
   });
 
+  afterEach(() => {
+    delete process.env.APP_URL;
+  });
+
   it('retorna 429 quando rate limit atingido', async () => {
     require('../../../shared/lib/rate-limit').resetPasswordRateLimit.isAllowed.mockResolvedValue({
       allowed: false,

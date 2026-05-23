@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
+import { Prisma, PropertyType, ServiceCategory, ContractType, TaxMode } from '@prisma/client';
 import { calculateInvoiceTax } from '@/shared/services/salesTaxService';
 import { postLedgerTransaction } from '@/shared/services/ledgerPostingService';
 
@@ -67,12 +67,9 @@ function hasFinancialInvoiceChanges(body: z.infer<typeof updateInvoiceSchema>) {
   );
 }
 
-function calcularTotais<T extends { quantidade: number; precoUnitario: number; desconto: number; taxavel: boolean }>(
-  itens: T[],
-  descontoValorInput: number,
-  descontoPercentualInput: number,
-  taxRate: number,
-) {
+function calcularTotais<
+  T extends { quantidade: number; precoUnitario: number; desconto: number; taxavel: boolean },
+>(itens: T[], descontoValorInput: number, descontoPercentualInput: number, taxRate: number) {
   const itensComSubtotal = itens.map((item) => ({
     ...item,
     subtotal: item.quantidade * item.precoUnitario - item.desconto,
@@ -81,9 +78,7 @@ function calcularTotais<T extends { quantidade: number; precoUnitario: number; d
   const subtotal = itensComSubtotal.reduce((sum, i) => sum + i.subtotal, 0);
 
   const descontoTotal =
-    descontoPercentualInput > 0
-      ? subtotal * (descontoPercentualInput / 100)
-      : descontoValorInput;
+    descontoPercentualInput > 0 ? subtotal * (descontoPercentualInput / 100) : descontoValorInput;
 
   const subtotalComDesconto = Math.max(0, subtotal - descontoTotal);
   const subtotalTaxavel = itensComSubtotal
@@ -231,7 +226,8 @@ export const PUT = withErrorHandler(
       return NextResponse.json(
         {
           error: 'Invalid operation',
-          message: 'Campos financeiros da invoice só podem ser alterados enquanto ela está em DRAFT',
+          message:
+            'Campos financeiros da invoice só podem ser alterados enquanto ela está em DRAFT',
           success: false,
         },
         { status: 409 },
@@ -243,198 +239,221 @@ export const PUT = withErrorHandler(
       const role = user.role as Role;
       if (role !== 'ADMIN' && role !== 'FINANCEIRO') {
         return NextResponse.json(
-          { error: 'Forbidden', message: 'Apenas ADMIN ou FINANCEIRO podem alterar a configuração de imposto manualmente', success: false },
+          {
+            error: 'Forbidden',
+            message:
+              'Apenas ADMIN ou FINANCEIRO podem alterar a configuração de imposto manualmente',
+            success: false,
+          },
           { status: 403 },
         );
       }
     }
 
-    const invoice = await prisma.$transaction(async (tx) => {
-      let financialUpdate: Record<string, unknown> = {};
+    const invoice: Prisma.InvoiceGetPayload<{
+      include: {
+        cliente: { select: { id: true; nomeCompleto: true; nomeFantasia: true; email: true } };
+        projeto: { select: { id: true; titulo: true } };
+        itens: true;
+        pagamentos: true;
+      };
+    }> | null = await prisma
+      .$transaction(async (tx) => {
+        let financialUpdate: Record<string, unknown> = {};
 
-      if (body.itens) {
-        // Buscar taxRate: do body, ou do existente
-        let taxRate = Number(existingInvoice.taxRate);
-        if (body.taxRateId) {
-          const tr = await tx.taxRate.findUnique({
-            where: { id: body.taxRateId, active: true },
+        if (body.itens) {
+          // Buscar taxRate: do body, ou do existente
+          let taxRate = Number(existingInvoice.taxRate);
+          if (body.taxRateId) {
+            const tr = await tx.taxRate.findUnique({
+              where: { id: body.taxRateId, active: true },
+            });
+            if (tr) taxRate = Number(tr.rate);
+          }
+
+          const descontoValorInput = body.descontoValor ?? 0;
+          const descontoPercentualInput = body.descontoPercentual ?? 0;
+
+          const { itensComSubtotal, subtotal, descontoTotal, taxAmount, valorTotal } =
+            calcularTotais(body.itens, descontoValorInput, descontoPercentualInput, taxRate);
+
+          const novoSaldo = Math.max(0, valorTotal - Number(existingInvoice.valorPago));
+
+          // Deletar itens antigos e recriar
+          await tx.invoiceItem.deleteMany({ where: { invoiceId } });
+          await tx.invoiceItem.createMany({
+            data: itensComSubtotal.map((item) => ({ ...item, invoiceId })),
           });
-          if (tr) taxRate = Number(tr.rate);
+
+          financialUpdate = {
+            subtotal: new Decimal(subtotal),
+            descontoValor: new Decimal(descontoTotal),
+            descontoPercentual: new Decimal(descontoPercentualInput),
+            taxRate: new Decimal(taxRate),
+            taxAmount: new Decimal(taxAmount),
+            valorTotal: new Decimal(valorTotal),
+            saldo: new Decimal(novoSaldo),
+          };
+        } else if (body.descontoValor !== undefined || body.descontoPercentual !== undefined) {
+          // Recalcular apenas desconto com itens existentes
+          const itensExistentes = existingInvoice.itens.map((i) => ({
+            quantidade: Number(i.quantidade),
+            precoUnitario: Number(i.precoUnitario),
+            desconto: Number(i.desconto),
+            taxavel: i.taxavel,
+          }));
+
+          const descontoValorInput = body.descontoValor ?? 0;
+          const descontoPercentualInput = body.descontoPercentual ?? 0;
+          const taxRate = Number(existingInvoice.taxRate);
+
+          const { subtotal, descontoTotal, taxAmount, valorTotal } = calcularTotais(
+            itensExistentes,
+            descontoValorInput,
+            descontoPercentualInput,
+            taxRate,
+          );
+
+          const novoSaldo = Math.max(0, valorTotal - Number(existingInvoice.valorPago));
+
+          financialUpdate = {
+            subtotal: new Decimal(subtotal),
+            descontoValor: new Decimal(descontoTotal),
+            descontoPercentual: new Decimal(descontoPercentualInput),
+            taxAmount: new Decimal(taxAmount),
+            valorTotal: new Decimal(valorTotal),
+            saldo: new Decimal(novoSaldo),
+          };
+        } else if (
+          body.propertyType !== undefined ||
+          body.serviceCategory !== undefined ||
+          body.contractType !== undefined
+        ) {
+          // Recalculate sales tax when classification changes (no line item change)
+          const classification = {
+            propertyType: body.propertyType ?? existingInvoice.propertyType,
+            serviceCategory: body.serviceCategory ?? existingInvoice.serviceCategory,
+            contractType: body.contractType ?? existingInvoice.contractType,
+            serviceAddressState: existingInvoice.taxAddressState ?? 'TX',
+          };
+
+          const itemsForTax = existingInvoice.itens.map((i) => ({
+            tipo: i.tipo,
+            taxable: i.taxavel,
+            total: Number(i.subtotal),
+          }));
+
+          const taxResult = calculateInvoiceTax({
+            subtotal: Number(existingInvoice.subtotal),
+            lineItems: itemsForTax,
+            classification,
+          });
+
+          financialUpdate = {
+            taxMode: taxResult.taxMode,
+            taxScenario: taxResult.scenario,
+            taxableAmount: new Decimal(taxResult.taxableAmount),
+            nonTaxableAmount: new Decimal(taxResult.nonTaxableAmount),
+            taxAmount: new Decimal(taxResult.taxAmount),
+            taxExplanation: taxResult.taxExplanation,
+            valorTotal: new Decimal(Number(existingInvoice.subtotal) + taxResult.taxAmount),
+            saldo: new Decimal(
+              Math.max(
+                0,
+                Number(existingInvoice.subtotal) +
+                  taxResult.taxAmount -
+                  Number(existingInvoice.valorPago),
+              ),
+            ),
+          };
         }
 
-        const descontoValorInput = body.descontoValor ?? 0;
-        const descontoPercentualInput = body.descontoPercentual ?? 0;
-
-        const { itensComSubtotal, subtotal, descontoTotal, taxAmount, valorTotal } =
-          calcularTotais(body.itens, descontoValorInput, descontoPercentualInput, taxRate);
-
-        const novoSaldo = Math.max(0, valorTotal - Number(existingInvoice.valorPago));
-
-        // Deletar itens antigos e recriar
-        await tx.invoiceItem.deleteMany({ where: { invoiceId } });
-        await tx.invoiceItem.createMany({
-          data: itensComSubtotal.map((item) => ({ ...item, invoiceId })),
+        const updateResult = await tx.invoice.updateMany({
+          where: { id: invoiceId, status: { notIn: ['PAID', 'CANCELLED'] } },
+          data: {
+            ...(body.dataVencimento && { dataVencimento: new Date(body.dataVencimento) }),
+            ...(body.notas !== undefined && { notas: body.notas }),
+            ...(body.termos !== undefined && { termos: body.termos }),
+            // Tax classification fields
+            ...(body.propertyType !== undefined && { propertyType: body.propertyType }),
+            ...(body.serviceCategory !== undefined && { serviceCategory: body.serviceCategory }),
+            ...(body.contractType !== undefined && { contractType: body.contractType }),
+            // Manual override (RBAC enforced above before reaching here)
+            ...(body.manualTaxOverride !== undefined && {
+              manualTaxOverride: body.manualTaxOverride,
+              taxMode: body.manualTaxOverride ? TaxMode.MANUAL_REVIEW : undefined,
+              taxReviewedById: Number(user.id),
+              taxReviewedAt: new Date(),
+            }),
+            ...(body.manualTaxOverrideReason !== undefined && {
+              manualTaxOverrideReason: body.manualTaxOverrideReason,
+            }),
+            ...financialUpdate,
+            atualizadoPor: Number(user.id),
+          },
         });
 
-        financialUpdate = {
-          subtotal: new Decimal(subtotal),
-          descontoValor: new Decimal(descontoTotal),
-          descontoPercentual: new Decimal(descontoPercentualInput),
-          taxRate: new Decimal(taxRate),
-          taxAmount: new Decimal(taxAmount),
-          valorTotal: new Decimal(valorTotal),
-          saldo: new Decimal(novoSaldo),
-        };
-      } else if (body.descontoValor !== undefined || body.descontoPercentual !== undefined) {
-        // Recalcular apenas desconto com itens existentes
-        const itensExistentes = existingInvoice.itens.map((i) => ({
-          quantidade: Number(i.quantidade),
-          precoUnitario: Number(i.precoUnitario),
-          desconto: Number(i.desconto),
-          taxavel: i.taxavel,
-        }));
+        if (updateResult.count === 0) {
+          throw new Error('CONFLICT_STATUS');
+        }
 
-        const descontoValorInput = body.descontoValor ?? 0;
-        const descontoPercentualInput = body.descontoPercentual ?? 0;
-        const taxRate = Number(existingInvoice.taxRate);
-
-        const { subtotal, descontoTotal, taxAmount, valorTotal } = calcularTotais(
-          itensExistentes,
-          descontoValorInput,
-          descontoPercentualInput,
-          taxRate,
-        );
-
-        const novoSaldo = Math.max(0, valorTotal - Number(existingInvoice.valorPago));
-
-        financialUpdate = {
-          subtotal: new Decimal(subtotal),
-          descontoValor: new Decimal(descontoTotal),
-          descontoPercentual: new Decimal(descontoPercentualInput),
-          taxAmount: new Decimal(taxAmount),
-          valorTotal: new Decimal(valorTotal),
-          saldo: new Decimal(novoSaldo),
-        };
-      } else if (
-        body.propertyType !== undefined ||
-        body.serviceCategory !== undefined ||
-        body.contractType !== undefined
-      ) {
-        // Recalculate sales tax when classification changes (no line item change)
-        const classification = {
-          propertyType: body.propertyType ?? existingInvoice.propertyType,
-          serviceCategory: body.serviceCategory ?? existingInvoice.serviceCategory,
-          contractType: body.contractType ?? existingInvoice.contractType,
-          serviceAddressState: existingInvoice.taxAddressState ?? 'TX',
-        };
-
-        const itemsForTax = existingInvoice.itens.map((i) => ({
-          tipo: i.tipo,
-          taxable: i.taxavel,
-          total: Number(i.subtotal),
-        }));
-
-        const taxResult = calculateInvoiceTax({
-          subtotal: Number(existingInvoice.subtotal),
-          lineItems: itemsForTax,
-          classification,
+        // Refetch to return full invoice data (updateMany doesn't return rows)
+        const updated = await tx.invoice.findUniqueOrThrow({
+          where: { id: invoiceId },
+          include: {
+            cliente: { select: { id: true, nomeCompleto: true, nomeFantasia: true, email: true } },
+            projeto: { select: { id: true, titulo: true } },
+            itens: { orderBy: { ordem: 'asc' } },
+            pagamentos: { where: { estornadoEm: null }, orderBy: { dataPagamento: 'desc' } },
+          },
         });
 
-        financialUpdate = {
-          taxMode: taxResult.taxMode,
-          taxScenario: taxResult.scenario,
-          taxableAmount: new Decimal(taxResult.taxableAmount),
-          nonTaxableAmount: new Decimal(taxResult.nonTaxableAmount),
-          taxAmount: new Decimal(taxResult.taxAmount),
-          taxExplanation: taxResult.taxExplanation,
-          valorTotal: new Decimal(
-            Number(existingInvoice.subtotal) + taxResult.taxAmount
-          ),
-          saldo: new Decimal(
-            Math.max(0, Number(existingInvoice.subtotal) + taxResult.taxAmount - Number(existingInvoice.valorPago))
-          ),
-        };
-      }
-
-      const updateResult = await tx.invoice.updateMany({
-        where: { id: invoiceId, status: { notIn: ['PAID', 'CANCELLED'] } },
-        data: {
-          ...(body.dataVencimento && { dataVencimento: new Date(body.dataVencimento) }),
-          ...(body.notas !== undefined && { notas: body.notas }),
-          ...(body.termos !== undefined && { termos: body.termos }),
-          // Tax classification fields
-          ...(body.propertyType !== undefined && { propertyType: body.propertyType }),
-          ...(body.serviceCategory !== undefined && { serviceCategory: body.serviceCategory }),
-          ...(body.contractType !== undefined && { contractType: body.contractType }),
-          // Manual override (RBAC enforced above before reaching here)
-          ...(body.manualTaxOverride !== undefined && {
-            manualTaxOverride: body.manualTaxOverride,
-            taxMode: body.manualTaxOverride ? TaxMode.MANUAL_REVIEW : undefined,
-            taxReviewedById: Number(user.id),
-            taxReviewedAt: new Date(),
-          }),
-          ...(body.manualTaxOverrideReason !== undefined && { manualTaxOverrideReason: body.manualTaxOverrideReason }),
-          ...financialUpdate,
-          atualizadoPor: Number(user.id),
-        },
-      });
-
-      if (updateResult.count === 0) {
-        throw new Error('CONFLICT_STATUS');
-      }
-
-      // Refetch to return full invoice data (updateMany doesn't return rows)
-      const updated = await tx.invoice.findUniqueOrThrow({
-        where: { id: invoiceId },
-        include: {
-          cliente: { select: { id: true, nomeCompleto: true, nomeFantasia: true, email: true } },
-          projeto: { select: { id: true, titulo: true } },
-          itens: { orderBy: { ordem: 'asc' } },
-          pagamentos: { where: { estornadoEm: null }, orderBy: { dataPagamento: 'desc' } },
-        },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          id: crypto.randomUUID(),
-          userId: Number(user.id),
-          entidade: 'Invoice',
-          entidadeId: String(invoiceId),
-          acao: 'UPDATE',
-          diff: JSON.stringify({ changes: Object.keys({ ...body, ...financialUpdate }) }),
-        },
-      });
-
-      // AuditLog específico para manualTaxOverride
-      if (body.manualTaxOverride !== undefined) {
         await tx.auditLog.create({
           data: {
             id: crypto.randomUUID(),
             userId: Number(user.id),
             entidade: 'Invoice',
             entidadeId: String(invoiceId),
-            acao: body.manualTaxOverride ? 'TAX_OVERRIDE_SET' : 'TAX_OVERRIDE_CLEARED',
-            diff: JSON.stringify({
-              manualTaxOverride: body.manualTaxOverride,
-              manualTaxOverrideReason: body.manualTaxOverrideReason ?? null,
-              reviewedBy: user.id,
-              reviewedAt: new Date().toISOString(),
-            }),
+            acao: 'UPDATE',
+            diff: JSON.stringify({ changes: Object.keys({ ...body, ...financialUpdate }) }),
           },
         });
-      }
 
-      return updated;
-    }).catch((txErr: unknown) => {
-      if (txErr instanceof Error && txErr.message === 'CONFLICT_STATUS') {
-        return null as typeof invoice;
-      }
-      throw txErr;
-    });
+        // AuditLog específico para manualTaxOverride
+        if (body.manualTaxOverride !== undefined) {
+          await tx.auditLog.create({
+            data: {
+              id: crypto.randomUUID(),
+              userId: Number(user.id),
+              entidade: 'Invoice',
+              entidadeId: String(invoiceId),
+              acao: body.manualTaxOverride ? 'TAX_OVERRIDE_SET' : 'TAX_OVERRIDE_CLEARED',
+              diff: JSON.stringify({
+                manualTaxOverride: body.manualTaxOverride,
+                manualTaxOverrideReason: body.manualTaxOverrideReason ?? null,
+                reviewedBy: user.id,
+                reviewedAt: new Date().toISOString(),
+              }),
+            },
+          });
+        }
+
+        return updated;
+      })
+      .catch((txErr: unknown) => {
+        if (txErr instanceof Error && txErr.message === 'CONFLICT_STATUS') {
+          return null;
+        }
+        throw txErr;
+      });
 
     if (!invoice) {
       return NextResponse.json(
-        { error: 'Conflict', message: 'Invoice foi paga ou cancelada concorrentemente — recarregue e tente novamente', success: false },
+        {
+          error: 'Conflict',
+          message: 'Invoice foi paga ou cancelada concorrentemente — recarregue e tente novamente',
+          success: false,
+        },
         { status: 409 },
       );
     }
@@ -452,7 +471,11 @@ export const DELETE = withErrorHandler(
     const role = user.role as Role;
     if (!can(role, 'invoices', 'delete') || (role !== 'ADMIN' && role !== 'FINANCEIRO')) {
       return NextResponse.json(
-        { error: 'Forbidden', message: 'Apenas ADMIN ou FINANCEIRO podem cancelar invoices', success: false },
+        {
+          error: 'Forbidden',
+          message: 'Apenas ADMIN ou FINANCEIRO podem cancelar invoices',
+          success: false,
+        },
         { status: 403 },
       );
     }
@@ -468,7 +491,14 @@ export const DELETE = withErrorHandler(
 
     const existingInvoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, empresaId: user.empresaId },
-      select: { id: true, status: true, valorPago: true, valorTotal: true, numeroInvoice: true, ledgerTransactionId: true },
+      select: {
+        id: true,
+        status: true,
+        valorPago: true,
+        valorTotal: true,
+        numeroInvoice: true,
+        ledgerTransactionId: true,
+      },
     });
 
     if (!existingInvoice) {

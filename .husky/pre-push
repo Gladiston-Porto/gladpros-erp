@@ -16,7 +16,8 @@ echo "────────────────────────�
 
 # Verificar se existem arquivos TypeScript com erros de tipo
 echo "▶ Type check rápido..."
-npx tsc --noEmit --project tsconfig.typecheck.json 2>&1 | tail -5 || {
+tsc_output=$(npx tsc --noEmit --project tsconfig.typecheck.json 2>&1) || {
+  echo "$tsc_output" | tail -5
   echo ""
   echo "❌ Type check falhou — corrija os erros antes de fazer push"
   exit 1
@@ -27,7 +28,8 @@ echo "✅ Type check OK"
 # Rodar testes unitários (excluindo E2E — esses rodam só no CI)
 echo ""
 echo "▶ Rodando testes unitários..."
-npm test -- --passWithNoTests --forceExit 2>&1 | tail -15 || {
+test_output=$(npm test -- --passWithNoTests --forceExit 2>&1) || {
+  echo "$test_output" | tail -15
   echo ""
   echo "❌ Testes falharam — corrija antes de fazer push"
   exit 1

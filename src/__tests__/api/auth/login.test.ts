@@ -7,7 +7,6 @@ jest.mock('next/server', () => ({
     url,
     json: jest.fn(),
     headers: { get: jest.fn() },
-    cookies: { get: jest.fn().mockReturnValue(undefined) },
     ...options,
   })),
   NextResponse: {
@@ -78,8 +77,7 @@ jest.mock('../../../shared/lib/audit', () => ({
 }));
 
 jest.mock('../../../shared/lib/mfa-challenge', () => ({
-  verifyMfaChallenge: jest.fn().mockReturnValue(true),
-  createMfaChallenge: jest.fn().mockReturnValue('valid-challenge-token'),
+  createMfaChallenge: jest.fn().mockReturnValue('mock-mfa-challenge'),
 }));
 
 describe('POST /api/auth/login', () => {

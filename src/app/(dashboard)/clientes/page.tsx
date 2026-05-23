@@ -4,35 +4,42 @@
 
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { requireServerUser } from "@/shared/lib/requireServerUser";
-import { can, type Role } from "@/shared/lib/rbac-core";
-import { Button } from '@gladpros/ui/button'
-import { ModulePageHeader } from '@gladpros/ui/module-page-header'
+import { requireServerUser } from '@/shared/lib/requireServerUser';
+import { can, type Role } from '@/shared/lib/rbac-core';
+import { Button } from '@gladpros/ui/button';
+import { ModulePageHeader } from '@gladpros/ui/module-page-header';
 import { StatCard } from '@gladpros/ui/stat-card';
 import {
-  Users, UserPlus, FileBarChart, Settings,
-  ArrowRight, TrendingUp, Building2, User, CheckCircle,
+  Users,
+  UserPlus,
+  FileBarChart,
+  Settings,
+  ArrowRight,
+  TrendingUp,
+  Building2,
+  User,
+  CheckCircle,
 } from 'lucide-react';
 
 export default async function DashboardClientesPage() {
   const user = await requireServerUser();
   const role = user.role as Role;
-  const canCreate = can(role, "clientes", "create");
-  const canUpdate  = can(role, "clientes", "update");
+  const canCreate = can(role, 'clientes', 'create');
+  const canUpdate = can(role, 'clientes', 'update');
 
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
 
   const [totalClientes, novosEsteMes, clientesAtivos, porTipo] = await Promise.all([
-    prisma.cliente.count({ where: { empresaId: user.empresaId } }),
-    prisma.cliente.count({ where: { empresaId: user.empresaId, criadoEm: { gte: startOfMonth } } }),
-    prisma.cliente.count({ where: { empresaId: user.empresaId, status: 'ATIVO' } }),
-    prisma.cliente.groupBy({ by: ['tipo'], where: { empresaId: user.empresaId }, _count: { id: true } }),
+    prisma.cliente.count(),
+    prisma.cliente.count({ where: { criadoEm: { gte: startOfMonth } } }),
+    prisma.cliente.count({ where: { status: 'ATIVO' } }),
+    prisma.cliente.groupBy({ by: ['tipo'], _count: { id: true } }),
   ]);
 
-  const totalPF = porTipo.find(t => t.tipo === 'PF')?._count.id ?? 0;
-  const totalPJ = porTipo.find(t => t.tipo === 'PJ')?._count.id ?? 0;
+  const totalPF = porTipo.find((t) => t.tipo === 'PF')?._count.id ?? 0;
+  const totalPJ = porTipo.find((t) => t.tipo === 'PJ')?._count.id ?? 0;
 
   const navCards = [
     {
@@ -75,21 +82,17 @@ export default async function DashboardClientesPage() {
       linkClass: 'text-muted-foreground',
       visible: canUpdate,
     },
-  ].filter(c => c.visible);
+  ].filter((c) => c.visible);
 
   return (
     <div className="space-y-6">
-
       {/* ── Header ──────────────────────────────────────────────────── */}
       <ModulePageHeader
         title="Clientes"
         description="Gestão de relacionamento com clientes (CRM)"
         icon={<Users />}
         accentColor="#FF8C00"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Clientes' },
-        ]}
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Clientes' }]}
         actions={
           canCreate ? (
             <Link href="/clientes/novo">
@@ -139,22 +142,31 @@ export default async function DashboardClientesPage() {
           Módulos
         </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {navCards.map(card => {
+          {navCards.map((card) => {
             const Icon = card.icon;
             return (
               <Link key={card.href} href={card.href} className="group">
                 <div className="relative overflow-hidden rounded-xl border border-border bg-card p-4 shadow-card transition-all duration-200 hover:shadow-card-hover">
-                  <div className={`absolute inset-x-0 top-0 h-[3px] ${card.barClass}`} aria-hidden />
+                  <div
+                    className={`absolute inset-x-0 top-0 h-[3px] ${card.barClass}`}
+                    aria-hidden
+                  />
                   <div className="mt-1 flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-foreground">{card.label}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground leading-snug">{card.description}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground leading-snug">
+                        {card.description}
+                      </p>
                     </div>
-                    <div className={`grid shrink-0 size-8 place-content-center rounded-lg text-white [&_svg]:size-4 ${card.iconClass}`}>
+                    <div
+                      className={`grid shrink-0 size-8 place-content-center rounded-lg text-white [&_svg]:size-4 ${card.iconClass}`}
+                    >
                       <Icon />
                     </div>
                   </div>
-                  <div className={`mt-3 flex items-center gap-1 text-xs font-medium ${card.linkClass}`}>
+                  <div
+                    className={`mt-3 flex items-center gap-1 text-xs font-medium ${card.linkClass}`}
+                  >
                     Acessar
                     <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
                   </div>

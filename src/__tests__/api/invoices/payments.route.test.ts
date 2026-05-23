@@ -328,15 +328,13 @@ describe('POST /api/invoices/[id]/payments', () => {
             .mockResolvedValueOnce(mockInvoice)
             .mockResolvedValueOnce({ ...mockInvoice, valorPago: 1000, saldo: 0 }),
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          update: jest
-            .fn()
-            .mockResolvedValue({
-              id: 1,
-              status: 'PAID',
-              valorPago: 1000,
-              saldo: 0,
-              valorTotal: 1000,
-            }),
+          update: jest.fn().mockResolvedValue({
+            id: 1,
+            status: 'PAID',
+            valorPago: 1000,
+            saldo: 0,
+            valorTotal: 1000,
+          }),
         },
         bankAccount: {
           update: jest.fn().mockResolvedValue({ saldoAtual: 1000 }),
@@ -353,8 +351,8 @@ describe('POST /api/invoices/[id]/payments', () => {
         auditLog: { create: jest.fn().mockResolvedValue({}) },
         revenueCategory: { findFirst: jest.fn(), create: jest.fn() },
         revenue: {
-          create: jest.fn().mockResolvedValue({ id: 99 }),
           findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: 99 }),
         },
         ...overrides,
       };
@@ -393,7 +391,7 @@ describe('POST /api/invoices/[id]/payments', () => {
             empresaId: 1,
             categoriaId: 7,
             valor: expect.anything(),
-            descricao: 'Invoice #1 - pagamento #10',
+            descricao: 'Invoice #1 - pagamento recebido',
             status: 'RECEBIDA',
           }),
         }),
@@ -443,7 +441,7 @@ describe('POST /api/invoices/[id]/payments', () => {
       expect(res.status).toBe(500);
     });
 
-    it('Revenue is created for partial payment amount (PARTIAL_PAID)', async () => {
+    it('Revenue is NOT created for partial payment (PARTIAL_PAID)', async () => {
       const partialBody = { ...fullPaymentBody, valor: 400 };
       const tx = makeTxMock();
       (tx.invoice.update as jest.Mock).mockResolvedValue({
@@ -458,7 +456,6 @@ describe('POST /api/invoices/[id]/payments', () => {
         invoiceId: 1,
         valor: 400,
       });
-      (tx.revenueCategory.findFirst as jest.Mock).mockResolvedValue({ id: 7 });
 
       const { POST } = await import('@/app/api/invoices/[id]/payments/route');
       const req = makeRequest('http://localhost/api/invoices/1/payments', {
@@ -468,15 +465,8 @@ describe('POST /api/invoices/[id]/payments', () => {
       const res = await POST(req, makeContext('1'));
 
       expect(res.status).toBe(201);
-      expect(tx.revenue.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            valor: expect.anything(),
-            descricao: 'Invoice #1 - pagamento #11',
-            status: 'RECEBIDA',
-          }),
-        }),
-      );
+      // Revenue is only created when invoice becomes fully PAID, not for partial payments
+      expect(tx.revenue.create).not.toHaveBeenCalled();
     });
   });
 });

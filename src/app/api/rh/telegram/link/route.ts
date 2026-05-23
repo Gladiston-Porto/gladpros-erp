@@ -3,38 +3,42 @@
 // O token é enviado ao worker como deep link: https://t.me/GladProsBot?start={token}
 // Se o worker tiver email cadastrado, o link é enviado por email automaticamente
 
-import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
-import { randomBytes } from "crypto"
-import { prisma } from "@/lib/prisma"
-import { requireUser } from "@/shared/lib/rbac"
-import { can, type Role } from "@/shared/lib/rbac-core"
-import { sendMail } from "@/shared/lib/mailer"
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { randomBytes } from 'crypto';
+import { prisma } from '@/lib/prisma';
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
+import { sendMail } from '@/shared/lib/mailer';
 
 const schema = z.object({
   workerId: z.number().int().positive(),
-})
+});
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireUser(request)
+    const user = await requireUser(request);
 
-    if (!can(user.role as Role, "rh", "write")) {
+    if (!can(user.role as Role, 'rh', 'create')) {
       return NextResponse.json(
-        { error: "Forbidden", message: "Sem permissão para vincular Telegram", success: false },
-        { status: 403 }
-      )
+        { error: 'Forbidden', message: 'Sem permissão para vincular Telegram', success: false },
+        { status: 403 },
+      );
     }
 
-    const body = schema.safeParse(await request.json())
+    const body = schema.safeParse(await request.json());
     if (!body.success) {
       return NextResponse.json(
-        { error: "Validation failed", message: body.error.issues[0]?.message ?? "Dados inválidos", success: false },
-        { status: 400 }
-      )
+        {
+          error: 'Validation failed',
+          message: body.error.issues[0]?.message ?? 'Dados inválidos',
+          success: false,
+        },
+        { status: 400 },
+      );
     }
 
-    const { workerId } = body.data
+    const { workerId } = body.data;
 
     const worker = await prisma.worker.findFirst({
       where: { id: workerId, deletadoEm: null },
@@ -45,23 +49,23 @@ export async function POST(request: NextRequest) {
         telegramLink: { select: { telegramId: true, username: true } },
         usuario: { select: { email: true } },
       },
-    })
+    });
 
     if (!worker) {
       return NextResponse.json(
-        { error: "Not Found", message: "Worker não encontrado", success: false },
-        { status: 404 }
-      )
+        { error: 'Not Found', message: 'Worker não encontrado', success: false },
+        { status: 404 },
+      );
     }
 
     // Invalida tokens anteriores não utilizados
     await prisma.telegramLinkToken.updateMany({
       where: { workerId, used: false },
       data: { used: true },
-    })
+    });
 
-    const token = randomBytes(24).toString("hex")
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24h
+    const token = randomBytes(24).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
     await prisma.telegramLinkToken.create({
       data: {
@@ -70,22 +74,22 @@ export async function POST(request: NextRequest) {
         token,
         expiresAt,
       },
-    })
+    });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-    const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? "GladProsBot"
-    const deepLink = `https://t.me/${botUsername}?start=${token}`
-    const webLink = `${appUrl}/api/rh/telegram/link/${token}`
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? 'GladProsBot';
+    const deepLink = `https://t.me/${botUsername}?start=${token}`;
+    const webLink = `${appUrl}/api/rh/telegram/link/${token}`;
 
     // Envia email automaticamente se tiver endereço disponível
-    const workerEmail = worker.email ?? worker.usuario?.email ?? null
-    let emailSent = false
+    const workerEmail = worker.email ?? worker.usuario?.email ?? null;
+    let emailSent = false;
 
     if (workerEmail) {
       try {
         await sendMail(
           workerEmail,
-          "GladPros — Vincule seu Telegram ao Ponto Eletrônico",
+          'GladPros — Vincule seu Telegram ao Ponto Eletrônico',
           `
           <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px;">
             <div style="background: linear-gradient(135deg, #0098DA, #006899); border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 24px;">
@@ -115,11 +119,11 @@ export async function POST(request: NextRequest) {
               Se não conseguir abrir o link, acesse: <a href="${webLink}" style="color: #0098DA;">${webLink}</a>
             </p>
           </div>
-          `
-        )
-        emailSent = true
+          `,
+        );
+        emailSent = true;
       } catch (err) {
-        console.error("[Telegram link] Falha ao enviar email:", err)
+        console.error('[Telegram link] Falha ao enviar email:', err);
       }
     }
 
@@ -135,18 +139,18 @@ export async function POST(request: NextRequest) {
         emailSent,
         emailTo: workerEmail,
         message: worker.telegramLink
-          ? "Worker já possui Telegram vinculado. Novo link irá substituir."
+          ? 'Worker já possui Telegram vinculado. Novo link irá substituir.'
           : emailSent
-          ? `Link enviado por email para ${workerEmail}.`
-          : "Link gerado. Envie manualmente ao worker.",
+            ? `Link enviado por email para ${workerEmail}.`
+            : 'Link gerado. Envie manualmente ao worker.',
       },
       success: true,
-    })
+    });
   } catch (error) {
-    console.error("[POST /api/rh/telegram/link]", error)
+    console.error('[POST /api/rh/telegram/link]', error);
     return NextResponse.json(
-      { error: "Internal Server Error", message: "Erro ao gerar link", success: false },
-      { status: 500 }
-    )
+      { error: 'Internal Server Error', message: 'Erro ao gerar link', success: false },
+      { status: 500 },
+    );
   }
 }

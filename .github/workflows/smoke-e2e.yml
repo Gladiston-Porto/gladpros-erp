@@ -7,13 +7,13 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Use Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
       - name: Install deps
-        run: npm ci
+        run: npm ci --legacy-peer-deps
       - name: Build
         run: npm run build --if-present
       - name: Start server

@@ -23,7 +23,7 @@ export const POST = withErrorHandler(
       );
     }
 
-    // Buscar proposta com etapas e materiais (escopo por empresaId para evitar acesso cross-tenant)
+    // Buscar proposta com etapas e materiais — scoped to user.empresaId (cross-tenant protection)
     const proposta = await prisma.proposta.findFirst({
       where: { id: propostaId, empresaId: user.empresaId, deletedAt: null },
       include: {

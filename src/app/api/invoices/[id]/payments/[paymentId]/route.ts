@@ -31,7 +31,7 @@ export const DELETE = withErrorHandler(
 
     const payment = await prisma.invoicePayment.findUnique({
       where: { id: paymentIdInt },
-      select: { id: true, invoiceId: true, valor: true, bankAccountId: true, dataPagamento: true },
+      select: { id: true, invoiceId: true, valor: true, bankAccountId: true },
     });
 
     if (!payment || payment.invoiceId !== invoiceId) {
@@ -53,16 +53,16 @@ export const DELETE = withErrorHandler(
       );
     }
 
-    // Verificar saldo bancário antes de iniciar a transação
+    // Check bank account balance before reversal (reversal debits the account)
     if (payment.bankAccountId) {
       const bankAccount = await prisma.bankAccount.findFirst({
-        where: { id: payment.bankAccountId, empresaId: invoice.empresaId },
+        where: { id: payment.bankAccountId, empresaId: user.empresaId },
         select: { id: true, saldoAtual: true },
       });
       if (!bankAccount || Number(bankAccount.saldoAtual) < Number(payment.valor)) {
         return NextResponse.json(
           {
-            error: 'Insufficient balance',
+            error: 'Validation failed',
             message: 'Saldo bancário insuficiente para estorno',
             success: false,
           },
@@ -72,11 +72,7 @@ export const DELETE = withErrorHandler(
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // Soft-delete: marcar como estornado
-      await tx.invoicePayment.updateMany({
-        where: { id: paymentIdInt },
-        data: { estornadoEm: new Date(), estornadoPor: Number(user.id) },
-      });
+      await tx.invoicePayment.delete({ where: { id: paymentIdInt } });
 
       const novoValorPago = Math.max(0, Number(invoice.valorPago) - Number(payment.valor));
       const novoSaldo = Math.max(0, Number(invoice.valorTotal) - novoValorPago);
@@ -99,34 +95,38 @@ export const DELETE = withErrorHandler(
         select: { id: true, status: true, valorPago: true, saldo: true, valorTotal: true },
       });
 
-      // Criar ledger de reversão
-      await tx.ledgerTransaction.create({
-        data: {
-          empresaId: invoice.empresaId,
-          sourceType: 'REVERSAL',
-          sourceId: paymentIdInt,
-          valor: new Decimal(payment.valor),
-          entries: { create: [] },
-        },
-      });
-
-      // Reverter movimentação bancária se houver conta
+      // Reverse bank account balance and create ledger/bank transaction records
       if (payment.bankAccountId) {
+        const saldoAnterior = new Decimal(0);
+        const saldoPosterior = new Decimal(0);
+
+        await tx.bankAccount.updateMany({
+          where: { id: payment.bankAccountId, empresaId: user.empresaId },
+          data: { saldoAtual: { decrement: Number(payment.valor) } },
+        });
+
         await tx.bankTransaction.create({
           data: {
             accountId: payment.bankAccountId,
-            empresaId: invoice.empresaId,
             tipo: 'DEBITO',
             categoria: 'INVOICE_PAYMENT_REVERSAL',
-            valor: new Decimal(payment.valor),
-            descricao: `Estorno pagamento #${paymentIdInt} - Invoice #${invoiceId}`,
+            valor: new Decimal(Number(payment.valor)),
+            descricao: `Estorno Invoice #${invoiceId} - pagamento #${paymentIdInt}`,
+            empresaId: user.empresaId,
             dataTransacao: new Date(),
+            saldoAnterior,
+            saldoPosterior,
           },
         });
 
-        await tx.bankAccount.updateMany({
-          where: { id: payment.bankAccountId, empresaId: invoice.empresaId },
-          data: { saldoAtual: { decrement: Number(payment.valor) } },
+        await tx.ledgerTransaction.create({
+          data: {
+            sourceType: 'REVERSAL',
+            sourceId: paymentIdInt,
+            empresaId: user.empresaId,
+            data: new Date(),
+            descricao: `Estorno Invoice #${invoiceId} - pagamento #${paymentIdInt}`,
+          },
         });
       }
 
@@ -148,7 +148,7 @@ export const DELETE = withErrorHandler(
       await tx.revenue.deleteMany({
         where: {
           empresaId: invoice.empresaId,
-          descricao: `Invoice #${invoiceId} - pagamento #${paymentIdInt}`,
+          descricao: `Invoice #${invoiceId} - pagamento recebido`,
           status: 'RECEBIDA',
         },
       });

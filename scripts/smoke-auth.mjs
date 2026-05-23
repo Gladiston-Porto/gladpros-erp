@@ -53,6 +53,8 @@ async function main() {
     // user object contains id. root body might have mfaRequired: true
     const userId = loginJson.user?.id;
     if (!userId) throw new Error('UserId not found in login response: ' + JSON.stringify(loginJson));
+    const mfaChallenge = loginJson.mfaChallenge;
+    if (!mfaChallenge) throw new Error('mfaChallenge not found in login response: ' + JSON.stringify(loginJson));
 
     console.log('✅ Login Step 1 OK. MFA Required:', loginJson.mfaRequired);
 
@@ -88,10 +90,9 @@ async function main() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             userId: Number(userId),
-            usuarioId: Number(userId),
             code: code,
-            codigo: code,
-            tipoAcao: tipoAcao // Use the actual type from DB
+            tipoAcao: tipoAcao, // Use the actual type from DB
+            challenge: mfaChallenge,
         }),
     });
 
@@ -100,18 +101,28 @@ async function main() {
         throw new Error(`MFA verify failed (${verifyRes.status}): ${verifyText}`);
     }
 
-    const verifyJson = JSON.parse(verifyText);
-    const accessToken = verifyJson.token; // Confirmed 'token' field in API response
+    JSON.parse(verifyText);
+    const setCookies = typeof verifyRes.headers.getSetCookie === 'function'
+        ? verifyRes.headers.getSetCookie()
+        : (verifyRes.headers.get('set-cookie') ? [verifyRes.headers.get('set-cookie')] : []);
+    const authTokenCookie = setCookies.find((cookie) => cookie.startsWith('authToken='));
+    const accessToken = authTokenCookie?.match(/authToken=([^;]+)/)?.[1];
+    const cookieHeader = setCookies.map((cookie) => cookie.split(';')[0]).join('; ');
 
-    if (!accessToken) throw new Error('Access Token not found in verify response');
-    console.log('✅ MFA Verification OK. Token received.');
+    if (!accessToken || !cookieHeader) {
+        throw new Error('Auth cookie not found in MFA verify response');
+    }
+    console.log('✅ MFA Verification OK. Auth cookie received.');
 
     // 4) Protected Endpoint
     console.log('\n4. Testing protected endpoint (/api/metrics)...');
     // Note: /api/dashboard/executive might be heavy or require more data. 
     // Trying a lighter one or the requested one. User suggested /api/dashboard/executive?period=30d
     const execRes = await fetch(`${BASE_URL}/api/dashboard/executive?period=30d`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Cookie: cookieHeader,
+        },
     });
 
     if (execRes.status === 404) {
@@ -132,7 +143,8 @@ async function main() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`
+            Authorization: `Bearer ${accessToken}`,
+            Cookie: cookieHeader,
         },
     });
 

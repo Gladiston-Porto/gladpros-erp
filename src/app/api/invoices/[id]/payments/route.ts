@@ -201,41 +201,53 @@ export const POST = withErrorHandler(
         },
       });
 
-      // Auto-create Revenue record for each payment received. This is critical:
+      // Auto-create Revenue record when invoice is fully paid. This is critical:
       // if revenue posting fails, the payment must roll back to keep Financeiro correct.
-      {
-        const revenueDescription = `Invoice #${invoiceId} - pagamento #${payment.id}`;
-        let defaultCategory = await tx.revenueCategory.findFirst({
-          where: { empresaId: currentInvoice.empresaId },
-          select: { id: true },
-        });
-        if (!defaultCategory) {
-          defaultCategory = await tx.revenueCategory.create({
-            data: {
-              empresaId: currentInvoice.empresaId,
-              nome: 'Pagamentos de Invoice',
-              descricao: 'Categoria padrão para receitas geradas por invoices pagas',
-              cor: '#0098DA',
-            },
-            select: { id: true },
-          });
-        }
-        await tx.revenue.create({
-          data: {
+      if (novoStatus === 'PAID') {
+        const revenueDescription = `Invoice #${invoiceId} - pagamento recebido`;
+        const existingRevenue = await tx.revenue.findFirst({
+          where: {
             empresaId: currentInvoice.empresaId,
-            categoriaId: defaultCategory.id,
-            clienteId: currentInvoice.clienteId ?? undefined,
             descricao: revenueDescription,
-            valor: new Decimal(body.valor),
-            dataEmissao: new Date(body.dataPagamento),
-            dataVencimento: new Date(body.dataPagamento),
-            dataPagamento: new Date(body.dataPagamento),
-            tipo: 'SERVICO',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
             status: 'RECEBIDA',
           },
+          select: { id: true },
         });
+
+        if (!existingRevenue) {
+          let defaultCategory = await tx.revenueCategory.findFirst({
+            where: { empresaId: currentInvoice.empresaId },
+            select: { id: true },
+          });
+          if (!defaultCategory) {
+            defaultCategory = await tx.revenueCategory.create({
+              data: {
+                empresaId: currentInvoice.empresaId,
+                nome: 'Pagamentos de Invoice',
+                descricao: 'Categoria padrão para receitas geradas por invoices pagas',
+                cor: '#0098DA',
+              },
+              select: { id: true },
+            });
+          }
+          await tx.revenue.create({
+            data: {
+              empresaId: currentInvoice.empresaId,
+              categoriaId: defaultCategory.id,
+              clienteId: currentInvoice.clienteId ?? undefined,
+              descricao: revenueDescription,
+              valor: new Decimal(currentInvoice.valorTotal),
+              dataEmissao: new Date(body.dataPagamento),
+              dataVencimento: new Date(body.dataPagamento),
+              dataPagamento: new Date(body.dataPagamento),
+              tipo: 'SERVICO',
+
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formaPagamento: mapToFormaPagamento(body.metodoPagamento) as any,
+              status: 'RECEBIDA',
+            },
+          });
+        }
       }
 
       return { payment, invoice: updatedInvoice };

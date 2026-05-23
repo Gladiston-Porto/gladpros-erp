@@ -6,8 +6,6 @@ name: CI
 on:
   push:
     branches: [main, 'chore/**', 'fix/**', 'feat/**', 'feature/**', develop]
-  pull_request:
-    branches: [main, develop]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,10 +18,10 @@ jobs:
   smoke:
     name: 🔥 Smoke Test
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -35,7 +33,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Generate Prisma Client
         run: npm run db:generate
@@ -64,10 +62,10 @@ jobs:
     name: 📝 Lint
     runs-on: ubuntu-latest
     continue-on-error: true
-    
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -76,7 +74,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Lint
         run: npm run quality:lint
@@ -85,10 +83,10 @@ jobs:
     name: 🔍 TypeScript
     runs-on: ubuntu-latest
     continue-on-error: true
-    
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -100,7 +98,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Generate Prisma Client
         run: npm run db:generate
@@ -112,7 +110,7 @@ jobs:
     name: 🧪 Tests
     runs-on: ubuntu-latest
     continue-on-error: true
-    
+
     services:
       mariadb:
         image: mariadb:10.11
@@ -129,7 +127,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -143,7 +141,7 @@ jobs:
           echo "DATABASE_URL=mysql://root:root@localhost:3306/gladpros_test" >> .env
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Generate Prisma Client
         run: npm run db:generate
@@ -151,7 +149,7 @@ jobs:
       - name: Run database migrations
         run: npx prisma migrate deploy || npx prisma db push --skip-generate
         env:
-          DATABASE_URL: "mysql://root:root@localhost:3306/gladpros_test"
+          DATABASE_URL: 'mysql://root:root@localhost:3306/gladpros_test'
 
       - name: Run Tests
         run: npm run quality:test

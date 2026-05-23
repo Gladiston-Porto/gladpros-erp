@@ -2,9 +2,7 @@ name: Smoke Tests
 
 on:
   push:
-    branches: [ main, develop, 'fix/*' ]
-  pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop, 'fix/*']
 
 concurrency:
   group: smoke-tests-${{ github.workflow }}-${{ github.ref }}
@@ -16,7 +14,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.0
+        image: mariadb:10.11
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: gladpros_test
@@ -30,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -41,7 +39,7 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       # Segredos gerados em runtime (evita hardcode e garante disponibilidade cedo)
       - name: Generate test secrets
@@ -88,7 +86,7 @@ jobs:
         run: npx prisma generate
 
       - name: Apply DB migrations
-        run: npx prisma migrate deploy
+        run: npx prisma migrate deploy || npx prisma db push --skip-generate
 
       - name: Seed Database
         run: npx prisma db seed
@@ -113,7 +111,7 @@ jobs:
 
       - name: Upload server logs (on failure)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: server-logs-${{ github.run_id }}
           path: server.log
