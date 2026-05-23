@@ -1,11 +1,5 @@
 import { z } from 'zod';
-import {
-  sanitizeHtml as sanitizeRichHtml,
-  sanitizeSql as sanitizeSqlInput,
-  sanitizePhone as sanitizePhoneInput,
-  sanitizeDocumento,
-  sanitizeText,
-} from '@/lib/security/sanitizer';
+import { sanitizeHtml as stripHtml, sanitizeInput } from '@/shared/lib/sanitize';
 
 // Validações base
 export const emailSchema = z
@@ -274,31 +268,43 @@ export const toggleUserStatusSchema= z.object({
 export class Sanitizer {
   // Sanitizar strings para prevenir XSS
   static sanitizeString(input: string): string {
-    const cleaned = sanitizeText(input).trim();
-    if (/^\s*(?:javascript|data|vbscript):/i.test(cleaned)) {
+    const cleaned = sanitizeInput(stripHtml(input));
+    const hasScheme = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(cleaned);
+    if (!hasScheme) {
+      return cleaned;
+    }
+    try {
+      const parsed = new URL(cleaned);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') {
+        return cleaned;
+      }
+      return '';
+    } catch {
       return '';
     }
-    return cleaned;
   }
 
   // Sanitizar HTML removendo tags perigosas
   static sanitizeHtml(input: string): string {
-    return sanitizeRichHtml(input, []);
+    return stripHtml(input);
   }
 
   // Sanitizar input para SQL (adicional ao Prisma)
   static sanitizeSql(input: string): string {
-    return sanitizeSqlInput(input);
+    return input
+      .replace(/['\";]/g, '') // Remover aspas e ponto e vírgula
+      .replace(/(-{2,}|\/\*|\*\/)/g, '') // Remover comentários SQL
+      .replace(/\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b/gi, ''); // Remover palavras-chave SQL
   }
 
   // Validar e sanitizar número de telefone
   static sanitizePhone(input: string): string {
-    return sanitizePhoneInput(input);
+    return input.replace(/[^\d+()-\s]/g, '').replace(/\s+/g, ' ').trim();
   }
 
   // Validar e sanitizar CPF/CNPJ
   static sanitizeDocument(input: string): string {
-    return sanitizeDocumento(input);
+    return input.replace(/[^\d]/g, '');
   }
 }
 
