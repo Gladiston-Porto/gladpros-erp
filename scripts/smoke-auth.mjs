@@ -53,6 +53,8 @@ async function main() {
     // user object contains id. root body might have mfaRequired: true
     const userId = loginJson.user?.id;
     if (!userId) throw new Error('UserId not found in login response: ' + JSON.stringify(loginJson));
+    const mfaChallenge = loginJson.mfaChallenge;
+    if (!mfaChallenge) throw new Error('mfaChallenge not found in login response: ' + JSON.stringify(loginJson));
 
     console.log('✅ Login Step 1 OK. MFA Required:', loginJson.mfaRequired);
 
@@ -88,10 +90,9 @@ async function main() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             userId: Number(userId),
-            usuarioId: Number(userId),
             code: code,
-            codigo: code,
-            tipoAcao: tipoAcao // Use the actual type from DB
+            tipoAcao: tipoAcao, // Use the actual type from DB
+            challenge: mfaChallenge,
         }),
     });
 
