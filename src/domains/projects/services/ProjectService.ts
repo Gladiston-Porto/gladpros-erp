@@ -6,16 +6,15 @@
  * Teste B2: mudança apenas em src/ para validar findRelatedTests
  */
 
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
-import { eventBus } from "@/server/events/event-bus";
+import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+import { eventBus } from '@/server/events/event-bus';
 import {
-  Projeto,
   Projeto_status,
   PROJETO_STATUS,
   TRANSICOES_STATUS_PROJETO,
   ACAO_HISTORICO,
-} from "../entities";
+} from '../entities';
 import {
   CreateProjetoDTO,
   UpdateProjetoDTO,
@@ -24,23 +23,23 @@ import {
   ListarProjetosDTO,
   PaginatedResponse,
   DashboardProjetosDTO,
-} from "../dtos";
-import { ProjectNumberService } from "./ProjectNumberService";
-import { ProjectHistoryService } from "./ProjectHistoryService";
-import { ProjectMaterialMetricsService } from "./ProjectMaterialMetricsService";
-import { ITriageGateway } from "../interfaces/triage-gateway.interface";
-import { getTriageGateway } from "../gateways";
-import { NotificationService } from "@/shared/lib/notifications";
+} from '../dtos';
+import { ProjectNumberService } from './ProjectNumberService';
+import { ProjectHistoryService } from './ProjectHistoryService';
+import { ProjectMaterialMetricsService } from './ProjectMaterialMetricsService';
+import { ITriageGateway } from '../interfaces/triage-gateway.interface';
+import { getTriageGateway } from '../gateways';
+import { NotificationService } from '@/shared/lib/notifications';
 
 export class ProjectServiceError extends Error {
   constructor(
     message: string,
     public code: string,
     public statusCode: number = 400,
-    public details?: unknown
+    public details?: unknown,
   ) {
     super(message);
-    this.name = "ProjectServiceError";
+    this.name = 'ProjectServiceError';
   }
 }
 
@@ -68,11 +67,7 @@ export class ProjectService {
     });
 
     if (!cliente) {
-      throw new ProjectServiceError(
-        "Cliente não encontrado",
-        "CLIENTE_NAO_ENCONTRADO",
-        404
-      );
+      throw new ProjectServiceError('Cliente não encontrado', 'CLIENTE_NAO_ENCONTRADO', 404);
     }
 
     // Valida responsável (se fornecido)
@@ -83,9 +78,9 @@ export class ProjectService {
 
       if (!responsavel) {
         throw new ProjectServiceError(
-          "Responsável não encontrado",
-          "RESPONSAVEL_NAO_ENCONTRADO",
-          404
+          'Responsável não encontrado',
+          'RESPONSAVEL_NAO_ENCONTRADO',
+          404,
         );
       }
     }
@@ -103,34 +98,30 @@ export class ProjectService {
       });
 
       if (!proposta) {
-        throw new ProjectServiceError(
-          "Proposta não encontrada",
-          "PROPOSTA_NAO_ENCONTRADA",
-          404
-        );
+        throw new ProjectServiceError('Proposta não encontrada', 'PROPOSTA_NAO_ENCONTRADA', 404);
       }
 
-      if (proposta.status !== "APROVADA") {
+      if (proposta.status !== 'APROVADA') {
         throw new ProjectServiceError(
-          "Apenas propostas aprovadas podem ser vinculadas a projetos",
-          "PROPOSTA_NAO_APROVADA",
-          409
+          'Apenas propostas aprovadas podem ser vinculadas a projetos',
+          'PROPOSTA_NAO_APROVADA',
+          409,
         );
       }
 
       if (proposta.clienteId !== data.clienteId) {
         throw new ProjectServiceError(
-          "A proposta informada pertence a outro cliente",
-          "PROPOSTA_CLIENTE_INCOMPATIVEL",
-          409
+          'A proposta informada pertence a outro cliente',
+          'PROPOSTA_CLIENTE_INCOMPATIVEL',
+          409,
         );
       }
 
       if (proposta.projetoId) {
         throw new ProjectServiceError(
-          "Esta proposta já está vinculada a um projeto",
-          "PROPOSTA_JA_CONVERTIDA",
-          409
+          'Esta proposta já está vinculada a um projeto',
+          'PROPOSTA_JA_CONVERTIDA',
+          409,
         );
       }
 
@@ -141,9 +132,9 @@ export class ProjectService {
 
       if (projetoExistente) {
         throw new ProjectServiceError(
-          "Esta proposta já está vinculada a outro projeto",
-          "PROPOSTA_JA_VINCULADA",
-          409
+          'Esta proposta já está vinculada a outro projeto',
+          'PROPOSTA_JA_VINCULADA',
+          409,
         );
       }
     }
@@ -162,14 +153,14 @@ export class ProjectService {
 
         if (
           !propostaAtual ||
-          propostaAtual.status !== "APROVADA" ||
+          propostaAtual.status !== 'APROVADA' ||
           propostaAtual.clienteId !== data.clienteId ||
           propostaAtual.projetoId
         ) {
           throw new ProjectServiceError(
-            "Proposta inválida ou já vinculada a projeto",
-            "PROPOSTA_INVALIDA",
-            409
+            'Proposta inválida ou já vinculada a projeto',
+            'PROPOSTA_INVALIDA',
+            409,
           );
         }
 
@@ -180,9 +171,9 @@ export class ProjectService {
 
         if (projetoExistente) {
           throw new ProjectServiceError(
-            "Esta proposta já está vinculada a outro projeto",
-            "PROPOSTA_JA_VINCULADA",
-            409
+            'Esta proposta já está vinculada a outro projeto',
+            'PROPOSTA_JA_VINCULADA',
+            409,
           );
         }
       }
@@ -199,7 +190,7 @@ export class ProjectService {
           dataConclusaoPrevista: data.dataPrevisao ? new Date(data.dataPrevisao) : null,
           valorEstimado: data.valorOrcado,
           status: PROJETO_STATUS.PLANEJADO,
-          prioridade: data.prioridade || "media",
+          prioridade: data.prioridade || 'media',
           criadoPor: usuarioId,
         },
         include: {
@@ -407,7 +398,7 @@ export class ProjectService {
   async atualizar(
     id: number,
     data: UpdateProjetoDTO,
-    usuarioId: number
+    usuarioId: number,
   ): Promise<ProjetoResponseDTO> {
     // Verifica se projeto existe
     const projetoExistente = await this.prisma.projeto.findUnique({
@@ -415,11 +406,7 @@ export class ProjectService {
     });
 
     if (!projetoExistente) {
-      throw new ProjectServiceError(
-        "Projeto não encontrado",
-        "PROJETO_NAO_ENCONTRADO",
-        404
-      );
+      throw new ProjectServiceError('Projeto não encontrado', 'PROJETO_NAO_ENCONTRADO', 404);
     }
 
     if (projetoExistente.baselineLockedAt) {
@@ -430,9 +417,9 @@ export class ProjectService {
 
       if (tentativaAlterarBaseline) {
         throw new ProjectServiceError(
-          "Baseline está bloqueada para este projeto",
-          "BASELINE_LOCKED",
-          409
+          'Baseline está bloqueada para este projeto',
+          'BASELINE_LOCKED',
+          409,
         );
       }
     }
@@ -446,9 +433,9 @@ export class ProjectService {
 
         if (!responsavel) {
           throw new ProjectServiceError(
-            "Responsável não encontrado",
-            "RESPONSAVEL_NAO_ENCONTRADO",
-            404
+            'Responsável não encontrado',
+            'RESPONSAVEL_NAO_ENCONTRADO',
+            404,
           );
         }
       }
@@ -497,7 +484,7 @@ export class ProjectService {
     // Disparar alertas de orçamento se custoReal foi atualizado (non-blocking)
     if (data.valorRealizado !== undefined) {
       this.checkAndFireBudgetAlerts(projeto.id, projeto.numeroProjeto).catch((err) =>
-        console.error('[ProjectService] BudgetAlert error:', err)
+        console.error('[ProjectService] BudgetAlert error:', err),
       );
     }
 
@@ -510,7 +497,7 @@ export class ProjectService {
   async alterarStatus(
     id: number,
     data: AlterarStatusProjetoDTO,
-    usuarioId: number
+    usuarioId: number,
   ): Promise<ProjetoResponseDTO> {
     const projeto = await this.prisma.projeto.findUnique({
       where: { id },
@@ -552,11 +539,7 @@ export class ProjectService {
     });
 
     if (!projeto) {
-      throw new ProjectServiceError(
-        "Projeto não encontrado",
-        "PROJETO_NAO_ENCONTRADO",
-        404
-      );
+      throw new ProjectServiceError('Projeto não encontrado', 'PROJETO_NAO_ENCONTRADO', 404);
     }
 
     // Valida transição de status
@@ -566,12 +549,12 @@ export class ProjectService {
     if (!this.validarTransicaoStatus(statusAtual, novoStatus)) {
       throw new ProjectServiceError(
         `Transição de status inválida: ${statusAtual} → ${novoStatus}`,
-        "TRANSICAO_INVALIDA",
+        'TRANSICAO_INVALIDA',
         409,
         {
           statusAtual,
           statusSolicitado: novoStatus,
-        }
+        },
       );
     }
 
@@ -586,9 +569,9 @@ export class ProjectService {
       const temTriagensPendentes = await this.triageGateway.verificarBloqueio(id);
       if (temTriagensPendentes) {
         throw new ProjectServiceError(
-          "Não é possível concluir o projeto com triagens pendentes ou em andamento",
-          "TRIAGENS_PENDENTES",
-          409
+          'Não é possível concluir o projeto com triagens pendentes ou em andamento',
+          'TRIAGENS_PENDENTES',
+          409,
         );
       }
     }
@@ -635,20 +618,29 @@ export class ProjectService {
     });
 
     // Emit domain events
-    await eventBus.emit({
-      name: 'project.statusChanged',
-      aggregateType: 'project',
-      aggregateId: String(id),
-      payload: { projetoId: id, oldStatus: statusAtual, newStatus: novoStatus, changedBy: usuarioId },
-    }).catch((err) => console.error('[ProjectService] Failed to emit project.statusChanged:', err));
-
-    if (novoStatus === PROJETO_STATUS.CONCLUIDO) {
-      await eventBus.emit({
-        name: 'project.completed',
+    await eventBus
+      .emit({
+        name: 'project.statusChanged',
         aggregateType: 'project',
         aggregateId: String(id),
-        payload: { projetoId: id, completedBy: usuarioId },
-      }).catch((err) => console.error('[ProjectService] Failed to emit project.completed:', err));
+        payload: {
+          projetoId: id,
+          oldStatus: statusAtual,
+          newStatus: novoStatus,
+          changedBy: usuarioId,
+        },
+      })
+      .catch((err) => console.error('[ProjectService] Failed to emit project.statusChanged:', err));
+
+    if (novoStatus === PROJETO_STATUS.CONCLUIDO) {
+      await eventBus
+        .emit({
+          name: 'project.completed',
+          aggregateType: 'project',
+          aggregateId: String(id),
+          payload: { projetoId: id, completedBy: usuarioId },
+        })
+        .catch((err) => console.error('[ProjectService] Failed to emit project.completed:', err));
     }
 
     return this.mapearParaResponse(projetoAtualizado);
@@ -663,19 +655,18 @@ export class ProjectService {
     });
 
     if (!projeto) {
-      throw new ProjectServiceError(
-        "Projeto não encontrado",
-        "PROJETO_NAO_ENCONTRADO",
-        404
-      );
+      throw new ProjectServiceError('Projeto não encontrado', 'PROJETO_NAO_ENCONTRADO', 404);
     }
 
     // Não permite exclusão de projetos em execução ou concluídos
-    if (projeto.status === PROJETO_STATUS.EM_EXECUCAO || projeto.status === PROJETO_STATUS.CONCLUIDO) {
+    if (
+      projeto.status === PROJETO_STATUS.EM_EXECUCAO ||
+      projeto.status === PROJETO_STATUS.CONCLUIDO
+    ) {
       throw new ProjectServiceError(
-        "Não é possível excluir projetos em execução ou concluídos",
-        "EXCLUSAO_NAO_PERMITIDA",
-        400
+        'Não é possível excluir projetos em execução ou concluídos',
+        'EXCLUSAO_NAO_PERMITIDA',
+        400,
       );
     }
 
@@ -805,7 +796,7 @@ export class ProjectService {
       tarefasPendentes,
       materiaisPendentes,
       projetosProximosVencimento: projetosProximosVencimento.map((p: any) =>
-        this.mapearParaResponse(p)
+        this.mapearParaResponse(p),
       ),
     };
   }
@@ -820,7 +811,7 @@ export class ProjectService {
     projetoId: number,
     statusAnterior: Projeto_status,
     statusNovo: Projeto_status,
-    usuarioId: number
+    usuarioId: number,
   ): Promise<void> {
     const regras = this.obterRegrasTriagem(statusAnterior, statusNovo);
 
@@ -863,7 +854,7 @@ export class ProjectService {
    */
   private obterRegrasTriagem(
     statusAnterior: Projeto_status,
-    statusNovo: Projeto_status
+    statusNovo: Projeto_status,
   ): Array<{
     tipo: 'MATERIAL' | 'EQUIPAMENTO' | 'FERRAMENTA' | 'INSPECAO';
     prioridade: 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE';
@@ -943,7 +934,7 @@ export class ProjectService {
 
   private async assertPermitRequirementsForFinalStatus(
     projeto: any,
-    novoStatus: Projeto_status
+    novoStatus: Projeto_status,
   ): Promise<void> {
     const statusFinal =
       novoStatus === PROJETO_STATUS.CONCLUIDO || novoStatus === PROJETO_STATUS.ARQUIVADO;
@@ -953,7 +944,7 @@ export class ProjectService {
     }
 
     const requiresPermit =
-      Boolean((projeto as any).requiresPermit) || projeto?.Proposta?.permite === "SIM";
+      Boolean((projeto as any).requiresPermit) || projeto?.Proposta?.permite === 'SIM';
 
     if (!requiresPermit) {
       return;
@@ -963,20 +954,20 @@ export class ProjectService {
 
     if (permits.length === 0) {
       throw new ProjectServiceError(
-        "Projeto requer permit aprovado para fechamento, mas não possui permits cadastrados",
-        "PERMIT_CLOSEOUT_BLOCKED",
+        'Projeto requer permit aprovado para fechamento, mas não possui permits cadastrados',
+        'PERMIT_CLOSEOUT_BLOCKED',
         409,
         {
           requiresPermit: true,
           statusSolicitado: novoStatus,
-          reason: "NO_PERMITS",
+          reason: 'NO_PERMITS',
           blockingPermits: [],
-        }
+        },
       );
     }
 
     const blockingPermits = permits
-      .filter((permit: any) => permit.status !== "APPROVED")
+      .filter((permit: any) => permit.status !== 'APPROVED')
       .map((permit: any) => ({
         id: permit.id,
         permitNumber: permit.permitNumber,
@@ -987,22 +978,22 @@ export class ProjectService {
 
     if (blockingPermits.length > 0) {
       throw new ProjectServiceError(
-        "Projeto requer permit aprovado para fechamento",
-        "PERMIT_CLOSEOUT_BLOCKED",
+        'Projeto requer permit aprovado para fechamento',
+        'PERMIT_CLOSEOUT_BLOCKED',
         409,
         {
           requiresPermit: true,
           statusSolicitado: novoStatus,
-          reason: "PENDING_OR_NON_APPROVED_PERMITS",
+          reason: 'PENDING_OR_NON_APPROVED_PERMITS',
           blockingPermits,
-        }
+        },
       );
     }
   }
 
   private async assertInspectionRequirementsForFinalStatus(
     projeto: any,
-    novoStatus: Projeto_status
+    novoStatus: Projeto_status,
   ): Promise<void> {
     const statusFinal =
       novoStatus === PROJETO_STATUS.CONCLUIDO || novoStatus === PROJETO_STATUS.ARQUIVADO;
@@ -1021,16 +1012,13 @@ export class ProjectService {
 
     const hasRequiredFlags = inspections.some(
       (inspection: any) =>
-        typeof inspection?.isRequired === "boolean" ||
-        typeof inspection?.requiredForCloseout === "boolean"
+        typeof inspection?.isRequired === 'boolean' ||
+        typeof inspection?.requiredForCloseout === 'boolean',
     );
 
     const requiredInspections = hasRequiredFlags
-      ? inspections.filter(
-          (inspection: any) =>
-            Boolean(
-              inspection?.requiredForCloseout ?? inspection?.isRequired ?? false
-            )
+      ? inspections.filter((inspection: any) =>
+          Boolean(inspection?.requiredForCloseout ?? inspection?.isRequired ?? false),
         )
       : inspections.filter((inspection: any) => inspection?.permitId != null);
 
@@ -1039,9 +1027,7 @@ export class ProjectService {
     }
 
     const blockingFailedOrReinspect = requiredInspections
-      .filter((inspection: any) =>
-        ["FAILED", "REINSPECT"].includes(String(inspection.status))
-      )
+      .filter((inspection: any) => ['FAILED', 'REINSPECT'].includes(String(inspection.status)))
       .map((inspection: any) => ({
         id: inspection.id,
         inspectionType: inspection.inspectionType,
@@ -1051,20 +1037,18 @@ export class ProjectService {
 
     if (blockingFailedOrReinspect.length > 0) {
       throw new ProjectServiceError(
-        "Projeto possui inspeções pendentes/reprovadas e não pode ser encerrado.",
-        "INSPECTION_CLOSEOUT_BLOCKED",
+        'Projeto possui inspeções pendentes/reprovadas e não pode ser encerrado.',
+        'INSPECTION_CLOSEOUT_BLOCKED',
         409,
         {
-          reason: "FAILED_OR_REINSPECT",
+          reason: 'FAILED_OR_REINSPECT',
           blockingInspections: blockingFailedOrReinspect,
-        }
+        },
       );
     }
 
     const blockingPending = requiredInspections
-      .filter((inspection: any) =>
-        ["REQUESTED", "SCHEDULED"].includes(String(inspection.status))
-      )
+      .filter((inspection: any) => ['REQUESTED', 'SCHEDULED'].includes(String(inspection.status)))
       .map((inspection: any) => ({
         id: inspection.id,
         inspectionType: inspection.inspectionType,
@@ -1074,20 +1058,20 @@ export class ProjectService {
 
     if (blockingPending.length > 0) {
       throw new ProjectServiceError(
-        "Projeto possui inspeções pendentes/reprovadas e não pode ser encerrado.",
-        "INSPECTION_CLOSEOUT_BLOCKED",
+        'Projeto possui inspeções pendentes/reprovadas e não pode ser encerrado.',
+        'INSPECTION_CLOSEOUT_BLOCKED',
         409,
         {
-          reason: "PENDING_INSPECTIONS",
+          reason: 'PENDING_INSPECTIONS',
           blockingInspections: blockingPending,
-        }
+        },
       );
     }
   }
 
   private async assertPunchListRequirementsForFinalStatus(
     projeto: any,
-    novoStatus: Projeto_status
+    novoStatus: Projeto_status,
   ): Promise<void> {
     const statusFinal =
       novoStatus === PROJETO_STATUS.CONCLUIDO || novoStatus === PROJETO_STATUS.ARQUIVADO;
@@ -1096,14 +1080,12 @@ export class ProjectService {
       return;
     }
 
-    const punchItems = Array.isArray(projeto?.projectPunchItems)
-      ? projeto.projectPunchItems
-      : [];
+    const punchItems = Array.isArray(projeto?.projectPunchItems) ? projeto.projectPunchItems : [];
 
-    const blockingStatuses = ["OPEN", "IN_PROGRESS"];
+    const blockingStatuses = ['OPEN', 'IN_PROGRESS'];
 
     const blockingPunchItems = punchItems.filter((item: any) =>
-      blockingStatuses.includes(String(item.status))
+      blockingStatuses.includes(String(item.status)),
     );
 
     if (blockingPunchItems.length === 0) {
@@ -1116,7 +1098,7 @@ export class ProjectService {
         acc[status] = (acc[status] ?? 0) + 1;
         return acc;
       },
-      { OPEN: 0, IN_PROGRESS: 0 }
+      { OPEN: 0, IN_PROGRESS: 0 },
     );
 
     const priorityOrder: Record<string, number> = {
@@ -1148,20 +1130,20 @@ export class ProjectService {
       }));
 
     throw new ProjectServiceError(
-      "Projeto não pode ser fechado: existem itens de punch list pendentes.",
-      "PUNCH_CLOSEOUT_BLOCKED",
+      'Projeto não pode ser fechado: existem itens de punch list pendentes.',
+      'PUNCH_CLOSEOUT_BLOCKED',
       409,
       {
-        reason: "OPEN_OR_IN_PROGRESS_PUNCH_ITEMS",
+        reason: 'OPEN_OR_IN_PROGRESS_PUNCH_ITEMS',
         blockingPunchItems: topBlockingPunchItems,
         counts,
-      }
+      },
     );
   }
 
   private async assertMaterialRequirementsForFinalStatus(
     projeto: any,
-    novoStatus: Projeto_status
+    novoStatus: Projeto_status,
   ): Promise<void> {
     const statusFinal =
       novoStatus === PROJETO_STATUS.CONCLUIDO || novoStatus === PROJETO_STATUS.ARQUIVADO;
@@ -1184,11 +1166,11 @@ export class ProjectService {
     }
 
     throw new ProjectServiceError(
-      "Projeto não pode ser fechado: existem materiais pendentes de triagem/baixa.",
-      "MATERIAL_CLOSEOUT_BLOCKED",
+      'Projeto não pode ser fechado: existem materiais pendentes de triagem/baixa.',
+      'MATERIAL_CLOSEOUT_BLOCKED',
       409,
       {
-        reason: "MATERIALS_PENDING_CLOSEOUT",
+        reason: 'MATERIALS_PENDING_CLOSEOUT',
         counts: blockers.counts,
         totalsPendingQty: blockers.totalsPendingQty.toFixed(4),
         blocking: blockers.blocking.map((item) => ({
@@ -1203,7 +1185,7 @@ export class ProjectService {
           damagedQty: item.damagedQty.toFixed(4),
           lostQty: item.lostQty.toFixed(4),
         })),
-      }
+      },
     );
   }
 
@@ -1214,7 +1196,7 @@ export class ProjectService {
    */
   private async assertInvoiceRequirementsForFinalStatus(
     projetoId: number,
-    novoStatus: Projeto_status
+    novoStatus: Projeto_status,
   ): Promise<void> {
     const statusFinal =
       novoStatus === PROJETO_STATUS.CONCLUIDO || novoStatus === PROJETO_STATUS.ARQUIVADO;
@@ -1244,7 +1226,7 @@ export class ProjectService {
 
     const totalPendente = invoicesAbertas.reduce(
       (sum, inv) => sum + (Number(inv.valorTotal) - Number(inv.valorPago ?? 0)),
-      0
+      0,
     );
 
     throw new ProjectServiceError(
@@ -1264,7 +1246,7 @@ export class ProjectService {
           saldoPendente: Number(inv.valorTotal) - Number(inv.valorPago ?? 0),
           dataVencimento: inv.dataVencimento,
         })),
-      }
+      },
     );
   }
 
@@ -1286,10 +1268,10 @@ export class ProjectService {
     const pct = (actual / budget) * 100;
 
     // Determine severity: CRITICAL (>110%), ALERT (>100%), WARNING (>80%)
-    let severity: "WARNING" | "ALERT" | "CRITICAL" | null = null;
-    if (pct >= 110) severity = "CRITICAL";
-    else if (pct >= 100) severity = "ALERT";
-    else if (pct >= 80) severity = "WARNING";
+    let severity: 'WARNING' | 'ALERT' | 'CRITICAL' | null = null;
+    if (pct >= 110) severity = 'CRITICAL';
+    else if (pct >= 100) severity = 'ALERT';
+    else if (pct >= 80) severity = 'WARNING';
 
     if (!severity) return;
 
@@ -1320,24 +1302,28 @@ export class ProjectService {
 
     // Notify GERENTE and ADMIN
     const managers = await this.prisma.usuario.findMany({
-      where: { nivel: { in: ["ADMIN", "GERENTE"] }, status: "ATIVO" },
+      where: { nivel: { in: ['ADMIN', 'GERENTE'] }, status: 'ATIVO' },
       select: { id: true },
     });
 
     const title =
-      severity === "CRITICAL" ? `⛔ Project Over Budget: ${numeroProjeto}` :
-      severity === "ALERT" ? `🔴 Project At Budget Limit: ${numeroProjeto}` :
-      `⚠️ Project Budget Warning: ${numeroProjeto}`;
+      severity === 'CRITICAL'
+        ? `⛔ Project Over Budget: ${numeroProjeto}`
+        : severity === 'ALERT'
+          ? `🔴 Project At Budget Limit: ${numeroProjeto}`
+          : `⚠️ Project Budget Warning: ${numeroProjeto}`;
     const message = `Cost is at ${pct.toFixed(1)}% of budget ($${actual.toFixed(2)} / $${budget.toFixed(2)}).`;
 
     for (const mgr of managers) {
       NotificationService.create({
         userId: mgr.id,
-        type: severity === "CRITICAL" ? "error" : "warning",
+        type: severity === 'CRITICAL' ? 'error' : 'warning',
         title,
         message,
         data: { projetoId, severity, percentUsed: pct.toFixed(1) },
-      }).catch(() => {/* non-blocking */});
+      }).catch(() => {
+        /* non-blocking */
+      });
     }
   }
 
