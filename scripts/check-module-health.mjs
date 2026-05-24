@@ -46,6 +46,7 @@ function grep(pattern, searchPath) {
       `"${searchPath}"`,
       '--include="*.ts"',
       '--include="*.tsx"',
+      '2>/dev/null',
     ].join(" ");
     return execSync(cmd, { cwd: ROOT, encoding: "utf-8", shell: "/bin/bash" })
       .trim()
