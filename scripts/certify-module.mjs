@@ -14,7 +14,7 @@
  *   3 — Needs Re-audit (governance.json sem evidência recente)
  */
 
-import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -83,7 +83,8 @@ function checkModule(mod) {
   const openBugs = governance.bugs?.abertos ?? [];
   const openP1P2 = openBugs.filter(id => {
     const bug = getBugById(id);
-    return bug && (bug.severity === 'P1' || bug.severity === 'P2');
+    const level = bug?.severity ?? bug?.priority;
+    return level === 'P1' || level === 'P2';
   });
 
   if (openP1P2.length > 0) {
@@ -93,7 +94,8 @@ function checkModule(mod) {
 
   const openP3 = openBugs.filter(id => {
     const bug = getBugById(id);
-    return bug && bug.severity === 'P3';
+    const level = bug?.severity ?? bug?.priority;
+    return level === 'P3';
   });
 
   if (openP3.length > 0) {
@@ -106,7 +108,8 @@ function checkModule(mod) {
   const fragileBugs = fixedBugs.filter(id => {
     const bug = getBugById(id);
     if (!bug) return false;
-    const isCritical = bug.severity === 'P1' || bug.severity === 'P2';
+    const level = bug.severity ?? bug.priority;
+    const isCritical = level === 'P1' || level === 'P2';
     const hasTest = bug.regressionTest && bug.regressionTest !== '';
     return isCritical && !hasTest;
   });
@@ -213,7 +216,6 @@ function generateReport(results) {
 
 function getModuleList() {
   if (allModules) {
-    const { readdirSync } = await import('fs');
     if (existsSync(GOVERNANCE_DIR)) {
       return readdirSync(GOVERNANCE_DIR).filter(d =>
         existsSync(join(GOVERNANCE_DIR, d, 'governance.json'))
@@ -227,13 +229,7 @@ function getModuleList() {
 (async () => {
   console.log('🔍 GladPros — Certificação de Módulos\n');
 
-  const modules = allModules
-    ? (existsSync(GOVERNANCE_DIR)
-      ? (await import('fs')).readdirSync(GOVERNANCE_DIR).filter(d =>
-          existsSync(join(GOVERNANCE_DIR, d, 'governance.json'))
-        )
-      : [])
-    : [moduleName];
+  const modules = getModuleList();
 
   if (modules.length === 0) {
     console.error('❌ Nenhum módulo encontrado em relatorios/modulos/');
