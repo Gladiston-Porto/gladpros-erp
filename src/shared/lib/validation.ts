@@ -195,7 +195,7 @@ export const userUpdateApiSchema = z.object({
     .union([z.string(), z.date(), z.null()])
     .optional()
     .transform((v) => {
-      if (!v || v === null) return undefined;
+      if (!v) return undefined;
       if (v instanceof Date) {
         if (isNaN(v.getTime())) return undefined;
         const yyyy = v.getFullYear();
