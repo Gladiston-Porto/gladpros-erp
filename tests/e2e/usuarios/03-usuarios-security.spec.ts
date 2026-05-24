@@ -11,12 +11,21 @@ import { seedUsuarios, cleanupUsuarios, teardownUsuarios } from '../fixtures/usu
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe.serial('03 — Segurança Expandida', () => {
-  test.beforeAll(async () => { await seedUsuarios(); });
-  test.afterAll(async () => { await cleanupUsuarios(); });
-  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
+  test.beforeAll(async () => {
+    await seedUsuarios();
+  });
+  test.afterAll(async () => {
+    await cleanupUsuarios();
+  });
+  test.beforeEach(async ({ request }) => {
+    await resetRateLimits(request);
+  });
 
   // ── Escalação de privilégio ──
-  test('USUARIO PATCH próprio role=ADMIN → role permanece USUARIO', async ({ request, usuarioHeaders }) => {
+  test('USUARIO PATCH próprio role=ADMIN → role permanece USUARIO', async ({
+    request,
+    usuarioHeaders,
+  }) => {
     const res = await request.patch(`${BASE}/api/usuarios/3`, {
       headers: usuarioHeaders,
       data: { role: 'ADMIN' },
@@ -25,10 +34,13 @@ test.describe.serial('03 — Segurança Expandida', () => {
 
     const detail = await request.get(`${BASE}/api/usuarios/3`, { headers: usuarioHeaders });
     const body = await detail.json();
-    expect(body.role).toBe('USUARIO');
+    expect(body.data.role).toBe('USUARIO');
   });
 
-  test('USUARIO PATCH próprio status=INATIVO → status permanece ATIVO', async ({ request, usuarioHeaders }) => {
+  test('USUARIO PATCH próprio status=INATIVO → status permanece ATIVO', async ({
+    request,
+    usuarioHeaders,
+  }) => {
     const res = await request.patch(`${BASE}/api/usuarios/3`, {
       headers: usuarioHeaders,
       data: { status: 'INATIVO' },
@@ -37,11 +49,14 @@ test.describe.serial('03 — Segurança Expandida', () => {
 
     const detail = await request.get(`${BASE}/api/usuarios/3`, { headers: usuarioHeaders });
     const body = await detail.json();
-    expect(body.status).toBe('ATIVO');
+    expect(body.data.status).toBe('ATIVO');
   });
 
   // ── Self-edit permitido ──
-  test('USUARIO PATCH próprio nomeCompleto → 200 (self-edit)', async ({ request, usuarioHeaders }) => {
+  test('USUARIO PATCH próprio nomeCompleto → 200 (self-edit)', async ({
+    request,
+    usuarioHeaders,
+  }) => {
     const newName = 'Meu Novo Nome Editado';
     const res = await request.patch(`${BASE}/api/usuarios/3`, {
       headers: usuarioHeaders,
@@ -52,11 +67,14 @@ test.describe.serial('03 — Segurança Expandida', () => {
     // GET /[id] não usa cache (cache é só no GET list) — deve refletir imediatamente
     const detail = await request.get(`${BASE}/api/usuarios/3`, { headers: usuarioHeaders });
     const body = await detail.json();
-    expect(body.nomeCompleto).toBe(newName);
+    expect(body.data.nomeCompleto).toBe(newName);
 
     // Rollback
     const ah = await getAuthHeaders(mockUsers.admin);
-    await request.patch(`${BASE}/api/usuarios/3`, { headers: ah, data: { nomeCompleto: 'Usuario Test' } });
+    await request.patch(`${BASE}/api/usuarios/3`, {
+      headers: ah,
+      data: { nomeCompleto: 'Usuario Test' },
+    });
   });
 
   // ── USUARIO tenta PATCH de outro id → 403 ──
@@ -101,7 +119,9 @@ test.describe.serial('03 — Segurança Expandida', () => {
   });
 
   test('GERENTE toggle-status ADMIN → 403', async ({ request, gerenteHeaders }) => {
-    const res = await request.put(`${BASE}/api/usuarios/1/toggle-status`, { headers: gerenteHeaders });
+    const res = await request.put(`${BASE}/api/usuarios/1/toggle-status`, {
+      headers: gerenteHeaders,
+    });
     expect(res.status()).toBe(403);
   });
 
@@ -140,12 +160,20 @@ test.describe.serial('03 — Segurança Expandida', () => {
     });
   });
 
-  test('Auto-toggle bloqueado (ADMIN desativando a si mesmo → 400)', async ({ request, adminHeaders }) => {
-    const res = await request.put(`${BASE}/api/usuarios/1/toggle-status`, { headers: adminHeaders });
+  test('Auto-toggle bloqueado (ADMIN desativando a si mesmo → 400)', async ({
+    request,
+    adminHeaders,
+  }) => {
+    const res = await request.put(`${BASE}/api/usuarios/1/toggle-status`, {
+      headers: adminHeaders,
+    });
     expect(res.status()).toBe(400);
   });
 
-  test('Auto-delete bloqueado (ADMIN deletando a si mesmo → 400)', async ({ request, adminHeaders }) => {
+  test('Auto-delete bloqueado (ADMIN deletando a si mesmo → 400)', async ({
+    request,
+    adminHeaders,
+  }) => {
     const res = await request.delete(`${BASE}/api/usuarios/1`, { headers: adminHeaders });
     expect(res.status()).toBe(400);
   });
@@ -189,7 +217,7 @@ test.describe.serial('03 — Segurança Expandida', () => {
 
     const detail = await request.get(`${BASE}/api/usuarios/3`, { headers: adminHeaders });
     const body = await detail.json();
-    expect(body.role).toBe('FINANCEIRO');
+    expect(body.data.role).toBe('FINANCEIRO');
 
     // Rollback
     await request.patch(`${BASE}/api/usuarios/3`, {

@@ -14,9 +14,15 @@ import { seedUsuarios, cleanupUsuarios } from '../fixtures/usuarios-seed';
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
 test.describe.serial('Regressão — Guards de P1/P2 (Usuários)', () => {
-  test.beforeAll(async () => { await seedUsuarios(); });
-  test.afterAll(async () => { await cleanupUsuarios(); });
-  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
+  test.beforeAll(async () => {
+    await seedUsuarios();
+  });
+  test.afterAll(async () => {
+    await cleanupUsuarios();
+  });
+  test.beforeEach(async ({ request }) => {
+    await resetRateLimits(request);
+  });
 
   // ── P1-01: senhaHash nunca exposta no response ──
   // Bug original: campos sensíveis podiam vazar via response
@@ -25,7 +31,7 @@ test.describe.serial('Regressão — Guards de P1/P2 (Usuários)', () => {
     const res = await request.get(`${BASE}/api/usuarios`, { headers: adminHeaders });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    for (const u of body.items) {
+    for (const u of body.data) {
       expect(u).not.toHaveProperty('senhaHash');
       expect(u).not.toHaveProperty('senha');
       expect(u).not.toHaveProperty('mfaSecret');
@@ -45,7 +51,10 @@ test.describe.serial('Regressão — Guards de P1/P2 (Usuários)', () => {
   // ── P1-02: PATCH com role inválido é bloqueado ──
   // Bug original: schema Zod não validava enum de role
 
-  test('[P1-02] PATCH role=SUPERADMIN → 400 (Zod enum validation)', async ({ request, adminHeaders }) => {
+  test('[P1-02] PATCH role=SUPERADMIN → 400 (Zod enum validation)', async ({
+    request,
+    adminHeaders,
+  }) => {
     const res = await request.patch(`${BASE}/api/usuarios/2`, {
       headers: adminHeaders,
       data: { role: 'SUPERADMIN' },
@@ -77,7 +86,7 @@ test.describe.serial('Regressão — Guards de P1/P2 (Usuários)', () => {
     const adminH = await getAuthHeaders(mockUsers.admin);
     const detail = await request.get(`${BASE}/api/usuarios/3`, { headers: adminH });
     const body = await detail.json();
-    expect(body.role).toBe('USUARIO');
+    expect(body.data.role).toBe('USUARIO');
   });
 
   test('[P1-03] USUARIO self-edit não altera status para INATIVO', async ({ request }) => {
@@ -91,7 +100,7 @@ test.describe.serial('Regressão — Guards de P1/P2 (Usuários)', () => {
     const adminH = await getAuthHeaders(mockUsers.admin);
     const detail = await request.get(`${BASE}/api/usuarios/3`, { headers: adminH });
     const body = await detail.json();
-    expect(body.status).toBe('ATIVO');
+    expect(body.data.status).toBe('ATIVO');
   });
 
   // ── P1-04: Export CSV requer autenticação ──
@@ -180,7 +189,10 @@ test.describe.serial('Regressão — Guards de P1/P2 (Usuários)', () => {
   // ── P2-05: Auditoria de ações críticas ──
   // Bug original: ações de gestão de usuários não eram auditadas
 
-  test('[P2-05] GET /api/usuarios/:id/auditoria com ADMIN → 200', async ({ request, adminHeaders }) => {
+  test('[P2-05] GET /api/usuarios/:id/auditoria com ADMIN → 200', async ({
+    request,
+    adminHeaders,
+  }) => {
     const res = await request.get(`${BASE}/api/usuarios/1/auditoria`, { headers: adminHeaders });
     expect([200, 404]).toContain(res.status()); // 404 se não há logs ainda
     expect(res.status()).not.toBe(500);

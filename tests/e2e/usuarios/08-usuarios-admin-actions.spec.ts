@@ -11,19 +11,28 @@ import { seedUsuarios, cleanupUsuarios, teardownUsuarios } from '../fixtures/usu
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:3007';
 
-test.describe.serial('08 — Ações Admin & Edge Cases', () => {
-  test.beforeAll(async () => { await seedUsuarios(); });
-  test.afterAll(async () => { await teardownUsuarios(); });
-  test.beforeEach(async ({ request }) => { await resetRateLimits(request); });
+test.describe('08 — Ações Admin & Edge Cases', () => {
+  test.beforeAll(async () => {
+    await seedUsuarios();
+  });
+  test.afterAll(async () => {
+    await teardownUsuarios();
+  });
+  test.beforeEach(async ({ request }) => {
+    await resetRateLimits(request);
+  });
 
   // ─── GET /security ───
   test.describe('Security Info', () => {
-    test('ADMIN GET /api/usuarios/1/security → 200 com dados de bloqueio', async ({ request, adminHeaders }) => {
+    test('ADMIN GET /api/usuarios/1/security → 200 com dados de bloqueio', async ({
+      request,
+      adminHeaders,
+    }) => {
       const res = await request.get(`${BASE}/api/usuarios/1/security`, { headers: adminHeaders });
       expect(res.status()).toBe(200);
       const body = await res.json();
-      expect(typeof body.blocked).toBe('boolean');
-      expect(body.id).toBe(1);
+      expect(typeof body.data.blocked).toBe('boolean');
+      expect(body.data.id).toBe(1);
     });
 
     test('USUARIO GET próprio /security → 200', async ({ request, usuarioHeaders }) => {
@@ -37,7 +46,9 @@ test.describe.serial('08 — Ações Admin & Edge Cases', () => {
     });
 
     test('GET /security user inexistente → 404', async ({ request, adminHeaders }) => {
-      const res = await request.get(`${BASE}/api/usuarios/999999/security`, { headers: adminHeaders });
+      const res = await request.get(`${BASE}/api/usuarios/999999/security`, {
+        headers: adminHeaders,
+      });
       expect(res.status()).toBe(404);
     });
 
@@ -59,11 +70,14 @@ test.describe.serial('08 — Ações Admin & Edge Cases', () => {
       // Verify change
       const detail = await request.get(`${BASE}/api/usuarios/3`, { headers: usuarioHeaders });
       const body = await detail.json();
-      expect(body.nomeCompleto).toBe('Self Updated Name');
+      expect(body.data.nomeCompleto).toBe('Self Updated Name');
 
       // Rollback
       const ah = await getAuthHeaders(mockUsers.admin);
-      await request.patch(`${BASE}/api/usuarios/3`, { headers: ah, data: { nomeCompleto: 'Usuario Test' } });
+      await request.patch(`${BASE}/api/usuarios/3`, {
+        headers: ah,
+        data: { nomeCompleto: 'Usuario Test' },
+      });
     });
 
     test('USUARIO edita próprio telefone → 200', async ({ request, usuarioHeaders }) => {
@@ -82,7 +96,10 @@ test.describe.serial('08 — Ações Admin & Edge Cases', () => {
       expect(res.status()).toBe(200);
     });
 
-    test('USUARIO tenta mudar próprio role → silenciosamente ignorado (200 sem mudança)', async ({ request, usuarioHeaders }) => {
+    test('USUARIO tenta mudar próprio role → silenciosamente ignorado (200 sem mudança)', async ({
+      request,
+      usuarioHeaders,
+    }) => {
       const res = await request.patch(`${BASE}/api/usuarios/3`, {
         headers: usuarioHeaders,
         data: { role: 'ADMIN', nomeCompleto: 'Teste Self Role' },
@@ -93,10 +110,13 @@ test.describe.serial('08 — Ações Admin & Edge Cases', () => {
       // Confirm role unchanged
       const detail = await request.get(`${BASE}/api/usuarios/3`, { headers: usuarioHeaders });
       const body = await detail.json();
-      expect(body.role).toBe('USUARIO');
+      expect(body.data.role).toBe('USUARIO');
     });
 
-    test('USUARIO tenta mudar próprio status → silenciosamente ignorado', async ({ request, usuarioHeaders }) => {
+    test('USUARIO tenta mudar próprio status → silenciosamente ignorado', async ({
+      request,
+      usuarioHeaders,
+    }) => {
       const res = await request.patch(`${BASE}/api/usuarios/3`, {
         headers: usuarioHeaders,
         data: { status: 'INATIVO' },
@@ -105,13 +125,16 @@ test.describe.serial('08 — Ações Admin & Edge Cases', () => {
 
       const detail = await request.get(`${BASE}/api/usuarios/3`, { headers: usuarioHeaders });
       const body = await detail.json();
-      expect(body.status).toBe('ATIVO');
+      expect(body.data.status).toBe('ATIVO');
     });
   });
 
   // ─── PATCH /status (explicit) ───
   test.describe('PATCH /status (explicit toggle)', () => {
-    test('ADMIN PATCH /status {ativo:false} → desativa user 3', async ({ request, adminHeaders }) => {
+    test('ADMIN PATCH /status {ativo:false} → desativa user 3', async ({
+      request,
+      adminHeaders,
+    }) => {
       const res = await request.patch(`${BASE}/api/usuarios/3/status`, {
         headers: adminHeaders,
         data: { ativo: false },
@@ -152,7 +175,10 @@ test.describe.serial('08 — Ações Admin & Edge Cases', () => {
 
   // ─── Dead-man ADMIN (edge cases) ───
   test.describe('Dead-man ADMIN', () => {
-    test('ADMIN não pode desativar a si mesmo via PATCH /status', async ({ request, adminHeaders }) => {
+    test('ADMIN não pode desativar a si mesmo via PATCH /status', async ({
+      request,
+      adminHeaders,
+    }) => {
       const res = await request.patch(`${BASE}/api/usuarios/1/status`, {
         headers: adminHeaders,
         data: { ativo: false },
@@ -177,7 +203,7 @@ test.describe.serial('08 — Ações Admin & Edge Cases', () => {
       // Confirm still ADMIN
       const detail = await request.get(`${BASE}/api/usuarios/1`, { headers: adminHeaders });
       const body = await detail.json();
-      expect(body.role).toBe('ADMIN');
+      expect(body.data.role).toBe('ADMIN');
     });
   });
 
@@ -192,13 +218,14 @@ test.describe.serial('08 — Ações Admin & Edge Cases', () => {
     ];
 
     for (const ep of endpoints) {
-      const res = ep.method === 'get'
-        ? await request.get(ep.url)
-        : ep.method === 'delete'
-        ? await request.delete(ep.url)
-        : ep.method === 'put'
-        ? await request.put(ep.url)
-        : await request.patch(ep.url);
+      const res =
+        ep.method === 'get'
+          ? await request.get(ep.url)
+          : ep.method === 'delete'
+            ? await request.delete(ep.url)
+            : ep.method === 'put'
+              ? await request.put(ep.url)
+              : await request.patch(ep.url);
       expect(res.status(), `${ep.method.toUpperCase()} ${ep.url}`).toBe(401);
     }
   });
