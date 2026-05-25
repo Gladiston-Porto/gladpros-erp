@@ -126,7 +126,7 @@
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^4.0.0",
     "lucide-react": "^0.525.0",
-    "mysql2": "^3.16.1",
+    "mysql2": "^3.22.3",
     "next": "^15.5.10",
     "nodemailer": "^8.0.4",
     "openai": "^6.35.0",
