@@ -160,21 +160,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   // Senha válida - aguardar verificação de MFA para concluir login
 
-  // Usuário legítimo (senha válida), mas conta bloqueada: manter UX de desbloqueio
-  if (blockInfo.blocked) {
-    return NextResponse.json(
-      {
-        error: 'Conta temporariamente bloqueada',
-        success: false,
-        blocked: true,
-        unlockAt: blockInfo.unlockAt?.toISOString(),
-        requiresPinUnlock: blockInfo.requiresPinUnlock,
-        requiresSecurityQuestion: blockInfo.requiresSecurityQuestion,
-      },
-      { status: 423 },
-    );
-  }
-
   // Determinar tipo de acesso
   let accessType: 'PRIMEIRO_ACESSO' | 'LOGIN' = 'LOGIN';
   let nextStep = 'mfa';
