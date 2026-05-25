@@ -259,7 +259,11 @@
       "fix": "Não expor metadados de bloqueio antes da validação de senha; preservar UX de desbloqueio com mecanismo anti-enumeração.",
       "fixedAt": "2026-05-25",
       "fixedBy": "copilot-agent",
+<<<<<<< HEAD
       "fixCommit": "6f6ec4b",
+=======
+      "fixCommit": "55a0cd0",
+>>>>>>> 0830a11 (chore(quality): hygiene update AUTH-P2-001 fixCommit hash)
       "regressionTest": "src/__tests__/api/auth/login.test.ts"
     }
   ]
