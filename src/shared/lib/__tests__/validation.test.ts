@@ -1,6 +1,6 @@
 /**
  * Tests for Validation schemas (auth-related)
- * Covers: loginSchema, forgotPasswordSchema, resetPasswordApiSchema, 
+ * Covers: loginSchema, forgotPasswordSchema, resetPasswordApiSchema,
  *         firstAccessSetupApiSchema, unlockSchema, mfaResendSchema, userStatusSchema
  */
 import {
@@ -132,7 +132,7 @@ describe('Validation Schemas', () => {
     it('should accept PIN unlock', () => {
       const result = unlockSchema.safeParse({
         method: 'pin',
-        userId: 1,
+        email: 'user@gladpros.com',
         pin: '1234',
       });
       expect(result.success).toBe(true);
@@ -141,7 +141,7 @@ describe('Validation Schemas', () => {
     it('should accept security question unlock', () => {
       const result = unlockSchema.safeParse({
         method: 'security',
-        userId: 1,
+        email: 'user@gladpros.com',
         answer: 'my answer',
       });
       expect(result.success).toBe(true);
@@ -150,7 +150,7 @@ describe('Validation Schemas', () => {
     it('should reject invalid method', () => {
       const result = unlockSchema.safeParse({
         method: 'invalid',
-        userId: 1,
+        email: 'user@gladpros.com',
       });
       expect(result.success).toBe(false);
     });
