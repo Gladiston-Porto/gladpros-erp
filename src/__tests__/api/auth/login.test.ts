@@ -219,7 +219,9 @@ describe('POST /api/auth/login', () => {
     expect(data.error).toBe('Credenciais inválidas');
   });
 
-  it('should return 423 for blocked user with unlock metadata', async () => {
+  // @bug:AUTH-P2-001
+  // @description: não expor metadados de bloqueio antes de validar senha
+  it('should return 401 for blocked user when password is invalid (anti-enumeration)', async () => {
     require('../../../lib/prisma').prisma.$queryRaw.mockResolvedValue([
       {
         id: 1,
@@ -239,6 +241,43 @@ describe('POST /api/auth/login', () => {
       blocked: true,
       unlockAt: new Date(Date.now() + 15 * 60 * 1000),
     });
+    require('../../../shared/lib/password').PasswordService.verifyPassword.mockResolvedValue(false);
+    (mockRequest.json as jest.Mock).mockResolvedValue({
+      email: 'test@example.com',
+      password: 'wrongpassword',
+    });
+    (mockRequest.headers.get as jest.Mock).mockReturnValue('127.0.0.1');
+
+    const response = await POST(mockRequest);
+    const data = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(data.error).toBe('Credenciais inválidas');
+    expect(data.blocked).toBeUndefined();
+    expect(data.unlockAt).toBeUndefined();
+  });
+
+  it('should return 423 for blocked user with unlock metadata after valid password', async () => {
+    require('../../../lib/prisma').prisma.$queryRaw.mockResolvedValue([
+      {
+        id: 1,
+        email: 'test@example.com',
+        nomeCompleto: 'Test User',
+        senha: 'hashedpassword',
+        senhaProvisoria: false,
+        primeiroAcesso: false,
+        criadoEm: new Date(),
+        status: 'ATIVO',
+        nivel: 'USUARIO',
+        tokenVersion: 0,
+      },
+    ]);
+
+    require('../../../shared/lib/blocking').BlockingService.checkUserBlock.mockResolvedValue({
+      blocked: true,
+      unlockAt: new Date(Date.now() + 15 * 60 * 1000),
+    });
+    require('../../../shared/lib/password').PasswordService.verifyPassword.mockResolvedValue(true);
     (mockRequest.json as jest.Mock).mockResolvedValue({
       email: 'test@example.com',
       password: 'password123',

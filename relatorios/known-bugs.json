@@ -31,6 +31,7 @@
       "status": "FIXED",
       "detectedAt": "2025-07-24",
       "auditRef": "auditoria-modulo-usuarios.md#P1-001",
+
       "affectedFiles": ["src/app/api/usuarios/export/csv/route.ts"],
       "allowedInFiles": ["src/shared/lib/usuario-query.ts", "src/shared/lib/db-metadata.ts"],
       "verificationPattern": "INFORMATION_SCHEMA",
@@ -218,6 +219,24 @@
       "fixedBy": "copilot-agent",
       "fixCommit": "FASE3-P2-FIXES",
       "regressionTest": "src/__tests__/api/usuarios/user-management-access.test.ts"
+    },
+    {
+      "id": "AUTH-P2-001",
+      "module": "auth",
+      "priority": "P2",
+      "title": "Login expõe metadados de bloqueio antes de autenticar senha",
+      "description": "src/app/api/auth/login/route.ts retorna 423 com blocked/unlockAt/requires* apenas por email existente e estado de bloqueio, permitindo enumeração de estado de conta.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-25",
+      "auditRef": "reauditoria-auth-2026-05-25#P2-01",
+      "affectedFiles": ["src/app/api/auth/login/route.ts"],
+      "verificationPattern": null,
+      "semgrepRule": null,
+      "fix": "Não expor metadados de bloqueio antes da validação de senha; preservar UX de desbloqueio com mecanismo anti-enumeração.",
+      "fixedAt": "2026-05-25",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "pending-commit",
+      "regressionTest": "src/__tests__/api/auth/login.test.ts"
     }
   ]
 }

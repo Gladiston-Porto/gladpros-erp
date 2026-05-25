@@ -16,6 +16,7 @@
 
 import { readFileSync, existsSync, writeFileSync, readdirSync } from 'fs';
 import { resolve, join } from 'path';
+import { execSync } from 'child_process';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -65,6 +66,27 @@ function pad(str, len) {
   return String(str).padEnd(len);
 }
 
+function getKnownBugsByModule(mod) {
+  const data = readJson(KNOWN_BUGS_PATH);
+  if (!data || !Array.isArray(data.bugs)) return [];
+  return data.bugs.filter(b => b.module === mod);
+}
+
+function runHealthCheck(mod) {
+  try {
+    const output = execSync(`node scripts/check-module-health.mjs --module=${mod}`, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { exitCode: 0, output };
+  } catch (err) {
+    const output = `${err?.stdout ?? ''}${err?.stderr ?? ''}`;
+    const code = typeof err?.status === 'number' ? err.status : 1;
+    return { exitCode: code, output };
+  }
+}
+
 // ─── Gate Checks ──────────────────────────────────────────────────────────────
 
 function checkModule(mod) {
@@ -89,6 +111,22 @@ function checkModule(mod) {
 
   if (openP1P2.length > 0) {
     findings.push({ level: 'BLOQUEANTE', msg: `${openP1P2.length} bug(s) P1/P2 abertos: ${openP1P2.join(', ')}` });
+    exitCode = 1;
+  }
+
+  // Gate A2: governance deve refletir known-bugs (evita falso verde por desincronização)
+  const knownBugs = getKnownBugsByModule(mod);
+  const knownOpen = knownBugs.filter(b => b.status === 'OPEN');
+  const knownOpenCritical = knownOpen.filter(b => (b.severity ?? b.priority) === 'P1' || (b.severity ?? b.priority) === 'P2');
+  const missingInGovernance = knownOpenCritical
+    .map(b => b.id)
+    .filter(id => !openBugs.includes(id));
+
+  if (missingInGovernance.length > 0) {
+    findings.push({
+      level: 'BLOQUEANTE',
+      msg: `governance desincronizado: known-bugs OPEN P1/P2 não listados em governance.bugs.abertos: ${missingInGovernance.join(', ')}`,
+    });
     exitCode = 1;
   }
 
@@ -138,6 +176,35 @@ function checkModule(mod) {
   if (govStatus === 'Not Ready' || govStatus === 'Needs Re-audit') {
     findings.push({ level: 'BLOQUEANTE', msg: `governance.statusAtual = "${govStatus}"` });
     exitCode = exitCode < 1 ? 1 : exitCode;
+  }
+
+  // Gate E: Health check real do módulo (regex + known-bugs N-1 checker)
+  const health = runHealthCheck(mod);
+  const hasP2 = /P2 — Funcional/.test(health.output);
+  const hasP3 = /P3 — Qualidade/.test(health.output);
+
+  if (health.exitCode !== 0) {
+    findings.push({
+      level: 'BLOQUEANTE',
+      msg: `health-check encontrou P1 no módulo (${mod}). Rode: node scripts/check-module-health.mjs --module=${mod}`,
+    });
+    exitCode = 1;
+  }
+
+  if (hasP2) {
+    findings.push({
+      level: 'BLOQUEANTE',
+      msg: `health-check encontrou P2 no módulo (${mod}).` ,
+    });
+    exitCode = 1;
+  }
+
+  if (hasP3 && exitCode === 0) {
+    findings.push({
+      level: 'AVISO',
+      msg: `health-check encontrou P3 no módulo (${mod}).`,
+    });
+    exitCode = 2;
   }
 
   // Determinar status final

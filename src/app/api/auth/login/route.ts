@@ -84,7 +84,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: 'Credenciais inválidas', success: false }, { status: 401 });
   }
 
-  // Verificar status do usuário — 403 Forbidden (conta desativada pelo admin, não erro de credenciais)
+  // Anti-enumeração: manter resposta genérica para conta desativada
   if (user.status !== 'ATIVO') {
     return NextResponse.json({ error: 'Credenciais inválidas', success: false }, { status: 401 });
   }
@@ -97,32 +97,21 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ error: 'Credenciais inválidas', success: false }, { status: 401 });
   }
 
-  // Verificar se usuário está bloqueado
+  // Buscar estado de bloqueio, mas sem expor metadados antes de validar senha
   const blockInfo = await BlockingService.checkUserBlock(user.id);
-  if (blockInfo.blocked) {
-    return NextResponse.json(
-      {
-        error: 'Conta temporariamente bloqueada',
-        success: false,
-        blocked: true,
-        unlockAt: blockInfo.unlockAt?.toISOString(),
-        requiresPinUnlock: blockInfo.requiresPinUnlock,
-        requiresSecurityQuestion: blockInfo.requiresSecurityQuestion,
-      },
-      { status: 423 },
-    );
-  }
 
   // Verificar senha
   const isValidPassword = await PasswordService.verifyPassword(password, user.senha);
   if (!isValidPassword) {
-    await BlockingService.recordFailedAttempt({
-      userId: user.id,
-      email,
-      ip,
-      userAgent,
-      motivo: 'INVALID_PASSWORD',
-    });
+    if (!blockInfo.blocked) {
+      await BlockingService.recordFailedAttempt({
+        userId: user.id,
+        email,
+        ip,
+        userAgent,
+        motivo: 'INVALID_PASSWORD',
+      });
+    }
 
     await AuditLogger.logLogin(user.id, user.email, req, false, {
       reason: 'invalid_password',
@@ -161,6 +150,21 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 
   // Senha válida - aguardar verificação de MFA para concluir login
+
+  // Usuário legítimo (senha válida), mas conta bloqueada: manter UX de desbloqueio
+  if (blockInfo.blocked) {
+    return NextResponse.json(
+      {
+        error: 'Conta temporariamente bloqueada',
+        success: false,
+        blocked: true,
+        unlockAt: blockInfo.unlockAt?.toISOString(),
+        requiresPinUnlock: blockInfo.requiresPinUnlock,
+        requiresSecurityQuestion: blockInfo.requiresSecurityQuestion,
+      },
+      { status: 423 },
+    );
+  }
 
   // Determinar tipo de acesso
   let accessType: 'PRIMEIRO_ACESSO' | 'LOGIN' = 'LOGIN';
