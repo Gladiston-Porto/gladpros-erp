@@ -9,14 +9,14 @@ Sistema ERP para GladPros LLC — empresa de construção e serviços em Dallas,
 
 ## Índice Rápido
 
-| Seção | Conteúdo |
-|-------|---------|
-| [Architecture](#architecture) | Visão geral do sistema, RBAC, TypeScript, escalabilidade |
-| [Modules](#modules) | Documentação técnica de cada módulo e status de certificação |
-| [Security](#security) | Relatórios de segurança, vulnerabilidades, análises |
-| [Design System](#design-system) | Status, spec de redesign |
-| [Runbooks](#runbooks) | Deploy, incidentes, KMS |
-| [Archive](#archive) | Docs de fases concluídas e duplicatas removidas |
+| Seção                           | Conteúdo                                                     |
+| ------------------------------- | ------------------------------------------------------------ |
+| [Architecture](#architecture)   | Visão geral do sistema, RBAC, TypeScript, escalabilidade     |
+| [Modules](#modules)             | Documentação técnica de cada módulo e status de certificação |
+| [Security](#security)           | Relatórios de segurança, vulnerabilidades, análises          |
+| [Design System](#design-system) | Status, spec de redesign                                     |
+| [Runbooks](#runbooks)           | Deploy, incidentes, KMS                                      |
+| [Archive](#archive)             | Docs de fases concluídas e duplicatas removidas              |
 
 ---
 
@@ -38,7 +38,9 @@ docs/architecture/
 ├── 09-system-inventory-and-sidebar-audit-plan.md  # Plano inicial para inventário e sidebar
 ├── 10-system-inventory-and-sidebar-audit.md       # Inventário real, diagnóstico da sidebar e estratégia para discussão
 ├── 11-operational-system-map.md                   # Mapa operacional do ERP e fluxos entre módulos
-└── 12-sidebar-and-module-hardening-decisions.md   # Decisões propostas para sidebar e hardening
+├── 12-sidebar-and-module-hardening-decisions.md   # Decisões propostas para sidebar e hardening
+├── 13-quality-system-layers.md                    # Sistema de qualidade em camadas (Swiss Cheese)
+└── 14-cross-module-security-and-quality-benchmark.md  # Parametros unificados de auditoria (interno + OWASP/NIST)
 ```
 
 ---
@@ -53,13 +55,21 @@ Cada módulo segue o template de 10 seções: Visão Geral, Arquitetura, Modelo 
 > Certificação atual dos módulos auditados: `docs/modules/00-production-readiness-certification.md`.
 
 ### ✅ Auth
+
 ```
 docs/modules/auth/
 ├── 00-spec.md                  # Especificação completa do módulo
-└── 01-security-review.md       # Auditoria de segurança e correções
+├── 01-security-review.md       # Auditoria de segurança e correções
+├── 02-atualizacao-2026-04.md   # Atualizações incrementais do módulo
+├── 03-token-rotation.md        # Endurecimento de rotação de token
+├── 04-login-security-analysis.md  # Análise técnica de segurança do login
+├── 06-audit-producao-v1.md     # Auditoria de produção v1
+├── 07-audit-producao-v1.1.md   # Auditoria de produção v1.1
+└── 08-login-production-readiness-2026-05.md  # Evidências de readiness/certificação técnica atual
 ```
 
 ### ✅ Clientes
+
 ```
 docs/modules/clientes/
 ├── 00-spec.md                  # Especificação completa do módulo
@@ -68,6 +78,7 @@ docs/modules/clientes/
 ```
 
 ### ✅ Estoque
+
 ```
 docs/modules/estoque/
 ├── 00-spec.md                  # Status final e especificação
@@ -77,6 +88,7 @@ docs/modules/estoque/
 ```
 
 ### ✅ Financeiro
+
 ```
 docs/modules/financeiro/
 ├── 00-overview.md              # Visão geral e resumo
@@ -90,13 +102,15 @@ docs/modules/financeiro/
 └── 08-executive-summary.md     # Sumário executivo
 ```
 
-### ✅ Invoices *(novo)*
+### ✅ Invoices _(novo)_
+
 ```
 docs/modules/invoices/
 └── 00-spec.md                  # Especificação completa: ciclo de vida, PDF, pagamentos, RBAC
 ```
 
 ### ✅ Projetos
+
 ```
 docs/modules/projetos/
 ├── 00-spec.md                  # Especificação do módulo
@@ -108,31 +122,36 @@ docs/modules/projetos/
 ```
 
 ### ✅ Propostas
+
 ```
 docs/modules/propostas/
 ├── 00-spec.md                  # Especificação e sumário de implementação
 └── 01-layout-patterns.md       # Padrões de layout e padronização
 ```
 
-### ✅ Reports (Relatórios) *(novo)*
+### ✅ Reports (Relatórios) _(novo)_
+
 ```
 docs/modules/reports/
 └── 00-spec.md                  # Hub de relatórios, tipos, API, RBAC
 ```
 
 ### ✅ RH
+
 ```
 docs/modules/rh/
 └── 00-spec.md                  # Especificação completa do módulo RH
 ```
 
-### ✅ Service Orders (Ordens de Serviço) *(novo)*
+### ✅ Service Orders (Ordens de Serviço) _(novo)_
+
 ```
 docs/modules/service-orders/
 └── 00-spec.md                  # Ciclo completo: criação → execução → invoice, máquina de estados, RBAC
 ```
 
-### ✅ Usuários *(novo)*
+### ✅ Usuários _(novo)_
+
 ```
 docs/modules/usuarios/
 ├── 00-spec.md                  # Gerenciamento de usuários, hierarquia de roles, RBAC, segurança
@@ -140,6 +159,7 @@ docs/modules/usuarios/
 ```
 
 ### ✅ Workforce
+
 ```
 docs/modules/workforce/
 └── 00-spec.md                  # Especificação completa do módulo Workforce
@@ -221,19 +241,19 @@ docs/archive/
 
 ## Status dos módulos (resumo rápido)
 
-| Módulo | Status documental | Doc principal |
-|--------|-------------------|--------------|
-| Auth / MFA | Needs re-audit pelo gate production-ready | `modules/auth/00-spec.md` |
-| Clientes | Needs re-audit pelo gate production-ready | `modules/clientes/00-spec.md` |
-| Estoque | Needs re-audit pelo gate production-ready | `modules/estoque/00-spec.md` |
-| Financeiro | Needs re-audit pelo gate production-ready | `modules/financeiro/00-overview.md` |
-| Invoices | Needs re-audit pelo gate production-ready | `modules/invoices/00-spec.md` |
-| Projetos | Needs re-audit pelo gate production-ready | `modules/projetos/00-spec.md` |
-| Propostas | Needs re-audit pelo gate production-ready | `modules/propostas/00-spec.md` |
-| Reports | Needs re-audit pelo gate production-ready | `modules/reports/00-spec.md` |
-| RH | Needs re-audit pelo gate production-ready | `modules/rh/00-spec.md` |
+| Módulo         | Status documental                         | Doc principal                       |
+| -------------- | ----------------------------------------- | ----------------------------------- |
+| Auth / MFA     | Needs re-audit pelo gate production-ready | `modules/auth/00-spec.md`           |
+| Clientes       | Needs re-audit pelo gate production-ready | `modules/clientes/00-spec.md`       |
+| Estoque        | Needs re-audit pelo gate production-ready | `modules/estoque/00-spec.md`        |
+| Financeiro     | Needs re-audit pelo gate production-ready | `modules/financeiro/00-overview.md` |
+| Invoices       | Needs re-audit pelo gate production-ready | `modules/invoices/00-spec.md`       |
+| Projetos       | Needs re-audit pelo gate production-ready | `modules/projetos/00-spec.md`       |
+| Propostas      | Needs re-audit pelo gate production-ready | `modules/propostas/00-spec.md`      |
+| Reports        | Needs re-audit pelo gate production-ready | `modules/reports/00-spec.md`        |
+| RH             | Needs re-audit pelo gate production-ready | `modules/rh/00-spec.md`             |
 | Service Orders | Needs re-audit pelo gate production-ready | `modules/service-orders/00-spec.md` |
-| Usuários | Needs re-audit pelo gate production-ready | `modules/usuarios/00-spec.md` |
-| Workforce | Needs re-audit pelo gate production-ready | `modules/workforce/00-spec.md` |
+| Usuários       | Needs re-audit pelo gate production-ready | `modules/usuarios/00-spec.md`       |
+| Workforce      | Needs re-audit pelo gate production-ready | `modules/workforce/00-spec.md`      |
 
 > Status "Needs re-audit" não significa que o módulo está quebrado; significa apenas que a documentação antiga não contém a evidência mínima exigida pelo gate atual.
