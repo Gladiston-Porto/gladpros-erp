@@ -1,6 +1,7 @@
 // src/lib/email.ts
 import * as nodemailer from 'nodemailer';
 import { renderBaseTemplate } from './emails/template-base';
+import { logger } from '@/lib/api/logger';
 
 interface EmailConfig {
   host: string;
@@ -94,8 +95,7 @@ export class EmailService {
       });
 
       if (shouldDebugEmail()) {
-        // eslint-disable-next-line no-console
-        console.log('[Email] Transporter configurado (sem pool, resiliente a falhas temporárias)');
+        logger.debug('[Email] Transporter configurado (sem pool, resiliente a falhas temporárias)');
       }
       this.isInitialized = true;
     })();
@@ -275,21 +275,15 @@ export class EmailService {
         globalForMail.__mailByRecipient[to.toLowerCase()] = mailEntry; // per-recipient — prevents cross-worker interference
 
         if (shouldDebugEmail()) {
-          // eslint-disable-next-line no-console
-          console.log('\n📧 [EMAIL DEV/E2E MODE]');
-          // eslint-disable-next-line no-console
-          console.log('Para:', to);
-          // eslint-disable-next-line no-console
-          if (bcc) console.log('BCC:', bcc);
-          // eslint-disable-next-line no-console
-          console.log('Assunto:', subject);
-          // eslint-disable-next-line no-console
-          if (attachments?.length)
-            console.log('Anexos:', attachments.map((a) => a.filename).join(', '));
-          // eslint-disable-next-line no-console
-          console.log('Conteúdo: [omitted]');
-          // eslint-disable-next-line no-console
-          console.log('📧 [/EMAIL DEV/E2E MODE]\n');
+          logger.debug('[EMAIL DEV/E2E MODE]');
+          logger.debug(`Para: ${to}`);
+          if (bcc) logger.debug(`BCC: ${bcc}`);
+          logger.debug(`Assunto: ${subject}`);
+          if (attachments?.length) {
+            logger.debug(`Anexos: ${attachments.map((a) => a.filename).join(', ')}`);
+          }
+          logger.debug('Conteúdo: [omitted]');
+          logger.debug('[/EMAIL DEV/E2E MODE]');
         }
         return { success: true, messageId: 'dev-mode' };
       }
