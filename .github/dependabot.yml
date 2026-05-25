@@ -7,7 +7,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "America/Chicago"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
     groups:
@@ -31,6 +31,18 @@ updates:
         patterns:
           - "prisma"
           - "@prisma/*"
+      auth-libs:
+        patterns:
+          - "jose"
+          - "jsonwebtoken"
+      ui-libs:
+        patterns:
+          - "react-day-picker"
+          - "recharts"
+      runtime-libs:
+        patterns:
+          - "mysql2"
+          - "socket.io-client"
     ignore:
       # Pin major versions of core framework — upgrade manually with review
       - dependency-name: "next"
@@ -50,3 +62,7 @@ updates:
     labels:
       - "github-actions"
       - "dependencies"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
