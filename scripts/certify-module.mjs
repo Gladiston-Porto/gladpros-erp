@@ -14,9 +14,10 @@
  *   3 — Needs Re-audit (governance.json sem evidência recente)
  */
 
-import { readFileSync, existsSync, writeFileSync, readdirSync } from 'fs';
-import { resolve, join } from 'path';
+import { readFileSync, existsSync, writeFileSync, readdirSync, mkdirSync } from 'fs';
+import { resolve, join, dirname } from 'path';
 import { execSync } from 'child_process';
+import { runVerificationGlobal, getReincidenceCount } from './lib/verification.mjs';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,17 @@ function getKnownBugsByModule(mod) {
   return data.bugs.filter(b => b.module === mod);
 }
 
+function getKnownBugModules() {
+  const data = readJson(KNOWN_BUGS_PATH);
+  if (!data || !Array.isArray(data.bugs)) return [];
+
+  return [...new Set(
+    data.bugs
+      .map(b => b?.module)
+      .filter(Boolean)
+  )].sort();
+}
+
 function runHealthCheck(mod) {
   try {
     const output = execSync(`node scripts/check-module-health.mjs --module=${mod}`, {
@@ -84,6 +96,46 @@ function runHealthCheck(mod) {
     const output = `${err?.stdout ?? ''}${err?.stderr ?? ''}`;
     const code = typeof err?.status === 'number' ? err.status : 1;
     return { exitCode: code, output };
+  }
+}
+
+function isValidGitCommit(hash) {
+  if (!hash || /pending|todo|tbd|placeholder/i.test(hash)) return false;
+  try {
+    execSync(`git cat-file -e ${hash}^{commit}`, {
+      cwd: ROOT,
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function regressionTestHasBugTag(testPath, bugId) {
+  if (!testPath || !bugId) return false;
+  const fullPath = join(ROOT, testPath);
+  if (!existsSync(fullPath)) return false;
+
+  try {
+    const content = readFileSync(fullPath, 'utf8');
+    return content.includes(`@bug:${bugId}`);
+  } catch {
+    return false;
+  }
+}
+
+function runRegressionTest(testPath) {
+  try {
+    const output = execSync(`npx jest ${testPath} --runInBand`, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { ok: true, output };
+  } catch (err) {
+    const output = `${err?.stdout ?? ''}${err?.stderr ?? ''}`;
+    return { ok: false, output };
   }
 }
 
@@ -117,6 +169,7 @@ function checkModule(mod) {
   // Gate A2: governance deve refletir known-bugs (evita falso verde por desincronização)
   const knownBugs = getKnownBugsByModule(mod);
   const knownOpen = knownBugs.filter(b => b.status === 'OPEN');
+  const knownOpenP3 = knownOpen.filter(b => (b.severity ?? b.priority) === 'P3');
   const knownOpenCritical = knownOpen.filter(b => (b.severity ?? b.priority) === 'P1' || (b.severity ?? b.priority) === 'P2');
   const missingInGovernance = knownOpenCritical
     .map(b => b.id)
@@ -130,6 +183,32 @@ function checkModule(mod) {
     exitCode = 1;
   }
 
+  const missingOpenP3InGovernance = knownOpenP3
+    .map(b => b.id)
+    .filter(id => !openBugs.includes(id));
+
+  if (missingOpenP3InGovernance.length > 0) {
+    findings.push({
+      level: 'AVISO',
+      msg: `governance desincronizado: known-bugs OPEN P3 não listados em governance.bugs.abertos: ${missingOpenP3InGovernance.join(', ')}`,
+    });
+    if (exitCode === 0) exitCode = 2;
+  }
+
+  // Gate A3: governance não pode referenciar bugs inexistentes/fechados como abertos
+  const invalidOpenRefs = openBugs.filter(id => {
+    const bug = getBugById(id);
+    return !bug || bug.module !== mod || bug.status !== 'OPEN';
+  });
+
+  if (invalidOpenRefs.length > 0) {
+    findings.push({
+      level: 'BLOQUEANTE',
+      msg: `governance.bugs.abertos contém referência inválida (não OPEN/no módulo): ${invalidOpenRefs.join(', ')}`,
+    });
+    exitCode = 1;
+  }
+
   const openP3 = openBugs.filter(id => {
     const bug = getBugById(id);
     const level = bug?.severity ?? bug?.priority;
@@ -137,27 +216,150 @@ function checkModule(mod) {
   });
 
   if (openP3.length > 0) {
-    findings.push({ level: 'AVISO', msg: `${openP3.length} bug(s) P3 abertos: ${openP3.join(', ')}` });
-    if (exitCode === 0) exitCode = 2;
+    findings.push({ level: 'BLOQUEANTE', msg: `${openP3.length} bug(s) P3 abertos: ${openP3.join(', ')}` });
+    exitCode = 1;
   }
 
-  // Gate B: Bugs fixos sem regressionTest são frágeis
+  // Gate B: Bugs fixos sem regressionTest bloqueiam certificação
   const fixedBugs = governance.bugs?.corrigidos ?? [];
   const fragileBugs = fixedBugs.filter(id => {
     const bug = getBugById(id);
     if (!bug) return false;
-    const level = bug.severity ?? bug.priority;
-    const isCritical = level === 'P1' || level === 'P2';
     const hasTest = bug.regressionTest && bug.regressionTest !== '';
-    return isCritical && !hasTest;
+    return !hasTest;
   });
 
   if (fragileBugs.length > 0) {
     findings.push({
-      level: 'AVISO',
-      msg: `${fragileBugs.length} bug(s) P1/P2 corrigidos sem regressionTest (frágeis): ${fragileBugs.join(', ')}`
+      level: 'BLOQUEANTE',
+      msg: `${fragileBugs.length} bug(s) corrigidos sem regressionTest: ${fragileBugs.join(', ')}`
     });
-    if (exitCode === 0) exitCode = 2;
+    exitCode = 1;
+  }
+
+  // Gate B2: bugs corrigidos precisam estar FIXED no known-bugs e no mesmo módulo
+  const invalidFixedRefs = fixedBugs.filter(id => {
+    const bug = getBugById(id);
+    return !bug || bug.module !== mod || bug.status !== 'FIXED';
+  });
+
+  if (invalidFixedRefs.length > 0) {
+    findings.push({
+      level: 'BLOQUEANTE',
+      msg: `governance.bugs.corrigidos contém referência inválida (não FIXED/no módulo): ${invalidFixedRefs.join(', ')}`,
+    });
+    exitCode = 1;
+  }
+
+  // Gate B3: regressionTest de bugs corrigidos deve existir e conter tag @bug:ID
+  const invalidRegressionEvidence = fixedBugs.filter(id => {
+    const bug = getBugById(id);
+    if (!bug) return false;
+    if (!bug.regressionTest) return true;
+
+    const fullPath = join(ROOT, bug.regressionTest);
+    if (!existsSync(fullPath)) return true;
+    return !regressionTestHasBugTag(bug.regressionTest, id);
+  });
+
+  if (invalidRegressionEvidence.length > 0) {
+    findings.push({
+      level: 'BLOQUEANTE',
+      msg: `evidência de regressão inválida para bug(s) corrigidos: ${invalidRegressionEvidence.join(', ')}`,
+    });
+    exitCode = 1;
+  }
+
+  // Gate B4: fixCommit de bugs corrigidos deve ser um commit válido
+  const invalidFixCommitEvidence = fixedBugs.filter(id => {
+    const bug = getBugById(id);
+    if (!bug) return false;
+    return !isValidGitCommit(bug.fixCommit);
+  });
+
+  if (invalidFixCommitEvidence.length > 0) {
+    findings.push({
+      level: 'BLOQUEANTE',
+      msg: `fixCommit inválido/ausente para bug(s) corrigidos: ${invalidFixCommitEvidence.join(', ')}`,
+    });
+    exitCode = 1;
+  }
+
+  // Gate B5: regression tests devem executar verde na certificação
+  const criticalRegressionTests = [...new Set(
+    fixedBugs
+      .map(id => getBugById(id))
+      .filter(Boolean)
+      .filter(bug => Boolean(bug.regressionTest))
+      .map(bug => bug.regressionTest)
+  )];
+
+  const failedRegressionRuns = [];
+  for (const testPath of criticalRegressionTests) {
+    const run = runRegressionTest(testPath);
+    if (!run.ok) failedRegressionRuns.push(testPath);
+  }
+
+  if (failedRegressionRuns.length > 0) {
+    findings.push({
+      level: 'BLOQUEANTE',
+      msg: `regressionTest falhou para bug(s) corrigidos: ${failedRegressionRuns.join(', ')}`,
+    });
+    exitCode = 1;
+  }
+
+  // Gate F: detector global de fix parcial (Mecanismo 2 do Audit Loop Fechado)
+  //         Aplica verificationPattern em todo o scope (não só affectedFiles).
+  //         Se houver match fora de allowedMatches/excludeGlobs → grava transition
+  //         FIXED → REOPENED no audit manifest e bloqueia certificação.
+  const transitions = [];
+  for (const id of fixedBugs) {
+    const bug = getBugById(id);
+    if (!bug) continue;
+    const result = runVerificationGlobal(bug, ROOT);
+    if (!result.ok) {
+      const evidence = (result.violations || []).slice(0, 10).map(v => ({
+        file: v.file, line: v.line, match: v.snippet,
+      }));
+      transitions.push({
+        bugId: id,
+        from: 'FIXED',
+        to: 'REOPENED',
+        trigger: 'certify-module:Gate-F (verificationPattern global)',
+        detectedAt: new Date().toISOString(),
+        evidence,
+        reason: result.error || `${result.violations.length} ocorrência(s) fora de allowedMatches/excludeGlobs (scanned=${result.scanned}).`,
+        actionRequired: result.error
+          ? 'Corrigir verificationPattern no known-bugs.json e reexecutar a certificação.'
+          : 'Eliminar as ocorrências listadas OU registrá-las em allowedMatches com reason explícito antes de marcar como FIXED novamente.',
+      });
+      findings.push({
+        level: 'BLOQUEANTE',
+        msg: `bug ${id} marcado FIXED mas verificationPattern detectou ${result.violations?.length ?? 0} ocorrência(s) restante(s) no scope (mode=${result.mode}).`,
+      });
+      if (exitCode === 0 || exitCode === 2 || exitCode === 3) exitCode = 4;
+      else if (exitCode === 1) exitCode = 4; // priorizar fix parcial sobre genérico
+    }
+  }
+
+  // Gate G: bug reincidente exige prevenção automatizada (Mecanismo 3).
+  for (const id of [...fixedBugs, ...openBugs]) {
+    const bug = getBugById(id);
+    if (!bug) continue;
+    const reinc = getReincidenceCount(bug);
+    if (reinc >= 1 && !bug.semgrepRule && !bug.healthCheckRule) {
+      findings.push({
+        level: 'BLOQUEANTE',
+        msg: `bug ${id} tem reincidenceCount=${reinc} sem semgrepRule nem healthCheckRule. Reincidência exige regra automatizada de prevenção.`,
+      });
+      if (exitCode === 0 || exitCode === 2 || exitCode === 3) exitCode = 5;
+    }
+    if (reinc >= 2 && bug.priority !== 'P1') {
+      findings.push({
+        level: 'AVISO',
+        msg: `bug ${id} reincidiu ${reinc}× — política do projeto exige escalonamento para P1 (atual: ${bug.priority}).`,
+      });
+    }
   }
 
   // Gate C: Validade da certificação (tempo desde última auditoria)
@@ -201,20 +403,42 @@ function checkModule(mod) {
 
   if (hasP3 && exitCode === 0) {
     findings.push({
-      level: 'AVISO',
+      level: 'BLOQUEANTE',
       msg: `health-check encontrou P3 no módulo (${mod}).`,
     });
-    exitCode = 2;
+    exitCode = 1;
   }
 
   // Determinar status final
   let status;
   if (exitCode === 0) status = 'Production Ready';
+  else if (exitCode === 4) status = 'Not Ready (Fix Parcial Detectado)';
+  else if (exitCode === 5) status = 'Not Ready (Reincidência Sem Prevenção)';
   else if (exitCode === 1) status = 'Not Ready';
   else if (exitCode === 2) status = 'Conditionally Ready';
   else status = 'Needs Re-audit';
 
-  return { mod, status, exitCode, findings, governance, dias };
+  // Emite audit manifest com transitions se houver (Mecanismo 2 — evidência rastreável)
+  if (transitions.length > 0) {
+    const date = new Date().toISOString().slice(0, 10);
+    const auditDir = join(REPORTS_DIR, 'auditorias');
+    if (!existsSync(auditDir)) mkdirSync(auditDir, { recursive: true });
+    const manifestPath = join(auditDir, `${mod}-${date}.json`);
+    const existing = readJson(manifestPath) || {};
+    const manifest = {
+      module: mod,
+      auditedAt: new Date().toISOString(),
+      source: 'scripts/certify-module.mjs',
+      status,
+      exitCode,
+      transitions: [...(existing.transitions || []), ...transitions],
+      findings,
+    };
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+    console.log(`   📋 Audit manifest atualizado: relatorios/auditorias/${mod}-${date}.json (${transitions.length} transition(s))`);
+  }
+
+  return { mod, status, exitCode, findings, governance, dias, transitions };
 }
 
 function getBugById(id) {
@@ -283,12 +507,12 @@ function generateReport(results) {
 
 function getModuleList() {
   if (allModules) {
-    if (existsSync(GOVERNANCE_DIR)) {
-      return readdirSync(GOVERNANCE_DIR).filter(d =>
-        existsSync(join(GOVERNANCE_DIR, d, 'governance.json'))
-      );
-    }
-    return [];
+    const governanceModules = existsSync(GOVERNANCE_DIR)
+      ? readdirSync(GOVERNANCE_DIR).filter(d => existsSync(join(GOVERNANCE_DIR, d, 'governance.json')))
+      : [];
+
+    const knownBugModules = getKnownBugModules();
+    return [...new Set([...governanceModules, ...knownBugModules])].sort();
   }
   return [moduleName];
 }

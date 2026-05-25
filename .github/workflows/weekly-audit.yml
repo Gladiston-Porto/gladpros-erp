@@ -71,20 +71,36 @@ jobs:
             node scripts/check-module-health.mjs --full
           fi
 
-      - name: Certify all production-ready modules
+      - name: Certify all production-ready modules (run-audit com canário)
         if: steps.has-code.outputs.present == 'true'
         run: |
-          if [ -f scripts/certify-module.mjs ]; then
-            for module in usuarios; do
-              echo "::group::Certifying $module"
-              node scripts/certify-module.mjs --module=$module || EXIT_CODE=$?
+          set +e
+          EXIT_CODE=0
+          if [ -d relatorios/modulos ]; then
+            for baseline in relatorios/modulos/*/audit-baseline.json; do
+              [ -f "$baseline" ] || continue
+              mod=$(basename "$(dirname "$baseline")")
+              echo "::group::run-audit $mod"
+              node scripts/run-audit.mjs --module="$mod"
+              STEP_EXIT=$?
               echo "::endgroup::"
-              if [ "${EXIT_CODE:-0}" != "0" ]; then
-                echo "::error::Módulo $module perdeu certificação (exit $EXIT_CODE)"
-                exit 1
+              if [ "$STEP_EXIT" != "0" ]; then
+                echo "::error::Módulo $mod perdeu certificação (run-audit exit $STEP_EXIT)"
+                EXIT_CODE=$STEP_EXIT
               fi
             done
           fi
+          # Fallback: módulos legados sem baseline ainda passam por certify-module
+          if [ -f scripts/certify-module.mjs ]; then
+            for module in usuarios; do
+              if [ ! -f "relatorios/modulos/$module/audit-baseline.json" ]; then
+                echo "::group::certify-module $module (legacy, sem baseline)"
+                node scripts/certify-module.mjs --module="$module" || EXIT_CODE=$?
+                echo "::endgroup::"
+              fi
+            done
+          fi
+          exit $EXIT_CODE
 
       - name: Open issue on failure
         if: failure()

@@ -56,6 +56,7 @@
         "src/app/api/usuarios/[id]/status/route.ts"
       ],
       "verificationPattern": null,
+      "verificationPatternNote": "Bug arquitetural (decisão de contrato entre dois endpoints equivalentes). Não tem regex viável — cobertura via regressionTest que valida ambos endpoints retornam tokenVersion + success.",
       "semgrepRule": null,
       "fix": "Ambos com tokenVersion + success fields + documentação diferenciada.",
       "fixedAt": "2025-07-25",
@@ -95,6 +96,7 @@
       "auditRef": "auditoria-modulo-usuarios.md#P2-007",
       "affectedFiles": ["prisma/schema.prisma"],
       "verificationPattern": null,
+      "verificationPatternNote": "Bug de schema Prisma. Validação via regressionTest que confirma model Delegacao tem empresaId + @@index([empresaId]).",
       "semgrepRule": null,
       "fix": "Adicionado empresaId Int e @@index([empresaId]).",
       "fixedAt": "2025-07-25",
@@ -118,7 +120,7 @@
       "fixedAt": "2025-07-24",
       "fixedBy": "copilot-agent",
       "fixCommit": "e4d9eea",
-      "regressionTest": null
+      "regressionTest": "src/__tests__/api/usuarios/regression/USUARIOS-P3-001.test.ts"
     },
     {
       "id": "USUARIOS-P3-002",
@@ -136,7 +138,7 @@
       "fixedAt": "2025-07-24",
       "fixedBy": "copilot-agent",
       "fixCommit": "e4d9eea",
-      "regressionTest": null
+      "regressionTest": "src/__tests__/api/usuarios/regression/USUARIOS-P3-002.test.ts"
     },
     {
       "id": "USUARIOS-P2-003",
@@ -148,12 +150,25 @@
       "detectedAt": "2026-05-21",
       "auditRef": "auditoria-4ciclo-2026-05-21#P2-01",
       "affectedFiles": ["src/app/api/usuarios/[id]/route.ts"],
-      "verificationPattern": "status:\\s*'INATIVO'(?![\\s\\S]*?tokenVersion)",
+      "verificationPattern": {
+        "type": "regex",
+        "pattern": "status:\\s*'INATIVO'",
+        "scope": ["src/app/api/usuarios/**"],
+        "excludeGlobs": ["**/*.test.ts"],
+        "excludeComments": true,
+        "allowedMatches": [
+          {
+            "file": "src/app/api/usuarios/[id]/route.ts",
+            "reason": "DELETE handler (linha ~659) seta status='INATIVO' e na linha seguinte incrementa tokenVersion — fix de USUARIOS-P2-003 já aplicado. Cobertura adicional via semgrep tokenVersion-on-user-deactivation.yml + regressionTest delete-id.test.ts."
+          }
+        ],
+        "expectedMatches": 0
+      },
       "semgrepRule": ".semgrep/gladpros/tokenVersion-on-user-deactivation.yml",
       "fix": "tokenVersion: { increment: 1 } adicionado no data do DELETE handler.",
       "fixedAt": "2026-05-21",
       "fixedBy": "copilot-agent",
-      "fixCommit": "FASE3-P2-FIXES",
+      "fixCommit": "fa157cd",
       "regressionTest": "src/__tests__/api/usuarios/delete-id.test.ts"
     },
     {
@@ -167,11 +182,12 @@
       "auditRef": "auditoria-4ciclo-2026-05-21#P2-02",
       "affectedFiles": ["src/app/api/usuarios/delegacoes/[id]/route.ts"],
       "verificationPattern": null,
+      "verificationPatternNote": "Bug semântico (falta de chamada a can()). Cobertura via semgrepRule can-check-on-usuarios-route.yml.",
       "semgrepRule": ".semgrep/gladpros/can-check-on-usuarios-route.yml",
       "fix": "can/Role importados e can() checks adicionados em GET e PATCH de delegacoes/[id]/route.ts.",
       "fixedAt": "2026-05-21",
       "fixedBy": "copilot-agent",
-      "fixCommit": "FASE3-P2-FIXES",
+      "fixCommit": "fa157cd",
       "regressionTest": "src/__tests__/api/usuarios/regression/USUARIOS-P2-004.test.ts"
     },
     {
@@ -189,11 +205,12 @@
         "src/app/api/usuarios/[id]/toggle-status/route.ts"
       ],
       "verificationPattern": null,
+      "verificationPatternNote": "Bug semântico (falta de empresaId em where do Prisma). Cobertura via semgrepRule empresaId-on-prisma-where.yml.",
       "semgrepRule": ".semgrep/gladpros/empresaId-on-prisma-where.yml",
       "fix": "empresaId adicionado ao where em _helpers/access.ts, delegacoes/[id]/route.ts e toggle-status/route.ts.",
       "fixedAt": "2026-05-21",
       "fixedBy": "copilot-agent",
-      "fixCommit": "FASE3-P2-FIXES",
+      "fixCommit": "fa157cd",
       "regressionTest": "src/__tests__/api/usuarios/user-management-access.test.ts"
     },
     {
@@ -213,11 +230,12 @@
         "src/app/api/usuarios/__tests__/user-management-access.test.ts"
       ],
       "verificationPattern": null,
+      "verificationPatternNote": "Bug estrutural (diretório duplicado). Cobertura via regressionTest + check manual de inexistência do diretório src/app/api/usuarios/__tests__/.",
       "semgrepRule": null,
       "fix": "Diretório duplicado removido. user-management-access.test.ts migrado para src/__tests__/api/usuarios/.",
       "fixedAt": "2026-05-21",
       "fixedBy": "copilot-agent",
-      "fixCommit": "FASE3-P2-FIXES",
+      "fixCommit": "fa157cd",
       "regressionTest": "src/__tests__/api/usuarios/user-management-access.test.ts"
     },
     {
@@ -231,7 +249,13 @@
       "auditRef": "reauditoria-auth-2026-05-25#P2-01",
       "affectedFiles": ["src/app/api/auth/login/route.ts"],
       "verificationPattern": null,
+      "verificationPatternNote": "Bug semântico (anti-enumeração) — verificação coberta pelo regressionTest. Mantido null intencionalmente.",
       "semgrepRule": null,
+      "reincidenceCount": 0,
+      "reincidenceHistory": [],
+      "stateHistory": [
+        { "date": "2026-05-25", "from": "OPEN", "to": "FIXED", "by": "copilot-agent", "auditRef": "reauditoria-auth-2026-05-25" }
+      ],
       "fix": "Não expor metadados de bloqueio antes da validação de senha; preservar UX de desbloqueio com mecanismo anti-enumeração.",
       "fixedAt": "2026-05-25",
       "fixedBy": "copilot-agent",

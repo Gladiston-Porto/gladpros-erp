@@ -21,6 +21,7 @@ import { execSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, existsSync } from "fs";
+import { runVerificationGlobal } from "./lib/verification.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -35,6 +36,66 @@ const RESET = "\x1b[0m";
 const args = process.argv.slice(2);
 const moduleArg = args.find((a) => a.startsWith("--module="))?.split("=")[1];
 const onlyStagedFiles = args.includes("--staged");
+
+function getModuleScopes(mod) {
+  const defaults = [
+    `src/app/api/${mod}/`,
+    `src/app/${mod}/`,
+    `src/components/${mod}/`,
+    `src/domains/${mod}/`,
+    `src/services/${mod}/`,
+    `src/schemas/${mod}/`,
+    `src/__tests__/api/${mod}/`,
+  ];
+
+  const custom = {
+    auth: [
+      "src/app/api/auth/",
+      "src/app/login/",
+      "src/app/mfa/",
+      "src/app/desbloqueio/",
+      "src/shared/lib/mfa",
+      "src/shared/lib/blocking",
+      "src/shared/lib/password",
+      "src/shared/lib/validation",
+      "src/shared/lib/email",
+      "src/shared/lib/mfa-challenge",
+      "src/lib/api/",
+    ],
+    usuarios: [
+      "src/app/api/usuarios/",
+      "src/__tests__/api/usuarios/",
+      "src/shared/lib/user-hierarchy",
+      "src/shared/lib/rbac",
+    ],
+  };
+
+  return [...new Set([...(custom[mod] ?? []), ...defaults])];
+}
+
+function isLineInModuleScope(line, mod) {
+  if (!mod) return true;
+  const filePath = line.split(":")[0] ?? "";
+  const scopes = getModuleScopes(mod);
+  return scopes.some((s) => filePath.includes(s));
+}
+
+function findPatternLineInFile(fileContent, pattern) {
+  try {
+    const regex = new RegExp(pattern, "m");
+    const match = regex.exec(fileContent);
+    if (!match || typeof match.index !== "number") return -1;
+    return fileContent.slice(0, match.index).split("\n").length;
+  } catch {
+    return -1;
+  }
+}
+
+function getLineForText(fileContent, text) {
+  const idx = fileContent.indexOf(text);
+  if (idx < 0) return 1;
+  return fileContent.slice(0, idx).split("\n").length;
+}
 
 // ── grep util ────────────────────────────────────────────────────────────────
 
@@ -102,12 +163,17 @@ function checkKnownBugs() {
   }
 
   const openBugs = (knownBugs.bugs ?? []).filter((b) => b.status === "OPEN");
-  if (openBugs.length === 0) return [];
+  const fixedBugs = (knownBugs.bugs ?? []).filter((b) => b.status === "FIXED");
+  if (openBugs.length === 0 && fixedBugs.length === 0) return [];
 
   // When --module, filter to bugs of that module
-  const bugsToCheck = moduleArg
+  const openBugsToCheck = moduleArg
     ? openBugs.filter((b) => !b.module || b.module === moduleArg)
     : openBugs;
+
+  const fixedBugsToCheck = moduleArg
+    ? fixedBugs.filter((b) => !b.module || b.module === moduleArg)
+    : fixedBugs;
 
   // When --staged, get the list of files in the commit
   let stagedFiles = [];
@@ -121,7 +187,7 @@ function checkKnownBugs() {
 
   const violations = [];
 
-  for (const bug of bugsToCheck) {
+  for (const bug of openBugsToCheck) {
     if (!bug.verificationPattern || !bug.affectedFiles?.length) continue;
 
     // When --staged: only check bugs whose files are touched by this commit
@@ -142,26 +208,9 @@ function checkKnownBugs() {
         fileContent = readFileSync(fullPath, "utf-8");
       } catch { continue; }
 
-      const lines = fileContent.split("\n");
-      let found = false;
-      let foundLine = -1;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        // Skip comment lines
-        if (/^\s*(\/\/|\/\*|\*)/.test(line)) continue;
-        try {
-          if (new RegExp(bug.verificationPattern).test(line)) {
-            // Skip if in allowed files
-            const isAllowed = bug.allowedInFiles?.some((af) => affectedFile.includes(af));
-            if (!isAllowed) {
-              found = true;
-              foundLine = i + 1;
-              break;
-            }
-          }
-        } catch { /* invalid regex */ }
-      }
+      const isAllowed = bug.allowedInFiles?.some((af) => affectedFile.includes(af));
+      const foundLine = isAllowed ? -1 : findPatternLineInFile(fileContent, bug.verificationPattern);
+      const found = foundLine > 0;
 
       if (found) {
         violations.push({
@@ -172,6 +221,76 @@ function checkKnownBugs() {
           line: foundLine,
           fix: bug.fix,
           isPartialFix: onlyStagedFiles,
+        });
+      }
+    }
+  }
+
+  // Regressão grave: bug marcado FIXED com padrão ainda presente
+  for (const bug of fixedBugsToCheck) {
+    if (!bug.verificationPattern) continue;
+
+    // Schema-objeto: usar helper global (honra allowedMatches/excludeGlobs/expectedMatches)
+    if (typeof bug.verificationPattern === "object" && bug.verificationPattern !== null) {
+      // Em --staged, só rodar se algum arquivo do scope foi tocado
+      if (onlyStagedFiles) {
+        const scopeStr = Array.isArray(bug.verificationPattern.scope)
+          ? bug.verificationPattern.scope.join("|")
+          : "";
+        const touched = stagedFiles.some((sf) => scopeStr && scopeStr.includes(sf.split("/").slice(0, 4).join("/")));
+        if (!touched) continue;
+      }
+      const result = runVerificationGlobal(bug, ROOT);
+      if (!result.ok) {
+        for (const v of result.violations) {
+          violations.push({
+            bugId: bug.id,
+            priority: bug.priority ?? "P2",
+            title: `${bug.title} (BUG FIXED REGREDIU)`,
+            file: v.file,
+            line: v.line,
+            fix: bug.fix,
+            isPartialFix: onlyStagedFiles,
+            isFixedRegression: true,
+          });
+        }
+      }
+      continue;
+    }
+
+    // Legacy: string + affectedFiles
+    if (!bug.affectedFiles?.length) continue;
+
+    if (onlyStagedFiles) {
+      const touchedBugFiles = bug.affectedFiles.filter((af) =>
+        stagedFiles.some((sf) => sf.includes(af) || af.includes(sf))
+      );
+      if (touchedBugFiles.length === 0) continue;
+    }
+
+    for (const affectedFile of bug.affectedFiles) {
+      const fullPath = path.join(ROOT, affectedFile);
+      if (!existsSync(fullPath)) continue;
+
+      let fileContent;
+      try {
+        fileContent = readFileSync(fullPath, "utf-8");
+      } catch { continue; }
+
+      const isAllowed = bug.allowedInFiles?.some((af) => affectedFile.includes(af));
+      const foundLine = isAllowed ? -1 : findPatternLineInFile(fileContent, bug.verificationPattern);
+      const found = foundLine > 0;
+
+      if (found) {
+        violations.push({
+          bugId: bug.id,
+          priority: bug.priority ?? "P1",
+          title: `${bug.title} (BUG FIXED REGREDIU)`,
+          file: affectedFile,
+          line: foundLine,
+          fix: bug.fix,
+          isPartialFix: onlyStagedFiles,
+          isFixedRegression: true,
         });
       }
     }
@@ -241,6 +360,15 @@ const RULES = [
     fix: "Use: empresaId: user.empresaId (obtido via requireUser())",
   },
   {
+    id: "P2-003",
+    severity: "P2",
+    description: "empresaId hardcoded em SQL (VALUES (1, ...)) em rota de API",
+    pattern: "VALUES\\s*\\(\\s*1\\s*,",
+    scope: "src/app/api/",
+    allowedFiles: ["src/app/api/dev/", "src/app/api/webhooks/", "src/app/api/cron/", "__tests__", ".test.ts", ".spec.ts"],
+    fix: "Use empresaId dinâmico do usuário autenticado (ex: ${user.empresaId})",
+  },
+  {
     id: "P2-002",
     severity: "P2",
     description: "Resposta de API sem campo success — quebra o contrato do frontend",
@@ -277,6 +405,52 @@ const RULES = [
   },
 ];
 
+function checkAuthInvariantViolations() {
+  if (moduleArg && moduleArg !== "auth") return [];
+
+  const violations = [];
+
+  const refreshPath = path.join(ROOT, "src/app/api/auth/refresh/route.ts");
+  if (existsSync(refreshPath)) {
+    const content = readFileSync(refreshPath, "utf-8");
+    if (!/apiRateLimit\.checkLimit\(/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P2-AUTH-001",
+          severity: "P2",
+          description: "Refresh endpoint sem rate-limit obrigatório",
+          fix: "Adicionar apiRateLimit.checkLimit() no POST /api/auth/refresh",
+        },
+        line: getLineForText(content, "export const POST"),
+        file: "src/app/api/auth/refresh/route.ts",
+      });
+    }
+  }
+
+  const sessionsPath = path.join(ROOT, "src/app/api/auth/me/sessions/route.ts");
+  if (existsSync(sessionsPath)) {
+    const content = readFileSync(sessionsPath, "utf-8");
+    const hasLimit = /\bLIMIT\b/.test(content);
+    const hasOffset = /\bOFFSET\b/.test(content);
+    const hasPaginationPayload = /pagination\s*:\s*\{/.test(content);
+
+    if (!hasLimit || !hasOffset || !hasPaginationPayload) {
+      violations.push({
+        rule: {
+          id: "P2-AUTH-002",
+          severity: "P2",
+          description: "Me/sessions sem paginação/cap obrigatória",
+          fix: "Aplicar LIMIT/OFFSET e retornar pagination no payload",
+        },
+        line: getLineForText(content, "export const GET"),
+        file: "src/app/api/auth/me/sessions/route.ts",
+      });
+    }
+  }
+
+  return violations;
+}
+
 // ── Runner ────────────────────────────────────────────────────────────────────
 
 let totalErrors = 0;
@@ -300,8 +474,8 @@ for (const rule of RULES) {
   const fileCache = new Map();
 
   const violations = raw.filter((line) => {
-    // When --module is specified, only consider files that mention the module name
-    if (moduleArg && !line.includes(moduleArg)) return false;
+    // When --module is specified, only consider files inside module scope map
+    if (moduleArg && !isLineInModuleScope(line, moduleArg)) return false;
 
     // Skip pure comment lines
     const codePart = line.split(":").slice(2).join(":").trim();
@@ -353,6 +527,26 @@ for (const rule of RULES) {
   }
 }
 
+const authInvariantViolations = checkAuthInvariantViolations();
+if (authInvariantViolations.length > 0) {
+  const grouped = new Map();
+
+  for (const v of authInvariantViolations) {
+    const key = v.rule.id;
+    if (!grouped.has(key)) {
+      grouped.set(key, { rule: v.rule, violations: [] });
+    }
+    grouped.get(key).violations.push(`${v.file}:${v.line}:invariante ausente`);
+  }
+
+  for (const entry of grouped.values()) {
+    totalErrors += entry.violations.length;
+    if (entry.rule.severity === "P1") P1_errors.push(entry);
+    else if (entry.rule.severity === "P2") P2_errors.push(entry);
+    else P3_errors.push(entry);
+  }
+}
+
 // ── Run known-bugs check ──────────────────────────────────────────────────────
 
 const knownBugViolations = checkKnownBugs();
@@ -395,9 +589,12 @@ printErrors(P3_errors, CYAN, "🟡 P3 — Qualidade");
 
 // ── Known-bugs output ─────────────────────────────────────────────────────────
 if (knownBugViolations.length > 0) {
+  const hasFixedRegression = knownBugViolations.some((v) => v.isFixedRegression);
   const label = onlyStagedFiles
     ? "⚠️  KNOWN-BUGS: Fix incompleto detectado (N-1 problem)"
-    : "📋 KNOWN-BUGS: Bugs em aberto com padrão ainda presente";
+    : hasFixedRegression
+      ? "📋 KNOWN-BUGS: Regressão detectada em bug marcado FIXED"
+      : "📋 KNOWN-BUGS: Bugs em aberto com padrão ainda presente";
 
   console.log(`\n${RED}${BOLD}${label}${RESET}`);
   console.log(`  ${YELLOW}Esses bugs têm arquivos afetados onde o padrão ainda existe.${RESET}`);
@@ -411,8 +608,19 @@ if (knownBugViolations.length > 0) {
     if (v.isPartialFix) {
       console.log(`    ${RED}${BOLD}ATENÇÃO: Você está commitando uma correção parcial — o padrão ainda existe neste arquivo!${RESET}`);
     }
+    if (v.isFixedRegression) {
+      console.log(`    ${RED}${BOLD}REGRESSÃO: bug marcado FIXED voltou a aparecer no código.${RESET}`);
+    }
     console.log("");
   }
+}
+
+if (knownBugP2s.length > 0) {
+  console.log(`\n${YELLOW}${BOLD}🟠 P2 — Funcional (known-bugs) (${knownBugP2s.length})${RESET}`);
+}
+
+if (knownBugP3s.length > 0) {
+  console.log(`${CYAN}${BOLD}🟡 P3 — Qualidade (known-bugs) (${knownBugP3s.length})${RESET}`);
 }
 
 console.log("\n" + "─".repeat(62));
@@ -420,6 +628,9 @@ console.log(`${BOLD}Total: ${totalErrors} violação(ões)${scopeLabel}${RESET}`
 
 if (P1_errors.length > 0 || knownBugP1s.length > 0) {
   console.log(`${RED}${BOLD}Commit bloqueado — corrija os P1 antes de continuar.${RESET}\n`);
+  process.exit(1);
+} else if (onlyStagedFiles && knownBugP2s.length > 0) {
+  console.log(`${RED}${BOLD}Commit bloqueado — correção parcial/regressão P2 detectada em known-bugs.${RESET}\n`);
   process.exit(1);
 } else {
   console.log(`${YELLOW}P1 limpo. Revise P2/P3 antes de deploy.${RESET}\n`);

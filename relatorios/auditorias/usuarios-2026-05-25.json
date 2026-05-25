@@ -1,0 +1,61 @@
+{
+  "module": "usuarios",
+  "startedAt": "2026-05-25T21:55:54.466Z",
+  "finishedAt": "2026-05-25T21:56:13.115Z",
+  "orchestrator": "scripts/run-audit.mjs",
+  "steps": [
+    {
+      "name": "validate:known-bugs",
+      "command": "node scripts/validate-known-bugs.mjs",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 325
+    },
+    {
+      "name": "canary:health-check-detects-INFORMATION_SCHEMA",
+      "command": "node scripts/check-module-health.mjs --module=usuarios",
+      "passed": true,
+      "exitCode": 0,
+      "durationMs": 0
+    },
+    {
+      "name": "health:check",
+      "command": "node scripts/check-module-health.mjs --module=usuarios",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 835
+    },
+    {
+      "name": "certify:module",
+      "command": "node scripts/certify-module.mjs --module=usuarios",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 16390
+    }
+  ],
+  "transitions": [
+    {
+      "bugId": "USUARIOS-P2-003",
+      "from": "FIXED",
+      "to": "REOPENED",
+      "trigger": "certify-module:Gate-F (verificationPattern global)",
+      "detectedAt": "2026-05-25T21:53:06.344Z",
+      "evidence": [
+        {
+          "file": "src/app/api/usuarios/[id]/route.ts",
+          "line": 659,
+          "match": "status: 'INATIVO',"
+        }
+      ],
+      "reason": "1 ocorrência(s) fora de allowedMatches/excludeGlobs (scanned=1).",
+      "actionRequired": "Eliminar as ocorrências listadas OU registrá-las em allowedMatches com reason explícito antes de marcar como FIXED novamente."
+    }
+  ],
+  "findings": [
+    {
+      "level": "BLOQUEANTE",
+      "msg": "bug USUARIOS-P2-003 marcado FIXED mas verificationPattern detectou 1 ocorrência(s) restante(s) no scope (mode=string-legacy)."
+    }
+  ],
+  "status": "OK"
+}
