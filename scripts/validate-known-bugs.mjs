@@ -28,25 +28,8 @@ const warnings = [];
 function err(msg) { errors.push(msg); }
 function warn(msg) { warnings.push(msg); }
 
-function looksLikeGitCommit(hash) {
-  return /^[0-9a-f]{7,40}$/i.test(hash ?? '');
-}
-
-function isShallowRepository() {
-  try {
-    return execSync('git rev-parse --is-shallow-repository', {
-      cwd: root,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      encoding: 'utf8',
-    }).trim() === 'true';
-  } catch {
-    return false;
-  }
-}
-
 function isValidGitCommit(hash) {
   if (!hash || /pending|todo|tbd|placeholder/i.test(hash)) return false;
-  if (!looksLikeGitCommit(hash)) return false;
   try {
     execSync(`git cat-file -e ${hash}^{commit}`, {
       cwd: root,
@@ -54,15 +37,7 @@ function isValidGitCommit(hash) {
     });
     return true;
   } catch {
-    if (process.env.CI) {
-      const reason = isShallowRepository()
-        ? 'clone raso'
-        : 'objeto não disponível no checkout';
-      warn(`CI (${reason}): aceitando formato válido do commit ${hash} sem validar a existência local do objeto.`);
-      return true;
-    }
-    warn(`Commit ${hash} não está disponível localmente; aceitando hash sintaticamente válido.`);
-    return true;
+    return false;
   }
 }
 
