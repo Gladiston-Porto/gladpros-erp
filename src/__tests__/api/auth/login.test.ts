@@ -185,8 +185,8 @@ describe('POST /api/auth/login', () => {
     const response = await POST(mockRequest);
     const data = await response.json();
 
-    expect(response.status).toBe(403);
-    expect(data.error).toContain('inativa');
+    expect(response.status).toBe(401);
+    expect(data.error).toBe('Credenciais inválidas');
   });
 
   it('should return 401 for incorrect password', async () => {
@@ -219,7 +219,7 @@ describe('POST /api/auth/login', () => {
     expect(data.error).toBe('Credenciais inválidas');
   });
 
-  it('should return 423 for blocked user', async () => {
+  it('should return 401 for blocked user (anti-enumeration)', async () => {
     require('../../../lib/prisma').prisma.$queryRaw.mockResolvedValue([
       {
         id: 1,
@@ -248,10 +248,9 @@ describe('POST /api/auth/login', () => {
     const response = await POST(mockRequest);
     const data = await response.json();
 
-    // RFC 9110 — 423 Locked é o status correto para conta bloqueada
-    expect(response.status).toBe(423);
-    expect(data.error).toContain('bloqueada');
-    expect(data.blocked).toBe(true);
+    expect(response.status).toBe(401);
+    expect(data.error).toBe('Credenciais inválidas');
+    expect(data.blocked).toBeUndefined();
   });
 
   it('should return mfaRequired for successful login with MFA enabled', async () => {

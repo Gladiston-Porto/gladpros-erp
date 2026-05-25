@@ -47,6 +47,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       code: formData.get('code') as string,
       tipoAcao: formData.get('tipoAcao') as string,
       challenge: (formData.get('challenge') as string) || undefined,
+      rememberDevice: formData.get('rememberDevice') === 'true',
     };
   } else {
     raw = await req.json().catch(() => ({}));
@@ -148,11 +149,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       `;
     for (const row of backupRows) {
       if (await bcrypt.compare(cleanCode, row.codeHash)) {
-        await prisma.$executeRaw`
-            UPDATE MfaBackupCode SET usadoEm = NOW() WHERE id = ${row.id}
+        const updated = await prisma.$executeRaw`
+            UPDATE MfaBackupCode
+            SET usadoEm = NOW()
+            WHERE id = ${row.id}
+              AND usadoEm IS NULL
           `;
-        mfaValid = true;
-        break;
+        if (Number(updated) > 0) {
+          mfaValid = true;
+          break;
+        }
       }
     }
   } else {
@@ -391,7 +397,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           secure: cookie.secure,
           sameSite: cookie.sameSite as 'lax' | 'strict' | 'none',
           maxAge: cookie.maxAge,
-          path: '/',
+          path: cookie.path || '/',
         });
       });
 
@@ -506,7 +512,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         secure: cookie.secure,
         sameSite: cookie.sameSite as 'lax' | 'strict' | 'none',
         maxAge: cookie.maxAge,
-        path: '/',
+        path: cookie.path || '/',
       });
     });
 

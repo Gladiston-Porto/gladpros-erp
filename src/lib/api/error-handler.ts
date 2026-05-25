@@ -1,6 +1,6 @@
 /**
  * API Error Handler
- * 
+ *
  * Handler centralizado de erros para APIs
  */
 
@@ -15,9 +15,9 @@ import { logger } from './logger';
  * Converte ZodError para ValidationError[]
  */
 function zodErrorToValidationErrors(error: ZodError): ValidationError[] {
-  return error.issues.map(err => ({
+  return error.issues.map((err) => ({
     field: err.path.join('.'),
-    message: err.message
+    message: err.message,
   }));
 }
 
@@ -32,17 +32,13 @@ function handlePrismaError(error: Prisma.PrismaClientKnownRequestError): NextRes
       `Registro duplicado: ${fields.join(', ')} já existe`,
       ApiErrorCode.ALREADY_EXISTS,
       HttpStatus.CONFLICT,
-      { fields }
+      { fields },
     );
   }
 
   // P2025: Record not found
   if (error.code === 'P2025') {
-    return errorResponse(
-      'Registro não encontrado',
-      ApiErrorCode.NOT_FOUND,
-      HttpStatus.NOT_FOUND
-    );
+    return errorResponse('Registro não encontrado', ApiErrorCode.NOT_FOUND, HttpStatus.NOT_FOUND);
   }
 
   // P2003: Foreign key constraint violation
@@ -52,7 +48,7 @@ function handlePrismaError(error: Prisma.PrismaClientKnownRequestError): NextRes
       `Violação de integridade referencial: ${field}`,
       ApiErrorCode.VALIDATION_ERROR,
       HttpStatus.BAD_REQUEST,
-      { field }
+      { field },
     );
   }
 
@@ -61,7 +57,7 @@ function handlePrismaError(error: Prisma.PrismaClientKnownRequestError): NextRes
     return errorResponse(
       'Não é possível excluir: existem registros relacionados',
       ApiErrorCode.VALIDATION_ERROR,
-      HttpStatus.BAD_REQUEST
+      HttpStatus.BAD_REQUEST,
     );
   }
 
@@ -70,7 +66,7 @@ function handlePrismaError(error: Prisma.PrismaClientKnownRequestError): NextRes
     'Erro no banco de dados',
     ApiErrorCode.DATABASE_ERROR,
     HttpStatus.INTERNAL_SERVER_ERROR,
-    { code: error.code, meta: error.meta }
+    { code: error.code, meta: error.meta },
   );
 }
 
@@ -78,14 +74,18 @@ function handlePrismaError(error: Prisma.PrismaClientKnownRequestError): NextRes
  * Handler principal de erros
  */
 export function handleApiError(error: unknown): NextResponse<ApiError> {
-  console.error('❌ API Error:', error);
+  const isAuthExpectedError =
+    error instanceof Error &&
+    (error.message === 'UNAUTHENTICATED' || error.message === 'FORBIDDEN');
+
+  // Evita ruído em testes e não trata falha de autenticação esperada como erro interno.
+  if (!isAuthExpectedError && process.env.NODE_ENV !== 'test') {
+    console.error('❌ API Error:', error);
+  }
 
   // Erro de validação Zod
   if (error instanceof ZodError) {
-    return validationErrorResponse(
-      zodErrorToValidationErrors(error),
-      'Dados inválidos'
-    );
+    return validationErrorResponse(zodErrorToValidationErrors(error), 'Dados inválidos');
   }
 
   // Erro do Prisma
@@ -98,7 +98,7 @@ export function handleApiError(error: unknown): NextResponse<ApiError> {
     return errorResponse(
       `Erro de validação nos dados: ${error.message}`,
       ApiErrorCode.VALIDATION_ERROR,
-      HttpStatus.BAD_REQUEST
+      HttpStatus.BAD_REQUEST,
     );
   }
 
@@ -109,15 +109,11 @@ export function handleApiError(error: unknown): NextResponse<ApiError> {
       return errorResponse(
         'Autenticação necessária',
         ApiErrorCode.UNAUTHORIZED,
-        HttpStatus.UNAUTHORIZED
+        HttpStatus.UNAUTHORIZED,
       );
     }
     if (error.message === 'FORBIDDEN') {
-      return errorResponse(
-        'Acesso negado',
-        ApiErrorCode.FORBIDDEN,
-        HttpStatus.FORBIDDEN
-      );
+      return errorResponse('Acesso negado', ApiErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN);
     }
 
     // Não expor detalhes técnicos em produção
@@ -127,7 +123,7 @@ export function handleApiError(error: unknown): NextResponse<ApiError> {
       isDev ? error.message : 'Erro interno do servidor',
       ApiErrorCode.INTERNAL_ERROR,
       HttpStatus.INTERNAL_SERVER_ERROR,
-      isDev ? { stack: error.stack } : undefined
+      isDev ? { stack: error.stack } : undefined,
     );
   }
 
@@ -135,18 +131,16 @@ export function handleApiError(error: unknown): NextResponse<ApiError> {
   return errorResponse(
     'Erro desconhecido',
     ApiErrorCode.INTERNAL_ERROR,
-    HttpStatus.INTERNAL_SERVER_ERROR
+    HttpStatus.INTERNAL_SERVER_ERROR,
   );
 }
 
 /**
  * Wrapper para route handlers com tratamento de erro
  */
- 
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withErrorHandler<T extends any[]>(
-  handler: (...args: T) => Promise<NextResponse>
-) {
+export function withErrorHandler<T extends any[]>(handler: (...args: T) => Promise<NextResponse>) {
   return async (...args: T): Promise<NextResponse> => {
     try {
       return await handler(...args);
@@ -154,7 +148,8 @@ export function withErrorHandler<T extends any[]>(
       const isExpectedError =
         error instanceof ZodError ||
         (typeof error === 'object' && error !== null && 'statusCode' in error) ||
-        (error instanceof Error && (error.message === 'UNAUTHENTICATED' || error.message === 'FORBIDDEN'));
+        (error instanceof Error &&
+          (error.message === 'UNAUTHENTICATED' || error.message === 'FORBIDDEN'));
       if (!isExpectedError) {
         logger.error('[API] Erro não tratado no handler', {}, error as Error);
       }

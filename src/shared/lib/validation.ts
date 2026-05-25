@@ -138,12 +138,12 @@ export const userUpdateSchema = z
 export const unlockSchema = z.discriminatedUnion('method', [
   z.object({
     method: z.literal('pin'),
-    userId: z.number().int().positive('ID do usuário inválido'),
+    email: emailSchema,
     pin: pinSchema,
   }),
   z.object({
     method: z.literal('security'),
-    userId: z.number().int().positive('ID do usuário inválido'),
+    email: emailSchema,
     answer: securityAnswerSchema,
   }),
 ]);
