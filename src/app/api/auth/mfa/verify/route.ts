@@ -234,10 +234,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           primeiroAcesso: boolean;
           senhaProvisoria: boolean;
           tipo: string | null;
+          empresaId: number;
           tokenVersion: number;
         }>
       >`
-          SELECT id, email, nomeCompleto, primeiroAcesso, senhaProvisoria, nivel as tipo, tokenVersion
+          SELECT id, email, nomeCompleto, primeiroAcesso, senhaProvisoria, nivel as tipo, empresaId, tokenVersion
           FROM Usuario
           WHERE id = ${userId}
           LIMIT 1
@@ -251,9 +252,10 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
             primeiroAcesso: boolean;
             senhaProvisoria: boolean;
             tipo: string | null;
+            empresaId: number;
           }>
         >`
-          SELECT id, email, nomeCompleto, primeiroAcesso, senhaProvisoria, nivel as tipo
+          SELECT id, email, nomeCompleto, primeiroAcesso, senhaProvisoria, nivel as tipo, empresaId
           FROM Usuario
           WHERE id = ${userId}
           LIMIT 1
@@ -455,7 +457,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     prisma.$executeRaw`
         INSERT INTO DispositivoConfiavel (empresaId, usuarioId, deviceToken, userAgent, ip, nome, expiresAt)
-        VALUES (1, ${user.id}, ${deviceToken}, ${ua}, ${ip}, ${ua ? ua.slice(0, 50) : null}, ${expiresAt})
+        VALUES (${user.empresaId}, ${user.id}, ${deviceToken}, ${ua}, ${ip}, ${ua ? ua.slice(0, 50) : null}, ${expiresAt})
       `.catch((e) => logger.warn('[MFA] Falha ao salvar dispositivo confiável', { error: e }));
     response.cookies.set('deviceTrust', deviceToken, {
       httpOnly: true,

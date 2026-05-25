@@ -57,6 +57,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 export const POST = withErrorHandler(async (req: NextRequest) => {
   const user = await requireUser(req);
   const userId = Number(user.id);
+  const empresaId = Number(user.empresaId);
 
   // Gerar 8 códigos
   const plainCodes: string[] = [];
@@ -74,7 +75,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     ...hashes.map(hash =>
       prisma.$executeRaw`
         INSERT INTO MfaBackupCode (empresaId, usuarioId, codeHash, criadoEm)
-        VALUES (1, ${userId}, ${hash}, NOW())
+        VALUES (${empresaId}, ${userId}, ${hash}, NOW())
       `
     ),
   ]);

@@ -10,9 +10,21 @@ export const runtime = "nodejs";
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const me = await requireUser(req);
   const userId = Number(me.id);
+  const url = new URL(req.url);
+  const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
+  const requestedPageSize = Number(url.searchParams.get('pageSize') || '20');
+  const pageSize = Math.min(100, Math.max(1, requestedPageSize));
+  const skip = (page - 1) * pageSize;
 
   // Ler token atual do cookie para identificar sessão corrente
   const currentToken = req.cookies.get("sessionToken")?.value ?? null;
+
+  const countRows = await prisma.$queryRaw<Array<{ total: bigint | number }>>`
+    SELECT COUNT(*) as total
+    FROM SessaoAtiva
+    WHERE usuarioId = ${userId}
+  `;
+  const total = Number(countRows[0]?.total ?? 0);
 
   const sessions = await prisma.$queryRaw<Array<{
     id: number;
@@ -28,6 +40,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     FROM SessaoAtiva
     WHERE usuarioId = ${userId}
     ORDER BY ultimaAtividade DESC
+    LIMIT ${pageSize}
+    OFFSET ${skip}
   `;
 
   const result = sessions.map((s) => ({
@@ -45,7 +59,16 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     isCurrent: currentToken !== null && s.token === currentToken,
   }));
 
-  return NextResponse.json({ data: result, success: true });
+  return NextResponse.json({
+    data: result,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    },
+    success: true,
+  });
 });
 
 // POST /api/auth/me/sessions/revoke-others — encerra todas as sessões exceto a atual
