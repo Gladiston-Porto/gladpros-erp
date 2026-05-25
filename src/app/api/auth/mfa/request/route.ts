@@ -52,14 +52,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }).catch(() => ({ success: false }));
 
   if (!sendResult.success) {
-    return NextResponse.json(
-      {
-        error: 'Nao foi possivel enviar o codigo de verificacao. Tente novamente em instantes.',
-        message: 'MFA_DELIVERY_FAILED',
-        success: false,
-      },
-      { status: 503 },
-    );
+    // Resposta uniforme para evitar enumeração por diferença de status.
+    return NextResponse.json({ success: true });
   }
 
   return NextResponse.json({ success: true });

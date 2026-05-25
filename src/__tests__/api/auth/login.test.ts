@@ -219,7 +219,7 @@ describe('POST /api/auth/login', () => {
     expect(data.error).toBe('Credenciais inválidas');
   });
 
-  it('should return 401 for blocked user (anti-enumeration)', async () => {
+  it('should return 423 for blocked user with unlock metadata', async () => {
     require('../../../lib/prisma').prisma.$queryRaw.mockResolvedValue([
       {
         id: 1,
@@ -248,9 +248,10 @@ describe('POST /api/auth/login', () => {
     const response = await POST(mockRequest);
     const data = await response.json();
 
-    expect(response.status).toBe(401);
-    expect(data.error).toBe('Credenciais inválidas');
-    expect(data.blocked).toBeUndefined();
+    expect(response.status).toBe(423);
+    expect(data.error).toBe('Conta temporariamente bloqueada');
+    expect(data.blocked).toBe(true);
+    expect(data.unlockAt).toBeDefined();
   });
 
   it('should return mfaRequired for successful login with MFA enabled', async () => {

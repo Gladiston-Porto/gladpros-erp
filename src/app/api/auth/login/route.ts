@@ -102,10 +102,14 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (blockInfo.blocked) {
     return NextResponse.json(
       {
-        error: 'Credenciais inválidas',
+        error: 'Conta temporariamente bloqueada',
         success: false,
+        blocked: true,
+        unlockAt: blockInfo.unlockAt?.toISOString(),
+        requiresPinUnlock: blockInfo.requiresPinUnlock,
+        requiresSecurityQuestion: blockInfo.requiresSecurityQuestion,
       },
-      { status: 401 },
+      { status: 423 },
     );
   }
 

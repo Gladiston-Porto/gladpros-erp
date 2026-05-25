@@ -151,15 +151,14 @@ describe('POST /api/auth/mfa/request', () => {
     expect(require('../../../shared/lib/mfa').MFAService.createMFACode).toHaveBeenCalled();
   });
 
-  it('retorna 503 quando EmailService.sendMFA falha', async () => {
+  it('retorna 200 mesmo quando EmailService.sendMFA falha (resposta uniforme)', async () => {
     require('../../../shared/lib/email').EmailService.sendMFA.mockRejectedValue(
       new Error('SMTP timeout'),
     );
     (mockRequest.json as jest.Mock).mockResolvedValue({ email: ACTIVE_USER.email });
     const response = await POST(mockRequest);
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     const data = await response.json();
-    expect(data.success).toBe(false);
-    expect(data.message).toBe('MFA_DELIVERY_FAILED');
+    expect(data.success).toBe(true);
   });
 });
