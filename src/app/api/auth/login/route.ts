@@ -334,12 +334,17 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   });
 
   if (!mfaSendResult.success) {
-    logger.warn('[AUTH][LOGIN] MFA delivery failed', {
-      userId: user.id,
-      email: user.email,
-      action: accessType,
-      hasError: Boolean(mfaSendResult.error),
-    });
+    logger.warn(
+      '[AUTH][LOGIN] MFA delivery failed',
+      {
+        userId: user.id,
+        userEmail: user.email,
+      },
+      {
+        action: accessType,
+        hasError: Boolean(mfaSendResult.error),
+      },
+    );
 
     return NextResponse.json(
       {
