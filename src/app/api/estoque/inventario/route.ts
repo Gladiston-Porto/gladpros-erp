@@ -5,7 +5,7 @@ import { requireUser } from '@/shared/lib/rbac';
 import { can, type Role } from '@/shared/lib/rbac-core';
 import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from '@prisma/client/runtime/client';
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
@@ -27,7 +27,10 @@ const inventarioSchema = z.object({
 export const POST = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
   if (!can(user.role as Role, 'estoque', 'create')) {
-    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Sem permissão', success: false },
+      { status: 403 },
+    );
   }
   const body = await request.json();
   const validated = inventarioSchema.parse(body);
@@ -42,7 +45,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
           materialId: item.materialId,
           localizacaoId: item.localizacaoId,
           loteId: item.loteId || null,
-        }
+        },
       });
 
       const quantidadeAtual = saldo ? Number(saldo.quantidade) : 0;
@@ -74,7 +77,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
           quantidade: new Decimal(Math.abs(diferenca)),
           motivo: item.motivo || validated.motivo,
           criadoPor: Number(user.id),
-        }
+        },
       });
 
       // Update or create balance
@@ -90,7 +93,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
             localizacaoId: item.localizacaoId,
             loteId: item.loteId || null,
             quantidade: new Decimal(item.quantidadeContada),
-          }
+          },
         });
       }
 
@@ -108,17 +111,17 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     return ajustes;
   });
 
-  const totalAjustes = resultados.filter(r => r.ajuste !== 'NENHUM').length;
+  const totalAjustes = resultados.filter((r) => r.ajuste !== 'NENHUM').length;
 
   return NextResponse.json({
     message: `Inventário processado: ${totalAjustes} ajustes de ${resultados.length} itens`,
     data: resultados,
     resumo: {
       totalItens: resultados.length,
-      ajustesPositivos: resultados.filter(r => r.ajuste === 'AJUSTE_POSITIVO').length,
-      ajustesNegativos: resultados.filter(r => r.ajuste === 'AJUSTE_NEGATIVO').length,
-      semAlteracao: resultados.filter(r => r.ajuste === 'NENHUM').length,
-    }
+      ajustesPositivos: resultados.filter((r) => r.ajuste === 'AJUSTE_POSITIVO').length,
+      ajustesNegativos: resultados.filter((r) => r.ajuste === 'AJUSTE_NEGATIVO').length,
+      semAlteracao: resultados.filter((r) => r.ajuste === 'NENHUM').length,
+    },
   });
 });
 
@@ -126,14 +129,18 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const user = await requireUser(request);
   if (!can(user.role as Role, 'estoque', 'read')) {
-    return NextResponse.json({ error: 'Forbidden', message: 'Sem permissão', success: false }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Sem permissão', success: false },
+      { status: 403 },
+    );
   }
   const { searchParams } = new URL(request.url);
 
   const localizacaoId = searchParams.get('localizacaoId');
   const materialId = searchParams.get('materialId');
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
-  const requestedPageSize = Number(searchParams.get('pageSize') ?? String(DEFAULT_PAGE_SIZE)) || DEFAULT_PAGE_SIZE;
+  const requestedPageSize =
+    Number(searchParams.get('pageSize') ?? String(DEFAULT_PAGE_SIZE)) || DEFAULT_PAGE_SIZE;
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, requestedPageSize));
   const skip = (page - 1) * pageSize;
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, can, type Role } from '@/shared/lib/rbac';
 import { prisma } from '@/lib/prisma';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from '@prisma/client/runtime/client';
 import type { Invoice_status } from '@prisma/client';
 import { withErrorHandler } from '@/lib/api/error-handler';
 
