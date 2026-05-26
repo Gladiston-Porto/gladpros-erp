@@ -27,7 +27,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
@@ -88,7 +88,7 @@ jobs:
 
       - name: Open issue on failure
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const title = `🚨 Auditoria semanal detectou regressão — ${new Date().toISOString().split('T')[0]}`;
