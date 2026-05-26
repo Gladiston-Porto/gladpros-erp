@@ -4,12 +4,10 @@
 import * as React from 'react';
 import { CalendarIcon } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { cn } from "../utils/cn";
-import { Button } from "./button";
-import { Popover, PopoverContent, PopoverTrigger } from "./popover";
-import { Calendar } from "./calendar";;
-
-
+import { cn } from '../utils/cn';
+import { Button } from './button';
+import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import { Calendar } from './calendar';
 
 interface DatePickerWithRangeProps {
   className?: string;
@@ -17,11 +15,7 @@ interface DatePickerWithRangeProps {
   onDateChange?: (date: DateRange | undefined) => void;
 }
 
-export function DatePickerWithRange({
-  className,
-  date,
-  onDateChange,
-}: DatePickerWithRangeProps) {
+export function DatePickerWithRange({ className, date, onDateChange }: DatePickerWithRangeProps) {
   return (
     <div className={cn('grid gap-2', className)}>
       <Popover>
@@ -31,15 +25,14 @@ export function DatePickerWithRange({
             variant="outline"
             className={cn(
               'w-[300px] justify-start text-left font-normal',
-              !date && 'text-muted-foreground'
+              !date && 'text-muted-foreground',
             )}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {date?.from ? (
               date.to ? (
                 <>
-                  {date.from.toLocaleDateString('pt-BR')} -{' '}
-                  {date.to.toLocaleDateString('pt-BR')}
+                  {date.from.toLocaleDateString('pt-BR')} - {date.to.toLocaleDateString('pt-BR')}
                 </>
               ) : (
                 date.from.toLocaleDateString('pt-BR')
@@ -51,7 +44,7 @@ export function DatePickerWithRange({
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
-            initialFocus
+            autoFocus
             mode="range"
             defaultMonth={date?.from}
             selected={date}
