@@ -28,6 +28,22 @@ const warnings = [];
 function err(msg) { errors.push(msg); }
 function warn(msg) { warnings.push(msg); }
 
+function looksLikeGitCommit(hash) {
+  return /^[0-9a-f]{7,40}$/i.test(hash ?? '');
+}
+
+function isShallowRepository() {
+  try {
+    return execSync('git rev-parse --is-shallow-repository', {
+      cwd: root,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    }).trim() === 'true';
+  } catch {
+    return false;
+  }
+}
+
 function isValidGitCommit(hash) {
   if (!hash || /pending|todo|tbd|placeholder/i.test(hash)) return false;
   try {
@@ -37,6 +53,10 @@ function isValidGitCommit(hash) {
     });
     return true;
   } catch {
+    if (process.env.CI && isShallowRepository() && looksLikeGitCommit(hash)) {
+      warn(`CI em clone raso: pulando verificação de existência do commit ${hash}.`);
+      return true;
+    }
     return false;
   }
 }
