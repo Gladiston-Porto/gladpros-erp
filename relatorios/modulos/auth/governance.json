@@ -2,9 +2,9 @@
   "modulo": "auth",
   "statusAtual": "Production Ready",
   "ultimaAuditoria": "2026-05-24",
-  "ultimaCertificacao": "2026-05-24",
+  "ultimaCertificacao": "2026-05-25",
   "bugs": {
     "abertos": [],
-    "corrigidos": []
+    "corrigidos": ["AUTH-P2-001"]
   }
 }

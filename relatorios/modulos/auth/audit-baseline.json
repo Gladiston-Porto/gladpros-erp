@@ -1,0 +1,66 @@
+{
+  "module": "auth",
+  "createdAt": "2026-05-25",
+  "purpose": "Inventário-baseline do módulo auth. Usado pelo run-audit.mjs para detectar drift estrutural (rotas removidas/criadas sem atualização de governance).",
+  "scope": {
+    "apiRoutes": "src/app/api/auth/**",
+    "pageRoutes": "src/app/auth/**",
+    "sharedLib": [
+      "src/shared/lib/rbac.ts",
+      "src/shared/lib/rbac-core.ts",
+      "src/shared/lib/requireServerUser.ts"
+    ]
+  },
+  "criticalInvariants": [
+    {
+      "id": "P2-AUTH-001",
+      "rule": "Toda rota POST em src/app/api/auth/ deve aplicar apiRateLimit.checkLimit antes de validar credenciais.",
+      "enforcedBy": "scripts/check-module-health.mjs (checkAuthInvariantViolations)"
+    },
+    {
+      "id": "P2-AUTH-002",
+      "rule": "Endpoints que listam sessões/tokens devem paginar (LIMIT + OFFSET + count).",
+      "enforcedBy": "scripts/check-module-health.mjs (checkAuthInvariantViolations)"
+    },
+    {
+      "id": "P2-AUTH-003",
+      "rule": "Nenhum INSERT em src/app/api/auth/ pode usar empresaId hardcoded (VALUES (1, ...)).",
+      "enforcedBy": "AUTH-P2-002 verificationPattern (quando registrado)"
+    },
+    {
+      "id": "P2-AUTH-ENUM",
+      "rule": "Endpoints de autenticação não devem expor estado de bloqueio antes de validar senha (anti-enumeração).",
+      "enforcedBy": "AUTH-P2-001 regressionTest (semântico)"
+    }
+  ],
+  "expectedRoles": {
+    "publicRoutes": [
+      "src/app/api/auth/login",
+      "src/app/api/auth/refresh",
+      "src/app/api/auth/forgot-password",
+      "src/app/api/auth/reset-password",
+      "src/app/api/auth/first-access-magic",
+      "src/app/api/auth/first-access-setup",
+      "src/app/api/auth/mfa/request",
+      "src/app/api/auth/mfa/verify",
+      "src/app/api/auth/mfa/resend",
+      "src/app/api/auth/unlock"
+    ],
+    "authenticatedRoutes": [
+      "src/app/api/auth/me",
+      "src/app/api/auth/me/avatar",
+      "src/app/api/auth/me/security",
+      "src/app/api/auth/me/sessions",
+      "src/app/api/auth/logout",
+      "src/app/api/auth/user-status",
+      "src/app/api/auth/mfa/backup-codes"
+    ]
+  },
+  "knownBugs": {
+    "fixed": ["AUTH-P2-001"],
+    "open": []
+  },
+  "regressionTestsRequired": [
+    "src/__tests__/api/auth/login.test.ts"
+  ]
+}

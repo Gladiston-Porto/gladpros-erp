@@ -1,0 +1,80 @@
+{
+  "module": "usuarios",
+  "createdAt": "2026-05-25",
+  "purpose": "Inventário-baseline do módulo usuarios. Usado pelo run-audit.mjs para detectar drift estrutural e habilitar o canário do detector de anti-patterns.",
+  "scope": {
+    "apiRoutes": "src/app/api/usuarios/**",
+    "pageRoutes": "src/app/(dashboard)/usuarios/**",
+    "sharedLib": [
+      "src/shared/lib/usuario-query.ts",
+      "src/shared/lib/rbac.ts",
+      "src/shared/lib/rbac-core.ts"
+    ]
+  },
+  "criticalInvariants": [
+    {
+      "id": "P1-USUARIOS-001",
+      "rule": "Toda rota de usuarios deve usar requireUser/requireServerUser + can('usuarios', action).",
+      "enforcedBy": ".semgrep/gladpros/can-check-on-usuarios-route.yml"
+    },
+    {
+      "id": "P1-USUARIOS-002",
+      "rule": "Toda query de usuario deve incluir empresaId no where (multi-tenant safety, mesmo single-tenant).",
+      "enforcedBy": ".semgrep/gladpros/empresaId-on-prisma-where.yml"
+    },
+    {
+      "id": "P1-USUARIOS-003",
+      "rule": "Desativação/exclusão de usuário deve incrementar tokenVersion para invalidar JWT.",
+      "enforcedBy": ".semgrep/gladpros/tokenVersion-on-user-deactivation.yml"
+    },
+    {
+      "id": "P2-USUARIOS-PERF",
+      "rule": "Nenhuma query de usuários pode usar INFORMATION_SCHEMA (lento). Exceção: src/shared/lib/usuario-query.ts.",
+      "enforcedBy": "scripts/check-module-health.mjs (regex INFORMATION_SCHEMA)"
+    },
+    {
+      "id": "P2-USUARIOS-CONTRACT",
+      "rule": "Resposta de erro deve seguir { error, message, success: false }.",
+      "enforcedBy": "scripts/check-module-health.mjs"
+    }
+  ],
+  "expectedRoles": {
+    "publicRoutes": [],
+    "authenticatedRoutes": [
+      "src/app/api/usuarios",
+      "src/app/api/usuarios/[id]",
+      "src/app/api/usuarios/[id]/toggle-status",
+      "src/app/api/usuarios/[id]/status",
+      "src/app/api/usuarios/[id]/sessions",
+      "src/app/api/usuarios/delegacoes",
+      "src/app/api/usuarios/delegacoes/[id]",
+      "src/app/api/usuarios/export/csv"
+    ]
+  },
+  "knownBugs": {
+    "fixed": [
+      "USUARIOS-P1-001",
+      "USUARIOS-P1-002",
+      "USUARIOS-P2-001",
+      "USUARIOS-P2-002",
+      "USUARIOS-P2-003",
+      "USUARIOS-P2-004",
+      "USUARIOS-P2-005",
+      "USUARIOS-P2-006",
+      "USUARIOS-P3-001",
+      "USUARIOS-P3-002"
+    ],
+    "open": []
+  },
+  "regressionTestsRequired": [
+    "src/__tests__/api/usuarios/regression/USUARIOS-P1-001.test.ts",
+    "src/__tests__/api/usuarios/regression/USUARIOS-P1-002.test.ts",
+    "src/__tests__/api/usuarios/regression/USUARIOS-P2-001.test.ts",
+    "src/__tests__/api/usuarios/regression/USUARIOS-P2-002.test.ts",
+    "src/__tests__/api/usuarios/regression/USUARIOS-P2-004.test.ts",
+    "src/__tests__/api/usuarios/regression/USUARIOS-P3-001.test.ts",
+    "src/__tests__/api/usuarios/regression/USUARIOS-P3-002.test.ts",
+    "src/__tests__/api/usuarios/user-management-access.test.ts",
+    "src/__tests__/api/usuarios/delete-id.test.ts"
+  ]
+}

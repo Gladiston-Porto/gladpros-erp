@@ -1257,3 +1257,162 @@ node scripts/check-module-health.mjs --module=usuarios
 ```
 
 O script `scripts/check-module-health.mjs` é o árbitro final. Se ele retorna P1 limpo, o padrão de anti-patterns catalogados está ausente. O hook pre-commit roda isso automaticamente — P1 bloqueia o commit.
+
+---
+
+## 26. Audit Loop Fechado — protocolo obrigatório de auditoria
+
+> Esta seção é **vinculante**. Auditoria de módulo não é narrativa do agente.
+> É um pipeline programático que tem que rodar verde. Sem isso, o resultado da
+> auditoria não vale.
+
+### 26.1 — Único caminho autorizado para auditar um módulo
+
+```bash
+npm run audit:module -- --module=<nome>
+```
+
+Esse comando roda `scripts/run-audit.mjs`, que executa **nessa ordem**:
+
+1. `validate-known-bugs` — schema do registro de bugs íntegro
+2. **canário** — injeta `INFORMATION_SCHEMA` num arquivo temporário do scope
+   do módulo. Se `check-module-health` **não detectar**, o detector está cego
+   e a auditoria **aborta** com exit 10 antes de qualquer gate
+3. `health:check --module=<nome>` — regex anti-patterns
+4. `certify:module --module=<nome>` — Gates A→G (inclui Gate F = detector
+   global de fix parcial, e Gate G = reincidência sem regra automatizada)
+
+Em qualquer falha → manifest gravado em `relatorios/auditorias/<mod>-YYYY-MM-DD.json`
+com `steps[]`, `transitions[]`, `findings[]`, `status`.
+
+> **Não é aceitável** rodar `certify-module` solto e declarar "auditado".
+> Sem canário, não há prova de que o detector estava vivo no momento da auditoria.
+
+### 26.2 — Único caminho autorizado para marcar um bug como FIXED
+
+```bash
+npm run bug:mark-fixed -- --id=<BUG-ID> --commit=<sha> --audit-ref=<ref>
+```
+
+`scripts/mark-bug-fixed.mjs` valida os **6 critérios** da seção 20.1 antes de
+tocar no JSON. Se qualquer um falhar, exit ≠ 0 e o arquivo **não é alterado**.
+
+**Proibido**: editar manualmente `relatorios/known-bugs.json` para mudar
+`status: OPEN → FIXED`. Se for pego, a auditoria perde validade.
+
+### 26.3 — Schema novo de `verificationPattern`
+
+Bugs FIXED devem usar o schema-objeto (legado string ainda aceito por
+compatibilidade, mas novo bug deve nascer no formato novo):
+
+```json
+{
+  "verificationPattern": {
+    "type": "regex",
+    "pattern": "VALUES\\s*\\(\\s*1\\s*,",
+    "scope": ["src/app/api/<mod>/**"],
+    "excludeGlobs": ["**/*.test.ts"],
+    "excludeComments": true,
+    "allowedMatches": [
+      { "file": "src/legacy/known-exception.ts", "reason": "Migração programada para Q3" }
+    ],
+    "expectedMatches": 0
+  }
+}
+```
+
+Quando o bug for **semântico** (não tem regex possível), usar:
+
+```json
+{
+  "verificationPattern": null,
+  "verificationPatternNote": "Bug semântico (anti-enumeração). Cobertura via regressionTest + healthCheckRule.",
+  "healthCheckRule": "auth-enum-disclosure"
+}
+```
+
+`validate-known-bugs.mjs` exige `verificationPatternNote` **OU** `healthCheckRule`
+quando `verificationPattern: null` num bug FIXED. **Sem isso, valida-known-bugs falha.**
+
+### 26.4 — Reincidência detectada (`stateHistory` REOPENED)
+
+Quando `certify-module` detecta que um bug FIXED voltou a aparecer no codebase
+(Gate F), ele grava:
+
+```json
+"stateHistory": [
+  { "date": "...", "from": "OPEN", "to": "FIXED", "by": "...", "auditRef": "..." },
+  { "date": "...", "from": "FIXED", "to": "REOPENED", "by": "certify-module:Gate-F",
+    "auditRef": "audit-<mod>-YYYY-MM-DD", "reason": "<violations>" }
+]
+```
+
+E o módulo passa para **Not Ready (Fix Parcial Detectado)**.
+
+Bug com `reincidenceCount ≥ 1` **deve** ter `semgrepRule` ou `healthCheckRule` —
+caso contrário Gate G bloqueia (exit 5) com status **Not Ready (Reincidência Sem Prevenção)**.
+
+Bug com `reincidenceCount ≥ 2` que continua P2 (não P1) → escalonamento obrigatório.
+
+### 26.5 — `audit-baseline.json` por módulo
+
+Todo módulo certificável deve ter `relatorios/modulos/<mod>/audit-baseline.json`
+com no mínimo:
+
+```json
+{
+  "module": "<nome>",
+  "scope": { "apiRoutes": "src/app/api/<mod>/**", "pageRoutes": "..." },
+  "criticalInvariants": [ { "id": "...", "rule": "...", "enforcedBy": "..." } ],
+  "expectedRoles": { "publicRoutes": [...], "authenticatedRoutes": [...] },
+  "knownBugs": { "fixed": [...], "open": [...] },
+  "regressionTestsRequired": [...]
+}
+```
+
+CI usa a presença desse arquivo para decidir se roda `run-audit` no módulo.
+Sem baseline → o módulo **não é considerado** certificável.
+
+### 26.6 — CI bloqueia o que escapa do local
+
+`.github/workflows/quality-gate.yml` (todo PR para `main` ou `develop`):
+- Camada 0: `validate-known-bugs`
+- Camada 0b: `certify-module --all`
+- **Camada 0c: para cada módulo com `audit-baseline.json` → roda `run-audit`** (canário + pipeline)
+- Camadas 1+ (health, semgrep, lint, type-check, testes)
+
+`.github/workflows/weekly-audit.yml` (segunda 09:00 UTC):
+- Roda `run-audit` em todos os módulos com baseline
+- Em caso de falha → abre issue automática com label `audit, regression, P1`
+
+**Bypass local (`git commit --no-verify`) não escapa do CI.**
+
+### 26.7 — O que o agente deve responder ao usuário ao "auditar"
+
+Quando o usuário pedir "audite o módulo X":
+
+1. Rodar `npm run audit:module -- --module=X`
+2. Reportar exit code do pipeline
+3. Anexar resumo do manifest gerado (`relatorios/auditorias/X-YYYY-MM-DD.json`):
+   - `status`
+   - `steps` aprovados/reprovados
+   - `transitions` detectadas (se houver)
+4. **Se não houver baseline** para o módulo → criar primeiro o `audit-baseline.json`
+5. Não declarar "auditado" sem o manifest verde
+
+**Resposta narrativa sem manifest = auditoria inválida.**
+
+### 26.8 — Resumo dos exit codes do pipeline
+
+| Script | Exit | Significado |
+|--------|------|-------------|
+| `run-audit.mjs` | 0 | OK |
+| `run-audit.mjs` | 1 | Falha em validate / health / certify |
+| `run-audit.mjs` | 10 | **Canário falhou — detector cego, auditoria abortada** |
+| `run-audit.mjs` | 11 | Uso inválido |
+| `certify-module.mjs` | 4 | **Gate F: fix parcial detectado** (transitions gravadas) |
+| `certify-module.mjs` | 5 | **Gate G: reincidência sem semgrepRule/healthCheckRule** |
+| `mark-bug-fixed.mjs` | 1 | Critérios da DoD reprovados |
+| `mark-bug-fixed.mjs` | 2 | Uso inválido / bug não encontrado |
+| `validate-known-bugs.mjs` | 1 | Schema inválido |
+

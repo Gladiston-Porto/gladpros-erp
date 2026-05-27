@@ -61,6 +61,8 @@
     "semgrep": "semgrep --config=.semgrep/gladpros --metrics=off --error",
     "semgrep:staged": "semgrep --config=.semgrep/gladpros --metrics=off --error --baseline-commit=HEAD",
     "known-bugs:validate": "node scripts/validate-known-bugs.mjs",
+    "audit:module": "node scripts/run-audit.mjs",
+    "bug:mark-fixed": "node scripts/mark-bug-fixed.mjs",
     "quality:gate": "npm run known-bugs:validate && npm run semgrep && npm run health:check",
     "db:fix-sessions": "node scripts/fix-missing-tables.js",
     "test:smoke": "cross-env BASE_URL=http://localhost:3001 dotenv -e .env.test -- node scripts/smoke-auth.mjs",

@@ -37,7 +37,29 @@ jobs:
       - name: 🔒 Camada 0 — Validar known-bugs.json
         run: npm run known-bugs:validate
 
-      - name: 🔍 Camada 1 — Health check (regex anti-patterns)
+      - name: 🧾 Camada 0b — Certificação programática obrigatória
+        run: node scripts/certify-module.mjs --all
+
+      - name: � Camada 0c — Audit Loop Fechado (canário + run-audit por módulo com baseline)
+        # Para cada módulo que tem relatorios/modulos/<mod>/audit-baseline.json,
+        # roda o orquestrador oficial (validate → canário → health → certify).
+        # Se o canário falhar (detector cego), o job ABORTA.
+        # Ver: docs/architecture/06-production-readiness.md §Audit Loop Fechado
+        run: |
+          set -e
+          if [ -d relatorios/modulos ]; then
+            for baseline in relatorios/modulos/*/audit-baseline.json; do
+              [ -f "$baseline" ] || continue
+              mod=$(basename "$(dirname "$baseline")")
+              echo "::group::run-audit $mod"
+              node scripts/run-audit.mjs --module="$mod"
+              echo "::endgroup::"
+            done
+          else
+            echo "::warning::Nenhum audit-baseline encontrado em relatorios/modulos/"
+          fi
+
+      - name: �🔍 Camada 1 — Health check (regex anti-patterns)
         run: npm run health:check
 
       - name: 🧠 Camada 2 — Semgrep (regras semânticas)

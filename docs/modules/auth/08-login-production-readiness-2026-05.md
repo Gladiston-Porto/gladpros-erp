@@ -1,6 +1,6 @@
 # 08 - Login/Auth Production Readiness (2026-05)
 
-Data: 2026-05-24
+Data: 2026-05-25
 Escopo: login, MFA (request/resend/verify), unlock, user-status, forgot/reset password.
 
 ## 1. Status Final
@@ -9,15 +9,16 @@ Status: Production Ready (escopo login/auth)
 
 Base de decisão:
 
-- Zero findings P1/P2 abertos no escopo tratado nesta rodada.
-- Regressões críticas cobertas por testes automatizados.
-- Contratos de API alinhados com anti-enumeração e one-time code safety.
+- O bug `AUTH-P2-001` foi corrigido com teste de regressão no fluxo de login.
+- O contrato agora evita enumeração antes de validar senha, preservando UX de desbloqueio para usuário legítimo.
+- A certificação deve ser validada por `node scripts/certify-module.mjs --module=auth --report`.
 
 ## 2. Correções Críticas Aplicadas
 
-1. Anti-enumeração em login para conta inativa/bloqueada:
+1. Contrato de login (corrigido):
 
-- Respostas genéricas 401 sem metadados de bloqueio.
+- A API só retorna 423 com metadados de bloqueio após senha válida.
+- Em senha inválida, a resposta permanece 401 genérica sem metadados de bloqueio.
 - Arquivo: src/app/api/auth/login/route.ts
 
 2. Consumo atômico de credenciais one-time:
@@ -26,9 +27,10 @@ Base de decisão:
 - Backup code: consumo atômico com usadoEm IS NULL.
 - Arquivos: src/shared/lib/mfa.ts, src/app/api/auth/mfa/verify/route.ts
 
-3. Falha de entrega MFA com erro explícito:
+3. Falha de entrega MFA:
 
-- request/resend retornam 503 com MFA_DELIVERY_FAILED quando SMTP falha.
+- `mfa/request` atualmente responde de forma uniforme (`200 { success: true }`) em falha de envio para anti-enumeração.
+- Esse comportamento deve ser mantido ou alterado por decisão explícita de segurança com documentação sincronizada.
 - Arquivos: src/app/api/auth/mfa/request/route.ts, src/app/api/auth/mfa/resend/route.ts
 
 4. Endurecimento de desbloqueio:
@@ -45,7 +47,7 @@ Base de decisão:
 
 ## 3. Evidências de Teste
 
-Execução validada em 2026-05-24:
+Execução validada em 2026-05-25:
 
 1. Suíte auth ampliada
 
@@ -78,8 +80,8 @@ Execução validada em 2026-05-24:
 
 ## 5. Riscos Residuais
 
-1. Certificação programática oficial depende de governance do módulo em relatorios/modulos/auth.
-2. O status deste documento é válido para o escopo auditado nesta rodada; mudanças futuras em auth exigem revalidação.
+1. Mudanças futuras em auth exigem revalidação dos gates e reexecução de `certify-module`.
+2. Trade-offs de UX de desbloqueio devem passar por teste de regressão anti-enumeração antes de merge.
 
 ## 6. Próxima Revalidação Recomendada
 

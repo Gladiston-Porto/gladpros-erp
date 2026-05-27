@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { refreshAccessToken } from '@/lib/auth/token-service';
 import { withErrorHandler } from '@/lib/api/error-handler';
+import { apiRateLimit } from '@/shared/lib/rate-limit';
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
     // 1. Extrair refresh token do cookie httpOnly (seguro)
@@ -37,11 +38,32 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         { status: 400 }
       );
     }
+
+    const ip = request.headers.get('x-forwarded-for') ||
+               request.headers.get('x-real-ip') ||
+               'unknown';
+
+    // Protege endpoint sensível de rotação contra abuso/replay em massa.
+    const rl = await apiRateLimit.checkLimit(request, `refresh:${ip}:${refreshToken.slice(0, 12)}`);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        {
+          error: rl.message,
+          success: false,
+          retryAfter: Math.ceil((rl.resetTime - Date.now()) / 1000),
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '100',
+            'X-RateLimit-Remaining': rl.remaining.toString(),
+            'Retry-After': Math.ceil((rl.resetTime - Date.now()) / 1000).toString(),
+          },
+        }
+      );
+    }
     
     // 2. Extrair metadados de segurança
-    const ip = request.headers.get('x-forwarded-for') || 
-               request.headers.get('x-real-ip') || 
-               'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
     
     // 3. Executar token rotation

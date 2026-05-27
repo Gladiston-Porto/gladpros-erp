@@ -1,4 +1,5 @@
 // @bug:USUARIOS-P2-005 — teste de regressão: empresaId no where do checkUserManagementAccess
+// @bug:USUARIOS-P2-006 — teste de regressão: cobertura mantida após migração do diretório oficial de testes
 // Movido de src/app/api/usuarios/__tests__/ para src/__tests__/api/usuarios/ (P2-006)
 jest.mock('@/lib/prisma', () => ({
   prisma: {

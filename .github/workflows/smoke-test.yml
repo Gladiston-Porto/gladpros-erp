@@ -86,7 +86,7 @@ jobs:
         run: npx prisma generate
 
       - name: Apply DB migrations
-        run: npx prisma migrate deploy || npx prisma db push --skip-generate
+        run: npx prisma migrate deploy || npx prisma db push --accept-data-loss
 
       - name: Seed Database
         run: npx prisma db seed
