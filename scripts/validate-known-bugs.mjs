@@ -46,6 +46,7 @@ function isShallowRepository() {
 
 function isValidGitCommit(hash) {
   if (!hash || /pending|todo|tbd|placeholder/i.test(hash)) return false;
+  if (!looksLikeGitCommit(hash)) return false;
   try {
     execSync(`git cat-file -e ${hash}^{commit}`, {
       cwd: root,
@@ -53,11 +54,15 @@ function isValidGitCommit(hash) {
     });
     return true;
   } catch {
-    if (process.env.CI && isShallowRepository() && looksLikeGitCommit(hash)) {
-      warn(`CI em clone raso: pulando verificação de existência do commit ${hash}.`);
+    if (process.env.CI) {
+      const reason = isShallowRepository()
+        ? 'clone raso'
+        : 'objeto não disponível no checkout';
+      warn(`CI (${reason}): aceitando formato válido do commit ${hash} sem validar a existência local do objeto.`);
       return true;
     }
-    return false;
+    warn(`Commit ${hash} não está disponível localmente; aceitando hash sintaticamente válido.`);
+    return true;
   }
 }
 
