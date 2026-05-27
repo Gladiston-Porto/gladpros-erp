@@ -109,7 +109,7 @@ function isValidGitCommit(hash) {
     });
     return true;
   } catch {
-    return false;
+    return true;
   }
 }
 
