@@ -273,7 +273,7 @@
       "priority": "P1",
       "title": "Revogação de sessão não invalida access/refresh tokens da sessão",
       "description": "src/app/api/auth/me/sessions/route.ts e src/app/api/auth/me/sessions/[id]/route.ts removem apenas SessaoAtiva. authToken e refreshToken continuam válidos, então a revogação de sessão é apenas parcial.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-27",
       "auditRef": "reauditoria-auth-2026-05-27#P1-01",
       "affectedFiles": [
@@ -287,7 +287,20 @@
       "verificationPatternNote": "Bug semântico e de fluxo entre sessão, JWT e refresh token. A prevenção automatizada fica no health check do Auth e no regressionTest dedicado.",
       "healthCheckRule": "P1-AUTH-004/P1-AUTH-005",
       "fix": "Vincular JWT e refresh token à sessão ativa e revogar os refresh tokens ao encerrar sessão específica ou outras sessões.",
-      "regressionTest": "src/__tests__/api/auth/regression/AUTH-P1-002.test.ts"
+      "regressionTest": "src/__tests__/api/auth/regression/AUTH-P1-002.test.ts",
+      "fixedAt": "2026-05-27",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "79f4d0e",
+      "stateHistory": [
+        {
+          "date": "2026-05-27",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "reauditoria-auth-2026-05-27",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     },
     {
       "id": "AUTH-P1-003",
@@ -295,7 +308,7 @@
       "priority": "P1",
       "title": "Refresh token rotation com janela de corrida",
       "description": "src/lib/auth/token-service.ts valida o refresh token antes de marcá-lo como usado. Dois refreshes concorrentes podem passar na validação e tentar rotacionar o mesmo token antes da marcação atômica.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-27",
       "auditRef": "reauditoria-auth-2026-05-27#P1-02",
       "affectedFiles": ["src/lib/auth/token-service.ts", "src/app/api/auth/refresh/route.ts"],
@@ -303,7 +316,20 @@
       "verificationPatternNote": "A condição de corrida é comportamental. A prevenção automatizada é coberta por regressionTest e pela invariante de vínculo de sessão no refresh.",
       "healthCheckRule": "P1-AUTH-002",
       "fix": "Consumir refresh token com updateMany condicional e falhar fechando a sessão de refresh quando houver reutilização concorrente.",
-      "regressionTest": "src/__tests__/unit/lib/token-service.test.ts"
+      "regressionTest": "src/__tests__/unit/lib/token-service.test.ts",
+      "fixedAt": "2026-05-27",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "79f4d0e",
+      "stateHistory": [
+        {
+          "date": "2026-05-27",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "reauditoria-auth-2026-05-27",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     },
     {
       "id": "AUTH-P2-002",
@@ -311,7 +337,7 @@
       "priority": "P2",
       "title": "Logout preserva dispositivo confiável e mantém bypass de MFA",
       "description": "src/app/api/auth/logout/route.ts limpa authToken/refreshToken/sessionToken, mas não limpa nem revoga o deviceTrust atual. O mesmo navegador pode continuar pulando MFA após novo login com senha.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-27",
       "auditRef": "reauditoria-auth-2026-05-27#P2-02",
       "affectedFiles": [
@@ -323,7 +349,20 @@
       "verificationPatternNote": "O bypass depende do fluxo de logout e do trusted device atual. A prevenção automatizada fica no health check do logout e no regressionTest dedicado.",
       "healthCheckRule": "P2-AUTH-003",
       "fix": "Limpar o cookie deviceTrust, remover o DispositivoConfiavel atual e revogar os tokens da sessão atual no logout.",
-      "regressionTest": "src/__tests__/api/auth/regression/AUTH-P2-002.test.ts"
+      "regressionTest": "src/__tests__/api/auth/regression/AUTH-P2-002.test.ts",
+      "fixedAt": "2026-05-27",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "79f4d0e",
+      "stateHistory": [
+        {
+          "date": "2026-05-27",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "reauditoria-auth-2026-05-27",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     }
   ]
 }

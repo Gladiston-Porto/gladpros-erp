@@ -57,10 +57,13 @@
     ]
   },
   "knownBugs": {
-    "fixed": ["AUTH-P2-001"],
+    "fixed": ["AUTH-P2-001", "AUTH-P1-002", "AUTH-P1-003", "AUTH-P2-002"],
     "open": []
   },
   "regressionTestsRequired": [
-    "src/__tests__/api/auth/login.test.ts"
+    "src/__tests__/api/auth/login.test.ts",
+    "src/__tests__/unit/lib/token-service.test.ts",
+    "src/__tests__/api/auth/regression/AUTH-P1-002.test.ts",
+    "src/__tests__/api/auth/regression/AUTH-P2-002.test.ts"
   ]
 }
