@@ -1,8 +1,12 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 
-const prisma = new PrismaClient()
+const databaseUrl = process.env.DATABASE_URL || 'mysql://root:root@localhost:3306/gladpros_ci'
+const prisma = new PrismaClient({
+  adapter: new PrismaMariaDb(databaseUrl),
+})
 
 async function main() {
   // CLEANUP: Limpar tentativas de login e desbloquear usuários (para E2E tests)
