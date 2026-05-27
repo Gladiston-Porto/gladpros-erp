@@ -58,7 +58,7 @@ jest.mock('../../../lib/auth/token-service', () => ({
 
 jest.mock('../../../shared/lib/security', () => ({
   SecurityService: {
-    createSession: jest.fn().mockResolvedValue('mock-session-token'),
+    createSession: jest.fn().mockResolvedValue({ id: 77, token: 'mock-session-token' }),
   },
 }));
 
@@ -85,6 +85,7 @@ const mockUser = {
   id: 1,
   email: 'test@example.com',
   nomeCompleto: 'Test User',
+  empresaId: 1,
   primeiroAcesso: false,
   senhaProvisoria: false,
   tipo: 'USUARIO',

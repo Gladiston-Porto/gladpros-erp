@@ -425,6 +425,19 @@ function checkAuthInvariantViolations() {
         file: "src/app/api/auth/refresh/route.ts",
       });
     }
+
+    if (!/sessionToken\s*=\s*request\.cookies\.get\('sessionToken'\)/.test(content) || !/refreshAccessToken\(refreshToken,\s*\{[\s\S]*sessionToken/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P1-AUTH-002",
+          severity: "P1",
+          description: "Refresh endpoint sem vínculo obrigatório com sessionToken da sessão atual",
+          fix: "Ler sessionToken do cookie e passá-lo para refreshAccessToken()",
+        },
+        line: getLineForText(content, "export const POST"),
+        file: "src/app/api/auth/refresh/route.ts",
+      });
+    }
   }
 
   const sessionsPath = path.join(ROOT, "src/app/api/auth/me/sessions/route.ts");
@@ -444,6 +457,87 @@ function checkAuthInvariantViolations() {
         },
         line: getLineForText(content, "export const GET"),
         file: "src/app/api/auth/me/sessions/route.ts",
+      });
+    }
+
+    if (!/revokeAllUserTokensExceptSession\(/.test(content) && !/revokeAllUserTokens\(/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P1-AUTH-003",
+          severity: "P1",
+          description: "Me/sessions revoke-others sem revogação real dos refresh tokens",
+          fix: "Revogar os refresh tokens das sessões removidas ao executar revoke-others",
+        },
+        line: getLineForText(content, "export const POST"),
+        file: "src/app/api/auth/me/sessions/route.ts",
+      });
+    }
+  }
+
+  const sessionDetailPath = path.join(ROOT, "src/app/api/auth/me/sessions/[id]/route.ts");
+  if (existsSync(sessionDetailPath)) {
+    const content = readFileSync(sessionDetailPath, "utf-8");
+    if (!/revokeTokensForSession\(/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P1-AUTH-004",
+          severity: "P1",
+          description: "DELETE de sessão sem revogação dos refresh tokens da sessão",
+          fix: "Após apagar SessaoAtiva, revogar os refresh tokens vinculados à sessão",
+        },
+        line: getLineForText(content, "export const DELETE"),
+        file: "src/app/api/auth/me/sessions/[id]/route.ts",
+      });
+    }
+  }
+
+  const logoutPath = path.join(ROOT, "src/app/api/auth/logout/route.ts");
+  if (existsSync(logoutPath)) {
+    const content = readFileSync(logoutPath, "utf-8");
+    if (!/deviceTrust/.test(content) || !/revokeTokensForSession\(/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P2-AUTH-003",
+          severity: "P2",
+          description: "Logout sem limpeza/revogação completa da sessão atual e trusted device",
+          fix: "Limpar cookie deviceTrust, remover DispositivoConfiavel atual e revogar refresh tokens da sessão",
+        },
+        line: getLineForText(content, "export const POST"),
+        file: "src/app/api/auth/logout/route.ts",
+      });
+    }
+  }
+
+  const rbacPath = path.join(ROOT, "src/shared/lib/rbac.ts");
+  if (existsSync(rbacPath)) {
+    const content = readFileSync(rbacPath, "utf-8");
+    if (!/claims\.sessionId/.test(content) || !/sessionToken/.test(content) || !/SessaoAtiva/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P1-AUTH-005",
+          severity: "P1",
+          description: "requireUser sem validação de sessão para JWTs vinculados a sessão",
+          fix: "Quando claims.sessionId existir, validar sessionToken atual contra SessaoAtiva",
+        },
+        line: getLineForText(content, "export async function requireUser"),
+        file: "src/shared/lib/rbac.ts",
+      });
+    }
+  }
+
+  const securityPath = path.join(ROOT, "src/shared/lib/security.ts");
+  if (existsSync(securityPath)) {
+    const content = readFileSync(securityPath, "utf-8");
+    if (/revokeAllUserSessions\(usuarioId\)/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P2-AUTH-004",
+          severity: "P2",
+          description: "createSession continua revogando todas as sessões do usuário a cada login",
+          fix: "Não apagar sessões existentes durante createSession; deixe a revogação explícita para logout/revoke-others",
+        },
+        line: getLineForText(content, "static async createSession"),
+        file: "src/shared/lib/security.ts",
       });
     }
   }

@@ -894,6 +894,7 @@ model SessaoAtiva {
   ultimaAtividade DateTime @default(now())
   criadoEm        DateTime @default(now())
   Usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  RefreshTokens   RefreshToken[] @relation("RefreshTokenSession")
 
   @@index([token])
   @@index([ultimaAtividade])
@@ -1430,9 +1431,11 @@ model RefreshToken {
   id        Int    @id @default(autoincrement())
   token     String @unique @db.VarChar(500)
   usuarioId Int
+  sessionId Int?
 
   // Relacionamento
   usuario Usuario @relation("UsuarioRefreshTokens", fields: [usuarioId], references: [id], onDelete: Cascade)
+  sessao  SessaoAtiva? @relation("RefreshTokenSession", fields: [sessionId], references: [id], onDelete: SetNull)
 
   // Metadata de segurança
   jti             String  @unique @db.VarChar(36) // JWT ID único
@@ -1459,6 +1462,7 @@ model RefreshToken {
   @@index([jti])
   @@index([expiraEm])
   @@index([revogado])
+  @@index([sessionId])
   @@index([tokenPaiId])
   @@index([usuarioId, revogado, expiraEm], name: "idx_refresh_usuario_ativo")
   @@map("refresh_tokens")

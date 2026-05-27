@@ -264,7 +264,10 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         | 'ESTOQUE'
         | 'CLIENTE';
       const userStatus = (user.status ?? 'ATIVO') as 'ATIVO' | 'INATIVO';
-      const [token, refreshResult, sessionToken] = await Promise.all([
+      const session = await SecurityService.createSession(user.id, ip, userAgent).catch(
+        () => undefined,
+      );
+      const [token, refreshResult] = await Promise.all([
         signAuthJWT(
           {
             sub: user.id.toString(),
@@ -272,13 +275,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
             email: user.email,
             status: userStatus,
             tokenVersion: user.tokenVersion ?? 0,
+            sessionId: session?.id,
           },
           '8h',
         ),
-        generateRefreshToken(user.id, user.email, userRole, { ip, userAgent }).catch(
-          () => undefined,
-        ),
-        SecurityService.createSession(user.id, ip, userAgent).catch(() => undefined),
+        generateRefreshToken(user.id, user.email, userRole, {
+          ip,
+          userAgent,
+          sessionId: session?.id,
+        }).catch(() => undefined),
       ]);
       await Promise.all([
         prisma.$executeRaw`INSERT INTO TentativaLogin (usuarioId, email, sucesso, ip, userAgent) VALUES (${user.id}, ${user.email}, TRUE, ${ip}, ${userAgent})`,
@@ -304,8 +309,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           maxAge: 7 * 24 * 60 * 60,
           path: '/api/auth',
         });
-      if (sessionToken)
-        response.cookies.set('sessionToken', sessionToken, {
+      if (session?.token)
+        response.cookies.set('sessionToken', session.token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',

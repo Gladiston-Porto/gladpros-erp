@@ -231,14 +231,14 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           id: number;
           email: string;
           nomeCompleto: string | null;
+          empresaId: number;
           primeiroAcesso: boolean;
           senhaProvisoria: boolean;
           tipo: string | null;
-          empresaId: number;
           tokenVersion: number;
         }>
       >`
-          SELECT id, email, nomeCompleto, primeiroAcesso, senhaProvisoria, nivel as tipo, empresaId, tokenVersion
+          SELECT id, email, nomeCompleto, empresaId, primeiroAcesso, senhaProvisoria, nivel as tipo, tokenVersion
           FROM Usuario
           WHERE id = ${userId}
           LIMIT 1
@@ -249,13 +249,13 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
             id: number;
             email: string;
             nomeCompleto: string | null;
+            empresaId: number;
             primeiroAcesso: boolean;
             senhaProvisoria: boolean;
             tipo: string | null;
-            empresaId: number;
           }>
         >`
-          SELECT id, email, nomeCompleto, primeiroAcesso, senhaProvisoria, nivel as tipo, empresaId
+          SELECT id, email, nomeCompleto, empresaId, primeiroAcesso, senhaProvisoria, nivel as tipo
           FROM Usuario
           WHERE id = ${userId}
           LIMIT 1
@@ -271,18 +271,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const reqIp = getClientIP(req);
   const reqUA = req.headers.get('user-agent') || undefined;
 
-  const refreshResultPromise = (async () => {
-    try {
-      return await generateRefreshToken(user.id, user.email, user.tipo || 'USUARIO', {
-        ip: reqIp,
-        userAgent: reqUA,
-      });
-    } catch (e) {
-      logger.warn('[MFA] Failed to generate refresh token', { error: e });
-      return undefined;
-    }
-  })();
-
   const clearFailedAttemptsPromise = (async () => {
     try {
       const { BlockingService } = await import('@/shared/lib/blocking');
@@ -292,8 +280,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     }
   })();
 
-  const sessionTokenPromise = user.primeiroAcesso
-    ? Promise.resolve(undefined)
+  const session = user.primeiroAcesso
+    ? undefined
     : (async () => {
         try {
           return await SecurityService.createSession(user.id, reqIp, reqUA);
@@ -303,7 +291,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         }
       })();
 
-  const [token, refreshResult, sessionToken] = await Promise.all([
+  const [token, refreshResult] = await Promise.all([
     signAuthJWT(
       {
         sub: String(user.id),
@@ -311,11 +299,22 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         email: user.email,
         status: 'ATIVO',
         tokenVersion: user.tokenVersion,
+        sessionId: session?.id,
       },
       '8h',
     ),
-    refreshResultPromise,
-    sessionTokenPromise,
+    (async () => {
+      try {
+        return await generateRefreshToken(user.id, user.email, user.tipo || 'USUARIO', {
+          ip: reqIp,
+          userAgent: reqUA,
+          sessionId: session?.id,
+        });
+      } catch (e) {
+        logger.warn('[MFA] Failed to generate refresh token', { error: e });
+        return undefined;
+      }
+    })(),
     prisma.$executeRaw`
         INSERT INTO TentativaLogin (usuarioId, email, sucesso, ip, userAgent)
         VALUES (${user.id}, ${user.email}, TRUE, ${reqIp}, ${reqUA})
@@ -440,8 +439,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     });
   }
 
-  if (sessionToken) {
-    response.cookies.set('sessionToken', sessionToken, {
+  if (session?.token) {
+    response.cookies.set('sessionToken', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

@@ -31,7 +31,6 @@
       "status": "FIXED",
       "detectedAt": "2025-07-24",
       "auditRef": "auditoria-modulo-usuarios.md#P1-001",
-
       "affectedFiles": ["src/app/api/usuarios/export/csv/route.ts"],
       "allowedInFiles": ["src/shared/lib/usuario-query.ts", "src/shared/lib/db-metadata.ts"],
       "verificationPattern": "INFORMATION_SCHEMA",
@@ -254,13 +253,77 @@
       "reincidenceCount": 0,
       "reincidenceHistory": [],
       "stateHistory": [
-        { "date": "2026-05-25", "from": "OPEN", "to": "FIXED", "by": "copilot-agent", "auditRef": "reauditoria-auth-2026-05-25" }
+        {
+          "date": "2026-05-25",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "reauditoria-auth-2026-05-25"
+        }
       ],
       "fix": "Não expor metadados de bloqueio antes da validação de senha; preservar UX de desbloqueio com mecanismo anti-enumeração.",
       "fixedAt": "2026-05-25",
       "fixedBy": "copilot-agent",
       "fixCommit": "6f6ec4b",
       "regressionTest": "src/__tests__/api/auth/login.test.ts"
+    },
+    {
+      "id": "AUTH-P1-002",
+      "module": "auth",
+      "priority": "P1",
+      "title": "Revogação de sessão não invalida access/refresh tokens da sessão",
+      "description": "src/app/api/auth/me/sessions/route.ts e src/app/api/auth/me/sessions/[id]/route.ts removem apenas SessaoAtiva. authToken e refreshToken continuam válidos, então a revogação de sessão é apenas parcial.",
+      "status": "OPEN",
+      "detectedAt": "2026-05-27",
+      "auditRef": "reauditoria-auth-2026-05-27#P1-01",
+      "affectedFiles": [
+        "src/app/api/auth/me/sessions/route.ts",
+        "src/app/api/auth/me/sessions/[id]/route.ts",
+        "src/app/api/auth/logout/route.ts",
+        "src/shared/lib/rbac.ts",
+        "src/lib/auth/token-service.ts"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Bug semântico e de fluxo entre sessão, JWT e refresh token. A prevenção automatizada fica no health check do Auth e no regressionTest dedicado.",
+      "healthCheckRule": "P1-AUTH-004/P1-AUTH-005",
+      "fix": "Vincular JWT e refresh token à sessão ativa e revogar os refresh tokens ao encerrar sessão específica ou outras sessões.",
+      "regressionTest": "src/__tests__/api/auth/regression/AUTH-P1-002.test.ts"
+    },
+    {
+      "id": "AUTH-P1-003",
+      "module": "auth",
+      "priority": "P1",
+      "title": "Refresh token rotation com janela de corrida",
+      "description": "src/lib/auth/token-service.ts valida o refresh token antes de marcá-lo como usado. Dois refreshes concorrentes podem passar na validação e tentar rotacionar o mesmo token antes da marcação atômica.",
+      "status": "OPEN",
+      "detectedAt": "2026-05-27",
+      "auditRef": "reauditoria-auth-2026-05-27#P1-02",
+      "affectedFiles": ["src/lib/auth/token-service.ts", "src/app/api/auth/refresh/route.ts"],
+      "verificationPattern": null,
+      "verificationPatternNote": "A condição de corrida é comportamental. A prevenção automatizada é coberta por regressionTest e pela invariante de vínculo de sessão no refresh.",
+      "healthCheckRule": "P1-AUTH-002",
+      "fix": "Consumir refresh token com updateMany condicional e falhar fechando a sessão de refresh quando houver reutilização concorrente.",
+      "regressionTest": "src/__tests__/unit/lib/token-service.test.ts"
+    },
+    {
+      "id": "AUTH-P2-002",
+      "module": "auth",
+      "priority": "P2",
+      "title": "Logout preserva dispositivo confiável e mantém bypass de MFA",
+      "description": "src/app/api/auth/logout/route.ts limpa authToken/refreshToken/sessionToken, mas não limpa nem revoga o deviceTrust atual. O mesmo navegador pode continuar pulando MFA após novo login com senha.",
+      "status": "OPEN",
+      "detectedAt": "2026-05-27",
+      "auditRef": "reauditoria-auth-2026-05-27#P2-02",
+      "affectedFiles": [
+        "src/app/api/auth/logout/route.ts",
+        "src/app/api/auth/login/route.ts",
+        "src/app/api/auth/mfa/verify/route.ts"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "O bypass depende do fluxo de logout e do trusted device atual. A prevenção automatizada fica no health check do logout e no regressionTest dedicado.",
+      "healthCheckRule": "P2-AUTH-003",
+      "fix": "Limpar o cookie deviceTrust, remover o DispositivoConfiavel atual e revogar os tokens da sessão atual no logout.",
+      "regressionTest": "src/__tests__/api/auth/regression/AUTH-P2-002.test.ts"
     }
   ]
 }

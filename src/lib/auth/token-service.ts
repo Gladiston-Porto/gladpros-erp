@@ -1,9 +1,9 @@
 /**
  * Token Service - Sistema de Refresh Token com Rotation
- * 
+ *
  * Implementa VUL-003: Token Rotation para prevenir ataques de roubo de token
  * Integrado com VUL-004: KMS para gerenciamento seguro de chaves JWT
- * 
+ *
  * Features:
  * - Access tokens de curta duração (15 minutos)
  * - Refresh tokens de longa duração (7 dias)
@@ -44,21 +44,21 @@ async function getJwtSecret(): Promise<string> {
     return secret;
   }
   const now = Date.now();
-  
+
   // Verificar cache
-  if (cachedJwtKey && (now - cacheTimestamp) < CACHE_TTL) {
+  if (cachedJwtKey && now - cacheTimestamp < CACHE_TTL) {
     const key = cachedJwtKey; // Type narrowing
     return key.toString('hex');
   }
-  
+
   // Buscar chave do KMS
   try {
     const key = await KMS.deriveJWTKey();
     cachedJwtKey = key;
     cacheTimestamp = now;
     return key.toString('hex');
-   
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     if (!jwtKmsFallbackLogged) {
       logger.warn('[TokenService] Failed to get JWT key from KMS, using env fallback');
@@ -72,7 +72,7 @@ async function getJwtSecret(): Promise<string> {
 
 /**
  * Obtém todas as chaves JWT válidas (para verificação de tokens antigos)
- * 
+ *
  * Retorna chaves em ordem de versão (mais recente primeira) para otimizar
  * tentativas de verificação de token
  */
@@ -83,15 +83,15 @@ async function getAllJwtSecrets(): Promise<string[]> {
     if (!secret) throw new Error('JWT_SECRET environment variable is required');
     return [secret];
   }
-  
+
   try {
     const keys = await KMS.getAllValidKeys('JWT_SIGNING');
-     
+
     // getAllValidKeys já retorna chaves decriptadas no campo 'key'
-     
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return keys.map((managedKey: any) => managedKey.key.toString('hex'));
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     if (!allJwtKmsFallbackLogged) {
       logger.warn('[TokenService] Failed to get all JWT keys from KMS, using current key fallback');
@@ -133,6 +133,8 @@ interface ValidatedToken {
 interface RefreshTokenMetadata {
   ip?: string;
   userAgent?: string;
+  sessionId?: number | null;
+  sessionToken?: string;
 }
 
 /**
@@ -144,7 +146,7 @@ function generateJti(): string {
 
 /**
  * Gera um par de tokens (access + refresh) para um usuário
- * 
+ *
  * @param userId - ID do usuário
  * @param email - Email do usuário
  * @param nivel - Nível de acesso do usuário (ADMIN, USER, etc)
@@ -155,70 +157,68 @@ export async function generateTokenPair(
   userId: number,
   email: string,
   nivel: string,
-  metadata?: RefreshTokenMetadata
+  metadata?: RefreshTokenMetadata,
 ): Promise<TokenPair> {
   const accessJti = generateJti();
   const refreshJti = generateJti();
-  
+
   const now = new Date();
   const accessTokenExpiresAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 min
   const refreshTokenExpiresAt = new Date(now.getTime() + REFRESH_TOKEN_EXPIRY_MS); // 7 dias
-  
+
   // Payload do Access Token
   const accessPayload: TokenPayload = {
     userId,
     email,
     nivel,
     jti: accessJti,
-    type: 'access'
+    type: 'access',
   };
-  
+
   // Payload do Refresh Token
   const refreshPayload: TokenPayload = {
     userId,
     email,
     nivel,
     jti: refreshJti,
-    type: 'refresh'
+    type: 'refresh',
   };
-  
+
   // Obter chave JWT do KMS
   const jwtSecret = await getJwtSecret();
-  
+
   // Gerar tokens JWT
   const accessToken = jwt.sign(accessPayload, jwtSecret, {
-    expiresIn: ACCESS_TOKEN_EXPIRY
+    expiresIn: ACCESS_TOKEN_EXPIRY,
   });
-  
+
   const refreshToken = jwt.sign(refreshPayload, jwtSecret, {
-    expiresIn: REFRESH_TOKEN_EXPIRY_JWT
+    expiresIn: REFRESH_TOKEN_EXPIRY_JWT,
   });
-  
- 
-  
+
   // Salvar refresh token no banco (access token é stateless)
   try {
-     
     await prisma.refreshToken.create({
       data: {
         token: refreshToken,
         usuarioId: userId,
+        sessionId: metadata?.sessionId ?? null,
         jti: refreshJti,
         expiraEm: refreshTokenExpiresAt,
         ip: metadata?.ip,
-        userAgent: metadata?.userAgent
-      }
+        userAgent: metadata?.userAgent,
+      },
     });
   } catch (error) {
     logger.error('[createTokenPair] Failed to save refreshToken', { error });
     throw error;
   }
-  
+
   return {
     accessToken,
     refreshToken,
     accessTokenExpiresAt,
-    refreshTokenExpiresAt
+    refreshTokenExpiresAt,
   };
 }
 
@@ -226,7 +226,7 @@ export async function generateRefreshToken(
   userId: number,
   email: string,
   nivel: string,
-  metadata?: RefreshTokenMetadata
+  metadata?: RefreshTokenMetadata,
 ): Promise<RefreshTokenResult> {
   const refreshJti = generateJti();
   const refreshTokenExpiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS);
@@ -236,18 +236,18 @@ export async function generateRefreshToken(
     email,
     nivel,
     jti: refreshJti,
-    type: 'refresh'
+    type: 'refresh',
   };
 
   const jwtSecret = await getJwtSecret();
   const refreshToken = jwt.sign(refreshPayload, jwtSecret, {
-    expiresIn: REFRESH_TOKEN_EXPIRY_JWT
+    expiresIn: REFRESH_TOKEN_EXPIRY_JWT,
   });
 
   try {
     await prisma.$executeRaw`
-      INSERT INTO refresh_tokens (token, usuarioId, jti, revogado, expiraEm, ip, userAgent, criadoEm)
-      VALUES (${refreshToken}, ${userId}, ${refreshJti}, FALSE, ${refreshTokenExpiresAt}, ${metadata?.ip ?? null}, ${metadata?.userAgent ?? null}, NOW())
+      INSERT INTO refresh_tokens (token, usuarioId, sessionId, jti, revogado, expiraEm, ip, userAgent, criadoEm)
+      VALUES (${refreshToken}, ${userId}, ${metadata?.sessionId ?? null}, ${refreshJti}, FALSE, ${refreshTokenExpiresAt}, ${metadata?.ip ?? null}, ${metadata?.userAgent ?? null}, NOW())
     `;
   } catch (error) {
     logger.error('[generateRefreshToken] Failed to save refreshToken', { error });
@@ -256,7 +256,7 @@ export async function generateRefreshToken(
 
   return {
     refreshToken,
-    refreshTokenExpiresAt
+    refreshTokenExpiresAt,
   };
 }
 
@@ -276,7 +276,7 @@ export async function verifyTokenWithKMS(token: string): Promise<TokenPayload> {
 
 /**
  * Valida um Access Token
- * 
+ *
  * @param token - Token a ser validado
  * @returns Dados do usuário se válido
  * @throws Error se token inválido ou expirado
@@ -284,28 +284,28 @@ export async function verifyTokenWithKMS(token: string): Promise<TokenPayload> {
 export async function validateAccessToken(token: string): Promise<ValidatedToken> {
   // Tentar com chaves válidas do KMS (suporta múltiplas versões)
   const secrets = await getAllJwtSecrets();
-  
+
   let lastError: Error | null = null;
-  
+
   for (const secret of secrets) {
     try {
       const decoded = jwt.verify(token, secret) as TokenPayload;
-      
+
       // Verificar tipo de token
       if (decoded.type !== 'access') {
         throw new Error('Token inválido: tipo incorreto');
       }
-      
+
       // Auditar uso da chave (sucesso)
       const keyIndex = secrets.indexOf(secret);
       const keys = await KMS.getAllValidKeys('JWT_SIGNING');
       const usedKey = keys[keyIndex];
-      
+
       if (usedKey) {
         await KMS.auditKeyUsage({
           keyId: usedKey.id,
           keyVersion: usedKey.version,
-           
+
           keyType: 'JWT_SIGNING',
           operation: 'VERIFY',
           success: true,
@@ -313,23 +313,23 @@ export async function validateAccessToken(token: string): Promise<ValidatedToken
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             operation: 'VERIFY' as any,
             entityType: 'AccessToken',
-            entityId: decoded.userId
-          }
+            entityId: decoded.userId,
+          },
         }).catch(() => {}); // Não falhar se auditoria falhar
       }
-      
+
       return {
         userId: decoded.userId,
         email: decoded.email,
         nivel: decoded.nivel,
-        jti: decoded.jti
+        jti: decoded.jti,
       };
     } catch (error) {
       lastError = error as Error;
       continue; // Tentar próxima chave
     }
   }
-  
+
   // Se chegou aqui, todas as chaves falharam
   if (lastError) {
     if (lastError instanceof jwt.TokenExpiredError) {
@@ -340,19 +340,19 @@ export async function validateAccessToken(token: string): Promise<ValidatedToken
     }
     throw lastError;
   }
-  
+
   throw new Error('Token inválido: nenhuma chave válida');
 }
 
 /**
  * Valida um Refresh Token
- * 
+ *
  * Verifica:
  * - Assinatura JWT válida
  * - Não expirado
  * - Não revogado no banco
  * - Tipo correto (refresh)
- * 
+ *
  * @param token - Refresh token a ser validado
  * @returns Dados do usuário e registro do token
  * @throws Error se token inválido, expirado ou revogado
@@ -360,10 +360,10 @@ export async function validateAccessToken(token: string): Promise<ValidatedToken
 export async function validateRefreshToken(token: string) {
   // Tentar com chaves válidas do KMS
   const secrets = await getAllJwtSecrets();
-  
+
   let decoded: TokenPayload | null = null;
   let lastError: Error | null = null;
-  
+
   for (const secret of secrets) {
     try {
       decoded = jwt.verify(token, secret) as TokenPayload;
@@ -373,7 +373,7 @@ export async function validateRefreshToken(token: string) {
       continue;
     }
   }
-  
+
   if (!decoded || lastError) {
     if (lastError instanceof jwt.TokenExpiredError) {
       throw new Error('Token expirado');
@@ -383,48 +383,50 @@ export async function validateRefreshToken(token: string) {
     }
     throw new Error('Token inválido: nenhuma chave válida');
   }
-  
+
   try {
     // 2. Verificar tipo
-     
+
     if (decoded.type !== 'refresh') {
       throw new Error('Token inválido: tipo incorreto');
     }
-    
+
     // 3. Buscar no banco
-     
+
     const storedToken = await prisma.refreshToken.findUnique({
       where: { jti: decoded.jti },
-      include: { usuario: true }
+      include: { usuario: true },
     });
-    
+
     // 4. Verificar se existe
     if (!storedToken) {
       throw new Error('Token não encontrado');
     }
-    
+
     // 5. Verificar se foi revogado
     if (storedToken.revogado) {
       throw new Error(`Token revogado: ${storedToken.motivoRevogacao || 'sem motivo'}`);
     }
-    
+
     // 6. Verificar se já foi usado (rotation)
     if (storedToken.usadoEm) {
       // Token já foi usado - possível reutilização maliciosa
       // Revogar toda a cadeia de tokens do usuário por segurança
       await revokeAllUserTokens(
         storedToken.usuarioId,
-        'Detecção de reutilização de token - possível comprometimento'
+        'Detecção de reutilização de token - possível comprometimento',
       );
-      throw new Error('Token já foi usado - todos os tokens do usuário foram revogados por segurança');
+      throw new Error(
+        'Token já foi usado - todos os tokens do usuário foram revogados por segurança',
+      );
     }
-    
+
     return {
       userId: decoded.userId,
       email: decoded.email,
       nivel: decoded.nivel,
       jti: decoded.jti,
-      tokenRecord: storedToken
+      tokenRecord: storedToken,
     };
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
@@ -439,95 +441,139 @@ export async function validateRefreshToken(token: string) {
 
 /**
  * Refresh de Access Token usando Refresh Token
- * 
+ *
  * Implementa Token Rotation:
  * 1. Valida o refresh token atual
  * 2. Marca-o como usado
  * 3. Gera um NOVO par de tokens
  * 4. O novo refresh token aponta para o antigo (rotation chain)
- * 
+ *
  * @param oldRefreshToken - Refresh token atual
  * @param metadata - Metadados de segurança
  * @returns Novo par de tokens
  */
 export async function refreshAccessToken(
   oldRefreshToken: string,
-  metadata?: RefreshTokenMetadata
+  metadata?: RefreshTokenMetadata,
 ): Promise<TokenPair> {
   // 1. Validar refresh token
   const validated = await validateRefreshToken(oldRefreshToken);
-  
+
   // 2. Buscar dados completos do usuário
   const usuario = await prisma.usuario.findUnique({
-    where: { id: validated.userId }
+    where: { id: validated.userId },
   });
-  
+
   if (!usuario) {
     throw new Error('Usuário não encontrado');
   }
-  
- 
-  
+
   if (usuario.status !== 'ATIVO') {
     throw new Error('Usuário inativo');
   }
-  
-  // 3. Marcar token antigo como usado
-   
-  await prisma.refreshToken.update({
-    where: { jti: validated.jti },
-    data: { usadoEm: new Date() }
+
+  const boundSessionId = validated.tokenRecord.sessionId ?? null;
+  if (boundSessionId !== null) {
+    const currentSessionToken = metadata?.sessionToken;
+    if (!currentSessionToken) {
+      throw new Error('Sessão inválida');
+    }
+
+    const sessionRows = await prisma.$queryRaw<Array<{ id: number }>>`
+      SELECT id FROM SessaoAtiva
+      WHERE id = ${boundSessionId}
+        AND usuarioId = ${validated.userId}
+        AND token = ${currentSessionToken}
+      LIMIT 1
+    `;
+
+    if (!sessionRows.length) {
+      await revokeTokensForSession(
+        boundSessionId,
+        'Sessão revogada ou inválida durante refresh token rotation',
+      );
+      throw new Error('Sessão inválida');
+    }
+  }
+
+  // 3. Consumir o refresh token de forma atômica.
+  // Isso fecha a janela de corrida onde duas requisições paralelas validam o
+  // mesmo token antes da marcação de usadoEm e ambas tentam rotacioná-lo.
+  const consumedAt = new Date();
+  const consumeResult = await prisma.refreshToken.updateMany({
+    where: {
+      jti: validated.jti,
+      revogado: false,
+      usadoEm: null,
+      expiraEm: { gt: consumedAt },
+    },
+    data: { usadoEm: consumedAt },
   });
-  
+
+  if (consumeResult.count === 0) {
+    await revokeAllUserTokens(
+      validated.userId,
+      'Detecção de reutilização concorrente de refresh token - possível comprometimento',
+    );
+    throw new Error(
+      'Token já foi usado - todos os tokens do usuário foram revogados por segurança',
+    );
+  }
+
   // 4. Gerar novo par de tokens
   const refreshJti = generateJti();
-  
+
   const now = new Date();
   const accessTokenExpiresAt = new Date(now.getTime() + 15 * 60 * 1000);
   const refreshTokenExpiresAt = new Date(now.getTime() + REFRESH_TOKEN_EXPIRY_MS);
-  
+
   const refreshPayload: TokenPayload = {
     userId: usuario.id,
     email: usuario.email,
     nivel: usuario.nivel,
     jti: refreshJti,
-    type: 'refresh'
+    type: 'refresh',
   };
-  
+
   // Obter chave JWT do KMS
   const jwtSecret = await getJwtSecret();
 
-  const accessToken = await signAuthJWT({
-    sub: String(usuario.id),
-    role: (usuario.nivel || 'USUARIO') as Role,
-    email: usuario.email,
-    status: 'ATIVO',
-    tokenVersion: usuario.tokenVersion ?? 0
-  }, ACCESS_TOKEN_EXPIRY);
+  const accessToken = await signAuthJWT(
+    {
+      sub: String(usuario.id),
+      role: (usuario.nivel || 'USUARIO') as Role,
+      email: usuario.email,
+      status: 'ATIVO',
+      tokenVersion: usuario.tokenVersion ?? 0,
+      sessionId: boundSessionId ?? undefined,
+    },
+    ACCESS_TOKEN_EXPIRY,
+  );
 
   const refreshToken = jwt.sign(refreshPayload, jwtSecret, {
-    expiresIn: REFRESH_TOKEN_EXPIRY_JWT
+    expiresIn: REFRESH_TOKEN_EXPIRY_JWT,
   });
-  
+
   // 5. Salvar novo refresh token com referência ao anterior (rotation chain)
-   
+
   await prisma.refreshToken.create({
     data: {
       token: refreshToken,
       usuarioId: usuario.id,
+      sessionId: boundSessionId,
       jti: refreshJti,
       expiraEm: refreshTokenExpiresAt,
       tokenPaiId: validated.tokenRecord.id, // Rotation chain!
       ip: metadata?.ip,
-      userAgent: metadata?.userAgent
-    }
+      userAgent: metadata?.userAgent,
+    },
   });
-  
+
   return {
     accessToken,
     refreshToken,
     accessTokenExpiresAt,
-    refreshTokenExpiresAt
+    refreshTokenExpiresAt,
   };
 }
 
@@ -540,21 +586,19 @@ export async function refreshAccessToken(
  */
 export async function revokeRefreshToken(
   token: string,
-  motivo: string = 'Logout do usuário'
+  motivo: string = 'Logout do usuário',
 ): Promise<void> {
   try {
-     
     const revokedByToken = await prisma.refreshToken.updateMany({
       where: {
         token,
-        revogado: false
+        revogado: false,
       },
       data: {
         revogado: true,
         motivoRevogacao: motivo,
-        revogadoEm: new Date()
-      }
-     
+        revogadoEm: new Date(),
+      },
     });
 
     if (revokedByToken?.count > 0) {
@@ -564,22 +608,61 @@ export async function revokeRefreshToken(
     const jwtSecret = await getJwtSecret();
     const decoded = jwt.verify(token, jwtSecret) as TokenPayload;
 
-     
     await prisma.refreshToken.updateMany({
       where: {
         jti: decoded.jti,
-        revogado: false
+        revogado: false,
       },
       data: {
         revogado: true,
         motivoRevogacao: motivo,
-        revogadoEm: new Date()
-      }
+        revogadoEm: new Date(),
+      },
     });
   } catch (error) {
     // Token inválido ou expirado - ignorar silenciosamente
     logger.warn('Tentativa de revogar token inválido', { error });
   }
+}
+
+export async function revokeTokensForSession(
+  sessionId: number,
+  motivo: string = 'Sessão revogada',
+): Promise<number> {
+  const result = await prisma.refreshToken.updateMany({
+    where: {
+      sessionId,
+      revogado: false,
+    },
+    data: {
+      revogado: true,
+      motivoRevogacao: motivo,
+      revogadoEm: new Date(),
+    },
+  });
+
+  return result.count;
+}
+
+export async function revokeAllUserTokensExceptSession(
+  userId: number,
+  sessionId: number,
+  motivo: string = 'Logout de outras sessões',
+): Promise<number> {
+  const result = await prisma.refreshToken.updateMany({
+    where: {
+      usuarioId: userId,
+      revogado: false,
+      NOT: { sessionId },
+    },
+    data: {
+      revogado: true,
+      motivoRevogacao: motivo,
+      revogadoEm: new Date(),
+    },
+  });
+
+  return result.count;
 }
 
 /**
@@ -596,21 +679,20 @@ export async function revokeRefreshToken(
  */
 export async function revokeAllUserTokens(
   userId: number,
-  motivo: string = 'Logout de todos os dispositivos'
+  motivo: string = 'Logout de todos os dispositivos',
 ): Promise<number> {
-   
   const result = await prisma.refreshToken.updateMany({
     where: {
       usuarioId: userId,
-      revogado: false
+      revogado: false,
     },
     data: {
       revogado: true,
       motivoRevogacao: motivo,
-      revogadoEm: new Date()
-    }
+      revogadoEm: new Date(),
+    },
   });
-  
+
   return result.count;
 }
 
@@ -626,21 +708,17 @@ export async function revokeAllUserTokens(
 export async function cleanupExpiredTokens(): Promise<number> {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
-   
+
   const result = await prisma.refreshToken.deleteMany({
     where: {
       expiraEm: {
-        lt: thirtyDaysAgo
-      }
-    }
+        lt: thirtyDaysAgo,
+      },
+    },
   });
-  
-  return result.count;
- 
-}
 
- 
+  return result.count;
+}
 
 /**
  * Obtém estatísticas de tokens de um usuário
@@ -653,73 +731,69 @@ export async function cleanupExpiredTokens(): Promise<number> {
  */
 export async function getUserTokenStats(userId: number) {
   const [total, ativos, revogados, expirados, usados] = await Promise.all([
-     
-     
     prisma.refreshToken.count({ where: { usuarioId: userId } }),
-     
+
     prisma.refreshToken.count({
       where: {
         usuarioId: userId,
-         
+
         revogado: false,
         expiraEm: { gt: new Date() },
-        usadoEm: null
-      }
+        usadoEm: null,
+      },
     }),
-     
+
     prisma.refreshToken.count({
-      where: { usuarioId: userId, revogado: true }
+      where: { usuarioId: userId, revogado: true },
     }),
-     
-    prisma.refreshToken.count({
-      where: {
-        usuarioId: userId,
-        expiraEm: { lt: new Date() }
-      }
-    }),
-     
+
     prisma.refreshToken.count({
       where: {
         usuarioId: userId,
-        usadoEm: { not: null }
-      }
-    })
+        expiraEm: { lt: new Date() },
+      },
+    }),
+
+    prisma.refreshToken.count({
+      where: {
+        usuarioId: userId,
+        usadoEm: { not: null },
+      },
+    }),
   ]);
-  
+
   return {
-     
     total,
     ativos,
     revogados,
     expirados,
-    usados
+    usados,
   };
 }
 
 /**
  * Lista todos os tokens ativos de um usuário
- * 
+ *
  * Útil para funcionalidade "Ver dispositivos conectados"
- * 
+ *
  * @param userId - ID do usuário
  * @returns Lista de tokens ativos com metadados
  */
 export async function listUserActiveTokens(userId: number) {
-   
   return await prisma.refreshToken.findMany({
     where: {
       usuarioId: userId,
       revogado: false,
       expiraEm: { gt: new Date() },
-      usadoEm: null
+      usadoEm: null,
     },
     select: {
       id: true,
       criadoEm: true,
       expiraEm: true,
       ip: true,
-      userAgent: true
+      userAgent: true,
     },
-    orderBy: { criadoEm: 'desc' }
+    orderBy: { criadoEm: 'desc' },
   });
 }

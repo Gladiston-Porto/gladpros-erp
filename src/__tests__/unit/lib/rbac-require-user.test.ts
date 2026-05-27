@@ -95,4 +95,13 @@ describe('requireUser — bloqueio de usuário INATIVO', () => {
     mockQueryRaw.mockResolvedValueOnce([]); // sem resultado
     await expect(requireUser(makeRequest('valid.jwt.token'))).rejects.toThrow('UNAUTHENTICATED');
   });
+
+  it('RBAC_TRUST_JWT=0: JWT vinculado à sessão exige sessionToken válido', async () => {
+    mockVerify.mockResolvedValue({ ...validClaims, sessionId: 33 });
+    mockQueryRaw
+      .mockResolvedValueOnce([{ nivel: 'USUARIO', status: 'ATIVO', tokenVersion: 3 }])
+      .mockResolvedValueOnce([]);
+
+    await expect(requireUser(makeRequest('valid.jwt.token'))).rejects.toThrow('UNAUTHENTICATED');
+  });
 });
