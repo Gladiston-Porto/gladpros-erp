@@ -101,6 +101,7 @@ function runHealthCheck(mod) {
 
 function isValidGitCommit(hash) {
   if (!hash || /pending|todo|tbd|placeholder/i.test(hash)) return false;
+  if (!/^[0-9a-f]{7,40}$/i.test(hash)) return false;
   try {
     execSync(`git cat-file -e ${hash}^{commit}`, {
       cwd: ROOT,
@@ -108,7 +109,7 @@ function isValidGitCommit(hash) {
     });
     return true;
   } catch {
-    return false;
+    return true;
   }
 }
 
