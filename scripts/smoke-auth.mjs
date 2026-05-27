@@ -1,6 +1,7 @@
 // scripts/smoke-auth.mjs
 // import 'dotenv/config'; // Removed to avoid conflict, reliance on process.env from caller
 import { PrismaClient } from '@prisma/client';
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import crypto from 'crypto';
 
 // Helper functions (consistent with MFAService)
@@ -8,8 +9,9 @@ const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString(
 const hashCode = (code) => crypto.createHash("sha256").update(code).digest("hex");
 
 // Force Prisma to use the environment variable explicitly
+const databaseUrl = process.env.DATABASE_URL || 'mysql://root:root@localhost:3306/gladpros_ci';
 const prisma = new PrismaClient({
-    datasources: { db: { url: process.env.DATABASE_URL } }
+    adapter: new PrismaMariaDb(databaseUrl)
 });
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -63,10 +65,10 @@ async function main() {
         // For smoke test, generate a known MFA code
         code = generateCode();
         const hashedCode = hashCode(code);
-        
+
         // Clean existing LOGIN MFA for user (avoid interfering with other types)
         await prisma.codigoMFA.deleteMany({ where: { usuarioId: Number(userId), tipoAcao: "LOGIN" } });
-        
+
         // Create MFA with generated code
         await prisma.codigoMFA.create({
             data: {
@@ -116,7 +118,7 @@ async function main() {
 
     // 4) Protected Endpoint
     console.log('\n4. Testing protected endpoint (/api/metrics)...');
-    // Note: /api/dashboard/executive might be heavy or require more data. 
+    // Note: /api/dashboard/executive might be heavy or require more data.
     // Trying a lighter one or the requested one. User suggested /api/dashboard/executive?period=30d
     const execRes = await fetch(`${BASE_URL}/api/dashboard/executive?period=30d`, {
         headers: {
