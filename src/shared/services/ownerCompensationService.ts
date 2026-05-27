@@ -8,7 +8,7 @@
 
 import { prisma } from '@/lib/prisma';
 import type { TipoCompensacao } from '@prisma/client';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from '@prisma/client/runtime/client';
 import { postLedgerTransaction } from './ledgerPostingService';
 
 // ── Types ────────────────────────────────────────────────────────────────────

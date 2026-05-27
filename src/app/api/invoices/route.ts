@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, can, type Role } from '@/shared/lib/rbac';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from '@prisma/client/runtime/client';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { Prisma } from '@prisma/client';
 
@@ -54,12 +54,9 @@ function canReadInternalInvoices(role: Role) {
   return role === 'ADMIN' || role === 'GERENTE' || role === 'FINANCEIRO';
 }
 
-function calcularTotais<T extends { quantidade: number; precoUnitario: number; desconto: number; taxavel: boolean }>(
-  itens: T[],
-  descontoValorInput: number,
-  descontoPercentualInput: number,
-  taxRate: number,
-) {
+function calcularTotais<
+  T extends { quantidade: number; precoUnitario: number; desconto: number; taxavel: boolean },
+>(itens: T[], descontoValorInput: number, descontoPercentualInput: number, taxRate: number) {
   const itensComSubtotal = itens.map((item) => ({
     ...item,
     subtotal: item.quantidade * item.precoUnitario - item.desconto,
@@ -68,9 +65,7 @@ function calcularTotais<T extends { quantidade: number; precoUnitario: number; d
   const subtotal = itensComSubtotal.reduce((sum, i) => sum + i.subtotal, 0);
 
   const descontoTotal =
-    descontoPercentualInput > 0
-      ? subtotal * (descontoPercentualInput / 100)
-      : descontoValorInput;
+    descontoPercentualInput > 0 ? subtotal * (descontoPercentualInput / 100) : descontoValorInput;
 
   const subtotalComDesconto = Math.max(0, subtotal - descontoTotal);
   const subtotalTaxavel = itensComSubtotal
@@ -130,7 +125,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     });
     if (!projeto) {
       return NextResponse.json(
-        { error: 'Validation failed', message: 'Projeto inválido para este cliente', success: false },
+        {
+          error: 'Validation failed',
+          message: 'Projeto inválido para este cliente',
+          success: false,
+        },
         { status: 400 },
       );
     }
@@ -143,9 +142,14 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     if (tr) taxRate = Number(tr.rate);
   }
 
-   
-  const { itensComSubtotal, subtotal, descontoTotal, subtotalComDesconto: _subtotalComDesconto, taxAmount, valorTotal } =
-    calcularTotais(body.itens, body.descontoValor, body.descontoPercentual, taxRate);
+  const {
+    itensComSubtotal,
+    subtotal,
+    descontoTotal,
+    subtotalComDesconto: _subtotalComDesconto,
+    taxAmount,
+    valorTotal,
+  } = calcularTotais(body.itens, body.descontoValor, body.descontoPercentual, taxRate);
 
   // Gerar número único da invoice com retry para corrida no índice unique.
   const hoje = new Date();
@@ -223,7 +227,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   if (!invoice) {
     return NextResponse.json(
-      { error: 'Conflict', message: 'Não foi possível gerar número único para invoice', success: false },
+      {
+        error: 'Conflict',
+        message: 'Não foi possível gerar número único para invoice',
+        success: false,
+      },
       { status: 409 },
     );
   }

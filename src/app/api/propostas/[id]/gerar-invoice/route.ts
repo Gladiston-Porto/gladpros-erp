@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, can, type Role } from '@/shared/lib/rbac';
 import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from '@prisma/client/runtime/client';
 
 export const POST = withErrorHandler(
   async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
