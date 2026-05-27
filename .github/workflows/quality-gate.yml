@@ -34,7 +34,20 @@ jobs:
       - name: Install deps
         run: npm ci --prefer-offline --no-audit --legacy-peer-deps
 
-      - name: 🔒 Camada 0 — Validar known-bugs.json
+      - name: � Camada 0a — Anti-divergência (conflitos não resolvidos em governança)
+        # Detecta marcadores de conflito Git em known-bugs.json e baselines.
+        # Causa raiz de falsos-positivos de "FRÁGIL" em PRs criados em paralelo.
+        run: |
+          set -e
+          GOV_PATHS="relatorios/known-bugs.json"
+          [ -d relatorios/modulos ] && GOV_PATHS="$GOV_PATHS relatorios/modulos"
+          if grep -rln '^<<<<<<< \|^>>>>>>> ' $GOV_PATHS 2>/dev/null; then
+            echo "::error::Marcadores de conflito Git em arquivos de governança. Rebase + resolva."
+            exit 1
+          fi
+          echo "✅ Sem conflitos de governança."
+
+      - name: �🔒 Camada 0 — Validar known-bugs.json
         run: npm run known-bugs:validate
 
       - name: 🧾 Camada 0b — Certificação programática obrigatória

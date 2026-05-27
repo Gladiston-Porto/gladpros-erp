@@ -50,6 +50,7 @@ module.exports = {
         'schema',
         'scripts',
         'meta-qualidade',
+        'ui',
       ],
     ],
 

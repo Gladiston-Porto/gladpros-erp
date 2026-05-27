@@ -35,6 +35,38 @@ test_output=$(npm test -- --passWithNoTests --forceExit 2>&1) || {
   exit 1
 }
 
+# Camada 3 (audit loop): run-audit por módulo baseado em scope dos commits pendentes.
+# Detecta fix parcial + canário ANTES de chegar ao CI.
+echo ""
+echo "▶ Audit loop (run-audit por módulo afetado)..."
+UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "origin/main")
+CHANGED=$(git diff --name-only "$UPSTREAM"...HEAD 2>/dev/null || git diff --name-only HEAD~10..HEAD 2>/dev/null || true)
+AUDITED_MODULES=""
+if [ -n "$CHANGED" ] && [ -d relatorios/modulos ]; then
+  for baseline in relatorios/modulos/*/audit-baseline.json; do
+    [ -f "$baseline" ] || continue
+    mod=$(basename "$(dirname "$baseline")")
+    # toca arquivo no scope api ou page do módulo?
+    if echo "$CHANGED" | grep -qE "^src/(app/api/$mod/|app/\(dashboard\)/$mod/|app/$mod/)"; then
+      AUDITED_MODULES="$AUDITED_MODULES $mod"
+      echo "  → run-audit --module=$mod"
+      if ! node scripts/run-audit.mjs --module="$mod" >/tmp/run-audit-$mod.log 2>&1; then
+        echo ""
+        tail -20 /tmp/run-audit-$mod.log
+        echo ""
+        echo "❌ run-audit falhou para módulo '$mod' — push bloqueado."
+        echo "   Log completo: /tmp/run-audit-$mod.log"
+        exit 1
+      fi
+    fi
+  done
+fi
+if [ -z "$AUDITED_MODULES" ]; then
+  echo "  (nenhum módulo com baseline afetado — pulando)"
+else
+  echo "  ✅ Audit loop verde para:$AUDITED_MODULES"
+fi
+
 echo ""
 echo "✅ Tudo OK — push liberado!"
 echo ""

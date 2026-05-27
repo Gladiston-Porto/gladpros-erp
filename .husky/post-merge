@@ -25,4 +25,33 @@ if [ -n "$CHANGED_PKG" ]; then
   echo "  Execute: npm install"
 fi
 
+# Anti-divergência: detectar conflitos não resolvidos + invalidez de governança
+# (known-bugs.json e baselines de módulos). Diferentes branches editando o
+# mesmo arquivo são a causa raiz dos falsos-positivos de "FRÁGIL" em PRs antigos.
+GOV_PATHS="relatorios/known-bugs.json"
+if [ -d relatorios/modulos ]; then
+  GOV_PATHS="$GOV_PATHS relatorios/modulos"
+fi
+
+CONFLICT_MARKERS=$(grep -rln "^<<<<<<< \|^>>>>>>> " $GOV_PATHS 2>/dev/null || true)
+if [ -n "$CONFLICT_MARKERS" ]; then
+  echo ""
+  echo "❌ post-merge: marcadores de conflito Git em arquivos de governança:"
+  echo "$CONFLICT_MARKERS"
+  echo "   Resolva manualmente antes de continuar."
+  exit 1
+fi
+
+if [ -f relatorios/known-bugs.json ] && [ -f scripts/validate-known-bugs.mjs ]; then
+  if ! node scripts/validate-known-bugs.mjs >/tmp/known-bugs-postmerge.log 2>&1; then
+    echo ""
+    cat /tmp/known-bugs-postmerge.log
+    echo ""
+    echo "❌ post-merge: known-bugs.json ficou inválido após o merge."
+    echo "   Provável divergência entre branches. Rebase + reedite via 'npm run bug:mark-fixed'."
+    exit 1
+  fi
+  echo "✅ Governança íntegra após merge."
+fi
+
 echo ""

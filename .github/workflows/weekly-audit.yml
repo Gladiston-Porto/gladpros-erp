@@ -57,6 +57,20 @@ jobs:
         if: steps.has-code.outputs.present == 'true'
         run: npm ci --ignore-scripts --legacy-peer-deps
 
+      - name: npm audit (high/critical)
+        if: steps.has-code.outputs.present == 'true'
+        run: |
+          # Falha apenas em vulnerabilidades high ou critical (low/moderate só reportam).
+          set +e
+          npm audit --omit=dev --audit-level=high
+          STATUS=$?
+          set -e
+          if [ "$STATUS" != "0" ]; then
+            echo "::error::npm audit detectou vulnerabilidades high/critical em dependências de produção"
+            exit 1
+          fi
+          echo "✅ npm audit limpo (high/critical em prod)."
+
       - name: Semgrep full scan
         if: steps.has-code.outputs.present == 'true'
         uses: semgrep/semgrep-action@v1
