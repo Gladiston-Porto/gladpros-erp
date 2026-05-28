@@ -101,7 +101,7 @@ export const PUT = withErrorHandler(
     // o cookie expirar (~8h) ou o JWT bruto expirar (7d). Para bloqueio imediato,
     // rotacionar JWT_SECRET no ambiente (invalida todos os tokens globalmente).
     await prisma.usuario.update({
-      where: { id },
+      where: { id, empresaId: Number(user.empresaId ?? 1) },
       data: {
         status: newStatus,
         ...(newStatus === 'INATIVO' ? { tokenVersion: { increment: 1 } } : {}),

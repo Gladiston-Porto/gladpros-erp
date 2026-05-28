@@ -151,13 +151,11 @@ function generateJti(): string {
 }
 
 /**
- * Gera um par de tokens (access + refresh) para um usuário
- *
- * @param userId - ID do usuário
- * @param email - Email do usuário
- * @param nivel - Nível de acesso do usuário (ADMIN, USER, etc)
- * @param metadata - Metadados de segurança (IP, User-Agent)
- * @returns Par de tokens com timestamps de expiração
+ * @deprecated Não usar. Nunca foi importado em produção (dead code).
+ * TTL bug: accessTokenExpiresAt = now+15min mas JWT expiresIn = '8h'.
+ * Use signAuthJWT() de @/shared/lib/jwt para access tokens
+ * e generateRefreshToken() abaixo para refresh tokens.
+ * @internal
  */
 export async function generateTokenPair(
   userId: number,

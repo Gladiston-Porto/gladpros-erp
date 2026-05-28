@@ -1,5 +1,8 @@
+// @bug:AUTH-P3-002
+// @description: mock campo 'token' → 'tokenHash' após rename em AUTH-P1-005
 import { GET } from '../../../app/api/auth/me/sessions/route';
 import { NextRequest } from 'next/server';
+import { hashAuthToken } from '../../../shared/lib/auth-token-hash';
 
 jest.mock('next/server', () => ({
   NextRequest: jest.fn(),
@@ -49,7 +52,7 @@ describe('GET /api/auth/me/sessions', () => {
           pais: 'US',
           ultimaAtividade: new Date('2025-01-01T10:00:00Z'),
           criadoEm: new Date('2025-01-01T09:00:00Z'),
-          token: 'current-token',
+          tokenHash: hashAuthToken('current-token'),
         },
       ]);
   });

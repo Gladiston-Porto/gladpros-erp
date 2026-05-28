@@ -59,7 +59,7 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
   }
 
   const cancelada = await prisma.delegacao.update({
-    where: { id },
+    where: { id, empresaId: Number(authUser.empresaId) },
     data: {
       ativa: false,
       canceladaEm: new Date(),
