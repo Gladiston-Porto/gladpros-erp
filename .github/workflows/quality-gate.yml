@@ -72,6 +72,11 @@ jobs:
             echo "::warning::Nenhum audit-baseline encontrado em relatorios/modulos/"
           fi
 
+      - name: 🧪 Camada 0d — Full Audit (manual + regressões + manifesto)
+        # Impede verde falso: além do gate mecânico, valida a revisão manual
+        # estruturada em relatorios/modulos/<mod>/audit-baseline.json.
+        run: npm run audit:full -- --all
+
       - name: �🔍 Camada 1 — Health check (regex anti-patterns)
         run: npm run health:check
 

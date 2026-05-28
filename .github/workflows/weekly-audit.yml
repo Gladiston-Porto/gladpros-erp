@@ -85,7 +85,7 @@ jobs:
             node scripts/check-module-health.mjs --full
           fi
 
-      - name: Certify all production-ready modules (run-audit com canário)
+      - name: Certify all production-ready modules (full audit com canário)
         if: steps.has-code.outputs.present == 'true'
         run: |
           set +e
@@ -94,12 +94,12 @@ jobs:
             for baseline in relatorios/modulos/*/audit-baseline.json; do
               [ -f "$baseline" ] || continue
               mod=$(basename "$(dirname "$baseline")")
-              echo "::group::run-audit $mod"
-              node scripts/run-audit.mjs --module="$mod"
+              echo "::group::run-full-audit $mod"
+              node scripts/run-full-audit.mjs --module="$mod"
               STEP_EXIT=$?
               echo "::endgroup::"
               if [ "$STEP_EXIT" != "0" ]; then
-                echo "::error::Módulo $mod perdeu certificação (run-audit exit $STEP_EXIT)"
+                echo "::error::Módulo $mod perdeu certificação completa (run-full-audit exit $STEP_EXIT)"
                 EXIT_CODE=$STEP_EXIT
               fi
             done

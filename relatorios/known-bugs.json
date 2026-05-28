@@ -363,6 +363,106 @@
           "source": "scripts/mark-bug-fixed.mjs"
         }
       ]
+    },
+    {
+      "id": "AUTH-P1-004",
+      "module": "auth",
+      "priority": "P1",
+      "title": "RBAC_TRUST_JWT permite janela de acesso após revogação de sessão",
+      "description": "Reauditoria manual completa detectou que rotas protegidas que dependem de requireUser podem continuar aceitando access tokens quando RBAC_TRUST_JWT confia no JWT antes de validar status/tokenVersion/vínculo de sessão de forma suficiente. Impacta todos os módulos protegidos por requireUser.",
+      "status": "OPEN",
+      "detectedAt": "2026-05-27",
+      "auditRef": "full-audit-auth-2026-05-27#P1-01",
+      "affectedFiles": [
+        "src/shared/lib/rbac.ts",
+        "src/shared/lib/security.ts",
+        "src/shared/lib/jwt.ts",
+        "src/app/api/auth/logout/route.ts",
+        "src/app/api/auth/me/sessions/route.ts"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Bug semântico/cross-módulo: depende de configuração RBAC_TRUST_JWT, claims do JWT, sessionToken e estado do usuário. Cobertura exigida por regressionTest + healthCheckRule a implementar.",
+      "healthCheckRule": "auth-session-bound-require-user",
+      "fix": "Garantir que access tokens vinculados à sessão sejam rejeitados quando a sessão estiver revogada, usuário inativo, tokenVersion alterado ou role alterada; ajustar RBAC_TRUST_JWT para não contornar revogação crítica."
+    },
+    {
+      "id": "AUTH-P1-005",
+      "module": "auth",
+      "priority": "P1",
+      "title": "Bearer secrets de sessão refresh e trusted device persistidos em claro",
+      "description": "SessaoAtiva.token, refresh_tokens.tokenHash/jti/lookup e DispositivoConfiavel token/device identifier ainda permitem uso de segredo reutilizável caso haja vazamento read-only do banco. O modelo deve usar hash/selector seguro para lookup e nunca depender de valor bruto persistido.",
+      "status": "OPEN",
+      "detectedAt": "2026-05-27",
+      "auditRef": "full-audit-auth-2026-05-27#P1-02",
+      "affectedFiles": [
+        "prisma/schema.prisma",
+        "src/shared/lib/security.ts",
+        "src/lib/auth/token-service.ts",
+        "src/app/api/auth/logout/route.ts",
+        "src/app/api/auth/login/route.ts",
+        "src/app/api/auth/mfa/verify/route.ts"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Bug arquitetural de armazenamento de segredo. Não há regex única confiável; exigir migration, regressões e healthCheckRule específico.",
+      "healthCheckRule": "auth-bearer-secrets-hashed-at-rest",
+      "fix": "Migrar sessão, refresh token e trusted device para lookup por hash/selector seguro, com comparação de hash e sem persistir bearer secret bruto."
+    },
+    {
+      "id": "AUTH-P2-003",
+      "module": "auth",
+      "priority": "P2",
+      "title": "Logout usa composição SQL frágil para revogar trusted device",
+      "description": "A reauditoria manual encontrou composição incorreta/frágil de SQL no logout ao tentar condicionar a deleção do DispositivoConfiavel atual. O teste de regressão atual valida apenas que $executeRaw foi chamado, não que a deleção é semanticamente correta.",
+      "status": "OPEN",
+      "detectedAt": "2026-05-27",
+      "auditRef": "full-audit-auth-2026-05-27#P2-01",
+      "affectedFiles": [
+        "src/app/api/auth/logout/route.ts",
+        "src/__tests__/api/auth/regression/AUTH-P2-002.test.ts"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Bug semântico de query Prisma/raw SQL; cobertura deve validar parâmetros e resultado da revogação, não apenas chamada genérica.",
+      "healthCheckRule": "auth-logout-device-trust-query-safe",
+      "fix": "Substituir composição SQL frágil por query explícita e testável para remover o trusted device atual por usuarioId + token/device hash."
+    },
+    {
+      "id": "AUTH-P2-004",
+      "module": "auth",
+      "priority": "P2",
+      "title": "TTL do access token diverge entre login MFA e refresh",
+      "description": "Login e MFA emitem authToken com maxAge de 8 horas, enquanto o refresh emite access token de 15 minutos. A política implícita pode causar 401 inesperado ou sessão inconsistente após o primeiro refresh.",
+      "status": "OPEN",
+      "detectedAt": "2026-05-27",
+      "auditRef": "full-audit-auth-2026-05-27#P2-02",
+      "affectedFiles": [
+        "src/app/api/auth/login/route.ts",
+        "src/app/api/auth/mfa/verify/route.ts",
+        "src/app/api/auth/refresh/route.ts",
+        "src/lib/auth/token-service.ts"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Bug de política/contrato de sessão; exige constante única de TTL e regressão de contrato.",
+      "healthCheckRule": "auth-access-token-ttl-consistent",
+      "fix": "Centralizar TTL do access token e alinhar login, MFA, refresh e cookies a uma política explícita."
+    },
+    {
+      "id": "AUTH-P3-001",
+      "module": "auth",
+      "priority": "P3",
+      "title": "Drift de contrato MFA challenge em teste E2E",
+      "description": "Teste/documentação E2E ainda descreve que verificação MFA direta não requer mfaChallenge token, enquanto o handler atual exige challenge para LOGIN e PRIMEIRO_ACESSO. Isso enfraquece a governança do fluxo anti-bypass.",
+      "status": "OPEN",
+      "detectedAt": "2026-05-27",
+      "auditRef": "full-audit-auth-2026-05-27#P3-01",
+      "affectedFiles": [
+        "src/app/api/auth/mfa/verify/route.ts",
+        "src/shared/lib/validation.ts",
+        "tests/e2e/auth/auth-regression.spec.ts"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Drift documental/teste. Cobertura via atualização do teste E2E e checklist manual do Auth.",
+      "healthCheckRule": "auth-mfa-challenge-contract",
+      "fix": "Atualizar teste/documentação E2E para refletir contrato atual de challenge obrigatório nos fluxos LOGIN e PRIMEIRO_ACESSO."
     }
   ]
 }

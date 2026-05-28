@@ -1,0 +1,41 @@
+{
+  "module": "auth",
+  "startedAt": "2026-05-28T01:19:59.685Z",
+  "finishedAt": "2026-05-28T01:20:10.259Z",
+  "orchestrator": "scripts/run-audit.mjs",
+  "steps": [
+    {
+      "name": "validate:known-bugs",
+      "command": "node scripts/validate-known-bugs.mjs",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 298
+    },
+    {
+      "name": "canary:health-check-detects-INFORMATION_SCHEMA",
+      "command": "node scripts/check-module-health.mjs --module=auth",
+      "passed": true,
+      "exitCode": 0,
+      "durationMs": 0
+    },
+    {
+      "name": "health:check",
+      "command": "node scripts/check-module-health.mjs --module=auth",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 724
+    },
+    {
+      "name": "certify:module",
+      "command": "node scripts/certify-module.mjs --module=auth",
+      "exitCode": 1,
+      "passed": false,
+      "durationMs": 8656
+    }
+  ],
+  "transitions": [],
+  "findings": [],
+  "status": "FAILED",
+  "failedAt": "certify:module",
+  "exitCode": 1
+}

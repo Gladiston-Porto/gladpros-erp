@@ -1,0 +1,79 @@
+{
+  "module": "auth",
+  "startedAt": "2026-05-28T01:19:59.422Z",
+  "finishedAt": "2026-05-28T01:20:17.076Z",
+  "orchestrator": "scripts/run-full-audit.mjs",
+  "status": "Not Ready",
+  "exitCode": 1,
+  "baselineReviewedAt": "2026-05-27",
+  "steps": [
+    {
+      "name": "validate:known-bugs",
+      "command": "node scripts/validate-known-bugs.mjs",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 227
+    },
+    {
+      "name": "audit:module",
+      "command": "node scripts/run-audit.mjs --module=auth",
+      "exitCode": 1,
+      "passed": false,
+      "durationMs": 10607
+    },
+    {
+      "name": "regression:src/__tests__/api/auth/login.test.ts",
+      "command": "npx jest src/__tests__/api/auth/login.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1772
+    },
+    {
+      "name": "regression:src/__tests__/unit/lib/token-service.test.ts",
+      "command": "npx jest src/__tests__/unit/lib/token-service.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1672
+    },
+    {
+      "name": "regression:src/__tests__/api/auth/regression/AUTH-P1-002.test.ts",
+      "command": "npx jest src/__tests__/api/auth/regression/AUTH-P1-002.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1748
+    },
+    {
+      "name": "regression:src/__tests__/api/auth/regression/AUTH-P2-002.test.ts",
+      "command": "npx jest src/__tests__/api/auth/regression/AUTH-P2-002.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1620
+    }
+  ],
+  "findings": [
+    {
+      "level": "P1",
+      "source": "manual-audit",
+      "message": "AUTH-P1-004 continua OPEN: RBAC_TRUST_JWT permite janela de acesso após revogação de sessão",
+      "bugId": "AUTH-P1-004"
+    },
+    {
+      "level": "P1",
+      "source": "manual-audit",
+      "message": "AUTH-P1-005 continua OPEN: Bearer secrets de sessão refresh e trusted device persistidos em claro",
+      "bugId": "AUTH-P1-005"
+    },
+    {
+      "level": "P2",
+      "source": "manual-audit",
+      "message": "AUTH-P2-003 continua OPEN: Logout usa composição SQL frágil para revogar trusted device",
+      "bugId": "AUTH-P2-003"
+    },
+    {
+      "level": "P2",
+      "source": "manual-audit",
+      "message": "AUTH-P2-004 continua OPEN: TTL do access token diverge entre login MFA e refresh",
+      "bugId": "AUTH-P2-004"
+    }
+  ]
+}

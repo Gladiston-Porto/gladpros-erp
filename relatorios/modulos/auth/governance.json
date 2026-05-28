@@ -1,10 +1,10 @@
 {
   "modulo": "auth",
-  "statusAtual": "Production Ready",
+  "statusAtual": "Not Ready",
   "ultimaAuditoria": "2026-05-27",
   "ultimaCertificacao": "2026-05-27",
   "bugs": {
-    "abertos": [],
+    "abertos": ["AUTH-P1-004", "AUTH-P1-005", "AUTH-P2-003", "AUTH-P2-004", "AUTH-P3-001"],
     "corrigidos": ["AUTH-P2-001", "AUTH-P1-002", "AUTH-P1-003", "AUTH-P2-002"]
   }
 }

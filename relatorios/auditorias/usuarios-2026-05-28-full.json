@@ -1,0 +1,95 @@
+{
+  "module": "usuarios",
+  "startedAt": "2026-05-28T01:20:17.111Z",
+  "finishedAt": "2026-05-28T01:20:49.433Z",
+  "orchestrator": "scripts/run-full-audit.mjs",
+  "status": "Not Ready",
+  "exitCode": 1,
+  "baselineReviewedAt": null,
+  "steps": [
+    {
+      "name": "validate:known-bugs",
+      "command": "node scripts/validate-known-bugs.mjs",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 184
+    },
+    {
+      "name": "audit:module",
+      "command": "node scripts/run-audit.mjs --module=usuarios",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 17390
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P1-001.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P1-001.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1652
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P1-002.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P1-002.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1524
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P2-001.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P2-001.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1642
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P2-002.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P2-002.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1661
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P2-004.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P2-004.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1728
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P3-001.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P3-001.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1676
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P3-002.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P3-002.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1608
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/user-management-access.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/user-management-access.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1573
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/delete-id.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/delete-id.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1675
+    }
+  ],
+  "findings": [
+    {
+      "level": "P1",
+      "source": "manual-audit",
+      "message": "baseline sem seção manualAudit; auditoria completa precisa registrar áreas revisadas e achados manuais."
+    }
+  ]
+}

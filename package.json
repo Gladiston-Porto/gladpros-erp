@@ -62,6 +62,7 @@
     "semgrep:staged": "semgrep --config=.semgrep/gladpros --metrics=off --error --baseline-commit=HEAD",
     "known-bugs:validate": "node scripts/validate-known-bugs.mjs",
     "audit:module": "node scripts/run-audit.mjs",
+    "audit:full": "node scripts/run-full-audit.mjs",
     "bug:mark-fixed": "node scripts/mark-bug-fixed.mjs",
     "quality:gate": "npm run known-bugs:validate && npm run semgrep && npm run health:check",
     "db:fix-sessions": "node scripts/fix-missing-tables.js",
