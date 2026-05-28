@@ -540,7 +540,7 @@
       "priority": "P3",
       "title": "me/sessions test: mock com campo 'token' stale após rename para 'tokenHash'",
       "description": "O mock do teste src/__tests__/api/auth/me-sessions.test.ts retornava { token: 'current-token' } mas a rota lê s.tokenHash (coluna renomeada em AUTH-P1-005). Causa falha silenciosa no campo isCurrent.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-29",
       "auditRef": "full-audit-auth-2026-05-29",
       "affectedFiles": ["src/__tests__/api/auth/me-sessions.test.ts"],
@@ -551,7 +551,20 @@
         "expectedMatches": 0
       },
       "regressionTest": "src/__tests__/api/auth/me-sessions.test.ts",
-      "fix": "Alterar campo mock de 'token' para 'tokenHash' com valor hashado via hashAuthToken(). Importar hashAuthToken no teste."
+      "fix": "Alterar campo mock de 'token' para 'tokenHash' com valor hashado via hashAuthToken(). Importar hashAuthToken no teste.",
+      "fixedAt": "2026-05-28",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "120855f33a3e11f6f5cf1340b3f3ba624bfca6d7",
+      "stateHistory": [
+        {
+          "date": "2026-05-28",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "full-audit-auth-2026-05-29",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     },
     {
       "id": "AUTH-P3-003",
@@ -559,14 +572,27 @@
       "priority": "P3",
       "title": "first-access-magic test: asserção de signAuthJWT sem segundo argumento '30m'",
       "description": "A rota first-access/magic/route.ts chama signAuthJWT(payload, '30m') com dois argumentos, mas o teste assertia apenas um argumento. Jest toHaveBeenCalledWith verifica contagem exata de args.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-29",
       "auditRef": "full-audit-auth-2026-05-29",
       "affectedFiles": ["src/__tests__/api/auth/first-access-magic.test.ts"],
       "verificationPattern": null,
       "verificationPatternNote": "Drift de contrato de asserção. Cobertura via execução do teste corrigido.",
       "regressionTest": "src/__tests__/api/auth/first-access-magic.test.ts",
-      "fix": "Adicionar '30m' como segundo argumento na asserção toHaveBeenCalledWith do mockSignAuth."
+      "fix": "Adicionar '30m' como segundo argumento na asserção toHaveBeenCalledWith do mockSignAuth.",
+      "fixedAt": "2026-05-28",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "120855f33a3e11f6f5cf1340b3f3ba624bfca6d7",
+      "stateHistory": [
+        {
+          "date": "2026-05-28",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "full-audit-auth-2026-05-29",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     },
     {
       "id": "AUTH-P3-004",
@@ -574,13 +600,27 @@
       "priority": "P3",
       "title": "generateTokenPair em token-service.ts: dead code com bug de TTL",
       "description": "A função generateTokenPair nunca é importada em produção (dead code). Além disso, contém bug de TTL: accessTokenExpiresAt = now+15min enquanto o JWT expira em 8h. Marcada como @deprecated @internal.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-29",
       "auditRef": "full-audit-auth-2026-05-29",
       "affectedFiles": ["src/lib/auth/token-service.ts"],
       "verificationPattern": null,
       "verificationPatternNote": "Dead code — risco está em importação acidental. Cobertura via JSDoc @deprecated e ausência de import no codebase.",
-      "fix": "Adicionar JSDoc @deprecated @internal com nota sobre o TTL bug e instruções de substituição (signAuthJWT + generateRefreshToken)."
+      "fix": "Adicionar JSDoc @deprecated @internal com nota sobre o TTL bug e instruções de substituição (signAuthJWT + generateRefreshToken).",
+      "regressionTest": "src/__tests__/api/auth/token-service-dead-code.test.ts",
+      "fixedAt": "2026-05-28",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "120855f33a3e11f6f5cf1340b3f3ba624bfca6d7",
+      "stateHistory": [
+        {
+          "date": "2026-05-28",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "full-audit-auth-2026-05-29",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     }
   ]
 }
