@@ -35,22 +35,22 @@
     {
       "id": "P1-AUTH-SESSION-REVOCATION",
       "rule": "Revogação de sessão, logout, desativação de usuário e mudança de role não podem deixar access token válido em rotas protegidas.",
-      "enforcedBy": "manualAudit.findings AUTH-P1-004 + regressionTest a criar"
+      "enforcedBy": "AUTH-P1-004 regressionTest + healthCheckRule auth-session-bound-require-user"
     },
     {
       "id": "P1-AUTH-TOKEN-SECRETS-HASHED",
       "rule": "Bearer secrets persistidos (sessionToken, refreshToken, deviceTrust) devem usar hash/selector seguro; valores brutos não podem permitir takeover após vazamento read-only do DB.",
-      "enforcedBy": "manualAudit.findings AUTH-P1-005 + migration/test a criar"
+      "enforcedBy": "AUTH-P1-005 regressionTest + migration 20260401000000_hash_auth_bearer_secrets"
     },
     {
       "id": "P2-AUTH-LOGOUT-DEVICE-TRUST-SQL",
       "rule": "Logout deve revogar o DispositivoConfiavel atual com query executável e teste que valide critérios da deleção, não apenas chamada genérica a $executeRaw.",
-      "enforcedBy": "manualAudit.findings AUTH-P2-003 + regressionTest a criar"
+      "enforcedBy": "AUTH-P2-003 regressionTest em src/__tests__/api/auth/logout.test.ts"
     },
     {
       "id": "P2-AUTH-TOKEN-TTL-CONSISTENT",
       "rule": "Login, MFA e refresh devem usar uma política explícita e consistente de TTL para access token.",
-      "enforcedBy": "manualAudit.findings AUTH-P2-004 + regressionTest a criar"
+      "enforcedBy": "AUTH-P2-004 regressionTest + src/shared/lib/auth-constants.ts"
     }
   ],
   "expectedRoles": {
@@ -77,14 +77,29 @@
     ]
   },
   "knownBugs": {
-    "fixed": ["AUTH-P2-001", "AUTH-P1-002", "AUTH-P1-003", "AUTH-P2-002"],
-    "open": ["AUTH-P1-004", "AUTH-P1-005", "AUTH-P2-003", "AUTH-P2-004", "AUTH-P3-001"]
+    "fixed": [
+      "AUTH-P2-001",
+      "AUTH-P1-002",
+      "AUTH-P1-003",
+      "AUTH-P2-002",
+      "AUTH-P1-004",
+      "AUTH-P1-005",
+      "AUTH-P2-003",
+      "AUTH-P2-004",
+      "AUTH-P3-001"
+    ],
+    "open": []
   },
   "regressionTestsRequired": [
     "src/__tests__/api/auth/login.test.ts",
     "src/__tests__/unit/lib/token-service.test.ts",
     "src/__tests__/api/auth/regression/AUTH-P1-002.test.ts",
-    "src/__tests__/api/auth/regression/AUTH-P2-002.test.ts"
+    "src/__tests__/api/auth/regression/AUTH-P2-002.test.ts",
+    "src/__tests__/unit/lib/rbac-require-user.test.ts",
+    "src/__tests__/api/auth/regression/AUTH-P1-005.test.ts",
+    "src/__tests__/api/auth/logout.test.ts",
+    "src/__tests__/api/auth/regression/AUTH-P2-004.test.ts",
+    "src/__tests__/api/auth/regression/AUTH-P3-001.test.ts"
   ],
   "manualAudit": {
     "lastReviewedAt": "2026-05-27",

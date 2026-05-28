@@ -370,7 +370,7 @@
       "priority": "P1",
       "title": "RBAC_TRUST_JWT permite janela de acesso após revogação de sessão",
       "description": "Reauditoria manual completa detectou que rotas protegidas que dependem de requireUser podem continuar aceitando access tokens quando RBAC_TRUST_JWT confia no JWT antes de validar status/tokenVersion/vínculo de sessão de forma suficiente. Impacta todos os módulos protegidos por requireUser.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-27",
       "auditRef": "full-audit-auth-2026-05-27#P1-01",
       "affectedFiles": [
@@ -384,7 +384,20 @@
       "verificationPatternNote": "Bug semântico/cross-módulo: depende de configuração RBAC_TRUST_JWT, claims do JWT, sessionToken e estado do usuário. Cobertura exigida por regressionTest + healthCheckRule a implementar.",
       "healthCheckRule": "auth-session-bound-require-user",
       "regressionTest": "src/__tests__/unit/lib/rbac-require-user.test.ts",
-      "fix": "Garantir que access tokens vinculados à sessão sejam rejeitados quando a sessão estiver revogada, usuário inativo, tokenVersion alterado ou role alterada; ajustar RBAC_TRUST_JWT para não contornar revogação crítica."
+      "fix": "Garantir que access tokens vinculados à sessão sejam rejeitados quando a sessão estiver revogada, usuário inativo, tokenVersion alterado ou role alterada; ajustar RBAC_TRUST_JWT para não contornar revogação crítica.",
+      "fixedAt": "2026-05-28",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "d8ea8a8",
+      "stateHistory": [
+        {
+          "date": "2026-05-28",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "full-audit-auth-2026-05-27",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     },
     {
       "id": "AUTH-P1-005",
@@ -392,7 +405,7 @@
       "priority": "P1",
       "title": "Bearer secrets de sessão refresh e trusted device persistidos em claro",
       "description": "SessaoAtiva.token, refresh_tokens.tokenHash/jti/lookup e DispositivoConfiavel token/device identifier ainda permitem uso de segredo reutilizável caso haja vazamento read-only do banco. O modelo deve usar hash/selector seguro para lookup e nunca depender de valor bruto persistido.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-27",
       "auditRef": "full-audit-auth-2026-05-27#P1-02",
       "affectedFiles": [
@@ -407,7 +420,20 @@
       "verificationPatternNote": "Bug arquitetural de armazenamento de segredo. Não há regex única confiável; exigir migration, regressões e healthCheckRule específico.",
       "healthCheckRule": "auth-bearer-secrets-hashed-at-rest",
       "regressionTest": "src/__tests__/api/auth/regression/AUTH-P1-005.test.ts",
-      "fix": "Migrar sessão, refresh token e trusted device para lookup por hash/selector seguro, com comparação de hash e sem persistir bearer secret bruto."
+      "fix": "Migrar sessão, refresh token e trusted device para lookup por hash/selector seguro, com comparação de hash e sem persistir bearer secret bruto.",
+      "fixedAt": "2026-05-28",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "d8ea8a8",
+      "stateHistory": [
+        {
+          "date": "2026-05-28",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "full-audit-auth-2026-05-27",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     },
     {
       "id": "AUTH-P2-003",
@@ -415,7 +441,7 @@
       "priority": "P2",
       "title": "Logout usa composição SQL frágil para revogar trusted device",
       "description": "A reauditoria manual encontrou composição incorreta/frágil de SQL no logout ao tentar condicionar a deleção do DispositivoConfiavel atual. O teste de regressão atual valida apenas que $executeRaw foi chamado, não que a deleção é semanticamente correta.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-27",
       "auditRef": "full-audit-auth-2026-05-27#P2-01",
       "affectedFiles": [
@@ -426,7 +452,20 @@
       "verificationPatternNote": "Bug semântico de query Prisma/raw SQL; cobertura deve validar parâmetros e resultado da revogação, não apenas chamada genérica.",
       "healthCheckRule": "auth-logout-device-trust-query-safe",
       "regressionTest": "src/__tests__/api/auth/logout.test.ts",
-      "fix": "Substituir composição SQL frágil por query explícita e testável para remover o trusted device atual por usuarioId + token/device hash."
+      "fix": "Substituir composição SQL frágil por query explícita e testável para remover o trusted device atual por usuarioId + token/device hash.",
+      "fixedAt": "2026-05-28",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "d8ea8a8",
+      "stateHistory": [
+        {
+          "date": "2026-05-28",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "full-audit-auth-2026-05-27",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     },
     {
       "id": "AUTH-P2-004",
@@ -434,7 +473,7 @@
       "priority": "P2",
       "title": "TTL do access token diverge entre login MFA e refresh",
       "description": "Login e MFA emitem authToken com maxAge de 8 horas, enquanto o refresh emite access token de 15 minutos. A política implícita pode causar 401 inesperado ou sessão inconsistente após o primeiro refresh.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-27",
       "auditRef": "full-audit-auth-2026-05-27#P2-02",
       "affectedFiles": [
@@ -447,7 +486,20 @@
       "verificationPatternNote": "Bug de política/contrato de sessão; exige constante única de TTL e regressão de contrato.",
       "healthCheckRule": "auth-access-token-ttl-consistent",
       "regressionTest": "src/__tests__/api/auth/regression/AUTH-P2-004.test.ts",
-      "fix": "Centralizar TTL do access token e alinhar login, MFA, refresh e cookies a uma política explícita."
+      "fix": "Centralizar TTL do access token e alinhar login, MFA, refresh e cookies a uma política explícita.",
+      "fixedAt": "2026-05-28",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "d8ea8a8",
+      "stateHistory": [
+        {
+          "date": "2026-05-28",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "full-audit-auth-2026-05-27",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     },
     {
       "id": "AUTH-P3-001",
@@ -455,7 +507,7 @@
       "priority": "P3",
       "title": "Drift de contrato MFA challenge em teste E2E",
       "description": "Teste/documentação E2E ainda descreve que verificação MFA direta não requer mfaChallenge token, enquanto o handler atual exige challenge para LOGIN e PRIMEIRO_ACESSO. Isso enfraquece a governança do fluxo anti-bypass.",
-      "status": "OPEN",
+      "status": "FIXED",
       "detectedAt": "2026-05-27",
       "auditRef": "full-audit-auth-2026-05-27#P3-01",
       "affectedFiles": [
@@ -467,7 +519,20 @@
       "verificationPatternNote": "Drift documental/teste. Cobertura via atualização do teste E2E e checklist manual do Auth.",
       "healthCheckRule": "auth-mfa-challenge-contract",
       "regressionTest": "src/__tests__/api/auth/regression/AUTH-P3-001.test.ts",
-      "fix": "Atualizar teste/documentação E2E para refletir contrato atual de challenge obrigatório nos fluxos LOGIN e PRIMEIRO_ACESSO."
+      "fix": "Atualizar teste/documentação E2E para refletir contrato atual de challenge obrigatório nos fluxos LOGIN e PRIMEIRO_ACESSO.",
+      "fixedAt": "2026-05-28",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "d8ea8a8",
+      "stateHistory": [
+        {
+          "date": "2026-05-28",
+          "from": "OPEN",
+          "to": "FIXED",
+          "by": "copilot-agent",
+          "auditRef": "full-audit-auth-2026-05-27",
+          "source": "scripts/mark-bug-fixed.mjs"
+        }
+      ]
     }
   ]
 }
