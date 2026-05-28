@@ -1,0 +1,5 @@
+export const AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS = 8 * 60 * 60;
+export const AUTH_ACCESS_TOKEN_EXPIRY = '8h';
+export const AUTH_REFRESH_TOKEN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+export const AUTH_SESSION_MAX_AGE_SECONDS = 24 * 60 * 60;
+export const AUTH_DEVICE_TRUST_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;

@@ -13,6 +13,14 @@ import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 
 import { logger } from '@/lib/api/logger';
+import { hashAuthToken } from '@/shared/lib/auth-token-hash';
+import {
+  AUTH_ACCESS_TOKEN_EXPIRY,
+  AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS,
+  AUTH_DEVICE_TRUST_MAX_AGE_SECONDS,
+  AUTH_REFRESH_TOKEN_MAX_AGE_SECONDS,
+  AUTH_SESSION_MAX_AGE_SECONDS,
+} from '@/shared/lib/auth-constants';
 
 function getClientIP(req: NextRequest): string {
   return (
@@ -282,7 +290,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   const session = user.primeiroAcesso
     ? undefined
-    : (async () => {
+    : await (async () => {
         try {
           return await SecurityService.createSession(user.id, reqIp, reqUA);
         } catch (e) {
@@ -301,7 +309,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         tokenVersion: user.tokenVersion,
         sessionId: session?.id,
       },
-      '8h',
+      AUTH_ACCESS_TOKEN_EXPIRY,
     ),
     (async () => {
       try {
@@ -354,7 +362,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 8 * 60 * 60, // 8 hours
+      maxAge: AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS,
       path: '/',
     });
 
@@ -364,7 +372,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60, // 7 days
+        maxAge: AUTH_REFRESH_TOKEN_MAX_AGE_SECONDS,
         path: '/api/auth',
       });
     }
@@ -424,7 +432,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 8 * 60 * 60, // 8 hours
+    maxAge: AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS,
     path: '/',
   });
 
@@ -434,7 +442,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: AUTH_REFRESH_TOKEN_MAX_AGE_SECONDS,
       path: '/api/auth',
     });
   }
@@ -444,25 +452,26 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60,
+      maxAge: AUTH_SESSION_MAX_AGE_SECONDS,
     });
   }
 
   // Lembrar dispositivo por 30 dias (fire-and-forget)
   if (rememberDevice && !user.primeiroAcesso) {
     const deviceToken = randomUUID().replace(/-/g, '');
+    const deviceTokenHash = hashAuthToken(deviceToken);
     const ip = getClientIP(req);
     const ua = req.headers.get('user-agent') || null;
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     prisma.$executeRaw`
-        INSERT INTO DispositivoConfiavel (empresaId, usuarioId, deviceToken, userAgent, ip, nome, expiresAt)
-        VALUES (${user.empresaId}, ${user.id}, ${deviceToken}, ${ua}, ${ip}, ${ua ? ua.slice(0, 50) : null}, ${expiresAt})
+        INSERT INTO DispositivoConfiavel (empresaId, usuarioId, deviceToken, deviceTokenHash, userAgent, ip, nome, expiresAt)
+        VALUES (${user.empresaId}, ${user.id}, ${deviceTokenHash}, ${deviceTokenHash}, ${ua}, ${ip}, ${ua ? ua.slice(0, 50) : null}, ${expiresAt})
       `.catch((e) => logger.warn('[MFA] Falha ao salvar dispositivo confiável', { error: e }));
     response.cookies.set('deviceTrust', deviceToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge: AUTH_DEVICE_TRUST_MAX_AGE_SECONDS,
       path: '/',
     });
   }

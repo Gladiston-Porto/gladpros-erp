@@ -26,10 +26,14 @@ import { requireUser } from '@/shared/lib/rbac';
 const mockQueryRaw = prisma.$queryRaw as jest.Mock;
 const mockVerify = verifyAuthJWT as jest.Mock;
 
-function makeRequest(token?: string) {
+function makeRequest(token?: string, sessionToken?: string) {
   return {
     cookies: {
-      get: (name: string) => (name === 'authToken' && token ? { value: token } : undefined),
+      get: (name: string) => {
+        if (name === 'authToken' && token) return { value: token };
+        if (name === 'sessionToken' && sessionToken) return { value: sessionToken };
+        return undefined;
+      },
     },
     headers: {
       get: () => null,
@@ -83,12 +87,26 @@ describe('requireUser — bloqueio de usuário INATIVO', () => {
     await expect(requireUser(makeRequest())).rejects.toThrow('UNAUTHENTICATED');
   });
 
-  it('RBAC_TRUST_JWT=1: confia no JWT sem DB check (revogação imediata não garantida neste modo)', async () => {
+  it('RBAC_TRUST_JWT=1: token legado sem sessionId ainda usa JWT sem DB check', async () => {
     process.env.RBAC_TRUST_JWT = '1';
     const user = await requireUser(makeRequest('valid.jwt.token'));
-    // No modo trust-JWT, não deve chamar o banco
     expect(mockQueryRaw).not.toHaveBeenCalled();
     expect(user.role).toBe('USUARIO');
+  });
+
+  it('RBAC_TRUST_JWT=1: token com sessionId exige sessão ativa no DB', async () => {
+    // @bug:AUTH-P1-004
+    process.env.RBAC_TRUST_JWT = '1';
+    mockVerify.mockResolvedValue({ ...validClaims, sessionId: 33 });
+    mockQueryRaw
+      .mockResolvedValueOnce([{ nivel: 'USUARIO', status: 'ATIVO', tokenVersion: 3 }])
+      .mockResolvedValueOnce([]);
+
+    await expect(requireUser(makeRequest('valid.jwt.token', 'revoked-session'))).rejects.toThrow(
+      'UNAUTHENTICATED',
+    );
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
   });
 
   it('RBAC_TRUST_JWT=0: usuário não encontrado no DB → UNAUTHENTICATED', async () => {

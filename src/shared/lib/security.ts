@@ -2,12 +2,14 @@
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { hashAuthToken } from '@/shared/lib/auth-token-hash';
 
 // Minimal Prisma delegate types we consume
 type SessaoAtivaRow = {
   id: number;
   usuarioId: number;
   token: string;
+  tokenHash: string;
   ip: string | null;
   userAgent: string | null;
   cidade: string | null;
@@ -118,6 +120,7 @@ export class SecurityService {
     userAgent?: string,
   ): Promise<{ id: number; token: string }> {
     const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashAuthToken(token);
 
     // Cleanup de sessões expiradas (throttled).
     const cleanupPromise =
@@ -135,13 +138,13 @@ export class SecurityService {
 
     // INSERT direto via SQL — evita o SELECT de read-back que o delegate.create() força.
     await prisma.$executeRaw`
-      INSERT INTO SessaoAtiva (usuarioId, token, ip, userAgent, ultimaAtividade, criadoEm)
-      VALUES (${usuarioId}, ${token}, ${ip || null}, ${userAgent || null}, NOW(), NOW())
+      INSERT INTO SessaoAtiva (usuarioId, token, tokenHash, ip, userAgent, ultimaAtividade, criadoEm)
+      VALUES (${usuarioId}, ${tokenHash}, ${tokenHash}, ${ip || null}, ${userAgent || null}, NOW(), NOW())
     `;
 
     const rows = await prisma.$queryRaw<Array<{ id: number }>>`
       SELECT id FROM SessaoAtiva
-      WHERE token = ${token}
+      WHERE tokenHash = ${tokenHash}
       LIMIT 1
     `;
 
@@ -152,6 +155,7 @@ export class SecurityService {
   }
 
   static async updateSessionActivity(token: string) {
+    const tokenHash = hashAuthToken(token);
     const delegate = (prisma as unknown as { sessaoAtiva?: SessaoAtivaDelegate }).sessaoAtiva;
     if (delegate?.update) {
       await delegate
@@ -166,7 +170,7 @@ export class SecurityService {
     }
     // Fallback SQL
     await prisma.$executeRaw`
-      UPDATE SessaoAtiva SET ultimaAtividade = NOW() WHERE token = ${token}
+      UPDATE SessaoAtiva SET ultimaAtividade = NOW() WHERE tokenHash = ${tokenHash}
     `;
     // Sessão pode não existir (expirada ou revogada)
   }
@@ -181,7 +185,7 @@ export class SecurityService {
       });
     } else {
       sessions = await prisma.$queryRaw<Array<SessaoAtivaRow>>`
-        SELECT id, usuarioId, token, ip, userAgent, cidade, pais, ultimaAtividade, criadoEm
+        SELECT id, usuarioId, token, tokenHash, ip, userAgent, cidade, pais, ultimaAtividade, criadoEm
         FROM SessaoAtiva
         WHERE usuarioId = ${usuarioId}
         ORDER BY ultimaAtividade DESC
@@ -218,13 +222,14 @@ export class SecurityService {
   }
 
   static async revokeSessionByToken(token: string) {
+    const tokenHash = hashAuthToken(token);
     const delegate = (prisma as unknown as { sessaoAtiva?: SessaoAtivaDelegate }).sessaoAtiva;
     if (delegate?.deleteMany) {
       await delegate.deleteMany({ where: { token } });
       return;
     }
     await prisma.$executeRaw`
-      DELETE FROM SessaoAtiva WHERE token = ${token}
+      DELETE FROM SessaoAtiva WHERE tokenHash = ${tokenHash}
     `;
   }
 

@@ -4,6 +4,7 @@ import { requireUser } from '@/shared/lib/rbac';
 import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { revokeAllUserTokens, revokeAllUserTokensExceptSession } from '@/lib/auth/token-service';
+import { hashAuthToken } from '@/shared/lib/auth-token-hash';
 
 export const runtime = 'nodejs';
 
@@ -19,6 +20,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   // Ler token atual do cookie para identificar sessão corrente
   const currentToken = req.cookies.get('sessionToken')?.value ?? null;
+  const currentTokenHash = currentToken ? hashAuthToken(currentToken) : null;
 
   const countRows = await prisma.$queryRaw<Array<{ total: bigint | number }>>`
     SELECT COUNT(*) as total
@@ -36,10 +38,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       pais: string | null;
       ultimaAtividade: Date;
       criadoEm: Date;
-      token: string;
+      tokenHash: string;
     }>
   >`
-    SELECT id, ip, userAgent, cidade, pais, ultimaAtividade, criadoEm, token
+    SELECT id, ip, userAgent, cidade, pais, ultimaAtividade, criadoEm, tokenHash
     FROM SessaoAtiva
     WHERE usuarioId = ${userId}
     ORDER BY ultimaAtividade DESC
@@ -58,7 +60,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         ? s.ultimaAtividade.toISOString()
         : String(s.ultimaAtividade),
     criadoEm: s.criadoEm instanceof Date ? s.criadoEm.toISOString() : String(s.criadoEm),
-    isCurrent: currentToken !== null && s.token === currentToken,
+    isCurrent: currentTokenHash !== null && s.tokenHash === currentTokenHash,
   }));
 
   return NextResponse.json({
@@ -79,23 +81,24 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const userId = Number(me.id);
 
   const currentToken = req.cookies.get('sessionToken')?.value ?? null;
+  const currentTokenHash = currentToken ? hashAuthToken(currentToken) : null;
   let currentSessionId: number | null = null;
 
-  if (currentToken) {
+  if (currentTokenHash) {
     const currentRows = await prisma.$queryRaw<Array<{ id: number }>>`
       SELECT id FROM SessaoAtiva
       WHERE usuarioId = ${userId}
-        AND token = ${currentToken}
+        AND tokenHash = ${currentTokenHash}
       LIMIT 1
     `;
     currentSessionId = Number(currentRows[0]?.id ?? 0) || null;
   }
 
-  if (currentToken) {
+  if (currentTokenHash) {
     await prisma.$executeRaw`
       DELETE FROM SessaoAtiva
       WHERE usuarioId = ${userId}
-      AND token != ${currentToken}
+      AND tokenHash != ${currentTokenHash}
     `;
     if (currentSessionId) {
       await revokeAllUserTokensExceptSession(

@@ -58,13 +58,11 @@ test.describe('Auth Regression Guards', () => {
     await seedAuthenticatedSessionFromDatabase(page, QA_ADMIN_EMAIL);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: AUTH_TIMEOUT_MS });
 
-    const tokenFromJs = await page.evaluate(() =>
-      document.cookie.includes('authToken')
-    );
+    const tokenFromJs = await page.evaluate(() => document.cookie.includes('authToken'));
     expect(tokenFromJs).toBe(false);
 
     const cookies = await page.context().cookies();
-    const authCookie = cookies.find(c => c.name === 'authToken');
+    const authCookie = cookies.find((c) => c.name === 'authToken');
     expect(authCookie?.httpOnly).toBe(true);
   });
 
@@ -98,9 +96,12 @@ test.describe('Auth Regression Guards', () => {
   });
 
   test('[API-001] mfa/verify com código inválido retorna { success: false }', async ({ page }) => {
-    // Direct call — verify endpoint does not require mfaChallenge token
+    // @bug:AUTH-P3-001
+    // LOGIN/PRIMEIRO_ACESSO exige challenge válido; o erro testado aqui é só o código MFA.
+    const { mfaChallenge } = await setupMfaChallenge(page.request, BASE_URL, QA_ADMIN_ID);
+
     const resp = await page.request.post('/api/auth/mfa/verify', {
-      data: { userId: QA_ADMIN_ID, code: '000000' },
+      data: { userId: QA_ADMIN_ID, code: '000000', challenge: mfaChallenge },
       headers: { 'Content-Type': 'application/json' },
     });
 
@@ -138,10 +139,12 @@ test.describe('Auth Regression Guards', () => {
   });
 
   // [UI-001] página MFA mostra mensagem real da API
-  test('[UI-001] página /mfa renderiza mensagem específica de erro da API (não mensagem genérica)', async ({ page }) => {
+  test('[UI-001] página /mfa renderiza mensagem específica de erro da API (não mensagem genérica)', async ({
+    page,
+  }) => {
     await page.goto(
       `/mfa?userId=${QA_ADMIN_ID}&email=${encodeURIComponent(QA_ADMIN_EMAIL)}&name=QA+Admin`,
-      { waitUntil: 'networkidle', timeout: AUTH_TIMEOUT_MS }
+      { waitUntil: 'networkidle', timeout: AUTH_TIMEOUT_MS },
     );
 
     // Submeter código inválido via UI
@@ -159,14 +162,23 @@ test.describe('Auth Regression Guards', () => {
       await page.waitForTimeout(2000);
 
       // Não deve exibir a mensagem genérica "Algo deu errado" (bug antigo)
-      const genericError = await page.getByText('Algo deu errado').isVisible().catch(() => false);
+      const genericError = await page
+        .getByText('Algo deu errado')
+        .isVisible()
+        .catch(() => false);
       expect(genericError).toBe(false);
 
       // Deve exibir uma mensagem específica
-      const hasErrorMsg = await page.locator('[class*="destructive"], [class*="error"], [role="alert"]').isVisible().catch(() => false);
+      const hasErrorMsg = await page
+        .locator('[class*="destructive"], [class*="error"], [role="alert"]')
+        .isVisible()
+        .catch(() => false);
       // Se o código chegou a ser processado, deve haver mensagem de erro específica
       if (hasErrorMsg) {
-        const errorText = await page.locator('[class*="destructive"], [class*="error"], [role="alert"]').first().textContent();
+        const errorText = await page
+          .locator('[class*="destructive"], [class*="error"], [role="alert"]')
+          .first()
+          .textContent();
         expect(errorText).not.toBe('Algo deu errado');
       }
     }
@@ -222,7 +234,9 @@ test.describe('Auth Regression Guards', () => {
   });
 
   // [P2-005] unlock com userId inexistente retorna 400 (não 404 — anti-enumeration)
-  test('[P2-005] unlock com userId inexistente retorna 400 genérico — não expõe existência do ID', async ({ page }) => {
+  test('[P2-005] unlock com userId inexistente retorna 400 genérico — não expõe existência do ID', async ({
+    page,
+  }) => {
     const resp = await page.request.post('/api/auth/unlock', {
       data: { method: 'pin', userId: 999999999, pin: '1234' },
       headers: { 'Content-Type': 'application/json' },

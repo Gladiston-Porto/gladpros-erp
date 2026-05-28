@@ -22,6 +22,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { refreshAccessToken } from '@/lib/auth/token-service';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { apiRateLimit } from '@/shared/lib/rate-limit';
+import {
+  AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS,
+  AUTH_REFRESH_TOKEN_MAX_AGE_SECONDS,
+} from '@/shared/lib/auth-constants';
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
   // 1. Extrair refresh token do cookie httpOnly (seguro)
@@ -83,7 +87,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       httpOnly: true,
       secure: isProd,
       sameSite: 'lax',
-      maxAge: 15 * 60, // 15 minutos
+      maxAge: AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS,
       path: '/',
     });
 
@@ -91,7 +95,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       httpOnly: true,
       secure: isProd,
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60, // 7 dias
+      maxAge: AUTH_REFRESH_TOKEN_MAX_AGE_SECONDS,
       path: '/api/auth',
     });
 

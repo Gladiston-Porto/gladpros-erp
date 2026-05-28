@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAuthJWT } from '@/shared/lib/jwt';
 import { hasTokenVersionColumn } from '@/shared/lib/db-metadata';
 import { revokeRefreshToken, revokeTokensForSession } from '@/lib/auth/token-service';
+import { hashAuthToken } from '@/shared/lib/auth-token-hash';
 
 export const POST = withErrorHandler(async (request: Request) => {
   const payload: Record<string, unknown> = {
@@ -54,9 +55,10 @@ export const POST = withErrorHandler(async (request: Request) => {
     let currentUserId: number | null = null;
 
     if (sessionToken) {
+      const sessionTokenHash = hashAuthToken(sessionToken);
       const sessionRows = await prisma.$queryRaw<Array<{ id: number; usuarioId: number }>>`
         SELECT id, usuarioId FROM SessaoAtiva
-        WHERE token = ${sessionToken}
+        WHERE tokenHash = ${sessionTokenHash}
         LIMIT 1
       `;
       currentSessionId = Number(sessionRows[0]?.id ?? 0) || null;
@@ -113,11 +115,12 @@ export const POST = withErrorHandler(async (request: Request) => {
     }
 
     if (deviceTrustToken) {
+      const deviceTrustHash = hashAuthToken(deviceTrustToken);
       asyncTasks.push(
         prisma.$executeRaw`
           DELETE FROM DispositivoConfiavel
-          WHERE deviceToken = ${deviceTrustToken}
-            ${currentUserId ? prisma.$queryRaw`AND usuarioId = ${currentUserId}` : prisma.$queryRaw``}
+          WHERE deviceTokenHash = ${deviceTrustHash}
+            AND (${currentUserId} IS NULL OR usuarioId = ${currentUserId})
         `.catch((e: unknown) => {
           logger.warn('[Logout] Falha ao revogar deviceTrust', { error: e });
         }) as unknown as Promise<void>,

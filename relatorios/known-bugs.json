@@ -383,6 +383,7 @@
       "verificationPattern": null,
       "verificationPatternNote": "Bug semântico/cross-módulo: depende de configuração RBAC_TRUST_JWT, claims do JWT, sessionToken e estado do usuário. Cobertura exigida por regressionTest + healthCheckRule a implementar.",
       "healthCheckRule": "auth-session-bound-require-user",
+      "regressionTest": "src/__tests__/unit/lib/rbac-require-user.test.ts",
       "fix": "Garantir que access tokens vinculados à sessão sejam rejeitados quando a sessão estiver revogada, usuário inativo, tokenVersion alterado ou role alterada; ajustar RBAC_TRUST_JWT para não contornar revogação crítica."
     },
     {
@@ -405,6 +406,7 @@
       "verificationPattern": null,
       "verificationPatternNote": "Bug arquitetural de armazenamento de segredo. Não há regex única confiável; exigir migration, regressões e healthCheckRule específico.",
       "healthCheckRule": "auth-bearer-secrets-hashed-at-rest",
+      "regressionTest": "src/__tests__/api/auth/regression/AUTH-P1-005.test.ts",
       "fix": "Migrar sessão, refresh token e trusted device para lookup por hash/selector seguro, com comparação de hash e sem persistir bearer secret bruto."
     },
     {
@@ -423,6 +425,7 @@
       "verificationPattern": null,
       "verificationPatternNote": "Bug semântico de query Prisma/raw SQL; cobertura deve validar parâmetros e resultado da revogação, não apenas chamada genérica.",
       "healthCheckRule": "auth-logout-device-trust-query-safe",
+      "regressionTest": "src/__tests__/api/auth/logout.test.ts",
       "fix": "Substituir composição SQL frágil por query explícita e testável para remover o trusted device atual por usuarioId + token/device hash."
     },
     {
@@ -443,6 +446,7 @@
       "verificationPattern": null,
       "verificationPatternNote": "Bug de política/contrato de sessão; exige constante única de TTL e regressão de contrato.",
       "healthCheckRule": "auth-access-token-ttl-consistent",
+      "regressionTest": "src/__tests__/api/auth/regression/AUTH-P2-004.test.ts",
       "fix": "Centralizar TTL do access token e alinhar login, MFA, refresh e cookies a uma política explícita."
     },
     {
@@ -462,6 +466,7 @@
       "verificationPattern": null,
       "verificationPatternNote": "Drift documental/teste. Cobertura via atualização do teste E2E e checklist manual do Auth.",
       "healthCheckRule": "auth-mfa-challenge-contract",
+      "regressionTest": "src/__tests__/api/auth/regression/AUTH-P3-001.test.ts",
       "fix": "Atualizar teste/documentação E2E para refletir contrato atual de challenge obrigatório nos fluxos LOGIN e PRIMEIRO_ACESSO."
     }
   ]

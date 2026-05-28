@@ -5,7 +5,7 @@
  * Integrado com VUL-004: KMS para gerenciamento seguro de chaves JWT
  *
  * Features:
- * - Access tokens de curta duração (15 minutos)
+ * - Access tokens com TTL centralizado no contrato Auth
  * - Refresh tokens de longa duração (7 dias)
  * - Rotation automática de refresh tokens
  * - Cadeia de auditoria (rotation chain)
@@ -20,8 +20,14 @@ import { prisma } from '@/lib/prisma';
 import { KMS } from '@/lib/security/kms';
 import { signAuthJWT, type Role } from '@/shared/lib/jwt';
 import { logger } from '@/lib/api/logger';
+import { hashAuthToken } from '@/shared/lib/auth-token-hash';
+import {
+  AUTH_ACCESS_TOKEN_EXPIRY,
+  AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS,
+} from '@/shared/lib/auth-constants';
 
-const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutos
+export const ACCESS_TOKEN_EXPIRY = AUTH_ACCESS_TOKEN_EXPIRY;
+export const ACCESS_TOKEN_MAX_AGE_SECONDS = AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS;
 const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias em ms (para datas)
 const REFRESH_TOKEN_EXPIRY_JWT = '7d'; // 7 dias (para jwt.sign expiresIn — aceita string, não ms)
 
@@ -198,9 +204,11 @@ export async function generateTokenPair(
 
   // Salvar refresh token no banco (access token é stateless)
   try {
+    const refreshTokenHash = hashAuthToken(refreshToken);
     await prisma.refreshToken.create({
       data: {
-        token: refreshToken,
+        token: refreshTokenHash,
+        tokenHash: refreshTokenHash,
         usuarioId: userId,
         sessionId: metadata?.sessionId ?? null,
         jti: refreshJti,
@@ -245,9 +253,10 @@ export async function generateRefreshToken(
   });
 
   try {
+    const refreshTokenHash = hashAuthToken(refreshToken);
     await prisma.$executeRaw`
-      INSERT INTO refresh_tokens (token, usuarioId, sessionId, jti, revogado, expiraEm, ip, userAgent, criadoEm)
-      VALUES (${refreshToken}, ${userId}, ${metadata?.sessionId ?? null}, ${refreshJti}, FALSE, ${refreshTokenExpiresAt}, ${metadata?.ip ?? null}, ${metadata?.userAgent ?? null}, NOW())
+      INSERT INTO refresh_tokens (token, tokenHash, usuarioId, sessionId, jti, revogado, expiraEm, ip, userAgent, criadoEm)
+      VALUES (${refreshTokenHash}, ${refreshTokenHash}, ${userId}, ${metadata?.sessionId ?? null}, ${refreshJti}, FALSE, ${refreshTokenExpiresAt}, ${metadata?.ip ?? null}, ${metadata?.userAgent ?? null}, NOW())
     `;
   } catch (error) {
     logger.error('[generateRefreshToken] Failed to save refreshToken', { error });
@@ -483,7 +492,7 @@ export async function refreshAccessToken(
       SELECT id FROM SessaoAtiva
       WHERE id = ${boundSessionId}
         AND usuarioId = ${validated.userId}
-        AND token = ${currentSessionToken}
+        AND tokenHash = ${hashAuthToken(currentSessionToken)}
       LIMIT 1
     `;
 
@@ -524,7 +533,7 @@ export async function refreshAccessToken(
   const refreshJti = generateJti();
 
   const now = new Date();
-  const accessTokenExpiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+  const accessTokenExpiresAt = new Date(now.getTime() + AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS * 1000);
   const refreshTokenExpiresAt = new Date(now.getTime() + REFRESH_TOKEN_EXPIRY_MS);
 
   const refreshPayload: TokenPayload = {
@@ -556,9 +565,11 @@ export async function refreshAccessToken(
 
   // 5. Salvar novo refresh token com referência ao anterior (rotation chain)
 
+  const refreshTokenHash = hashAuthToken(refreshToken);
   await prisma.refreshToken.create({
     data: {
-      token: refreshToken,
+      token: refreshTokenHash,
+      tokenHash: refreshTokenHash,
       usuarioId: usuario.id,
       sessionId: boundSessionId,
       jti: refreshJti,
@@ -589,9 +600,10 @@ export async function revokeRefreshToken(
   motivo: string = 'Logout do usuário',
 ): Promise<void> {
   try {
+    const tokenHash = hashAuthToken(token);
     const revokedByToken = await prisma.refreshToken.updateMany({
       where: {
-        token,
+        tokenHash,
         revogado: false,
       },
       data: {

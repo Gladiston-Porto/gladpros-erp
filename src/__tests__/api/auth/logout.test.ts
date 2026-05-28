@@ -29,6 +29,7 @@ jest.mock('next/server', () => ({
 jest.mock('../../../lib/prisma', () => ({
   prisma: {
     $executeRaw: jest.fn().mockResolvedValue(1),
+    $queryRaw: jest.fn().mockResolvedValue([]),
   },
 }));
 
@@ -186,6 +187,25 @@ describe('POST /api/auth/logout', () => {
       'Logout da sessão atual',
     );
     expect(require('../../../lib/prisma').prisma.$executeRaw).toHaveBeenCalled();
+  });
+
+  it('revoga deviceTrust por deviceTokenHash sem SQL raw aninhado', async () => {
+    // @bug:AUTH-P2-003
+    (mockRequest.headers.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === 'cookie') return 'deviceTrust=trust-123';
+      return null;
+    });
+
+    await POST(mockRequest);
+
+    const executeCalls = require('../../../lib/prisma').prisma.$executeRaw.mock.calls;
+    const sql = executeCalls.map((call: unknown[]) => String(call[0])).join('\n');
+    const values = executeCalls.flatMap((call: unknown[]) => call.slice(1));
+
+    expect(sql).toContain('DELETE FROM DispositivoConfiavel');
+    expect(sql).toContain('deviceTokenHash');
+    expect(sql).not.toContain('deviceToken =');
+    expect(values).not.toContain('trust-123');
   });
 
   it('aceita token via Authorization: Bearer como alternativa ao cookie', async () => {
