@@ -19,7 +19,7 @@ describe('REGRESSION USUARIOS-P3-001', () => {
     expect(detailRoute).not.toMatch(/function\s+withRetry\s*\(/);
 
     // Contrato atual: ambas importam helper compartilhado
-    expect(listRoute).toContain('import { withRetry } from "@/lib/utils/retry";');
+    expect(listRoute).toContain("import { withRetry } from '@/lib/utils/retry';");
     expect(detailRoute).toContain("import { withRetry } from '@/lib/utils/retry';");
   });
 });
