@@ -101,6 +101,7 @@
     "src/__tests__/api/auth/regression/AUTH-P2-004.test.ts",
     "src/__tests__/api/auth/regression/AUTH-P3-001.test.ts"
   ],
+  "testCommandsRequired": ["npx jest src/__tests__/api/auth --runInBand --no-coverage"],
   "manualAudit": {
     "lastReviewedAt": "2026-05-27",
     "source": "Reauditoria manual completa pós-fix: vulnerabilidades, bugs, lógica de negócio, lógica Auth e impactos cross-módulo conforme AGENTS.md.",

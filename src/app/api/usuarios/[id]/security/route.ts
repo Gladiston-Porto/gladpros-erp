@@ -42,7 +42,7 @@ export const GET = withErrorHandler(
     >`
       SELECT id, bloqueado, bloqueadoEm, ultimoLoginEm
       FROM Usuario
-      WHERE id = ${userId}
+      WHERE id = ${userId} AND empresaId = ${authUser.empresaId}
       LIMIT 1
     `;
 

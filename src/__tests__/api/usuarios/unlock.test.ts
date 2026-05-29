@@ -1,11 +1,15 @@
 jest.mock('next/server', () => {
   return {
-    NextRequest: jest.fn().mockImplementation((url: string, init?: { method?: string; headers?: Record<string, string> }) => ({
-      url,
-      method: (init?.method ?? 'POST').toUpperCase(),
-      headers: { get: (name: string) => (init?.headers ?? {})[name] ?? null },
-      json: jest.fn().mockResolvedValue({}),
-    })),
+    NextRequest: jest
+      .fn()
+      .mockImplementation(
+        (url: string, init?: { method?: string; headers?: Record<string, string> }) => ({
+          url,
+          method: (init?.method ?? 'POST').toUpperCase(),
+          headers: { get: (name: string) => (init?.headers ?? {})[name] ?? null },
+          json: jest.fn().mockResolvedValue({}),
+        }),
+      ),
     NextResponse: {
       json: jest.fn().mockImplementation((data: unknown, options?: { status?: number }) => ({
         status: options?.status ?? 200,
@@ -22,6 +26,7 @@ jest.mock('@/lib/prisma', () => ({
   prisma: {
     usuario: {
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     $queryRaw: jest.fn(),
   },
@@ -57,7 +62,9 @@ import { POST } from '@/app/api/usuarios/[id]/unlock/route';
 const mockRequireUser = requireUser as jest.MockedFunction<typeof requireUser>;
 const mockCan = can as jest.MockedFunction<typeof can>;
 const mockQueryRaw = prisma.$queryRaw as jest.MockedFunction<typeof prisma.$queryRaw>;
-const mockUpdate = prisma.usuario.update as jest.MockedFunction<typeof prisma.usuario.update>;
+const mockUpdateMany = prisma.usuario.updateMany as jest.MockedFunction<
+  typeof prisma.usuario.updateMany
+>;
 
 function makeReq(id = '5') {
   return new NextRequest(`http://localhost/api/usuarios/${id}/unlock`, { method: 'POST' });
@@ -73,8 +80,12 @@ describe('POST /api/usuarios/[id]/unlock', () => {
   });
 
   it('retorna 401 quando não autenticado', async () => {
-    mockRequireUser.mockRejectedValue(Object.assign(new Error('UNAUTHENTICATED'), { digest: 'NEXT_REDIRECT' }));
-    await expect(POST(makeReq(), { params: Promise.resolve({ id: '5' }) })).rejects.toThrow('UNAUTHENTICATED');
+    mockRequireUser.mockRejectedValue(
+      Object.assign(new Error('UNAUTHENTICATED'), { digest: 'NEXT_REDIRECT' }),
+    );
+    await expect(POST(makeReq(), { params: Promise.resolve({ id: '5' }) })).rejects.toThrow(
+      'UNAUTHENTICATED',
+    );
   });
 
   it('retorna 403 quando sem permissão', async () => {
@@ -101,7 +112,13 @@ describe('POST /api/usuarios/[id]/unlock', () => {
 
   it('retorna 400 quando usuário não está bloqueado', async () => {
     mockQueryRaw.mockResolvedValue([
-      { id: 5, email: 'user@gladpros.com', nomeCompleto: 'Usuário Teste', bloqueado: false, status: 'ATIVO' },
+      {
+        id: 5,
+        email: 'user@gladpros.com',
+        nomeCompleto: 'Usuário Teste',
+        bloqueado: false,
+        status: 'ATIVO',
+      },
     ]);
     const res = await POST(makeReq(), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(400);
@@ -109,7 +126,13 @@ describe('POST /api/usuarios/[id]/unlock', () => {
 
   it('retorna 400 quando bloqueado = 0 (MySQL TINYINT)', async () => {
     mockQueryRaw.mockResolvedValue([
-      { id: 5, email: 'user@gladpros.com', nomeCompleto: 'Usuário Teste', bloqueado: 0, status: 'ATIVO' },
+      {
+        id: 5,
+        email: 'user@gladpros.com',
+        nomeCompleto: 'Usuário Teste',
+        bloqueado: 0,
+        status: 'ATIVO',
+      },
     ]);
     const res = await POST(makeReq(), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(400);
@@ -117,32 +140,45 @@ describe('POST /api/usuarios/[id]/unlock', () => {
 
   it('desbloqueia corretamente e retorna 200 (bloqueado = true)', async () => {
     mockQueryRaw.mockResolvedValue([
-      { id: 5, email: 'user@gladpros.com', nomeCompleto: 'Usuário Bloqueado', bloqueado: true, status: 'ATIVO' },
+      {
+        id: 5,
+        email: 'user@gladpros.com',
+        nomeCompleto: 'Usuário Bloqueado',
+        bloqueado: true,
+        status: 'ATIVO',
+      },
     ]);
-    mockUpdate.mockResolvedValue({ id: 5 } as never);
+    mockUpdateMany.mockResolvedValue({ count: 1 } as never);
 
     const res = await POST(makeReq(), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 5 },
+        where: { id: 5, empresaId: 1 },
         data: expect.objectContaining({ bloqueado: false, bloqueadoEm: null }),
-      })
+      }),
     );
   });
 
   it('desbloqueia corretamente e retorna 200 (bloqueado = 1, MySQL TINYINT)', async () => {
     mockQueryRaw.mockResolvedValue([
-      { id: 5, email: 'user@gladpros.com', nomeCompleto: 'Usuário Bloqueado', bloqueado: 1, status: 'ATIVO' },
+      {
+        id: 5,
+        email: 'user@gladpros.com',
+        nomeCompleto: 'Usuário Bloqueado',
+        bloqueado: 1,
+        status: 'ATIVO',
+      },
     ]);
-    mockUpdate.mockResolvedValue({ id: 5 } as never);
+    mockUpdateMany.mockResolvedValue({ count: 1 } as never);
 
     const res = await POST(makeReq(), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: 5, empresaId: 1 },
         data: expect.objectContaining({ bloqueado: false, bloqueadoEm: null }),
-      })
+      }),
     );
   });
 });

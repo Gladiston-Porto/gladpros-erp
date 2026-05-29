@@ -39,7 +39,7 @@ export const POST = withErrorHandler(
       primeiroAcesso: boolean | number;
     };
     const rows = await prisma.$queryRaw<TargetRow[]>`
-    SELECT id, email, nomeCompleto, status, primeiroAcesso FROM Usuario WHERE id = ${targetId} LIMIT 1
+    SELECT id, email, nomeCompleto, status, primeiroAcesso FROM Usuario WHERE id = ${targetId} AND empresaId = ${user.empresaId} LIMIT 1
   `;
 
     const target = rows[0];
@@ -73,7 +73,7 @@ export const POST = withErrorHandler(
     const tempPassword = generateTempPassword(12);
     const senhaHash = await bcrypt.hash(tempPassword, 12);
     await prisma.$executeRaw`
-    UPDATE Usuario SET senha = ${senhaHash}, senhaProvisoria = 1, primeiroAcesso = 1, magicLinkConsumedAt = NULL WHERE id = ${targetId}
+    UPDATE Usuario SET senha = ${senhaHash}, senhaProvisoria = 1, primeiroAcesso = 1, magicLinkConsumedAt = NULL WHERE id = ${targetId} AND empresaId = ${user.empresaId}
   `;
 
     // Gerar novo magic link

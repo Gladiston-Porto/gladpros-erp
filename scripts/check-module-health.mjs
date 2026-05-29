@@ -545,6 +545,72 @@ function checkAuthInvariantViolations() {
   return violations;
 }
 
+function listTypeScriptFiles(dir) {
+  try {
+    const output = execSync(`find "${dir}" -type f -name "*.ts" -o -name "*.tsx"`, {
+      cwd: ROOT,
+      encoding: "utf-8",
+      shell: "/bin/bash",
+    });
+    return output.trim().split("\n").filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function checkUsuariosInvariantViolations() {
+  if (moduleArg && moduleArg !== "usuarios") return [];
+
+  const apiDir = path.join(ROOT, "src/app/api/usuarios");
+  if (!existsSync(apiDir)) return [];
+
+  const violations = [];
+  const files = listTypeScriptFiles(apiDir).filter((file) => !/(__tests__|\.test\.|\.spec\.)/.test(file));
+
+  for (const fullPath of files) {
+    let lines;
+    try {
+      lines = readFileSync(fullPath, "utf-8").split("\n");
+    } catch {
+      continue;
+    }
+
+    const relative = path.relative(ROOT, fullPath);
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      if (/^\s*(\/\/|\/\*|\*)/.test(trimmed)) return;
+
+      const isUsuarioSqlById = /\bFROM\s+Usuario\s+WHERE\s+id\s*=/.test(line)
+        || /\bWHERE\s+id\s*=\s*\?/.test(line)
+        || /\bWHERE\s+id\s*=\s*\$\{/.test(line);
+
+      if (isUsuarioSqlById && !/empresaId/.test(line)) {
+        violations.push({ file: relative, line: index + 1 });
+        return;
+      }
+
+      const isPrismaUsuarioById = /where\s*:\s*\{\s*id\s*[,}]/.test(line);
+      if (isPrismaUsuarioById) {
+        const context = lines.slice(index, Math.min(lines.length, index + 5)).join("\n");
+        if (!/empresaId/.test(context)) {
+          violations.push({ file: relative, line: index + 1 });
+        }
+      }
+    });
+  }
+
+  return violations.map((violation) => ({
+    rule: {
+      id: "P1-USUARIOS-EMPRESAID-ID",
+      severity: "P1",
+      description: "Query/update de Usuario por id sem empresaId no módulo usuarios",
+      fix: "Adicionar empresaId ao WHERE/where junto com id para prevenir IDOR e fix parcial.",
+    },
+    file: violation.file,
+    line: violation.line,
+  }));
+}
+
 // ── Runner ────────────────────────────────────────────────────────────────────
 
 let totalErrors = 0;
@@ -631,6 +697,26 @@ if (authInvariantViolations.length > 0) {
       grouped.set(key, { rule: v.rule, violations: [] });
     }
     grouped.get(key).violations.push(`${v.file}:${v.line}:invariante ausente`);
+  }
+
+  for (const entry of grouped.values()) {
+    totalErrors += entry.violations.length;
+    if (entry.rule.severity === "P1") P1_errors.push(entry);
+    else if (entry.rule.severity === "P2") P2_errors.push(entry);
+    else P3_errors.push(entry);
+  }
+}
+
+const usuariosInvariantViolations = checkUsuariosInvariantViolations();
+if (usuariosInvariantViolations.length > 0) {
+  const grouped = new Map();
+
+  for (const v of usuariosInvariantViolations) {
+    const key = v.rule.id;
+    if (!grouped.has(key)) {
+      grouped.set(key, { rule: v.rule, violations: [] });
+    }
+    grouped.get(key).violations.push(`${v.file}:${v.line}:empresaId ausente no acesso por id`);
   }
 
   for (const entry of grouped.values()) {

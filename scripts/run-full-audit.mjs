@@ -2,10 +2,11 @@
 /**
  * scripts/run-full-audit.mjs
  *
- * Auditoria completa de módulo: combina o gate programático existente com
- * evidência manual estruturada no audit-baseline.json. Este comando existe para
- * impedir "verde falso": se a revisão manual profunda encontrar P1/P2 aberto,
- * o módulo continua Not Ready mesmo que audit:module passe.
+ * Auditoria completa de módulo: combina o gate programático existente,
+ * evidência manual estruturada no audit-baseline.json e a suíte funcional
+ * obrigatória do módulo. Este comando existe para impedir "verde falso": se a
+ * revisão manual profunda encontrar P1/P2 aberto ou qualquer teste obrigatório
+ * falhar, o módulo continua Not Ready mesmo que audit:module passe.
  *
  * Uso:
  *   node scripts/run-full-audit.mjs --module=auth
@@ -140,7 +141,7 @@ function validateBaseline(baselinePath, baseline) {
     return;
   }
 
-  const requiredKeys = ["scope", "criticalInvariants", "expectedRoles", "knownBugs", "regressionTestsRequired"];
+  const requiredKeys = ["scope", "criticalInvariants", "expectedRoles", "knownBugs", "regressionTestsRequired", "testCommandsRequired"];
   for (const key of requiredKeys) {
     if (baseline[key] === undefined) addFinding("P1", "baseline", `baseline sem campo obrigatório: ${key}`);
   }
@@ -150,6 +151,15 @@ function validateBaseline(baselinePath, baseline) {
       "P1",
       "manual-audit",
       "baseline sem seção manualAudit; auditoria completa precisa registrar áreas revisadas e achados manuais."
+    );
+  }
+
+  const testCommands = Array.isArray(baseline.testCommandsRequired) ? baseline.testCommandsRequired : [];
+  if (testCommands.length === 0) {
+    addFinding(
+      "P1",
+      "module-tests",
+      "baseline sem testCommandsRequired; auditoria completa precisa rodar a suíte funcional obrigatória do módulo."
     );
   }
 }
@@ -209,6 +219,17 @@ function runRegressionEvidence(baseline, knownBugs) {
   }
 }
 
+function runModuleTestCommands(baseline) {
+  const commands = Array.isArray(baseline?.testCommandsRequired) ? baseline.testCommandsRequired : [];
+  for (const command of commands) {
+    if (typeof command !== "string" || command.trim() === "") {
+      addFinding("P1", "module-tests", "testCommandsRequired contém comando inválido/vazio.");
+      continue;
+    }
+    runStep(`module-test:${command}`, command, { allowFail: false });
+  }
+}
+
 function flushManifest(status, exitCode, baseline) {
   if (!existsSync(AUDIT_DIR)) mkdirSync(AUDIT_DIR, { recursive: true });
   const manifestPath = join(AUDIT_DIR, `${moduleName}-${today}-full.json`);
@@ -239,6 +260,7 @@ validateBaseline(baselinePath, baseline);
 runStep("validate:known-bugs", "node scripts/validate-known-bugs.mjs");
 runStep("audit:module", `node scripts/run-audit.mjs --module=${moduleName}`, { allowFail: true });
 runRegressionEvidence(baseline, knownBugs);
+runModuleTestCommands(baseline);
 validateManualAudit(baseline, knownBugs);
 
 const hasBlocking = findings.some((finding) => finding.level === "P1" || finding.level === "P2");
