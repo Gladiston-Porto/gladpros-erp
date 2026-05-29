@@ -26,9 +26,12 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
     return NextResponse.json({ error: 'ID inválido.', success: false }, { status: 400 });
   }
 
+  const empresaId = Number(authUser.empresaId);
+
   // @bug:USUARIOS-P2-005 — empresaId no where para prevenir IDOR cross-tenant
-  const delegacao = await prisma.delegacao.findUnique({
-    where: { id, empresaId: Number(authUser.empresaId) },
+  // findFirst garante que ambas as condições são aplicadas (findUnique ignora campos extras sem @@unique composto)
+  const delegacao = await prisma.delegacao.findFirst({
+    where: { id, empresaId },
     select: { id: true, deleganteId: true, delegatarioId: true, ativa: true },
   });
 
@@ -58,18 +61,32 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
     );
   }
 
-  const cancelada = await prisma.delegacao.update({
-    where: { id, empresaId: Number(authUser.empresaId) },
+  // updateMany garante filtro por empresaId sem depender de @@unique composto
+  const result = await prisma.delegacao.updateMany({
+    where: { id, empresaId },
     data: {
       ativa: false,
       canceladaEm: new Date(),
       canceladaPorId: userId,
     },
+  });
+
+  if (result.count === 0) {
+    return NextResponse.json(
+      { error: 'Delegação não encontrada ou já cancelada.', success: false },
+      { status: 404 },
+    );
+  }
+
+  // Buscar o registro atualizado com as relações para resposta e auditoria
+  // updateMany já garantiu que o registro existe e pertence a esta empresa
+  const cancelada = (await prisma.delegacao.findFirst({
+    where: { id, empresaId },
     include: {
       delegante: { select: { id: true, nomeCompleto: true, email: true } },
       delegatario: { select: { id: true, nomeCompleto: true, email: true } },
     },
-  });
+  }))!;
 
   // Auditoria — cancelamento de delegação é operação crítica de segurança
   try {
@@ -115,7 +132,8 @@ export const GET = withErrorHandler(async (req: Request, context: unknown) => {
   }
 
   // @bug:USUARIOS-P2-005 — empresaId no where para prevenir IDOR cross-tenant
-  const delegacao = await prisma.delegacao.findUnique({
+  // findFirst garante que ambas as condições são aplicadas (findUnique ignora campos extras sem @@unique composto)
+  const delegacao = await prisma.delegacao.findFirst({
     where: { id, empresaId: Number(authUser.empresaId) },
     include: {
       delegante: { select: { id: true, nomeCompleto: true, email: true, nivel: true } },
