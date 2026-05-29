@@ -27,10 +27,21 @@ if command -v semgrep >/dev/null 2>&1; then
   echo ""
   echo "▶ Semgrep (regras semânticas GladPros)..."
   STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' | grep -v node_modules || true)
+  RULE_COUNT=$(find .semgrep/gladpros -name '*.yml' 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$RULE_COUNT" = "0" ]; then
+    echo "❌ Semgrep: nenhuma regra encontrada em .semgrep/gladpros — configuração quebrada."
+    exit 1
+  fi
   if [ -n "$STAGED_TS" ]; then
-    echo "$STAGED_TS" | xargs semgrep --config=.semgrep/gladpros --metrics=off --error --quiet
+    FILE_COUNT=$(echo "$STAGED_TS" | wc -l | tr -d ' ')
+    echo "  Regras: $RULE_COUNT | Arquivos staged: $FILE_COUNT"
+    echo "$STAGED_TS" | xargs semgrep --config=.semgrep/gladpros --metrics=off --error --quiet || {
+      echo "❌ Semgrep encontrou violações — corrija antes do commit."
+      exit 1
+    }
+    echo "  ✅ Semgrep limpo ($RULE_COUNT regras, $FILE_COUNT arquivos)."
   else
-    echo "  (nenhum .ts/.tsx staged — pulando)"
+    echo "  (nenhum .ts/.tsx staged — pulando, $RULE_COUNT regras disponíveis)"
   fi
 else
   echo ""

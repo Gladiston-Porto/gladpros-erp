@@ -75,6 +75,50 @@
     "src/__tests__/api/usuarios/regression/USUARIOS-P3-001.test.ts",
     "src/__tests__/api/usuarios/regression/USUARIOS-P3-002.test.ts",
     "src/__tests__/api/usuarios/user-management-access.test.ts",
-    "src/__tests__/api/usuarios/delete-id.test.ts"
-  ]
+    "src/__tests__/api/usuarios/delete-id.test.ts",
+    "src/__tests__/api/usuarios/get-list.test.ts",
+    "src/__tests__/api/usuarios/get-id.test.ts",
+    "src/__tests__/api/usuarios/status.test.ts",
+    "src/__tests__/api/usuarios/resend-welcome.test.ts",
+    "src/__tests__/api/usuarios/security.test.ts",
+    "src/__tests__/api/usuarios/export.test.ts"
+  ],
+  "testCommandsRequired": ["npx jest src/__tests__/api/usuarios --runInBand"],
+  "manualAudit": {
+    "lastReviewedAt": "2026-05-27",
+    "source": "Auditoria manual real do módulo usuarios: backend, frontend, contratos API/UI, escopo por empresaId, RBAC, exports e cobertura de regressão.",
+    "requiredAreas": [
+      {
+        "id": "usuarios-api-rbac-auth",
+        "name": "Autenticação, RBAC e hierarquia nas rotas de usuarios",
+        "status": "reviewed"
+      },
+      {
+        "id": "usuarios-empresa-scope",
+        "name": "Escopo empresaId em consultas e updates por usuário",
+        "status": "reviewed"
+      },
+      {
+        "id": "usuarios-api-ui-contract",
+        "name": "Contrato frontend/backend para filtros, incluindo multi-role",
+        "status": "reviewed"
+      },
+      {
+        "id": "usuarios-export-contract",
+        "name": "Contratos de exportação CSV/PDF e filtros compartilhados",
+        "status": "reviewed"
+      },
+      {
+        "id": "usuarios-error-format",
+        "name": "Formato padronizado de respostas de erro",
+        "status": "reviewed"
+      },
+      {
+        "id": "usuarios-regression-coverage",
+        "name": "Cobertura de regressão para achados da auditoria manual",
+        "status": "reviewed"
+      }
+    ],
+    "findings": []
+  }
 }

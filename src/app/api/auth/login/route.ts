@@ -9,6 +9,13 @@ import { AuditLogger } from '@/shared/lib/audit';
 import { loginSchema } from '@/shared/lib/validation';
 import { withErrorHandler } from '@/lib/api/error-handler';
 import { logger } from '@/lib/api/logger';
+import { hashAuthToken } from '@/shared/lib/auth-token-hash';
+import {
+  AUTH_ACCESS_TOKEN_EXPIRY,
+  AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS,
+  AUTH_REFRESH_TOKEN_MAX_AGE_SECONDS,
+  AUTH_SESSION_MAX_AGE_SECONDS,
+} from '@/shared/lib/auth-constants';
 
 function getClientIP(req: NextRequest): string {
   return (
@@ -208,7 +215,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         status: userStatus,
         tokenVersion: user.tokenVersion ?? 0,
       },
-      '8h',
+      AUTH_ACCESS_TOKEN_EXPIRY,
     );
 
     // Log de auditoria para login bem-sucedido
@@ -235,7 +242,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 8 * 60 * 60, // 8 horas
+      maxAge: AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS,
       path: '/',
     });
 
@@ -245,10 +252,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   // Verificar dispositivo confiável (cookie deviceTrust) — pula MFA se válido
   const deviceTrustCookie = req.cookies.get('deviceTrust')?.value;
   if (deviceTrustCookie && !user.primeiroAcesso) {
+    const deviceTrustHash = hashAuthToken(deviceTrustCookie);
     type TrustRow = { id: number };
     const trusted = await prisma.$queryRaw<TrustRow[]>`
       SELECT id FROM DispositivoConfiavel
-      WHERE usuarioId = ${user.id} AND deviceToken = ${deviceTrustCookie} AND expiresAt > NOW()
+      WHERE usuarioId = ${user.id} AND deviceTokenHash = ${deviceTrustHash} AND expiresAt > NOW()
       LIMIT 1
     `.catch(() => [] as TrustRow[]);
     if (trusted.length > 0) {
@@ -264,7 +272,10 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         | 'ESTOQUE'
         | 'CLIENTE';
       const userStatus = (user.status ?? 'ATIVO') as 'ATIVO' | 'INATIVO';
-      const [token, refreshResult, sessionToken] = await Promise.all([
+      const session = await SecurityService.createSession(user.id, ip, userAgent).catch(
+        () => undefined,
+      );
+      const [token, refreshResult] = await Promise.all([
         signAuthJWT(
           {
             sub: user.id.toString(),
@@ -272,13 +283,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
             email: user.email,
             status: userStatus,
             tokenVersion: user.tokenVersion ?? 0,
+            sessionId: session?.id,
           },
-          '8h',
+          AUTH_ACCESS_TOKEN_EXPIRY,
         ),
-        generateRefreshToken(user.id, user.email, userRole, { ip, userAgent }).catch(
-          () => undefined,
-        ),
-        SecurityService.createSession(user.id, ip, userAgent).catch(() => undefined),
+        generateRefreshToken(user.id, user.email, userRole, {
+          ip,
+          userAgent,
+          sessionId: session?.id,
+        }).catch(() => undefined),
       ]);
       await Promise.all([
         prisma.$executeRaw`INSERT INTO TentativaLogin (usuarioId, email, sucesso, ip, userAgent) VALUES (${user.id}, ${user.email}, TRUE, ${ip}, ${userAgent})`,
@@ -293,7 +306,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 8 * 60 * 60,
+        maxAge: AUTH_ACCESS_TOKEN_MAX_AGE_SECONDS,
         path: '/',
       });
       if (refreshResult?.refreshToken)
@@ -301,15 +314,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
-          maxAge: 7 * 24 * 60 * 60,
+          maxAge: AUTH_REFRESH_TOKEN_MAX_AGE_SECONDS,
           path: '/api/auth',
         });
-      if (sessionToken)
-        response.cookies.set('sessionToken', sessionToken, {
+      if (session?.token)
+        response.cookies.set('sessionToken', session.token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
-          maxAge: 24 * 60 * 60,
+          maxAge: AUTH_SESSION_MAX_AGE_SECONDS,
         });
       return response;
     }

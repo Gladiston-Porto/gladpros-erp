@@ -1,0 +1,89 @@
+{
+  "module": "auth",
+  "startedAt": "2026-05-28T01:36:42.279Z",
+  "finishedAt": "2026-05-28T01:37:19.804Z",
+  "orchestrator": "scripts/run-full-audit.mjs",
+  "status": "Production Ready",
+  "exitCode": 0,
+  "baselineReviewedAt": "2026-05-27",
+  "steps": [
+    {
+      "name": "validate:known-bugs",
+      "command": "node scripts/validate-known-bugs.mjs",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 296
+    },
+    {
+      "name": "audit:module",
+      "command": "node scripts/run-audit.mjs --module=auth",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 21166
+    },
+    {
+      "name": "regression:src/__tests__/api/auth/login.test.ts",
+      "command": "npx jest src/__tests__/api/auth/login.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1888
+    },
+    {
+      "name": "regression:src/__tests__/unit/lib/token-service.test.ts",
+      "command": "npx jest src/__tests__/unit/lib/token-service.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1707
+    },
+    {
+      "name": "regression:src/__tests__/api/auth/regression/AUTH-P1-002.test.ts",
+      "command": "npx jest src/__tests__/api/auth/regression/AUTH-P1-002.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1914
+    },
+    {
+      "name": "regression:src/__tests__/api/auth/regression/AUTH-P2-002.test.ts",
+      "command": "npx jest src/__tests__/api/auth/regression/AUTH-P2-002.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1732
+    },
+    {
+      "name": "regression:src/__tests__/unit/lib/rbac-require-user.test.ts",
+      "command": "npx jest src/__tests__/unit/lib/rbac-require-user.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1667
+    },
+    {
+      "name": "regression:src/__tests__/api/auth/regression/AUTH-P1-005.test.ts",
+      "command": "npx jest src/__tests__/api/auth/regression/AUTH-P1-005.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1738
+    },
+    {
+      "name": "regression:src/__tests__/api/auth/logout.test.ts",
+      "command": "npx jest src/__tests__/api/auth/logout.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1793
+    },
+    {
+      "name": "regression:src/__tests__/api/auth/regression/AUTH-P2-004.test.ts",
+      "command": "npx jest src/__tests__/api/auth/regression/AUTH-P2-004.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1947
+    },
+    {
+      "name": "regression:src/__tests__/api/auth/regression/AUTH-P3-001.test.ts",
+      "command": "npx jest src/__tests__/api/auth/regression/AUTH-P3-001.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1658
+    }
+  ],
+  "findings": []
+}

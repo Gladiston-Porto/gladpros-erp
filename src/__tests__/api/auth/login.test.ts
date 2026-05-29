@@ -255,6 +255,8 @@ describe('POST /api/auth/login', () => {
     expect(data.error).toBe('Credenciais inválidas');
     expect(data.blocked).toBeUndefined();
     expect(data.unlockAt).toBeUndefined();
+    expect(data.requiresPinUnlock).toBeUndefined();
+    expect(data.requiresSecurityQuestion).toBeUndefined();
   });
 
   it('should return 401 for blocked user even when password is valid (anti-enumeration)', async () => {

@@ -73,13 +73,16 @@ export async function GET(req: NextRequest) {
   }
 
   // Emitir authToken temporário para permitir o setup de primeiro acesso
-  const authToken = await signAuthJWT({
-    sub: String(user.id),
-    role: user.nivel as Role,
-    email: user.email,
-    status: 'ATIVO',
-    tokenVersion: user.tokenVersion ?? 0,
-  });
+  const authToken = await signAuthJWT(
+    {
+      sub: String(user.id),
+      role: user.nivel as Role,
+      email: user.email,
+      status: 'ATIVO',
+      tokenVersion: user.tokenVersion ?? 0,
+    },
+    '30m',
+  );
 
   const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
   const target = new URL(`/primeiro-acesso?userId=${user.id}`, appUrl);
@@ -93,7 +96,7 @@ export async function GET(req: NextRequest) {
     maxAge: 30 * 60, // 30 minutos — apenas para completar o setup
   });
 
-  // Consumir magic link (single-use) antes de emitir o authToken
+  // Consumir magic link (single-use) após emitir o authToken e redirecionar
   await prisma.$executeRaw`
     UPDATE Usuario SET magicLinkConsumedAt = NOW() WHERE id = ${user.id}
   `;

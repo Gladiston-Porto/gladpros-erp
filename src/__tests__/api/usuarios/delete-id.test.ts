@@ -57,8 +57,10 @@ jest.mock('@/lib/prisma', () => ({
     usuario: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
     },
@@ -159,30 +161,50 @@ describe('DELETE /api/usuarios/:id', () => {
   });
 
   it('403 — no delete permission', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'USUARIO', email: 'u@test.com' } as any);
+    mockRequireUser.mockResolvedValueOnce({
+      id: 1,
+      role: 'USUARIO',
+      email: 'u@test.com',
+      empresaId: 1,
+    } as any);
     const { DELETE } = await import('@/app/api/usuarios/[id]/route');
     const res = await DELETE(makeDeleteRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(403);
   });
 
   it('400 — trying to delete self', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 5, role: 'ADMIN', email: 'a@test.com' } as any);
+    mockRequireUser.mockResolvedValueOnce({
+      id: 5,
+      role: 'ADMIN',
+      email: 'a@test.com',
+      empresaId: 1,
+    } as any);
     const { DELETE } = await import('@/app/api/usuarios/[id]/route');
     const res = await DELETE(makeDeleteRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(400);
   });
 
   it('404 — not found', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    mockRequireUser.mockResolvedValueOnce({
+      id: 1,
+      role: 'ADMIN',
+      email: 'a@test.com',
+      empresaId: 1,
+    } as any);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const { DELETE } = await import('@/app/api/usuarios/[id]/route');
     const res = await DELETE(makeDeleteRequest('999'), { params: Promise.resolve({ id: '999' }) });
     expect(res.status).toBe(404);
   });
 
   it('400 — deleting last ADMIN', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
+    mockRequireUser.mockResolvedValueOnce({
+      id: 1,
+      role: 'ADMIN',
+      email: 'a@test.com',
+      empresaId: 1,
+    } as any);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 2,
       email: 'admin2@test.com',
       status: 'ATIVO',
@@ -197,40 +219,50 @@ describe('DELETE /api/usuarios/:id', () => {
   });
 
   it('200 — happy path soft deletes user (status → INATIVO)', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
+    mockRequireUser.mockResolvedValueOnce({
+      id: 1,
+      role: 'ADMIN',
+      email: 'a@test.com',
+      empresaId: 1,
+    } as any);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 5,
       email: 'user@test.com',
       status: 'ATIVO',
       nivel: 'USUARIO',
     });
-    (prisma.usuario.update as jest.Mock).mockResolvedValueOnce({ id: 5, status: 'INATIVO' });
+    (prisma.usuario.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
     const { DELETE } = await import('@/app/api/usuarios/[id]/route');
     const res = await DELETE(makeDeleteRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);
-    expect(prisma.usuario.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: 'INATIVO' }) }),
+    expect(prisma.usuario.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 5, empresaId: 1 },
+        data: expect.objectContaining({ status: 'INATIVO' }),
+      }),
     );
   });
 
   // @bug:USUARIOS-P2-003 — regressão: DELETE deve incrementar tokenVersion para invalidar JWTs
   it('DELETE deve incrementar tokenVersion ao desativar usuário', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
+    mockRequireUser.mockResolvedValueOnce({
+      id: 1,
+      role: 'ADMIN',
+      email: 'a@test.com',
+      empresaId: 1,
+    } as any);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 5,
       email: 'user@test.com',
       status: 'ATIVO',
       nivel: 'USUARIO',
     });
-    (prisma.usuario.update as jest.Mock).mockResolvedValueOnce({
-      id: 5,
-      status: 'INATIVO',
-      tokenVersion: 2,
-    });
+    (prisma.usuario.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
     const { DELETE } = await import('@/app/api/usuarios/[id]/route');
     await DELETE(makeDeleteRequest('5'), { params: Promise.resolve({ id: '5' }) });
-    expect(prisma.usuario.update).toHaveBeenCalledWith(
+    expect(prisma.usuario.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: 5, empresaId: 1 },
         data: expect.objectContaining({
           status: 'INATIVO',
           tokenVersion: { increment: 1 },

@@ -31,6 +31,26 @@
       "id": "P2-AUTH-ENUM",
       "rule": "Endpoints de autenticação não devem expor estado de bloqueio antes de validar senha (anti-enumeração).",
       "enforcedBy": "AUTH-P2-001 regressionTest (semântico)"
+    },
+    {
+      "id": "P1-AUTH-SESSION-REVOCATION",
+      "rule": "Revogação de sessão, logout, desativação de usuário e mudança de role não podem deixar access token válido em rotas protegidas.",
+      "enforcedBy": "AUTH-P1-004 regressionTest + healthCheckRule auth-session-bound-require-user"
+    },
+    {
+      "id": "P1-AUTH-TOKEN-SECRETS-HASHED",
+      "rule": "Bearer secrets persistidos (sessionToken, refreshToken, deviceTrust) devem usar hash/selector seguro; valores brutos não podem permitir takeover após vazamento read-only do DB.",
+      "enforcedBy": "AUTH-P1-005 regressionTest + migration 20260401000000_hash_auth_bearer_secrets"
+    },
+    {
+      "id": "P2-AUTH-LOGOUT-DEVICE-TRUST-SQL",
+      "rule": "Logout deve revogar o DispositivoConfiavel atual com query executável e teste que valide critérios da deleção, não apenas chamada genérica a $executeRaw.",
+      "enforcedBy": "AUTH-P2-003 regressionTest em src/__tests__/api/auth/logout.test.ts"
+    },
+    {
+      "id": "P2-AUTH-TOKEN-TTL-CONSISTENT",
+      "rule": "Login, MFA e refresh devem usar uma política explícita e consistente de TTL para access token.",
+      "enforcedBy": "AUTH-P2-004 regressionTest + src/shared/lib/auth-constants.ts"
     }
   ],
   "expectedRoles": {
@@ -57,10 +77,92 @@
     ]
   },
   "knownBugs": {
-    "fixed": ["AUTH-P2-001"],
+    "fixed": [
+      "AUTH-P2-001",
+      "AUTH-P1-002",
+      "AUTH-P1-003",
+      "AUTH-P2-002",
+      "AUTH-P1-004",
+      "AUTH-P1-005",
+      "AUTH-P2-003",
+      "AUTH-P2-004",
+      "AUTH-P3-001"
+    ],
     "open": []
   },
   "regressionTestsRequired": [
-    "src/__tests__/api/auth/login.test.ts"
-  ]
+    "src/__tests__/api/auth/login.test.ts",
+    "src/__tests__/unit/lib/token-service.test.ts",
+    "src/__tests__/api/auth/regression/AUTH-P1-002.test.ts",
+    "src/__tests__/api/auth/regression/AUTH-P2-002.test.ts",
+    "src/__tests__/unit/lib/rbac-require-user.test.ts",
+    "src/__tests__/api/auth/regression/AUTH-P1-005.test.ts",
+    "src/__tests__/api/auth/logout.test.ts",
+    "src/__tests__/api/auth/regression/AUTH-P2-004.test.ts",
+    "src/__tests__/api/auth/regression/AUTH-P3-001.test.ts"
+  ],
+  "testCommandsRequired": ["npx jest src/__tests__/api/auth --runInBand --no-coverage"],
+  "manualAudit": {
+    "lastReviewedAt": "2026-05-27",
+    "source": "Reauditoria manual completa pós-fix: vulnerabilidades, bugs, lógica de negócio, lógica Auth e impactos cross-módulo conforme AGENTS.md.",
+    "requiredAreas": [
+      {
+        "id": "auth-session-revocation",
+        "name": "Revogação de sessão/logout/tokenVersion/RBAC_TRUST_JWT",
+        "status": "reviewed"
+      },
+      {
+        "id": "auth-token-storage",
+        "name": "Persistência de bearer secrets em sessão, refresh e trusted device",
+        "status": "reviewed"
+      },
+      {
+        "id": "auth-logout-device-trust",
+        "name": "Logout e revogação de trusted device",
+        "status": "reviewed"
+      },
+      {
+        "id": "auth-token-ttl",
+        "name": "Política de expiração de access token entre login, MFA e refresh",
+        "status": "reviewed"
+      },
+      {
+        "id": "auth-mfa-contract",
+        "name": "Contrato MFA challenge entre código, testes e E2E",
+        "status": "reviewed"
+      },
+      {
+        "id": "auth-cross-module",
+        "name": "Impacto de requireUser em rotas protegidas de todos os módulos",
+        "status": "reviewed"
+      }
+    ],
+    "findings": [
+      {
+        "bugId": "AUTH-P1-004",
+        "priority": "P1",
+        "summary": "RBAC_TRUST_JWT ainda pode aceitar access token sem validação suficiente de sessão/status/tokenVersion."
+      },
+      {
+        "bugId": "AUTH-P1-005",
+        "priority": "P1",
+        "summary": "Bearer secrets de sessão, refresh e trusted device estão persistidos em claro."
+      },
+      {
+        "bugId": "AUTH-P2-003",
+        "priority": "P2",
+        "summary": "Revogação de trusted device no logout usa composição SQL frágil e teste insuficiente."
+      },
+      {
+        "bugId": "AUTH-P2-004",
+        "priority": "P2",
+        "summary": "TTL do access token diverge entre login/MFA e refresh."
+      },
+      {
+        "bugId": "AUTH-P3-001",
+        "priority": "P3",
+        "summary": "Drift de contrato do MFA challenge em teste/documentação E2E."
+      }
+    ]
+  }
 }

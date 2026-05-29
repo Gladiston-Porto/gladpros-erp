@@ -425,6 +425,19 @@ function checkAuthInvariantViolations() {
         file: "src/app/api/auth/refresh/route.ts",
       });
     }
+
+    if (!/sessionToken\s*=\s*request\.cookies\.get\('sessionToken'\)/.test(content) || !/refreshAccessToken\(refreshToken,\s*\{[\s\S]*sessionToken/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P1-AUTH-002",
+          severity: "P1",
+          description: "Refresh endpoint sem vínculo obrigatório com sessionToken da sessão atual",
+          fix: "Ler sessionToken do cookie e passá-lo para refreshAccessToken()",
+        },
+        line: getLineForText(content, "export const POST"),
+        file: "src/app/api/auth/refresh/route.ts",
+      });
+    }
   }
 
   const sessionsPath = path.join(ROOT, "src/app/api/auth/me/sessions/route.ts");
@@ -446,9 +459,156 @@ function checkAuthInvariantViolations() {
         file: "src/app/api/auth/me/sessions/route.ts",
       });
     }
+
+    if (!/revokeAllUserTokensExceptSession\(/.test(content) && !/revokeAllUserTokens\(/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P1-AUTH-003",
+          severity: "P1",
+          description: "Me/sessions revoke-others sem revogação real dos refresh tokens",
+          fix: "Revogar os refresh tokens das sessões removidas ao executar revoke-others",
+        },
+        line: getLineForText(content, "export const POST"),
+        file: "src/app/api/auth/me/sessions/route.ts",
+      });
+    }
+  }
+
+  const sessionDetailPath = path.join(ROOT, "src/app/api/auth/me/sessions/[id]/route.ts");
+  if (existsSync(sessionDetailPath)) {
+    const content = readFileSync(sessionDetailPath, "utf-8");
+    if (!/revokeTokensForSession\(/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P1-AUTH-004",
+          severity: "P1",
+          description: "DELETE de sessão sem revogação dos refresh tokens da sessão",
+          fix: "Após apagar SessaoAtiva, revogar os refresh tokens vinculados à sessão",
+        },
+        line: getLineForText(content, "export const DELETE"),
+        file: "src/app/api/auth/me/sessions/[id]/route.ts",
+      });
+    }
+  }
+
+  const logoutPath = path.join(ROOT, "src/app/api/auth/logout/route.ts");
+  if (existsSync(logoutPath)) {
+    const content = readFileSync(logoutPath, "utf-8");
+    if (!/deviceTrust/.test(content) || !/revokeTokensForSession\(/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P2-AUTH-003",
+          severity: "P2",
+          description: "Logout sem limpeza/revogação completa da sessão atual e trusted device",
+          fix: "Limpar cookie deviceTrust, remover DispositivoConfiavel atual e revogar refresh tokens da sessão",
+        },
+        line: getLineForText(content, "export const POST"),
+        file: "src/app/api/auth/logout/route.ts",
+      });
+    }
+  }
+
+  const rbacPath = path.join(ROOT, "src/shared/lib/rbac.ts");
+  if (existsSync(rbacPath)) {
+    const content = readFileSync(rbacPath, "utf-8");
+    if (!/claims\.sessionId/.test(content) || !/sessionToken/.test(content) || !/SessaoAtiva/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P1-AUTH-005",
+          severity: "P1",
+          description: "requireUser sem validação de sessão para JWTs vinculados a sessão",
+          fix: "Quando claims.sessionId existir, validar sessionToken atual contra SessaoAtiva",
+        },
+        line: getLineForText(content, "export async function requireUser"),
+        file: "src/shared/lib/rbac.ts",
+      });
+    }
+  }
+
+  const securityPath = path.join(ROOT, "src/shared/lib/security.ts");
+  if (existsSync(securityPath)) {
+    const content = readFileSync(securityPath, "utf-8");
+    if (/revokeAllUserSessions\(usuarioId\)/.test(content)) {
+      violations.push({
+        rule: {
+          id: "P2-AUTH-004",
+          severity: "P2",
+          description: "createSession continua revogando todas as sessões do usuário a cada login",
+          fix: "Não apagar sessões existentes durante createSession; deixe a revogação explícita para logout/revoke-others",
+        },
+        line: getLineForText(content, "static async createSession"),
+        file: "src/shared/lib/security.ts",
+      });
+    }
   }
 
   return violations;
+}
+
+function listTypeScriptFiles(dir) {
+  try {
+    const output = execSync(`find "${dir}" -type f -name "*.ts" -o -name "*.tsx"`, {
+      cwd: ROOT,
+      encoding: "utf-8",
+      shell: "/bin/bash",
+    });
+    return output.trim().split("\n").filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function checkUsuariosInvariantViolations() {
+  if (moduleArg && moduleArg !== "usuarios") return [];
+
+  const apiDir = path.join(ROOT, "src/app/api/usuarios");
+  if (!existsSync(apiDir)) return [];
+
+  const violations = [];
+  const files = listTypeScriptFiles(apiDir).filter((file) => !/(__tests__|\.test\.|\.spec\.)/.test(file));
+
+  for (const fullPath of files) {
+    let lines;
+    try {
+      lines = readFileSync(fullPath, "utf-8").split("\n");
+    } catch {
+      continue;
+    }
+
+    const relative = path.relative(ROOT, fullPath);
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      if (/^\s*(\/\/|\/\*|\*)/.test(trimmed)) return;
+
+      const isUsuarioSqlById = /\bFROM\s+Usuario\s+WHERE\s+id\s*=/.test(line)
+        || /\bWHERE\s+id\s*=\s*\?/.test(line)
+        || /\bWHERE\s+id\s*=\s*\$\{/.test(line);
+
+      if (isUsuarioSqlById && !/empresaId/.test(line)) {
+        violations.push({ file: relative, line: index + 1 });
+        return;
+      }
+
+      const isPrismaUsuarioById = /where\s*:\s*\{\s*id\s*[,}]/.test(line);
+      if (isPrismaUsuarioById) {
+        const context = lines.slice(index, Math.min(lines.length, index + 5)).join("\n");
+        if (!/empresaId/.test(context)) {
+          violations.push({ file: relative, line: index + 1 });
+        }
+      }
+    });
+  }
+
+  return violations.map((violation) => ({
+    rule: {
+      id: "P1-USUARIOS-EMPRESAID-ID",
+      severity: "P1",
+      description: "Query/update de Usuario por id sem empresaId no módulo usuarios",
+      fix: "Adicionar empresaId ao WHERE/where junto com id para prevenir IDOR e fix parcial.",
+    },
+    file: violation.file,
+    line: violation.line,
+  }));
 }
 
 // ── Runner ────────────────────────────────────────────────────────────────────
@@ -537,6 +697,26 @@ if (authInvariantViolations.length > 0) {
       grouped.set(key, { rule: v.rule, violations: [] });
     }
     grouped.get(key).violations.push(`${v.file}:${v.line}:invariante ausente`);
+  }
+
+  for (const entry of grouped.values()) {
+    totalErrors += entry.violations.length;
+    if (entry.rule.severity === "P1") P1_errors.push(entry);
+    else if (entry.rule.severity === "P2") P2_errors.push(entry);
+    else P3_errors.push(entry);
+  }
+}
+
+const usuariosInvariantViolations = checkUsuariosInvariantViolations();
+if (usuariosInvariantViolations.length > 0) {
+  const grouped = new Map();
+
+  for (const v of usuariosInvariantViolations) {
+    const key = v.rule.id;
+    if (!grouped.has(key)) {
+      grouped.set(key, { rule: v.rule, violations: [] });
+    }
+    grouped.get(key).violations.push(`${v.file}:${v.line}:empresaId ausente no acesso por id`);
   }
 
   for (const entry of grouped.values()) {

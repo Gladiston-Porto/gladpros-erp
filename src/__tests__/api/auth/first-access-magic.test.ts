@@ -1,3 +1,5 @@
+// @bug:AUTH-P3-003
+// @description: asserção signAuthJWT sem segundo argumento '30m' após update da rota
 // src/__tests__/api/auth/first-access-magic.test.ts
 // Testes para GET /api/auth/first-access/magic?token=X
 
@@ -189,6 +191,7 @@ describe('GET /api/auth/first-access/magic', () => {
           role: 'USUARIO',
           email: activeUser.email,
         }),
+        '30m',
       );
 
       // Deve redirecionar para /primeiro-acesso com userId

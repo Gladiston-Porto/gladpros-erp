@@ -6,13 +6,13 @@ jest.mock('bcryptjs', () => ({
   default: {
     hash: jest.fn(),
   },
-}))
+}));
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
     $executeRawUnsafe: jest.fn(),
   },
-}))
+}));
 
 jest.mock('next/server', () => ({
   NextResponse: {
@@ -21,52 +21,52 @@ jest.mock('next/server', () => ({
       json: jest.fn().mockResolvedValue(data),
     })),
   },
-}))
+}));
 
-import bcrypt from 'bcryptjs'
-import { prisma } from '@/lib/prisma'
+import bcrypt from 'bcryptjs';
+import { prisma } from '@/lib/prisma';
 
 describe('REGRESSION USUARIOS-P3-002', () => {
-  const originalNodeEnv = process.env.NODE_ENV
+  const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
-    jest.clearAllMocks()
-  })
+    jest.clearAllMocks();
+  });
 
   afterAll(() => {
-    process.env.NODE_ENV = originalNodeEnv
-  })
+    process.env.NODE_ENV = originalNodeEnv;
+  });
 
   it('bloqueia uso fora de development', async () => {
-    const { POST } = await import('@/app/api/dev/create-test-user/route')
-    process.env.NODE_ENV = 'production'
+    const { POST } = await import('@/app/api/dev/create-test-user/route');
+    process.env.NODE_ENV = 'production';
     const req = {
       json: jest.fn().mockResolvedValue({ email: 'a@b.com', password: '123456' }),
-    } as unknown as Request
+    } as unknown as Request;
 
-    const res = await POST(req)
-    const body = await res.json()
+    const res = await POST(req);
+    const body = await res.json();
 
-    expect(res.status).toBe(403)
-    expect(body.error).toBe('NOT_ALLOWED')
-  })
+    expect(res.status).toBe(403);
+    expect(body.error).toBe('NOT_ALLOWED');
+  });
 
   it('usa bcrypt hash com salt rounds 12 no fluxo válido', async () => {
-    const { POST } = await import('@/app/api/dev/create-test-user/route')
-    process.env.NODE_ENV = 'development'
-    ;(bcrypt.hash as jest.Mock).mockResolvedValue('hashed-pass')
-    ;(prisma.$executeRawUnsafe as jest.Mock).mockResolvedValue(1)
+    const { POST } = await import('@/app/api/dev/create-test-user/route');
+    process.env.NODE_ENV = 'development';
+    (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-pass');
+    (prisma.$executeRawUnsafe as jest.Mock).mockResolvedValue(1);
 
     const req = {
       json: jest.fn().mockResolvedValue({ email: 'dev@gladpros.com', password: 'abc12345' }),
-    } as unknown as Request
+    } as unknown as Request;
 
-    const res = await POST(req)
-    const body = await res.json()
+    const res = await POST(req);
+    const body = await res.json();
 
-    expect(res.status).toBe(200)
-    expect(body.ok).toBe(true)
-    expect(bcrypt.hash).toHaveBeenCalledWith('abc12345', 12)
-    expect(prisma.$executeRawUnsafe).toHaveBeenCalled()
-  })
-})
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(bcrypt.hash).toHaveBeenCalledWith('abc12345', 12);
+    expect(prisma.$executeRawUnsafe).toHaveBeenCalled();
+  });
+});

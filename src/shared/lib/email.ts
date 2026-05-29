@@ -521,6 +521,73 @@ Este email foi enviado automaticamente pelo sistema GladPros.
     };
   }
 
+  static async sendFirstAccessConfirmation({
+    to,
+    userName,
+  }: {
+    to: string;
+    userName: string;
+  }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    try {
+      const template = this.getFirstAccessConfirmationTemplate({ userName });
+      return await this.sendEmail({
+        to,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+    } catch (error) {
+      logger.error('[Email] Erro ao enviar confirmação de primeiro acesso:', { error });
+      return { success: false, error: (error as Error).message };
+    }
+  }
+
+  private static getFirstAccessConfirmationTemplate({
+    userName,
+  }: {
+    userName: string;
+  }): EmailTemplate {
+    const subject = 'GladPros — Conta configurada com sucesso';
+    const preheader = 'Sua configuração inicial foi concluída. Acesso completo liberado.';
+    const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard`;
+
+    const content = `
+      <p>Parabéns, <strong>${userName}</strong>!</p>
+      <p>Sua conta foi configurada com sucesso no sistema GladPros.</p>
+
+      <div class="card success-card">
+        <div style="font-weight:700; margin-bottom:8px;">✅ Configurações Aplicadas</div>
+        <ul style="margin:8px 0 0 18px; padding:0;">
+          <li>Nova senha definida e ativada</li>
+          <li>PIN de segurança configurado</li>
+          <li>Pergunta de segurança definida</li>
+          <li>Acesso completo liberado</li>
+        </ul>
+      </div>
+
+      <p>Você já pode acessar todas as funcionalidades do sistema!</p>
+    `;
+
+    const html = renderBaseTemplate({
+      subject,
+      preheader,
+      title: `Conta configurada, ${userName}!`,
+      subtitle: 'Configuração inicial concluída com sucesso',
+      content,
+      ctaButton: {
+        text: 'Acessar Dashboard',
+        url: dashboardUrl,
+      },
+      footerNote: 'Este email foi enviado automaticamente pelo sistema GladPros.',
+    });
+
+    return {
+      subject,
+      html,
+      text: `GladPros — Conta configurada!\n\nParabéns, ${userName}!\n\nSua conta foi configurada com sucesso. Você já pode acessar o sistema em: ${dashboardUrl}`,
+    };
+  }
+
   static async sendProposalNotification({
     to,
     clientName,

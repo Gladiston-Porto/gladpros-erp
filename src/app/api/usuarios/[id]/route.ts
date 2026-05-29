@@ -32,9 +32,9 @@ const SELF_EDIT_FIELDS = new Set([
 ]);
 
 /** Retorna a role (nivel) do usuário pelo id, ou null se não existir. */
-async function getTargetUserRole(id: number): Promise<UserRole | null> {
+async function getTargetUserRole(id: number, empresaId: number): Promise<UserRole | null> {
   const rows = (await prisma.$queryRaw`
-    SELECT nivel FROM Usuario WHERE id = ${id} LIMIT 1
+    SELECT nivel FROM Usuario WHERE id = ${id} AND empresaId = ${empresaId} LIMIT 1
   `) as Array<{ nivel: string | null }>;
   const nivel = rows[0]?.nivel;
   if (!nivel) return null;
@@ -46,10 +46,10 @@ async function getTargetUserRole(id: number): Promise<UserRole | null> {
 }
 
 /** Conta ADMINs ativos (exceto um id opcional que será excluído/mudado). */
-async function countActiveAdmins(excludeId?: number): Promise<number> {
+async function countActiveAdmins(empresaId: number, excludeId?: number): Promise<number> {
   const rows = (await prisma.$queryRaw`
     SELECT COUNT(*) AS cnt FROM Usuario
-    WHERE nivel = 'ADMIN' AND status = 'ATIVO'
+    WHERE nivel = 'ADMIN' AND status = 'ATIVO' AND empresaId = ${empresaId}
       AND (${excludeId ?? 0} = 0 OR id <> ${excludeId ?? 0})
   `) as Array<{ cnt: bigint | number }>;
   return Number(rows[0]?.cnt ?? 0);
@@ -148,7 +148,11 @@ export const GET = withErrorHandler(async (req: Request, context: unknown) => {
 
   const userSelect = await buildUsuarioSelect(USER_DETAIL_COLUMNS);
   const rows = (await withRetry(() =>
-    prisma.$queryRawUnsafe(`SELECT ${userSelect} FROM Usuario WHERE id = ? LIMIT 1`, id),
+    prisma.$queryRawUnsafe(
+      `SELECT ${userSelect} FROM Usuario WHERE id = ? AND empresaId = ? LIMIT 1`,
+      id,
+      authUser.empresaId,
+    ),
   )) as unknown as UserRow[];
   const found = rows[0];
   if (!found)
@@ -275,7 +279,7 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
   }
 
   // Admin-edit: verificar hierarquia contra o alvo
-  const targetRole = await getTargetUserRole(id);
+  const targetRole = await getTargetUserRole(id, authUser.empresaId);
   if (!targetRole) {
     return NextResponse.json(
       { error: 'NOT_FOUND', message: 'Usuário não encontrado', success: false },
@@ -345,7 +349,7 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
     const willDemote = body.role && String(body.role).toUpperCase() !== 'ADMIN';
     const willInactivate = body.status && String(body.status).toUpperCase() === 'INATIVO';
     if (willDemote || willInactivate) {
-      const otherActiveAdmins = await countActiveAdmins(id);
+      const otherActiveAdmins = await countActiveAdmins(authUser.empresaId, id);
       if (otherActiveAdmins === 0) {
         return NextResponse.json(
           {
@@ -501,13 +505,17 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
   // Capturar dados antes da atualização para auditoria
   const userSelect = await buildUsuarioSelect(USER_DETAIL_COLUMNS);
   const dadosAntes = (await withRetry(() =>
-    prisma.$queryRawUnsafe(`SELECT ${userSelect} FROM Usuario WHERE id = ? LIMIT 1`, id),
+    prisma.$queryRawUnsafe(
+      `SELECT ${userSelect} FROM Usuario WHERE id = ? AND empresaId = ? LIMIT 1`,
+      id,
+      authUser.empresaId,
+    ),
   )) as unknown as UserRow[];
   const usuarioAntes = dadosAntes[0];
 
   // adicionar atualizadoEm
-  const sql = `UPDATE Usuario SET ${sets.join(', ')}, atualizadoEm = NOW() WHERE id = ?`;
-  paramsVals.push(id);
+  const sql = `UPDATE Usuario SET ${sets.join(', ')}, atualizadoEm = NOW() WHERE id = ? AND empresaId = ?`;
+  paramsVals.push(id, authUser.empresaId);
 
   await withRetry(() => prisma.$executeRawUnsafe(sql, ...paramsVals));
 
@@ -533,7 +541,11 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
 
   // Capturar dados depois da atualização para auditoria
   const dadosDepois = (await withRetry(() =>
-    prisma.$queryRawUnsafe(`SELECT ${userSelect} FROM Usuario WHERE id = ? LIMIT 1`, id),
+    prisma.$queryRawUnsafe(
+      `SELECT ${userSelect} FROM Usuario WHERE id = ? AND empresaId = ? LIMIT 1`,
+      id,
+      authUser.empresaId,
+    ),
   )) as unknown as UserRow[];
   const usuarioDepois = dadosDepois[0];
 
@@ -608,9 +620,22 @@ export const DELETE = withErrorHandler(
       );
     }
 
-    // Verificar se o usuário existe (empresaId no where para prevenir IDOR cross-tenant)
-    const user = await prisma.usuario.findUnique({
-      where: { id, empresaId: Number(authUser.empresaId ?? 1) },
+    // Garantir que empresaId está presente — falha explícita se auth estiver mal configurado
+    const empresaId = authUser.empresaId;
+    if (!empresaId) {
+      return NextResponse.json(
+        {
+          error: 'Internal Server Error',
+          message: 'Auth misconfiguration: empresaId ausente',
+          success: false,
+        },
+        { status: 500 },
+      );
+    }
+
+    // Verificar se o usuário existe (findFirst com empresaId garante escopo por tenant)
+    const user = await prisma.usuario.findFirst({
+      where: { id, empresaId },
       select: { id: true, email: true, status: true, nivel: true },
     });
 
@@ -634,7 +659,7 @@ export const DELETE = withErrorHandler(
 
     // Dead-man ADMIN: impedir desativar o último ADMIN
     if (targetRoleRaw === 'ADMIN' && user.status === 'ATIVO') {
-      const otherActiveAdmins = await countActiveAdmins(id);
+      const otherActiveAdmins = await countActiveAdmins(authUser.empresaId, id);
       if (otherActiveAdmins === 0) {
         return NextResponse.json(
           {
@@ -653,8 +678,8 @@ export const DELETE = withErrorHandler(
 
     // Soft delete: marcar como inativo em vez de excluir
     // @bug:USUARIOS-P2-003 — tokenVersion incrementado no DELETE para invalidar JWTs ativos
-    await prisma.usuario.update({
-      where: { id },
+    await prisma.usuario.updateMany({
+      where: { id, empresaId },
       data: {
         status: 'INATIVO',
         tokenVersion: { increment: 1 },
