@@ -1,4 +1,3 @@
- 
 /**
  * Testes unitários — GET /api/dashboard
  * Cobertura: auth, RBAC, happy path, N+1 fix, erro interno.
@@ -48,7 +47,9 @@ jest.mock('../../../shared/lib/rbac-core', () => ({
 
 jest.mock('../../../shared/lib/rate-limit', () => ({
   apiRateLimit: {
-    isAllowed: jest.fn().mockResolvedValue({ allowed: true, message: '', resetTime: Date.now() + 60_000 }),
+    isAllowed: jest
+      .fn()
+      .mockResolvedValue({ allowed: true, message: '', resetTime: Date.now() + 60_000 }),
   },
 }));
 
@@ -60,15 +61,9 @@ jest.mock('../../../lib/api/error-handler', () => ({
       handler(...args).catch((err: unknown) => {
         const NextResponseMock = require('next/server').NextResponse;
         if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
-          return NextResponseMock.json(
-            { error: 'Unauthorized', success: false },
-            { status: 401 }
-          );
+          return NextResponseMock.json({ error: 'Unauthorized', success: false }, { status: 401 });
         }
-        return NextResponseMock.json(
-          { error: 'Erro interno', success: false },
-          { status: 500 }
-        );
+        return NextResponseMock.json({ error: 'Erro interno', success: false }, { status: 500 });
       }),
 }));
 
@@ -79,7 +74,7 @@ describe('GET /api/dashboard', () => {
   let prisma: ReturnType<typeof require>;
   let requireUser: jest.Mock;
   let can: jest.Mock;
-   
+
   let _GET: (req: NextRequest) => Promise<NextResponse>;
 
   beforeEach(() => {
@@ -89,7 +84,7 @@ describe('GET /api/dashboard', () => {
     can = require('../../../shared/lib/rbac-core').can;
 
     // Default happy-path mocks
-    requireUser.mockResolvedValue({ id: 1, role: 'ADMIN' });
+    requireUser.mockResolvedValue({ id: 1, role: 'ADMIN', empresaId: 7 });
     can.mockReturnValue(true);
 
     prisma.proposta.count.mockResolvedValue(10);
@@ -99,9 +94,7 @@ describe('GET /api/dashboard', () => {
     ]);
     prisma.cliente.count.mockResolvedValue(20);
     prisma.projeto.count.mockResolvedValue(5);
-    prisma.projeto.groupBy.mockResolvedValue([
-      { status: 'em_execucao', _count: 3 },
-    ]);
+    prisma.projeto.groupBy.mockResolvedValue([{ status: 'em_execucao', _count: 3 }]);
     prisma.invoice.aggregate.mockResolvedValue({
       _sum: { valorTotal: 50000, saldo: 10000 },
       _count: 8,
@@ -111,7 +104,9 @@ describe('GET /api/dashboard', () => {
     ]);
     prisma.serviceOrder.groupBy.mockResolvedValue([]);
     prisma.domainEvent.findMany.mockResolvedValue([]);
-    prisma.cliente.findMany.mockResolvedValue([{ id: 1, nomeFantasia: 'Acme Corp', nomeCompleto: 'Acme Corporation' }]);
+    prisma.cliente.findMany.mockResolvedValue([
+      { id: 1, nomeFantasia: 'Acme Corp', nomeCompleto: 'Acme Corporation' },
+    ]);
 
     // Re-import to get fresh GET handler
     jest.isolateModules(() => {
@@ -155,6 +150,36 @@ describe('GET /api/dashboard', () => {
     expect(can).toHaveBeenCalledWith('ADMIN', 'dashboard', 'read');
   });
 
+  test('@bug:DASHBOARD-P1-001 — queries operacionais usam empresaId do usuário', async () => {
+    const { GET: handler } = require('../../../app/api/dashboard/route');
+    await handler(buildRequest());
+
+    expect(prisma.proposta.count).toHaveBeenCalledWith({
+      where: { empresaId: 7, deletedAt: null },
+    });
+    expect(prisma.proposta.groupBy).toHaveBeenCalledWith({
+      by: ['status'],
+      where: { empresaId: 7, deletedAt: null },
+      _count: true,
+    });
+    expect(prisma.cliente.count).toHaveBeenCalledWith({ where: { empresaId: 7 } });
+    expect(prisma.projeto.count).toHaveBeenCalledWith({ where: { Cliente: { empresaId: 7 } } });
+    expect(prisma.projeto.groupBy).toHaveBeenCalledWith({
+      by: ['status'],
+      where: { Cliente: { empresaId: 7 } },
+      _count: true,
+    });
+    expect(prisma.serviceOrder.groupBy).toHaveBeenCalledWith({
+      by: ['status'],
+      where: { empresaId: 7 },
+      _count: true,
+    });
+    expect(prisma.cliente.findMany).toHaveBeenCalledWith({
+      where: { id: { in: [1] }, empresaId: 7 },
+      select: { id: true, nomeFantasia: true, nomeCompleto: true },
+    });
+  });
+
   test('500 — erro interno do Prisma', async () => {
     prisma.proposta.count.mockRejectedValue(new Error('DB connection failed'));
 
@@ -183,7 +208,9 @@ describe('GET /api/dashboard', () => {
 
   test('400 — period inválido retorna erro de validação', async () => {
     const { GET: handler } = require('../../../app/api/dashboard/route');
-    const res = await handler(new NextRequest('http://localhost:3000/api/dashboard?period=foo') as unknown as NextRequest);
+    const res = await handler(
+      new NextRequest('http://localhost:3000/api/dashboard?period=foo') as unknown as NextRequest,
+    );
     expect(res.status).toBe(400);
     expect((res as unknown as { _data: { success: boolean } })._data.success).toBe(false);
   });

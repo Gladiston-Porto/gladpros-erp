@@ -43,11 +43,19 @@ function applyDateMask(raw: string): string {
 }
 function isoToDisplayDate(iso: string | null | undefined): string {
   if (!iso) return '';
+  const dateOnly = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (dateOnly) {
+    const [, y, m, day] = dateOnly;
+    return `${m}/${day}/${y}`;
+  }
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${m}/${day}/${d.getUTCFullYear()}`;
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(d);
 }
 function displayDateToISO(display: string): string | null {
   if (!display || display.length < 10) return null;

@@ -1,4 +1,3 @@
- 
 /**
  * Testes unitários — GET /api/dashboard/executive
  * Cobertura: auth, RBAC, happy path, cache, erro interno.
@@ -30,7 +29,7 @@ jest.mock('../../../lib/prisma', () => ({
     material: { aggregate: jest.fn() },
     materialSaldo: { aggregate: jest.fn() },
     materialMovimentacao: { count: jest.fn() },
-    projeto: { findMany: jest.fn() },
+    projeto: { findMany: jest.fn(), count: jest.fn(), fields: { valorEstimado: 'valorEstimado' } },
     worker: { count: jest.fn() },
     cliente: { aggregate: jest.fn(), findMany: jest.fn() },
     proposta: { groupBy: jest.fn(), findMany: jest.fn() },
@@ -45,7 +44,9 @@ jest.mock('../../../shared/lib/rbac', () => ({
 
 jest.mock('../../../shared/lib/rate-limit', () => ({
   apiRateLimit: {
-    isAllowed: jest.fn().mockResolvedValue({ allowed: true, message: '', resetTime: Date.now() + 60_000 }),
+    isAllowed: jest
+      .fn()
+      .mockResolvedValue({ allowed: true, message: '', resetTime: Date.now() + 60_000 }),
   },
 }));
 
@@ -61,9 +62,9 @@ jest.mock('@prisma/client', () => ({
 
 // Business cache: pass through in tests
 jest.mock('../../../shared/lib/cache/business-cache', () => ({
-  withBusinessCache: jest.fn().mockImplementation(
-    (_key: string, fn: () => Promise<unknown>) => fn()
-  ),
+  withBusinessCache: jest
+    .fn()
+    .mockImplementation((_key: string, fn: () => Promise<unknown>) => fn()),
 }));
 
 // withErrorHandler: call through
@@ -101,7 +102,7 @@ describe('GET /api/dashboard/executive', () => {
     requireUser = rbac.requireUser;
     can = rbac.can;
 
-    requireUser.mockResolvedValue({ id: 1, role: 'ADMIN' });
+    requireUser.mockResolvedValue({ id: 1, role: 'ADMIN', empresaId: 7 });
     can.mockReturnValue(true);
 
     // Prisma defaults
@@ -123,6 +124,7 @@ describe('GET /api/dashboard/executive', () => {
         custoReal: 30000,
       },
     ]);
+    prisma.projeto.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0).mockResolvedValueOnce(0);
     prisma.worker.count.mockResolvedValue(8);
     prisma.cliente.aggregate.mockResolvedValue({ _count: 25 });
     prisma.cliente.findMany.mockResolvedValue([]);
@@ -191,7 +193,50 @@ describe('GET /api/dashboard/executive', () => {
     // Todos os modelos devem ter sido chamados
     expect(prisma.revenue.aggregate).toHaveBeenCalledTimes(2); // current + previous period
     expect(prisma.expense.aggregate).toHaveBeenCalledTimes(1); // only current period (previous was unused)
-    expect(prisma.projeto.findMany).toHaveBeenCalledTimes(1); // P2-04 fix: merged into single query
+    expect(prisma.projeto.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.projeto.count).toHaveBeenCalledTimes(3);
+  });
+
+  test('@bug:DASHBOARD-P1-002 — cache e queries executivas usam empresaId do usuário', async () => {
+    const { withBusinessCache } = require('../../../shared/lib/cache/business-cache');
+    const { GET } = require('../../../app/api/dashboard/executive/route');
+    await GET(buildRequest());
+
+    expect(withBusinessCache).toHaveBeenCalledWith(
+      'dashboard_executive:7:ADMIN:finance:30d',
+      expect.any(Function),
+      { ttlSeconds: expect.any(Number) },
+    );
+    expect(prisma.projeto.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ Cliente: { empresaId: 7 } }),
+        take: 10,
+      }),
+    );
+    expect(prisma.projeto.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ Cliente: { empresaId: 7 } }),
+      }),
+    );
+    expect(prisma.cliente.aggregate).toHaveBeenCalledWith({
+      _count: true,
+      where: { empresaId: 7, ativo: true },
+    });
+    expect(prisma.proposta.groupBy).toHaveBeenCalledWith({
+      by: ['status'],
+      where: { empresaId: 7, deletedAt: null },
+      _count: true,
+    });
+    expect(prisma.proposta.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ empresaId: 7 }),
+      }),
+    );
+    expect(prisma.cliente.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ empresaId: 7 }),
+      }),
+    );
   });
 
   test('500 — erro interno retorna { success: false }', async () => {
@@ -219,12 +264,12 @@ describe('GET /api/dashboard/executive', () => {
     const { GET } = require('../../../app/api/dashboard/executive/route');
 
     const res7d = (await GET(
-      buildRequest('http://localhost:3000/api/dashboard/executive?period=7d')
+      buildRequest('http://localhost:3000/api/dashboard/executive?period=7d'),
     )) as MockResponse;
     expect(res7d.status).toBe(200);
 
     const res90d = (await GET(
-      buildRequest('http://localhost:3000/api/dashboard/executive?period=90d')
+      buildRequest('http://localhost:3000/api/dashboard/executive?period=90d'),
     )) as MockResponse;
     expect(res90d.status).toBe(200);
   });
@@ -232,7 +277,7 @@ describe('GET /api/dashboard/executive', () => {
   test('400 — period inválido retorna erro de validação', async () => {
     const { GET } = require('../../../app/api/dashboard/executive/route');
     const res = (await GET(
-      buildRequest('http://localhost:3000/api/dashboard/executive?period=invalid')
+      buildRequest('http://localhost:3000/api/dashboard/executive?period=invalid'),
     )) as MockResponse;
     expect(res.status).toBe(400);
     expect(res._data.success).toBe(false);
@@ -253,6 +298,6 @@ describe('GET /api/dashboard/executive', () => {
     expect(kpis.receitaTotal).toBeNull();
     expect(kpis.despesaTotal).toBeNull();
     expect(kpis.saldoPeriodo).toBeNull();
-    expect(data.permissions).toEqual({ canViewFinancials: false });
+    expect(data.permissions).toEqual({ canViewFinancials: false, currentUserRole: 'ADMIN' });
   });
 });

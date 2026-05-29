@@ -29,7 +29,7 @@ export const PATCH = withErrorHandler(
     const parsed = toggleUserStatusSchema.safeParse(raw);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'VALIDATION_ERROR', message: 'Body inválido' },
+        { error: 'VALIDATION_ERROR', message: 'Body inválido', success: false },
         { status: 400 },
       );
     }
@@ -38,7 +38,7 @@ export const PATCH = withErrorHandler(
     const userId = parseInt(id);
     if (isNaN(userId)) {
       return NextResponse.json(
-        { error: 'INVALID_ID', message: 'ID de usuário inválido' },
+        { error: 'INVALID_ID', message: 'ID de usuário inválido', success: false },
         { status: 400 },
       );
     }
@@ -46,7 +46,11 @@ export const PATCH = withErrorHandler(
     // Impedir self-toggle
     if (Number(authUser.id) === userId) {
       return NextResponse.json(
-        { error: 'SELF_TOGGLE', message: 'Não é possível alterar o status da própria conta' },
+        {
+          error: 'SELF_TOGGLE',
+          message: 'Não é possível alterar o status da própria conta',
+          success: false,
+        },
         { status: 400 },
       );
     }
@@ -58,7 +62,7 @@ export const PATCH = withErrorHandler(
     const target = rows[0];
     if (!target) {
       return NextResponse.json(
-        { error: 'NOT_FOUND', message: 'Usuário não encontrado' },
+        { error: 'NOT_FOUND', message: 'Usuário não encontrado', success: false },
         { status: 404 },
       );
     }
@@ -67,7 +71,7 @@ export const PATCH = withErrorHandler(
     if ((Object.values(UserRole) as string[]).includes(targetRoleRaw)) {
       if (!canManageRole(authUser.role as UserRole, targetRoleRaw as UserRole)) {
         return NextResponse.json(
-          { error: 'FORBIDDEN', message: 'Você não pode gerenciar este usuário.' },
+          { error: 'FORBIDDEN', message: 'Você não pode gerenciar este usuário.', success: false },
           { status: 403 },
         );
       }
@@ -86,6 +90,7 @@ export const PATCH = withErrorHandler(
           {
             error: 'LAST_ADMIN',
             message: 'Não é possível desativar o último ADMIN ativo do sistema.',
+            success: false,
           },
           { status: 400 },
         );

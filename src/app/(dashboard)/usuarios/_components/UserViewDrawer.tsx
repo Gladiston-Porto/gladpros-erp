@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   X,
   Mail,
@@ -17,27 +17,27 @@ import {
   XCircle,
   User,
   Lock,
-} from "lucide-react";
-import { authenticatedFetch } from "@/lib/api/client";
-import type { UserRole } from "./types";
+} from 'lucide-react';
+import { authenticatedFetch } from '@/lib/api/client';
+import type { UserRole } from './types';
 
 const AVATAR_BG_CLASSES = [
-  "bg-sky-600",
-  "bg-teal-600",
-  "bg-orange-600",
-  "bg-indigo-600",
-  "bg-emerald-600",
-  "bg-rose-600",
+  'bg-sky-600',
+  'bg-teal-600',
+  'bg-orange-600',
+  'bg-indigo-600',
+  'bg-emerald-600',
+  'bg-rose-600',
 ];
 
-const LOADING_WIDTH_CLASSES = ["w-[55%]", "w-[67%]", "w-[79%]", "w-[91%]"];
+const LOADING_WIDTH_CLASSES = ['w-[55%]', 'w-[67%]', 'w-[79%]', 'w-[91%]'];
 
 interface DrawerUserData {
   id: number;
   email: string;
   nomeCompleto: string;
   role: UserRole;
-  status: "ATIVO" | "INATIVO" | null;
+  status: 'ATIVO' | 'INATIVO' | null;
   avatarUrl: string | null;
   telefone: string | null;
   endereco1: string | null;
@@ -53,29 +53,49 @@ interface DrawerUserData {
 }
 
 const ROLE_CONFIG: Record<UserRole, { label: string; className: string }> = {
-  ADMIN:      { label: "Administrador", className: "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20" },
-  GERENTE:    { label: "Gerente",       className: "bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20" },
-  FINANCEIRO: { label: "Financeiro",    className: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20" },
-  ESTOQUE:    { label: "Estoque",       className: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20" },
-  USUARIO:    { label: "Usuário",       className: "bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border border-neutral-500/20" },
-  CLIENTE:    { label: "Cliente",       className: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20" },
+  ADMIN: {
+    label: 'Administrador',
+    className: 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20',
+  },
+  GERENTE: {
+    label: 'Gerente',
+    className: 'bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20',
+  },
+  FINANCEIRO: {
+    label: 'Financeiro',
+    className: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20',
+  },
+  ESTOQUE: {
+    label: 'Estoque',
+    className: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20',
+  },
+  USUARIO: {
+    label: 'Usuário',
+    className:
+      'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border border-neutral-500/20',
+  },
+  CLIENTE: {
+    label: 'Cliente',
+    className: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20',
+  },
 };
 
 const WORKER_CLASSIFICATION_LABEL: Record<string, string> = {
-  CONTRACTOR_1099: "Contractor (1099)",
-  W2_EMPLOYEE:     "Employee (W-2)",
-  SUBCONTRACTOR:   "Subcontractor",
-  OWNER_OPERATOR:  "Owner Operator",
+  CONTRACTOR_1099: 'Contractor (1099)',
+  W2_EMPLOYEE: 'Employee (W-2)',
+  SUBCONTRACTOR: 'Subcontractor',
+  OWNER_OPERATOR: 'Owner Operator',
 };
 
 function DrawerAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
   const initials = name
-    .split(" ")
+    .split(' ')
     .filter(Boolean)
     .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-  const paletteIndex = name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % AVATAR_BG_CLASSES.length;
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
+  const paletteIndex =
+    name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % AVATAR_BG_CLASSES.length;
 
   if (avatarUrl) {
     return (
@@ -127,13 +147,18 @@ export function UserViewDrawer({ userId, onClose }: Props) {
 
   useEffect(() => {
     if (!userId) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
   }, [userId, onClose]);
 
   useEffect(() => {
-    if (!userId) { setUser(null); return; }
+    if (!userId) {
+      setUser(null);
+      return;
+    }
     setLoading(true);
     authenticatedFetch(`/api/usuarios/${userId}`)
       .then((r) => r.json())
@@ -143,9 +168,11 @@ export function UserViewDrawer({ userId, onClose }: Props) {
   }, [userId]);
 
   useEffect(() => {
-    if (userId) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
-    return () => { document.body.style.overflow = ""; };
+    if (userId) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [userId]);
 
   function handleEdit() {
@@ -160,10 +187,13 @@ export function UserViewDrawer({ userId, onClose }: Props) {
     if (!iso) return null;
     const d = new Date(iso);
     if (isNaN(d.getTime())) return null;
-    return d.toLocaleString("en-US", {
-      timeZone: "America/Chicago",
-      month: "2-digit", day: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
+    return d.toLocaleString('en-US', {
+      timeZone: 'America/Chicago',
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
@@ -177,7 +207,7 @@ export function UserViewDrawer({ userId, onClose }: Props) {
       {/* Backdrop */}
       <div
         className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "pointer-events-none opacity-0"
+          isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={onClose}
         aria-hidden="true"
@@ -190,7 +220,7 @@ export function UserViewDrawer({ userId, onClose }: Props) {
         aria-modal="true"
         aria-label="Visualizar usuário"
         className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-2xl flex-col bg-background shadow-2xl transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
+          isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* ── Header ── */}
@@ -210,7 +240,10 @@ export function UserViewDrawer({ userId, onClose }: Props) {
           {loading && (
             <div className="p-6 space-y-4">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className={`h-4 animate-pulse rounded bg-muted ${LOADING_WIDTH_CLASSES[i % LOADING_WIDTH_CLASSES.length]}`} />
+                <div
+                  key={i}
+                  className={`h-4 animate-pulse rounded bg-muted ${LOADING_WIDTH_CLASSES[i % LOADING_WIDTH_CLASSES.length]}`}
+                />
               ))}
             </div>
           )}
@@ -223,7 +256,6 @@ export function UserViewDrawer({ userId, onClose }: Props) {
 
           {!loading && user && (
             <div className="p-6 space-y-5">
-
               {/* ── Identidade ── */}
               <div className="flex items-center gap-4">
                 <DrawerAvatar name={user.nomeCompleto} avatarUrl={user.avatarUrl} />
@@ -231,17 +263,23 @@ export function UserViewDrawer({ userId, onClose }: Props) {
                   <h3 className="text-xl font-semibold text-foreground">{user.nomeCompleto}</h3>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_CONFIG[user.role]?.className}`}>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_CONFIG[user.role]?.className}`}
+                    >
                       <Shield className="h-3 w-3" />
                       {ROLE_CONFIG[user.role]?.label ?? user.role}
                     </span>
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      user.status === "ATIVO"
-                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                        : "bg-neutral-500/10 text-neutral-500"
-                    }`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${user.status === "ATIVO" ? "bg-emerald-500" : "bg-neutral-400"}`} />
-                      {user.status === "ATIVO" ? "Ativo" : "Inativo"}
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        user.status === 'ATIVO'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-neutral-500/10 text-neutral-500'
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${user.status === 'ATIVO' ? 'bg-emerald-500' : 'bg-neutral-400'}`}
+                      />
+                      {user.status === 'ATIVO' ? 'Ativo' : 'Inativo'}
                     </span>
                   </div>
                 </div>
@@ -249,13 +287,16 @@ export function UserViewDrawer({ userId, onClose }: Props) {
 
               {/* ── Grade 2 colunas ── */}
               <div className="grid grid-cols-2 gap-4">
-
                 {/* Dados pessoais */}
                 <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
                   <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     <User className="h-3.5 w-3.5" /> Dados pessoais
                   </p>
-                  <InfoRow icon={<Phone className="h-4 w-4" />} label="Telefone" value={user.telefone} />
+                  <InfoRow
+                    icon={<Phone className="h-4 w-4" />}
+                    label="Telefone"
+                    value={user.telefone}
+                  />
                   <InfoRow icon={<Mail className="h-4 w-4" />} label="E-mail" value={user.email} />
                 </div>
 
@@ -268,18 +309,21 @@ export function UserViewDrawer({ userId, onClose }: Props) {
                     <Shield className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                     <div>
                       <p className="text-xs text-muted-foreground">Perfil de acesso</p>
-                      <p className="text-sm font-medium text-foreground">{ROLE_CONFIG[user.role]?.label ?? user.role}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {ROLE_CONFIG[user.role]?.label ?? user.role}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    {user.status === "ATIVO"
-                      ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      : <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-                    }
+                    {user.status === 'ATIVO' ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                    ) : (
+                      <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                    )}
                     <div>
                       <p className="text-xs text-muted-foreground">Status da conta</p>
                       <p className="text-sm font-medium text-foreground">
-                        {user.status === "ATIVO" ? "Ativo" : "Inativo"}
+                        {user.status === 'ATIVO' ? 'Ativo' : 'Inativo'}
                       </p>
                     </div>
                   </div>
@@ -300,9 +344,11 @@ export function UserViewDrawer({ userId, onClose }: Props) {
                         <p className="text-sm text-muted-foreground">
                           {[
                             user.endereco2,
-                            [user.cidade, user.estado].filter(Boolean).join(", "),
+                            [user.cidade, user.estado].filter(Boolean).join(', '),
                             user.cep,
-                          ].filter(Boolean).join(" · ")}
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </p>
                       </div>
                     </div>
@@ -317,10 +363,9 @@ export function UserViewDrawer({ userId, onClose }: Props) {
                   <InfoRow
                     icon={<Clock className="h-4 w-4" />}
                     label="Último acesso"
-                    value={fmt(user.ultimoLoginEm) ?? "Nunca acessou"}
+                    value={fmt(user.ultimoLoginEm) ?? 'Nunca acessou'}
                   />
                 </div>
-
               </div>
 
               {/* ── Datas ── */}
@@ -329,13 +374,15 @@ export function UserViewDrawer({ userId, onClose }: Props) {
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5" /> Criado em
                   </p>
-                  <p className="text-sm font-medium text-foreground">{fmt(user.criadoEm) ?? "—"}</p>
+                  <p className="text-sm font-medium text-foreground">{fmt(user.criadoEm) ?? '—'}</p>
                 </div>
                 <div className="rounded-2xl border border-border bg-card p-4 space-y-1">
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5" /> Atualizado em
                   </p>
-                  <p className="text-sm font-medium text-foreground">{fmt(user.atualizadoEm) ?? "—"}</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {fmt(user.atualizadoEm) ?? '—'}
+                  </p>
                 </div>
               </div>
 
@@ -356,8 +403,12 @@ export function UserViewDrawer({ userId, onClose }: Props) {
                   >
                     <Briefcase className="h-4 w-4 shrink-0 text-brand-primary" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">{workerData.name}</p>
-                      {workerLabel && <p className="text-xs text-muted-foreground">{workerLabel}</p>}
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {workerData.name}
+                      </p>
+                      {workerLabel && (
+                        <p className="text-xs text-muted-foreground">{workerLabel}</p>
+                      )}
                     </div>
                     <ExternalLink className="h-3.5 w-3.5 shrink-0 text-brand-primary" />
                   </a>
@@ -368,7 +419,6 @@ export function UserViewDrawer({ userId, onClose }: Props) {
                   <p className="text-xs text-muted-foreground">Sem worker vinculado</p>
                 </div>
               )}
-
             </div>
           )}
         </div>
@@ -378,6 +428,7 @@ export function UserViewDrawer({ userId, onClose }: Props) {
           <button
             onClick={handleEdit}
             disabled={!user}
+            aria-label="Editar usuário"
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
           >
             <Pencil className="h-4 w-4" />
@@ -385,6 +436,7 @@ export function UserViewDrawer({ userId, onClose }: Props) {
           </button>
           <button
             onClick={onClose}
+            aria-label="Fechar detalhes do usuário"
             className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
           >
             Fechar
@@ -394,5 +446,3 @@ export function UserViewDrawer({ userId, onClose }: Props) {
     </>
   );
 }
-
-

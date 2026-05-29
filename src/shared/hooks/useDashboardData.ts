@@ -33,9 +33,22 @@ interface Activity {
   user?: string;
 }
 
-interface RoleChartEntry { name: string; value: number }
-interface UserMetricsEntry { name: string; usuarios: number; ativos: number; propostas: number }
-interface LoginChartEntry { date: string; attempts: number; successful: number; failed: number }
+interface RoleChartEntry {
+  name: string;
+  value: number;
+}
+interface UserMetricsEntry {
+  name: string;
+  usuarios: number;
+  ativos: number;
+  propostas: number;
+}
+interface LoginChartEntry {
+  date: string;
+  attempts: number;
+  successful: number;
+  failed: number;
+}
 
 interface UseDashboardDataReturn {
   stats: DashboardStats | null;
@@ -68,7 +81,9 @@ const ROLE_LABELS: Record<string, string> = {
   CLIENTE: 'Cliente',
 };
 
-export function useDashboardData({ enabled = true }: UseDashboardDataOptions = {}): UseDashboardDataReturn {
+export function useDashboardData({
+  enabled = true,
+}: UseDashboardDataOptions = {}): UseDashboardDataReturn {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
@@ -82,77 +97,82 @@ export function useDashboardData({ enabled = true }: UseDashboardDataOptions = {
   const [canReadAnalytics, setCanReadAnalytics] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string>('');
 
-  const fetchDashboardData = useCallback(async (signal?: AbortSignal) => {
-    if (!enabled) return;
-    setLoading(true);
-    setError(null);
+  const fetchDashboardData = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!enabled) return;
+      setLoading(true);
+      setError(null);
 
-    try {
-      const response = await fetch(`/api/analytics?period=${period}&role=${userRole}`, {
-        signal,
-        cache: 'no-store',
-      });
+      try {
+        const response = await fetch(`/api/analytics?period=${period}&role=${userRole}`, {
+          signal,
+          cache: 'no-store',
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-      const raw = await response.json();
-      const data = raw.data ?? raw;
-      if (signal?.aborted) return;
-      const ov = data.overview;
-      const analyticsPermission = Boolean(data.permissions?.canReadAnalytics);
-      setCanReadAnalytics(analyticsPermission);
-      setCurrentUserRole(String(data.permissions?.currentUserRole ?? ''));
+        const raw = await response.json();
+        const data = raw.data ?? raw;
+        if (signal?.aborted) return;
+        const ov = data.overview;
+        const analyticsPermission = Boolean(data.permissions?.canReadAnalytics);
+        setCanReadAnalytics(analyticsPermission);
+        setCurrentUserRole(String(data.permissions?.currentUserRole ?? ''));
 
-      setStats({
-        totalUsers: ov.totalUsers,
-        activeUsers: ov.activeUsers,
-        totalProposals: ov.totalProposals,
-        propostasAprovadas: ov.propostasAprovadas ?? 0,
-        propostasPendentes: ov.propostasPendentes ?? 0,
-        totalClients: ov.totalClients,
-        loginAttempts: ov.loginAttempts ?? null,
-        failedLogins: ov.failedLogins ?? null,
-        auditEvents: ov.auditEvents ?? null,
-        systemHealth: ov.systemHealth,
-        lastActivityAt: ov.lastActivityAt ?? null,
-      });
+        setStats({
+          totalUsers: ov.totalUsers,
+          activeUsers: ov.activeUsers,
+          totalProposals: ov.totalProposals,
+          propostasAprovadas: ov.propostasAprovadas ?? 0,
+          propostasPendentes: ov.propostasPendentes ?? 0,
+          totalClients: ov.totalClients,
+          loginAttempts: ov.loginAttempts ?? null,
+          failedLogins: ov.failedLogins ?? null,
+          auditEvents: ov.auditEvents ?? null,
+          systemHealth: ov.systemHealth,
+          lastActivityAt: ov.lastActivityAt ?? null,
+        });
 
-      // Map roles array for the "Por Função" tab
-      const apiRoles: UserRole[] = ((data.charts.usersByRole as Array<{ role: string; count: number }>) ?? []).map(r => ({
-        id: r.role,
-        name: ROLE_LABELS[r.role] ?? r.role,
-        permissions: r.role === 'ADMIN' ? ['all'] : r.role === 'GERENTE' ? ['read', 'write'] : ['read'],
-        userCount: r.count,
-      }));
-
-      setRoles(apiRoles);
-      setRecentActivities(data.recentActivity ?? []);
-
-      // Chart data
-      setRoleChartData(
-        ((data.charts.usersByRole as Array<{ role: string; count: number }>) ?? []).map(r => ({
+        // Map roles array for the "Por Função" tab
+        const apiRoles: UserRole[] = (
+          (data.charts.usersByRole as Array<{ role: string; count: number }>) ?? []
+        ).map((r) => ({
+          id: r.role,
           name: ROLE_LABELS[r.role] ?? r.role,
-          value: r.count,
-        }))
-      );
-      setUserMetricsData(data.charts.userMetrics ?? []);
-      setLoginChartData(analyticsPermission ? (data.charts.loginAttemptsByDay ?? []) : []);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return;
+          permissions:
+            r.role === 'ADMIN' ? ['all'] : r.role === 'GERENTE' ? ['read', 'write'] : ['read'],
+          userCount: r.count,
+        }));
+
+        setRoles(apiRoles);
+        setRecentActivities(data.recentActivity ?? []);
+
+        // Chart data
+        setRoleChartData(
+          ((data.charts.usersByRole as Array<{ role: string; count: number }>) ?? []).map((r) => ({
+            name: ROLE_LABELS[r.role] ?? r.role,
+            value: r.count,
+          })),
+        );
+        setUserMetricsData(data.charts.userMetrics ?? []);
+        setLoginChartData(analyticsPermission ? (data.charts.loginAttemptsByDay ?? []) : []);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return;
+        }
+        setError('Erro ao carregar dados do dashboard');
+        setCanReadAnalytics(false);
+        setCurrentUserRole('');
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
       }
-      setError('Erro ao carregar dados do dashboard');
-      setCanReadAnalytics(false);
-      setCurrentUserRole('');
-      console.warn('Dashboard data fetch error:', err);
-    } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
-      }
-    }
-  }, [enabled, period, userRole]);
+    },
+    [enabled, period, userRole],
+  );
 
   useEffect(() => {
     if (!enabled) {

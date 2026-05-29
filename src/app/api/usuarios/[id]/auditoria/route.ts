@@ -1,20 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { withErrorHandler } from '@/lib/api/error-handler';
-import { requireUser } from "@/shared/lib/rbac";
-import { can, type Role } from "@/shared/lib/rbac-core";
-import { checkUserManagementAccess } from "../../_helpers/access";
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
+import { checkUserManagementAccess } from '../../_helpers/access';
 
 interface Params {
   id: string;
 }
 
-export const GET = withErrorHandler(async (request: NextRequest,
-  { params }: { params: Promise<Params> }) => {
+export const GET = withErrorHandler(
+  async (request: NextRequest, { params }: { params: Promise<Params> }) => {
     const authUser = await requireUser(request);
 
     if (!can(authUser.role as Role, 'usuarios', 'read')) {
-      return NextResponse.json({ error: 'Forbidden', message: 'Acesso negado', success: false }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Acesso negado', success: false },
+        { status: 403 },
+      );
     }
 
     const { id } = await params;
@@ -22,8 +25,8 @@ export const GET = withErrorHandler(async (request: NextRequest,
 
     if (isNaN(userId)) {
       return NextResponse.json(
-        { message: "ID de usuário inválido" },
-        { status: 400 }
+        { error: 'INVALID_ID', message: 'ID de usuário inválido', success: false },
+        { status: 400 },
       );
     }
 
@@ -31,8 +34,8 @@ export const GET = withErrorHandler(async (request: NextRequest,
     if (!access.allowed) return access.response;
 
     const { searchParams } = new URL(request.url);
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
-    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "50")));
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'));
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') ?? '50')));
     const offset = (page - 1) * pageSize;
 
     // Buscar logs de auditoria relacionados ao usuário com paginação real
@@ -76,4 +79,5 @@ export const GET = withErrorHandler(async (request: NextRequest,
       },
       success: true,
     });
-  });
+  },
+);

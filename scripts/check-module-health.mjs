@@ -36,6 +36,7 @@ const RESET = "\x1b[0m";
 const args = process.argv.slice(2);
 const moduleArg = args.find((a) => a.startsWith("--module="))?.split("=")[1];
 const onlyStagedFiles = args.includes("--staged");
+const strictMode = args.includes("--strict");
 
 function getModuleScopes(mod) {
   const defaults = [
@@ -64,7 +65,9 @@ function getModuleScopes(mod) {
     ],
     usuarios: [
       "src/app/api/usuarios/",
+      "src/app/(dashboard)/usuarios/",
       "src/__tests__/api/usuarios/",
+      "src/shared/components/GladPros/index.tsx",
       "src/shared/lib/user-hierarchy",
       "src/shared/lib/rbac",
     ],
@@ -113,12 +116,59 @@ function grep(pattern, searchPath) {
       .trim()
       .split("\n")
       .filter(Boolean);
+  } catch (error) {
+    if (error?.status === 1) return [];
+    throw new Error(`grep failed for pattern "${pattern}" in "${searchPath}". Health check cannot continue safely.`);
+  }
+}
+
+function readTextFile(file) {
+  try {
+    return readFileSync(file, "utf-8");
+  } catch {
+    return "";
+  }
+}
+
+function toRelativePath(file) {
+  return path.relative(ROOT, file);
+}
+
+function isIgnoredCodeFile(file) {
+  return /(__tests__|\.test\.|\.spec\.)/.test(file);
+}
+
+function isAllowedFile(file, allowedFiles = []) {
+  return allowedFiles.some((allowed) => file.includes(allowed));
+}
+
+function collectFilesForScope(scope) {
+  const full = path.join(ROOT, scope);
+  if (!existsSync(full)) return [];
+
+  try {
+    const statOutput = execSync(`if [ -f "${full}" ]; then echo file; elif [ -d "${full}" ]; then echo dir; fi`, {
+      cwd: ROOT,
+      encoding: "utf-8",
+      shell: "/bin/bash",
+    }).trim();
+
+    if (statOutput === "file") return [full];
+    if (statOutput === "dir") return listTypeScriptFiles(full);
+    return [];
   } catch {
     return [];
   }
 }
 
 function grepStaged(pattern) {
+  let compiled;
+  try {
+    compiled = new RegExp(pattern);
+  } catch (error) {
+    throw new Error(`Invalid staged health-check regex "${pattern}": ${error.message}`);
+  }
+
   try {
     const files = execSync("git diff --cached --name-only --diff-filter=ACMR", {
       cwd: ROOT, encoding: "utf-8",
@@ -129,16 +179,15 @@ function grepStaged(pattern) {
       try {
         const content = execSync(`git show ":${file}"`, { cwd: ROOT, encoding: "utf-8" });
         content.split("\n").forEach((line, idx) => {
-          try {
-            if (new RegExp(pattern).test(line)) {
-              results.push(`${file}:${idx + 1}:${line.trim()}`);
-            }
-          } catch { /* invalid regex for this line */ }
+          if (compiled.test(line)) {
+            results.push(`${file}:${idx + 1}:${line.trim()}`);
+          }
         });
       } catch { /* file not in index */ }
     }
     return results;
-  } catch {
+  } catch (error) {
+    if (error.message?.startsWith("Invalid staged health-check regex")) throw error;
     return [];
   }
 }
@@ -368,23 +417,6 @@ const RULES = [
     allowedFiles: ["src/app/api/dev/", "src/app/api/webhooks/", "src/app/api/cron/", "__tests__", ".test.ts", ".spec.ts"],
     fix: "Use empresaId dinâmico do usuário autenticado (ex: ${user.empresaId})",
   },
-  {
-    id: "P2-002",
-    severity: "P2",
-    description: "Resposta de API sem campo success — quebra o contrato do frontend",
-    pattern: "NextResponse\\.json\\(\\s*\\{(?![^}]*success)",
-    scope: "src/app/api/",
-    // For multi-line responses, also check the next N lines for `success:`
-    multilineContextLines: 10,
-    allowedFiles: [
-      "src/app/api/dev/",
-      "src/app/api/webhooks/",
-      "src/app/api/auth/",
-      "src/app/api/portal/",
-    ],
-    fix: "Adicione success: true|false em todas as respostas da API",
-  },
-
   // ── P3 — Qualidade ────────────────────────────────────────────────────────
   {
     id: "P3-001",
@@ -545,9 +577,50 @@ function checkAuthInvariantViolations() {
   return violations;
 }
 
+function checkApiResponseContractViolations() {
+  const rule = {
+    id: "P2-002",
+    severity: "P2",
+    description: "Resposta de API sem campo success — quebra o contrato do frontend",
+    fix: "Adicione success: true|false em todas as respostas da API",
+  };
+
+  const allowedFiles = [
+    "src/app/api/dev/",
+    "src/app/api/webhooks/",
+    "src/app/api/auth/",
+    "src/app/api/portal/",
+  ];
+
+  const scopeFiles = moduleArg
+    ? getModuleScopes(moduleArg).flatMap(collectFilesForScope)
+    : collectFilesForScope("src/app/api/");
+
+  const violations = [];
+  for (const fullPath of [...new Set(scopeFiles)]) {
+    const relative = toRelativePath(fullPath);
+    if (!relative.startsWith("src/app/api/") || isIgnoredCodeFile(relative) || isAllowedFile(relative, allowedFiles)) {
+      continue;
+    }
+
+    const lines = readTextFile(fullPath).split("\n");
+    lines.forEach((line, index) => {
+      if (!/NextResponse\.json\s*\(/.test(line)) return;
+      if (/^\s*(\/\/|\/\*|\*)/.test(line.trim())) return;
+
+      const context = lines.slice(index, Math.min(lines.length, index + 25)).join("\n");
+      if (!/success\s*:/.test(context)) {
+        violations.push(`${relative}:${index + 1}:${line.trim()}`);
+      }
+    });
+  }
+
+  return violations.length > 0 ? [{ rule, violations }] : [];
+}
+
 function listTypeScriptFiles(dir) {
   try {
-    const output = execSync(`find "${dir}" -type f -name "*.ts" -o -name "*.tsx"`, {
+    const output = execSync(`find "${dir}" -type f \\( -name "*.ts" -o -name "*.tsx" \\)`, {
       cwd: ROOT,
       encoding: "utf-8",
       shell: "/bin/bash",
@@ -609,6 +682,88 @@ function checkUsuariosInvariantViolations() {
     file: violation.file,
     line: violation.line,
   }));
+}
+
+function checkUsuariosChecklistViolations() {
+  if (moduleArg && moduleArg !== "usuarios") return [];
+
+  const grouped = [];
+
+  const sidebarPath = path.join(ROOT, "src/shared/components/GladPros/index.tsx");
+  if (existsSync(sidebarPath)) {
+    const lines = readTextFile(sidebarPath).split("\n");
+    const index = lines.findIndex((line) => line.includes('href: "/usuarios"'));
+    const context = index >= 0
+      ? lines.slice(index, Math.min(lines.length, index + 4)).join("\n").split("},")[0] ?? ""
+      : "";
+    if (index >= 0 && !/requiredRoles\s*:\s*\[\s*["']ADMIN["']\s*\]/.test(context)) {
+      grouped.push({
+        rule: {
+          id: "P3-USUARIOS-SIDEBAR-RBAC",
+          severity: "P3",
+          description: "Sidebar exibe módulo Usuarios sem requiredRoles ADMIN",
+          fix: 'Adicionar requiredRoles: ["ADMIN"] no item /usuarios.',
+        },
+        violations: [`src/shared/components/GladPros/index.tsx:${index + 1}:requiredRoles ausente`],
+      });
+    }
+  }
+
+  const dashboardFiles = collectFilesForScope("src/app/(dashboard)/usuarios/");
+  const utcViolations = [];
+  for (const fullPath of dashboardFiles) {
+    const relative = toRelativePath(fullPath);
+    if (isIgnoredCodeFile(relative)) continue;
+    const lines = readTextFile(fullPath).split("\n");
+    lines.forEach((line, index) => {
+      if (/getUTC(Month|Date|FullYear|Hours|Minutes|Seconds)\s*\(/.test(line)) {
+        utcViolations.push(`${relative}:${index + 1}:${line.trim()}`);
+      }
+    });
+  }
+
+  if (utcViolations.length > 0) {
+    grouped.push({
+      rule: {
+        id: "P3-USUARIOS-TIMEZONE-UTC",
+        severity: "P3",
+        description: "Modulo usuarios usa getters UTC para data exibida",
+        fix: 'Usar formatador com timeZone: "America/Chicago" ou parsing date-only seguro.',
+      },
+      violations: utcViolations,
+    });
+  }
+
+  const drawerPath = path.join(ROOT, "src/app/(dashboard)/usuarios/_components/UserViewDrawer.tsx");
+  if (existsSync(drawerPath)) {
+    const lines = readTextFile(drawerPath).split("\n");
+    const watchedHandlers = new Set(["handleEdit", "onClose"]);
+    const missingAria = [];
+
+    lines.forEach((line, index) => {
+      const handler = [...watchedHandlers].find((name) => line.includes(`onClick={${name}}`));
+      if (!handler) return;
+      const block = lines.slice(Math.max(0, index - 5), Math.min(lines.length, index + 8)).join("\n");
+      if (!/<button[\s\S]*onClick=/.test(block)) return;
+      if (!/aria-label\s*=/.test(block)) {
+        missingAria.push(`${toRelativePath(drawerPath)}:${index + 1}:aria-label ausente em ${handler}`);
+      }
+    });
+
+    if (missingAria.length > 0) {
+      grouped.push({
+        rule: {
+          id: "P3-USUARIOS-DRAWER-ARIA",
+          severity: "P3",
+          description: "Acoes do UserViewDrawer sem aria-label explicito",
+          fix: "Adicionar aria-label nos botoes de acao do drawer.",
+        },
+        violations: missingAria,
+      });
+    }
+  }
+
+  return grouped;
 }
 
 // ── Runner ────────────────────────────────────────────────────────────────────
@@ -707,6 +862,14 @@ if (authInvariantViolations.length > 0) {
   }
 }
 
+const apiContractViolations = checkApiResponseContractViolations();
+for (const entry of apiContractViolations) {
+  totalErrors += entry.violations.length;
+  if (entry.rule.severity === "P1") P1_errors.push(entry);
+  else if (entry.rule.severity === "P2") P2_errors.push(entry);
+  else P3_errors.push(entry);
+}
+
 const usuariosInvariantViolations = checkUsuariosInvariantViolations();
 if (usuariosInvariantViolations.length > 0) {
   const grouped = new Map();
@@ -725,6 +888,14 @@ if (usuariosInvariantViolations.length > 0) {
     else if (entry.rule.severity === "P2") P2_errors.push(entry);
     else P3_errors.push(entry);
   }
+}
+
+const usuariosChecklistViolations = checkUsuariosChecklistViolations();
+for (const entry of usuariosChecklistViolations) {
+  totalErrors += entry.violations.length;
+  if (entry.rule.severity === "P1") P1_errors.push(entry);
+  else if (entry.rule.severity === "P2") P2_errors.push(entry);
+  else P3_errors.push(entry);
 }
 
 // ── Run known-bugs check ──────────────────────────────────────────────────────
@@ -808,6 +979,9 @@ console.log(`${BOLD}Total: ${totalErrors} violação(ões)${scopeLabel}${RESET}`
 
 if (P1_errors.length > 0 || knownBugP1s.length > 0) {
   console.log(`${RED}${BOLD}Commit bloqueado — corrija os P1 antes de continuar.${RESET}\n`);
+  process.exit(1);
+} else if (strictMode && (P2_errors.length > 0 || P3_errors.length > 0 || knownBugP2s.length > 0 || knownBugP3s.length > 0)) {
+  console.log(`${RED}${BOLD}Auditoria estrita bloqueada — corrija P2/P3 antes de certificar.${RESET}\n`);
   process.exit(1);
 } else if (onlyStagedFiles && knownBugP2s.length > 0) {
   console.log(`${RED}${BOLD}Commit bloqueado — correção parcial/regressão P2 detectada em known-bugs.${RESET}\n`);

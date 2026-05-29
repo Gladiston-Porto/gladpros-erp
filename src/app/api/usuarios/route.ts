@@ -66,7 +66,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   // Verificar se usuário tem permissão de leitura
   if (!can(user.role as Role, 'usuarios', 'read')) {
-    return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Acesso negado.', success: false },
+      { status: 403 },
+    );
   }
   const { searchParams } = new URL(req.url);
 
@@ -520,7 +523,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   // Verificar se usuário tem permissão de criação — apenas ADMIN (conforme rbac-core)
   if (!can(user.role as Role, 'usuarios', 'create')) {
     return NextResponse.json(
-      { error: 'Acesso negado. Apenas administradores podem criar usuários.' },
+      {
+        error: 'Forbidden',
+        message: 'Acesso negado. Apenas administradores podem criar usuários.',
+        success: false,
+      },
       { status: 403 },
     );
   }
@@ -529,7 +536,10 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'INVALID_BODY', message: 'JSON inválido' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'INVALID_BODY', message: 'JSON inválido', success: false },
+      { status: 400 },
+    );
   }
 
   const parsed = UserCreateSchema.safeParse(body);
@@ -563,6 +573,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         message: 'Dados inválidos. Verifique os campos destacados.',
         fields: fieldErrors,
         issues: parsed.error.flatten(), // manter para debug se necessário
+        success: false,
       },
       { status: 400 },
     );
@@ -598,7 +609,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     const exists = existsRows.length > 0;
     if (exists) {
       return NextResponse.json(
-        { error: 'EMAIL_TAKEN', message: 'E-mail já cadastrado' },
+        { error: 'EMAIL_TAKEN', message: 'E-mail já cadastrado', success: false },
         { status: 409 },
       );
     }
@@ -812,7 +823,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     // Tratamento específico para erros de autenticação
     if (err instanceof Error && err.message === 'UNAUTHENTICATED') {
       return NextResponse.json(
-        { error: 'UNAUTHENTICATED', message: 'Não autenticado' },
+        { error: 'UNAUTHENTICATED', message: 'Não autenticado', success: false },
         { status: 401 },
       );
     }
@@ -832,6 +843,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
             dataNascimento:
               'Data de nascimento inválida. Use o formato MM/DD/YYYY (exemplo: 05/18/1979)',
           },
+          success: false,
         },
         { status: 400 },
       );
@@ -846,6 +858,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           fields: {
             telefone: 'Telefone deve ter 10 dígitos. Exemplo: (469)334-6918',
           },
+          success: false,
         },
         { status: 400 },
       );
@@ -860,6 +873,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           fields: {
             cep: 'CEP deve conter apenas números. Exemplo: 01234567',
           },
+          success: false,
         },
         { status: 400 },
       );
@@ -870,6 +884,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       {
         error: 'INTERNAL_ERROR',
         message: 'Erro interno do servidor. Verifique os dados e tente novamente.',
+        success: false,
       },
       { status: 500 },
     );

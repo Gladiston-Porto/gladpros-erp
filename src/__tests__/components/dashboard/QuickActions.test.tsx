@@ -1,7 +1,7 @@
 /**
  * QuickActions — Unit Tests
  *
- * [QA-01] Renderiza todos os botões quando userRole não fornecido (graceful degradation)
+ * [QA-01] Não renderiza ações antes de conhecer o role do usuário
  * [QA-02] ADMIN vê todas as ações (propostas:write, clientes:write, reports:read, configuracoes:read)
  * [QA-03] USUARIO não vê "Configurações" (configuracoes sem acesso para USUARIO)
  * [QA-04] CLIENTE não vê nenhuma ação (sem acesso a propostas, clientes, reports, configuracoes)
@@ -25,12 +25,13 @@ jest.mock('@gladpros/ui/card', () => ({
 }));
 
 describe('QuickActions', () => {
-  test('[QA-01] Renderiza todos os botões quando userRole não fornecido', () => {
+  test('[QA-01] Não renderiza ações antes de conhecer o role do usuário', () => {
     render(<QuickActions />);
-    expect(screen.getByLabelText('Nova Proposta')).toBeInTheDocument();
-    expect(screen.getByLabelText('Novo Cliente')).toBeInTheDocument();
-    expect(screen.getByLabelText('Relatórios')).toBeInTheDocument();
-    expect(screen.getByLabelText('Configurações')).toBeInTheDocument();
+    expect(screen.getByText('Carregando ações disponíveis...')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Nova Proposta')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Novo Cliente')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Relatórios')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Configurações')).not.toBeInTheDocument();
   });
 
   test('[QA-02] ADMIN vê todas as 4 ações', () => {
@@ -78,7 +79,7 @@ describe('QuickActions', () => {
   test('[QA-07] Todos os botões têm aria-label', () => {
     render(<QuickActions userRole="ADMIN" />);
     const buttons = screen.getAllByRole('button');
-    buttons.forEach(btn => {
+    buttons.forEach((btn) => {
       expect(btn).toHaveAttribute('aria-label');
     });
   });

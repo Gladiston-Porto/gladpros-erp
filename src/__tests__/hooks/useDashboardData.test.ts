@@ -34,7 +34,10 @@ const ANALYTICS_RESPONSE = {
       lastActivityAt: null,
     },
     charts: {
-      usersByRole: [{ role: 'ADMIN', count: 1 }, { role: 'USUARIO', count: 4 }],
+      usersByRole: [
+        { role: 'ADMIN', count: 1 },
+        { role: 'USUARIO', count: 4 },
+      ],
       userMetrics: [],
       loginAttemptsByDay: [],
     },
@@ -66,10 +69,11 @@ beforeEach(() => {
 });
 
 describe('useDashboardData', () => {
-  test('[HOOK-01] Estado inicial: loading=true quando enabled=true', () => {
+  test('[HOOK-01] Estado inicial: loading=true quando enabled=true', async () => {
     mockSuccess();
     const { result } = renderHook(() => useDashboardData());
     expect(result.current.loading).toBe(true);
+    await waitFor(() => expect(result.current.loading).toBe(false));
   });
 
   test('[HOOK-02] enabled=false: loading=false imediatamente, sem fetch', () => {
@@ -135,6 +139,7 @@ describe('useDashboardData', () => {
     });
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.loading).toBe(false));
   });
 
   test('[HOOK-09] Mudança de period re-executa fetch', async () => {
@@ -149,6 +154,7 @@ describe('useDashboardData', () => {
     });
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.loading).toBe(false));
     const secondCall = mockFetch.mock.calls[1][0] as string;
     expect(secondCall).toContain('period=7d');
   });

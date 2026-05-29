@@ -1,0 +1,123 @@
+{
+  "module": "dashboard",
+  "createdAt": "2026-05-29",
+  "purpose": "Inventário-baseline do módulo dashboard. Usado pelo run-audit.mjs para habilitar o canário do detector de anti-patterns e registrar o escopo auditável do painel executivo/operacional.",
+  "scope": {
+    "apiRoutes": ["src/app/api/dashboard/**", "src/app/api/analytics/route.ts"],
+    "pageRoutes": ["src/app/(dashboard)/dashboard/**", "src/app/dashboard/layout.tsx"],
+    "components": ["src/components/dashboard/**", "src/components/charts/DashboardCharts.tsx"],
+    "sharedLib": ["src/shared/hooks/useDashboardData.ts", "src/shared/lib/rbac-core.ts"],
+    "tests": [
+      "src/__tests__/api/dashboard/**",
+      "src/__tests__/hooks/useDashboardData.test.ts",
+      "src/__tests__/components/dashboard/**"
+    ]
+  },
+  "criticalInvariants": [
+    {
+      "id": "P1-DASHBOARD-RBAC",
+      "rule": "Toda rota de dashboard deve usar requireUser() e can(user.role, 'dashboard', 'read') antes de retornar métricas.",
+      "enforcedBy": "scripts/check-module-health.mjs + revisão manual"
+    },
+    {
+      "id": "P1-DASHBOARD-FINANCIAL-RBAC",
+      "rule": "Métricas financeiras só podem ser retornadas quando can(user.role, 'financeiro', 'read') for verdadeiro.",
+      "enforcedBy": "src/__tests__/api/dashboard/dashboard.test.ts + src/__tests__/api/dashboard/executive.test.ts"
+    },
+    {
+      "id": "P1-DASHBOARD-EMPRESA-SCOPE",
+      "rule": "Todas as queries operacionais do dashboard devem respeitar user.empresaId quando o modelo possuir empresaId.",
+      "enforcedBy": "revisão manual + testes de regressão a criar quando houver achado"
+    },
+    {
+      "id": "P2-DASHBOARD-PERF",
+      "rule": "O dashboard deve evitar N+1, queries sequenciais independentes e listagens sem limite em widgets executivos.",
+      "enforcedBy": "scripts/check-module-health.mjs + revisão manual"
+    },
+    {
+      "id": "P2-DASHBOARD-CONTRACT",
+      "rule": "Respostas de API devem seguir { data, success } ou { error, message, success: false } e validar query params com Zod.",
+      "enforcedBy": "src/__tests__/api/dashboard/**"
+    }
+  ],
+  "expectedRoles": {
+    "publicRoutes": [],
+    "authenticatedRoutes": [
+      "src/app/api/dashboard",
+      "src/app/api/dashboard/executive",
+      "src/app/api/analytics",
+      "src/app/(dashboard)/dashboard"
+    ]
+  },
+  "knownBugs": {
+    "fixed": [],
+    "open": []
+  },
+  "regressionTestsRequired": [
+    "src/__tests__/api/dashboard/dashboard.test.ts",
+    "src/__tests__/api/dashboard/executive.test.ts",
+    "src/__tests__/hooks/useDashboardData.test.ts"
+  ],
+  "testCommandsRequired": [
+    "npx jest src/__tests__/api/dashboard --runInBand --no-coverage",
+    "npx jest src/__tests__/hooks/useDashboardData.test.ts --runInBand --no-coverage"
+  ],
+  "manualAudit": {
+    "lastReviewedAt": "2026-05-29",
+    "source": "Auditoria manual real do módulo dashboard: APIs /api/dashboard, /api/dashboard/executive, /api/analytics, página, hook e componentes principais, além do pipeline run-audit.mjs.",
+    "requiredAreas": [
+      {
+        "id": "dashboard-api-rbac-auth",
+        "name": "Autenticação, RBAC e exposição de métricas nas APIs do dashboard",
+        "status": "reviewed"
+      },
+      {
+        "id": "dashboard-financial-gating",
+        "name": "Gating de métricas financeiras por permissão financeiro/read",
+        "status": "reviewed"
+      },
+      {
+        "id": "dashboard-empresa-scope",
+        "name": "Escopo por empresaId nas agregações operacionais e financeiras",
+        "status": "reviewed"
+      },
+      {
+        "id": "dashboard-performance",
+        "name": "Performance das agregações e widgets executivos",
+        "status": "reviewed"
+      },
+      {
+        "id": "dashboard-ui-states-a11y",
+        "name": "Estados de loading/erro/vazio, acessibilidade e responsividade da página",
+        "status": "reviewed"
+      }
+    ],
+    "findings": [
+      {
+        "id": "DASHBOARD-P1-001",
+        "priority": "P1",
+        "summary": "Agregações operacionais do dashboard retornam dados sem escopo por empresaId em modelos que devem respeitar tenant/empresa. Afeta /api/dashboard, /api/dashboard/executive e /api/analytics."
+      },
+      {
+        "id": "DASHBOARD-P2-001",
+        "priority": "P2",
+        "summary": "Aba executiva renderiza links rápidos para módulos sem condicionar por RBAC do papel atual."
+      },
+      {
+        "id": "DASHBOARD-P2-002",
+        "priority": "P2",
+        "summary": "Pipeline oficial falha em certify-module porque governance.statusAtual permanece Needs Re-audit."
+      },
+      {
+        "id": "DASHBOARD-P2-003",
+        "priority": "P2",
+        "summary": "Link 'Ver relatório' aponta para /relatorios/executivo, mas a página existente é /relatorios/financeiro-executivo."
+      },
+      {
+        "id": "DASHBOARD-P3-001",
+        "priority": "P3",
+        "summary": "Testes do hook passam, mas emitem avisos de act(...) e console.warn no caminho de erro."
+      }
+    ]
+  }
+}

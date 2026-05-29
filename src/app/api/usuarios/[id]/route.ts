@@ -355,6 +355,7 @@ export const PATCH = withErrorHandler(async (req: Request, context: unknown) => 
           {
             error: 'LAST_ADMIN',
             message: 'Não é possível remover o último ADMIN ativo do sistema.',
+            success: false,
           },
           { status: 400 },
         );
@@ -651,7 +652,7 @@ export const DELETE = withErrorHandler(
     if ((Object.values(UserRole) as string[]).includes(targetRoleRaw)) {
       if (!canManageRole(authUser.role as UserRole, targetRoleRaw as UserRole)) {
         return NextResponse.json(
-          { code: 'FORBIDDEN', message: 'Você não pode gerenciar este usuário.' },
+          { error: 'FORBIDDEN', message: 'Você não pode gerenciar este usuário.', success: false },
           { status: 403 },
         );
       }
@@ -665,6 +666,7 @@ export const DELETE = withErrorHandler(
           {
             error: 'LAST_ADMIN',
             message: 'Não é possível desativar o último ADMIN ativo do sistema.',
+            success: false,
           },
           { status: 400 },
         );

@@ -238,6 +238,136 @@
       "regressionTest": "src/__tests__/api/usuarios/user-management-access.test.ts"
     },
     {
+      "id": "USUARIOS-P3-003",
+      "module": "usuarios",
+      "priority": "P3",
+      "title": "Respostas de erro sem success:false em rotas de usuarios",
+      "description": "O detector antigo de contrato de API usava regex incompatível com grep -E e não detectava respostas NextResponse.json de erro sem success:false em route.ts, [id]/route.ts, status, auditoria e sessions.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-29",
+      "auditRef": "usuarios-2026-05-29#manual-checklist",
+      "affectedFiles": [
+        "src/app/api/usuarios/route.ts",
+        "src/app/api/usuarios/[id]/route.ts",
+        "src/app/api/usuarios/[id]/status/route.ts",
+        "src/app/api/usuarios/[id]/auditoria/route.ts",
+        "src/app/api/usuarios/sessions/[sessionId]/route.ts",
+        "scripts/check-module-health.mjs"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Contrato de API é verificado pelo scanner checkApiResponseContractViolations() no health check estrito e pelo regressionTest dedicado.",
+      "healthCheckRule": "P2-002",
+      "semgrepRule": null,
+      "reincidenceCount": 1,
+      "reincidenceHistory": [
+        {
+          "date": "2026-05-29",
+          "reason": "BUG-13/USUARIOS-P2-001 cobriram apenas parte dos endpoints; novas ocorrências ficaram fora do detector."
+        }
+      ],
+      "fix": "Adicionado success:false nas respostas de erro e substituído detector regex cego por scanner JS.",
+      "fixedAt": "2026-05-29",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "290e941",
+      "regressionTest": "src/__tests__/api/usuarios/regression/USUARIOS-P3-003.test.ts"
+    },
+    {
+      "id": "USUARIOS-P3-004",
+      "module": "usuarios",
+      "priority": "P3",
+      "title": "Sidebar exibia Usuarios para roles sem acesso",
+      "description": "O item /usuarios em src/shared/components/GladPros/index.tsx não tinha requiredRoles:[\"ADMIN\"], então roles sem acesso viam o menu e caíam em 403 ao clicar.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-29",
+      "auditRef": "usuarios-2026-05-29#manual-checklist",
+      "affectedFiles": [
+        "src/shared/components/GladPros/index.tsx",
+        "scripts/check-module-health.mjs"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Regra semântica de navegação/RBAC visual. Coberta por healthCheckRule e regressionTest.",
+      "healthCheckRule": "P3-USUARIOS-SIDEBAR-RBAC",
+      "semgrepRule": null,
+      "fix": "Adicionado requiredRoles:[\"ADMIN\"] no item de sidebar /usuarios e regra no health check.",
+      "fixedAt": "2026-05-29",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "290e941",
+      "regressionTest": "src/__tests__/api/usuarios/regression/USUARIOS-P3-004.test.ts"
+    },
+    {
+      "id": "USUARIOS-P3-005",
+      "module": "usuarios",
+      "priority": "P3",
+      "title": "Editor de usuario usava getUTC em data exibida",
+      "description": "isoToDisplayDate() usava getUTCMonth/getUTCDate/getUTCFullYear em UserEditClient.tsx, contrariando o padrão America/Chicago e podendo causar off-by-one em datas exibidas.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-29",
+      "auditRef": "usuarios-2026-05-29#manual-checklist",
+      "affectedFiles": [
+        "src/app/(dashboard)/usuarios/[id]/UserEditClient.tsx",
+        "scripts/check-module-health.mjs"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Timezone em UI é validado por healthCheckRule e regressionTest dedicado.",
+      "healthCheckRule": "P3-USUARIOS-TIMEZONE-UTC",
+      "semgrepRule": null,
+      "fix": "Removido getUTC* do helper; date-only é preservado e fallback usa Intl.DateTimeFormat com America/Chicago.",
+      "fixedAt": "2026-05-29",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "290e941",
+      "regressionTest": "src/__tests__/api/usuarios/regression/USUARIOS-P3-005.test.ts"
+    },
+    {
+      "id": "USUARIOS-P3-006",
+      "module": "usuarios",
+      "priority": "P3",
+      "title": "UserViewDrawer tinha botoes sem aria-label",
+      "description": "Os botões de footer do UserViewDrawer para editar e fechar não tinham aria-label explícito, deixando a correção anterior de acessibilidade incompleta.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-29",
+      "auditRef": "usuarios-2026-05-29#manual-checklist",
+      "affectedFiles": [
+        "src/app/(dashboard)/usuarios/_components/UserViewDrawer.tsx",
+        "scripts/check-module-health.mjs"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Acessibilidade do drawer é validada por healthCheckRule e regressionTest dedicado.",
+      "healthCheckRule": "P3-USUARIOS-DRAWER-ARIA",
+      "semgrepRule": null,
+      "reincidenceCount": 1,
+      "reincidenceHistory": [
+        {
+          "date": "2026-05-29",
+          "reason": "BUG-14 declarou aria-label corrigido, mas deixou botões do footer do drawer fora do escopo."
+        }
+      ],
+      "fix": "Adicionados aria-labels aos botões de editar e fechar e regra específica no health check.",
+      "fixedAt": "2026-05-29",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "290e941",
+      "regressionTest": "src/__tests__/api/usuarios/regression/USUARIOS-P3-006.test.ts"
+    },
+    {
+      "id": "USUARIOS-P3-007",
+      "module": "usuarios",
+      "priority": "P3",
+      "title": "Pipeline de auditoria nao falhava em P2/P3 do checklist",
+      "description": "run-audit executava health-check sem modo estrito e o canário validava apenas INFORMATION_SCHEMA. Assim o manifest podia sair OK mesmo com P2/P3 detectáveis no checklist manual.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-29",
+      "auditRef": "usuarios-2026-05-29#mechanism-analysis",
+      "affectedFiles": ["scripts/run-audit.mjs", "scripts/check-module-health.mjs"],
+      "verificationPattern": null,
+      "verificationPatternNote": "Mecanismo de auditoria validado por regressionTest e health check estrito.",
+      "healthCheckRule": "strict-health-check",
+      "semgrepRule": null,
+      "fix": "run-audit agora chama check-module-health --strict; regex inválido não falha silenciosamente e o contrato de API usa scanner JS.",
+      "fixedAt": "2026-05-29",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "290e941",
+      "regressionTest": "src/__tests__/api/usuarios/regression/USUARIOS-P3-007.test.ts"
+    },
+    {
       "id": "AUTH-P2-001",
       "module": "auth",
       "priority": "P2",
@@ -621,6 +751,111 @@
           "source": "scripts/mark-bug-fixed.mjs"
         }
       ]
+    },
+    {
+      "id": "DASHBOARD-P1-001",
+      "module": "dashboard",
+      "priority": "P1",
+      "title": "Queries operacionais do dashboard sem escopo por empresaId",
+      "description": "As rotas /api/dashboard, /api/dashboard/executive e /api/analytics agregavam clientes, propostas, projetos ou service orders sem escopo por empresaId, permitindo vazamento cross-empresa futuro.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-29",
+      "auditRef": "dashboard-2026-05-29#runtime-audit",
+      "affectedFiles": [
+        "src/app/api/dashboard/route.ts",
+        "src/app/api/dashboard/executive/route.ts",
+        "src/app/api/analytics/route.ts"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Bug semântico de escopo Prisma. Coberto por regressionTests que validam os where com empresaId nas queries do dashboard.",
+      "semgrepRule": null,
+      "fix": "Adicionado empresaId direto ou via relação Cliente nas agregações operacionais do dashboard.",
+      "fixedAt": "2026-05-29",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "290e941",
+      "regressionTest": "src/__tests__/api/dashboard/dashboard.test.ts"
+    },
+    {
+      "id": "DASHBOARD-P1-002",
+      "module": "dashboard",
+      "priority": "P1",
+      "title": "Cache do dashboard não incluía empresaId",
+      "description": "As cache keys de /api/dashboard/executive e /api/analytics não incluíam empresaId, abrindo risco de reutilização de payload entre empresas ou ambientes.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-29",
+      "auditRef": "dashboard-2026-05-29#runtime-audit",
+      "affectedFiles": [
+        "src/app/api/dashboard/executive/route.ts",
+        "src/app/api/analytics/route.ts"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Bug semântico de chave de cache. Coberto por regressionTests que validam as chaves dashboard_executive e dashboard_analytics com empresaId.",
+      "semgrepRule": null,
+      "fix": "Incluído user.empresaId nas cache keys do dashboard executivo e analytics.",
+      "fixedAt": "2026-05-29",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "290e941",
+      "regressionTest": "src/__tests__/api/dashboard/executive.test.ts"
+    },
+    {
+      "id": "DASHBOARD-P1-003",
+      "module": "dashboard",
+      "priority": "P1",
+      "title": "Analytics aceitava role inválido como all",
+      "description": "/api/analytics normalizava roles desconhecidos para all e retornava 200, em vez de rejeitar o parâmetro inválido com erro de validação.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-29",
+      "auditRef": "dashboard-2026-05-29#runtime-audit",
+      "affectedFiles": ["src/app/api/analytics/route.ts"],
+      "verificationPattern": null,
+      "verificationPatternNote": "Bug semântico de validação de query param. Coberto por regressionTest com role=owner retornando 400.",
+      "semgrepRule": null,
+      "fix": "Roles desconhecidos agora retornam 400 com success:false.",
+      "fixedAt": "2026-05-29",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "290e941",
+      "regressionTest": "src/__tests__/api/dashboard/analytics.test.ts"
+    },
+    {
+      "id": "DASHBOARD-P2-001",
+      "module": "dashboard",
+      "priority": "P2",
+      "title": "ExecutiveTab renderizava links sem RBAC",
+      "description": "A aba executiva exibia links rápidos para financeiro, RH, propostas, relatórios e outros módulos sem condicionar por can(role,module,'read').",
+      "status": "FIXED",
+      "detectedAt": "2026-05-29",
+      "auditRef": "dashboard-2026-05-29#runtime-audit",
+      "affectedFiles": [
+        "src/components/dashboard/ExecutiveTab.tsx",
+        "src/app/api/dashboard/executive/route.ts"
+      ],
+      "verificationPattern": null,
+      "verificationPatternNote": "Bug de RBAC visual. Coberto por regressionTest que renderiza USUARIO e confirma ausência de links sem permissão.",
+      "semgrepRule": null,
+      "fix": "ExecutiveTab passou a receber currentUserRole e filtrar links rápidos e relatório via can/routeToModule.",
+      "fixedAt": "2026-05-29",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "290e941",
+      "regressionTest": "src/__tests__/components/dashboard/ExecutiveTab.test.tsx"
+    },
+    {
+      "id": "DASHBOARD-P2-003",
+      "module": "dashboard",
+      "priority": "P2",
+      "title": "Link de relatório executivo apontava para rota inexistente",
+      "description": "ExecutiveTab apontava o botão Ver relatório para /relatorios/executivo, mas a rota existente no sistema é /relatorios/financeiro-executivo.",
+      "status": "FIXED",
+      "detectedAt": "2026-05-29",
+      "auditRef": "dashboard-2026-05-29#runtime-audit",
+      "affectedFiles": ["src/components/dashboard/ExecutiveTab.tsx"],
+      "verificationPattern": null,
+      "verificationPatternNote": "Bug de navegação. Coberto por regressionTest que verifica o href renderizado.",
+      "semgrepRule": null,
+      "fix": "Link alterado para /relatorios/financeiro-executivo e condicionado por RBAC de reports.",
+      "fixedAt": "2026-05-29",
+      "fixedBy": "copilot-agent",
+      "fixCommit": "290e941",
+      "regressionTest": "src/__tests__/components/dashboard/ExecutiveTab.test.tsx"
     }
   ]
 }

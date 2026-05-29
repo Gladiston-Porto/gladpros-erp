@@ -8,7 +8,7 @@
  *   1. Self-test canário: injeta padrão proibido (INFORMATION_SCHEMA) em arquivo
  *      temporário e roda check-module-health esperando detecção. Se o detector
  *      ignorar o canário → o gate está cego → ABORTA a auditoria.
- *   2. Orquestra na ordem correta: validate-known-bugs → canário → health-check →
+ *   2. Orquestra na ordem correta: validate-known-bugs → canário → health-check estrito →
  *      certify-module.
  *   3. Persiste um audit manifest em relatorios/auditorias/<mod>-YYYY-MM-DD.json
  *      com timestamp de cada etapa.
@@ -176,7 +176,7 @@ console.log(`🔍 GladPros — run-audit (${moduleName}) — ${startedAt}`);
 
 runStep("validate:known-bugs", "node scripts/validate-known-bugs.mjs");
 runCanary();
-runStep("health:check", `node scripts/check-module-health.mjs --module=${moduleName}`);
+runStep("health:check", `node scripts/check-module-health.mjs --module=${moduleName} --strict`);
 runStep("certify:module", `node scripts/certify-module.mjs --module=${moduleName}`);
 
 flushManifest({ status: "OK" });

@@ -34,12 +34,16 @@ jest.mock('../../../shared/lib/rbac', () => ({
 
 jest.mock('../../../shared/lib/rate-limit', () => ({
   apiRateLimit: {
-    isAllowed: jest.fn().mockResolvedValue({ allowed: true, message: '', resetTime: Date.now() + 60_000 }),
+    isAllowed: jest
+      .fn()
+      .mockResolvedValue({ allowed: true, message: '', resetTime: Date.now() + 60_000 }),
   },
 }));
 
 jest.mock('../../../shared/lib/cache/business-cache', () => ({
-  withBusinessCache: jest.fn().mockImplementation((_key: string, fn: () => Promise<unknown>) => fn()),
+  withBusinessCache: jest
+    .fn()
+    .mockImplementation((_key: string, fn: () => Promise<unknown>) => fn()),
 }));
 
 jest.mock('../../../lib/api/error-handler', () => ({
@@ -69,8 +73,10 @@ describe('GET /api/analytics', () => {
     requireUser = rbac.requireUser;
     can = rbac.can;
 
-    requireUser.mockResolvedValue({ id: 1, role: 'ADMIN' });
-    can.mockImplementation((_role: string, module: string) => module === 'dashboard' || module === 'analytics');
+    requireUser.mockResolvedValue({ id: 1, role: 'ADMIN', empresaId: 7 });
+    can.mockImplementation(
+      (_role: string, module: string) => module === 'dashboard' || module === 'analytics',
+    );
 
     prisma.usuario.count.mockResolvedValue(10);
     prisma.cliente.count.mockResolvedValue(5);
@@ -83,7 +89,9 @@ describe('GET /api/analytics', () => {
     prisma.usuario.groupBy.mockResolvedValue([{ nivel: 'ADMIN', _count: { nivel: 2 } }]);
     prisma.proposta.findMany.mockResolvedValue([]);
     prisma.cliente.findMany.mockResolvedValue([]);
-    prisma.auditoria.findFirst.mockResolvedValue({ criadoEm: new Date('2026-01-01T10:00:00.000Z') });
+    prisma.auditoria.findFirst.mockResolvedValue({
+      criadoEm: new Date('2026-01-01T10:00:00.000Z'),
+    });
     prisma.$queryRaw
       .mockResolvedValueOnce([{ date: '2026-01-01', attempts: 5n, successful: 4n, failed: 1n }])
       .mockResolvedValueOnce([{ month: '2026-01', label: 'Jan', propostas: 3n }])
@@ -100,8 +108,55 @@ describe('GET /api/analytics', () => {
 
   test('400 — period inválido', async () => {
     const { GET } = require('../../../app/api/analytics/route');
-    const res = (await GET(buildRequest('http://localhost:3000/api/analytics?period=bad'))) as MockResponse;
+    const res = (await GET(
+      buildRequest('http://localhost:3000/api/analytics?period=bad'),
+    )) as MockResponse;
     expect(res.status).toBe(400);
+  });
+
+  test('@bug:DASHBOARD-P1-003 — role inválido retorna 400 em vez de virar all', async () => {
+    const { GET } = require('../../../app/api/analytics/route');
+    const res = (await GET(
+      buildRequest('http://localhost:3000/api/analytics?period=30d&role=owner'),
+    )) as MockResponse;
+    expect(res.status).toBe(400);
+    expect(res._data.success).toBe(false);
+  });
+
+  test('@bug:DASHBOARD-P1-002 — analytics usa cache e consultas por empresaId', async () => {
+    const { withBusinessCache } = require('../../../shared/lib/cache/business-cache');
+    const { GET } = require('../../../app/api/analytics/route');
+    await GET(buildRequest());
+
+    expect(withBusinessCache).toHaveBeenCalledWith(
+      'dashboard_analytics:7:ADMIN:analytics:all:30d',
+      expect.any(Function),
+      { ttlSeconds: expect.any(Number) },
+    );
+    expect(prisma.usuario.count).toHaveBeenNthCalledWith(1, { where: { empresaId: 7 } });
+    expect(prisma.usuario.count).toHaveBeenNthCalledWith(2, {
+      where: { empresaId: 7, ultimoLoginEm: { gte: expect.any(Date) } },
+    });
+    expect(prisma.cliente.count).toHaveBeenCalledWith({ where: { empresaId: 7 } });
+    expect(prisma.proposta.count).toHaveBeenCalledWith({
+      where: { empresaId: 7, deletedAt: null, dataCriacao: { gte: expect.any(Date) } },
+    });
+    expect(prisma.cliente.groupBy).toHaveBeenCalledWith({
+      by: ['status'],
+      where: { empresaId: 7 },
+      _count: { status: true },
+    });
+    expect(prisma.proposta.groupBy).toHaveBeenCalledWith({
+      by: ['status'],
+      _count: { status: true },
+      where: { empresaId: 7, deletedAt: null, dataCriacao: { gte: expect.any(Date) } },
+    });
+    expect(prisma.proposta.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { empresaId: 7, deletedAt: null } }),
+    );
+    expect(prisma.cliente.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { empresaId: 7 } }),
+    );
   });
 
   test('200 — perfil sem analytics recebe payload restrito', async () => {
@@ -132,4 +187,3 @@ describe('GET /api/analytics', () => {
     expect(overview.auditEvents).toBe(7);
   });
 });
-

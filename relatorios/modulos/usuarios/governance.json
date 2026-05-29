@@ -1,8 +1,8 @@
 {
   "modulo": "usuarios",
   "statusAtual": "Conditionally Ready",
-  "ultimaAuditoria": "2026-05-24",
-  "ultimaCertificacao": "2026-05-24",
+  "ultimaAuditoria": "2026-05-29",
+  "ultimaCertificacao": "2026-05-29",
   "bugs": {
     "abertos": [],
     "corrigidos": [
@@ -15,7 +15,12 @@
       "USUARIOS-P2-005",
       "USUARIOS-P2-006",
       "USUARIOS-P3-001",
-      "USUARIOS-P3-002"
+      "USUARIOS-P3-002",
+      "USUARIOS-P3-003",
+      "USUARIOS-P3-004",
+      "USUARIOS-P3-005",
+      "USUARIOS-P3-006",
+      "USUARIOS-P3-007"
     ]
   }
 }

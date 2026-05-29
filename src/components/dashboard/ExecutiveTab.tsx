@@ -2,11 +2,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Badge } from "@gladpros/ui/badge"
-import { Button } from "@gladpros/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@gladpros/ui/card";
-import { FinanceCard } from "@gladpros/ui/finance-card";
-import { PageHeader } from "@gladpros/ui/page-header";
+import { Badge } from '@gladpros/ui/badge';
+import { Button } from '@gladpros/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@gladpros/ui/card';
+import { FinanceCard } from '@gladpros/ui/finance-card';
+import { PageHeader } from '@gladpros/ui/page-header';
 import {
   TrendingUp,
   TrendingDown,
@@ -18,9 +18,10 @@ import {
   AlertCircle,
   ArrowRight,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
 } from 'lucide-react';
 import Link from 'next/link';
+import { can, routeToModule, type ModuleKey, type Role } from '@/shared/lib/rbac-core';
 
 interface ExecutiveKPIs {
   // Financeiro
@@ -76,6 +77,7 @@ interface ExecutiveData {
   period: string;
   permissions?: {
     canViewFinancials: boolean;
+    currentUserRole?: Role;
   };
   kpis: ExecutiveKPIs;
   projetos: Projeto[];
@@ -117,7 +119,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  const handleRetry = () => setRetryCount(c => c + 1);
+  const handleRetry = () => setRetryCount((c) => c + 1);
 
   useEffect(() => {
     if (!enabled) {
@@ -147,7 +149,6 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         if (err instanceof DOMException && err.name === 'AbortError') {
           return;
         }
-        console.warn('Erro ao carregar dashboard executivo:', err);
         setError(err instanceof Error ? err.message : 'Erro desconhecido');
       } finally {
         if (!controller.signal.aborted) {
@@ -185,7 +186,9 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
       <Card>
         <CardContent className="p-6 text-center">
           <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <p className="text-muted-foreground mb-4">{error || 'Não foi possível carregar os dados'}</p>
+          <p className="text-muted-foreground mb-4">
+            {error || 'Não foi possível carregar os dados'}
+          </p>
           <Button onClick={handleRetry} variant="outline">
             Tentar Novamente
           </Button>
@@ -196,22 +199,46 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
 
   const { kpis, projetos, alertas } = data;
   const canViewFinancials = data.permissions?.canViewFinancials !== false;
+  const currentUserRole = data.permissions?.currentUserRole;
+  const canViewReports = currentUserRole ? can(currentUserRole, 'reports', 'read') : true;
 
   // Calcular taxa de conversão de propostas
-  const taxaConversao = kpis.propostasTotal > 0
-    ? ((kpis.propostasAprovadas / kpis.propostasTotal) * 100).toFixed(1)
-    : '0';
+  const taxaConversao =
+    kpis.propostasTotal > 0
+      ? ((kpis.propostasAprovadas / kpis.propostasTotal) * 100).toFixed(1)
+      : '0';
 
   // Determinar health do financeiro
   const financeiroHealth = (kpis.saldoPeriodo ?? 0) >= 0 ? 'positive' : 'negative';
 
-  const saldoTrend = (kpis.crescimentoReceita ?? 0) > 0 ? 'up' : (kpis.crescimentoReceita ?? 0) < 0 ? 'down' : 'neutral';
+  const saldoTrend =
+    (kpis.crescimentoReceita ?? 0) > 0
+      ? 'up'
+      : (kpis.crescimentoReceita ?? 0) < 0
+        ? 'down'
+        : 'neutral';
+  const quickLinks = [
+    { href: '/dashboard/financeiro', label: 'Financeiro', icon: DollarSign },
+    { href: '/projetos', label: 'Projetos', icon: Briefcase },
+    { href: '/rh', label: 'RH', icon: Users },
+    { href: '/estoque', label: 'Estoque', icon: Package },
+    { href: '/propostas', label: 'Propostas', icon: FileText },
+    { href: '/clientes', label: 'Clientes', icon: Users },
+    { href: '/invoices', label: 'Invoices', icon: DollarSign },
+    { href: '/estoque/materiais', label: 'Materiais', icon: Package },
+  ].filter((item) => {
+    if (!currentUserRole) return true;
+    const moduleKey = routeToModule(item.href) as ModuleKey | null;
+    return moduleKey ? can(currentUserRole, moduleKey, 'read') : false;
+  });
 
   const heroHighlights = [
     {
       label: 'Saldo Líquido',
       value: canViewFinancials ? formatCurrency(kpis.saldoPeriodo ?? 0) : 'Acesso restrito',
-      detail: canViewFinancials ? 'Disponível em caixa consolidado' : 'Disponível para ADMIN/GERENTE/FINANCEIRO',
+      detail: canViewFinancials
+        ? 'Disponível em caixa consolidado'
+        : 'Disponível para ADMIN/GERENTE/FINANCEIRO',
     },
     {
       label: 'Receita Total',
@@ -237,24 +264,25 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
             <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
               Período: {PERIOD_LABELS[period]}
             </Badge>
-            <Link href="/relatorios/executivo">
-              <Button variant="outline" size="sm">
-                Ver relatório
-              </Button>
-            </Link>
+            {canViewReports && (
+              <Link href="/relatorios/financeiro-executivo">
+                <Button variant="outline" size="sm">
+                  Ver relatório
+                </Button>
+              </Link>
+            )}
           </div>
         }
       />
 
-      <div
-        className="rounded-2xl border border-white/30 bg-hero-gradient p-6 text-white shadow-lg"
-      >
+      <div className="rounded-2xl border border-white/30 bg-hero-gradient p-6 text-white shadow-lg">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-white/80">Resumo executivo</p>
             <h2 className="mt-3 text-2xl font-semibold">Indicadores prioritários</h2>
             <p className="text-sm text-white/80">
-              Os dados abaixo orientam decisões imediatas sobre caixa, equipe e pipeline de propostas.
+              Os dados abaixo orientam decisões imediatas sobre caixa, equipe e pipeline de
+              propostas.
             </p>
           </div>
           <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
@@ -290,7 +318,13 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
             title="Receita Total"
             value={kpis.receitaTotal ?? 0}
             change={kpis.crescimentoReceita ?? 0}
-            trend={(kpis.crescimentoReceita ?? 0) > 0 ? 'up' : (kpis.crescimentoReceita ?? 0) < 0 ? 'down' : 'neutral'}
+            trend={
+              (kpis.crescimentoReceita ?? 0) > 0
+                ? 'up'
+                : (kpis.crescimentoReceita ?? 0) < 0
+                  ? 'down'
+                  : 'neutral'
+            }
             icon={<TrendingUp className="h-5 w-5" />}
             variant="income"
             description="Arrecadação no período selecionado"
@@ -307,7 +341,8 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
       ) : (
         <Card className="border-warning/40 bg-warning/5">
           <CardContent className="p-4 text-sm text-warning-foreground">
-            Os KPIs financeiros estão protegidos para este perfil. Use os módulos autorizados para dados sensíveis.
+            Os KPIs financeiros estão protegidos para este perfil. Use os módulos autorizados para
+            dados sensíveis.
           </CardContent>
         </Card>
       )}
@@ -325,31 +360,43 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
               {alertas.map((alerta, index) => (
                 <div
                   key={index}
-                  className={`flex items-start space-x-3 p-3 rounded-2xl border ${alerta.severidade === 'high' ? 'bg-destructive/10 border-destructive/30' :
-                    alerta.severidade === 'medium' ? 'bg-warning/10 border-warning/30' :
-                      'bg-info/10 border-info/30'
-                    }`}
+                  className={`flex items-start space-x-3 p-3 rounded-2xl border ${
+                    alerta.severidade === 'high'
+                      ? 'bg-destructive/10 border-destructive/30'
+                      : alerta.severidade === 'medium'
+                        ? 'bg-warning/10 border-warning/30'
+                        : 'bg-info/10 border-info/30'
+                  }`}
                 >
-                  <AlertCircle className={`h-5 w-5 mt-0.5 ${alerta.severidade === 'high' ? 'text-destructive' :
-                    alerta.severidade === 'medium' ? 'text-warning' :
-                      'text-brand-primary'
-                    }`} />
+                  <AlertCircle
+                    className={`h-5 w-5 mt-0.5 ${
+                      alerta.severidade === 'high'
+                        ? 'text-destructive'
+                        : alerta.severidade === 'medium'
+                          ? 'text-warning'
+                          : 'text-brand-primary'
+                    }`}
+                  />
                   <div className="flex-1">
-                    <p className="font-medium text-foreground">
-                      {alerta.mensagem}
-                    </p>
+                    <p className="font-medium text-foreground">{alerta.mensagem}</p>
                     <p className="text-sm text-muted-foreground mt-1">
                       Tipo: {alerta.tipo.toUpperCase()}
                     </p>
                   </div>
-                  <Badge variant={
-                    alerta.severidade === 'high' ? 'destructive' :
-                      alerta.severidade === 'medium' ? 'secondary' :
-                        'default'
-                  }>
-                    {alerta.severidade === 'high' ? 'Alto' :
-                      alerta.severidade === 'medium' ? 'Médio' :
-                        'Baixo'}
+                  <Badge
+                    variant={
+                      alerta.severidade === 'high'
+                        ? 'destructive'
+                        : alerta.severidade === 'medium'
+                          ? 'secondary'
+                          : 'default'
+                    }
+                  >
+                    {alerta.severidade === 'high'
+                      ? 'Alto'
+                      : alerta.severidade === 'medium'
+                        ? 'Médio'
+                        : 'Baixo'}
                   </Badge>
                 </div>
               ))}
@@ -410,7 +457,8 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
             </div>
             <p className="text-2xl font-bold">{kpis.produtosTotal}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {kpis.estoqueTotal} unidade(s) • {kpis.movimentacoesRecentes} movimentação(ões) recentes
+              {kpis.estoqueTotal} unidade(s) • {kpis.movimentacoesRecentes} movimentação(ões)
+              recentes
             </p>
           </CardContent>
         </Card>
@@ -448,14 +496,18 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
               <p className="text-sm text-muted-foreground">Faturamento (Invoices)</p>
               <DollarSign className="h-4 w-4 text-success" />
             </div>
-               <p className="text-2xl font-bold text-success">
-               {canViewFinancials ? formatCurrency(kpis.invoicesFaturamento ?? 0) : 'Acesso restrito'}
-             </p>
-             <p className="text-xs text-muted-foreground mt-1">
-               {canViewFinancials ? `${kpis.invoicesTotal} invoice(s) no período` : 'Métrica financeira protegida por RBAC'}
-             </p>
-           </CardContent>
-         </Card>
+            <p className="text-2xl font-bold text-success">
+              {canViewFinancials
+                ? formatCurrency(kpis.invoicesFaturamento ?? 0)
+                : 'Acesso restrito'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {canViewFinancials
+                ? `${kpis.invoicesTotal} invoice(s) no período`
+                : 'Métrica financeira protegida por RBAC'}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Projetos Críticos */}
@@ -464,9 +516,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>Projetos em Andamento</CardTitle>
-              <CardDescription>
-                {projetos.length} projeto(s) ativo(s)
-              </CardDescription>
+              <CardDescription>{projetos.length} projeto(s) ativo(s)</CardDescription>
             </div>
             <Link href="/projetos">
               <Button variant="ghost" size="sm">
@@ -498,9 +548,7 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
                   <div className="text-right">
                     {projeto.orcamento && projeto.custoAtual !== null && (
                       <>
-                        <p className="text-sm font-medium">
-                          {formatCurrency(projeto.custoAtual)}
-                        </p>
+                        <p className="text-sm font-medium">{formatCurrency(projeto.custoAtual)}</p>
                         <p className="text-xs text-muted-foreground">
                           de {formatCurrency(projeto.orcamento)}
                         </p>
@@ -527,54 +575,21 @@ export default function ExecutiveTab({ period, enabled = true }: ExecutiveTabPro
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Link href="/dashboard/financeiro">
-              <Button variant="outline" className="w-full justify-start">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Financeiro
-              </Button>
-            </Link>
-            <Link href="/projetos">
-              <Button variant="outline" className="w-full justify-start">
-                <Briefcase className="h-4 w-4 mr-2" />
-                Projetos
-              </Button>
-            </Link>
-            <Link href="/rh">
-              <Button variant="outline" className="w-full justify-start">
-                <Users className="h-4 w-4 mr-2" />
-                RH
-              </Button>
-            </Link>
-            <Link href="/estoque">
-              <Button variant="outline" className="w-full justify-start">
-                <Package className="h-4 w-4 mr-2" />
-                Estoque
-              </Button>
-            </Link>
-            <Link href="/propostas">
-              <Button variant="outline" className="w-full justify-start">
-                <FileText className="h-4 w-4 mr-2" />
-                Propostas
-              </Button>
-            </Link>
-            <Link href="/clientes">
-              <Button variant="outline" className="w-full justify-start">
-                <Users className="h-4 w-4 mr-2" />
-                Clientes
-              </Button>
-            </Link>
-            <Link href="/invoices">
-              <Button variant="outline" className="w-full justify-start">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Invoices
-              </Button>
-            </Link>
-            <Link href="/estoque/materiais">
-              <Button variant="outline" className="w-full justify-start">
-                <Package className="h-4 w-4 mr-2" />
-                Materiais
-              </Button>
-            </Link>
+            {quickLinks.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href}>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    aria-label={item.label}
+                  >
+                    <Icon className="h-4 w-4 mr-2" />
+                    {item.label}
+                  </Button>
+                </Link>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
