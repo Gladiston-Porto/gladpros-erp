@@ -85,9 +85,13 @@ export const POST = withErrorHandler(async (request: Request) => {
 
     if (currentSessionId) {
       asyncTasks.push(
-        revokeTokensForSession(currentSessionId, 'Logout da sessão atual').catch((e: unknown) => {
-          logger.warn('[Logout] Falha ao revogar refresh tokens da sessão', { error: e });
-        }),
+        (async () => {
+          try {
+            await revokeTokensForSession(currentSessionId, 'Logout da sessão atual');
+          } catch (e: unknown) {
+            logger.warn('[Logout] Falha ao revogar refresh tokens da sessão', { error: e });
+          }
+        })(),
       );
     }
 
