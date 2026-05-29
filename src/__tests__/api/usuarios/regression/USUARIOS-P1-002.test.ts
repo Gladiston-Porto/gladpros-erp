@@ -35,7 +35,9 @@ jest.mock('@/lib/prisma', () => ({
   prisma: {
     usuario: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     $queryRaw: jest.fn(),
     $executeRaw: jest.fn(),
@@ -95,13 +97,13 @@ describe('REGRESSION USUARIOS-P1-002', () => {
   });
 
   it('toggle-status desativa com tokenVersion increment e retorna success', async () => {
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 5,
       status: 'ATIVO',
       email: 'u@test.com',
       nivel: 'USUARIO',
     });
-    (prisma.usuario.update as jest.Mock).mockResolvedValueOnce({ id: 5, status: 'INATIVO' });
+    (prisma.usuario.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
 
     const { PUT } = await import('@/app/api/usuarios/[id]/toggle-status/route');
     const req = new NextRequest('http://localhost/api/usuarios/5/toggle-status', { method: 'PUT' });
@@ -110,7 +112,7 @@ describe('REGRESSION USUARIOS-P1-002', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(prisma.usuario.update).toHaveBeenCalledWith(
+    expect(prisma.usuario.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           status: 'INATIVO',

@@ -31,9 +31,24 @@ export async function checkUserManagementAccess(
   targetUserId: number,
   options: { allowSelf: boolean },
 ): Promise<AccessResult> {
-  // @bug:USUARIOS-P2-005 — empresaId no where para prevenir IDOR cross-tenant
-  const target = await prisma.usuario.findUnique({
-    where: { id: targetUserId, empresaId: Number(authUser.empresaId ?? 1) },
+  const empresaId = authUser.empresaId ? Number(authUser.empresaId) : null;
+  if (!empresaId) {
+    return {
+      allowed: false,
+      response: NextResponse.json(
+        {
+          error: 'Internal Server Error',
+          message: 'Auth misconfiguration: empresaId ausente',
+          success: false,
+        },
+        { status: 500 },
+      ),
+    };
+  }
+
+  // findFirst com empresaId garante escopo por tenant sem depender de @@unique composto
+  const target = await prisma.usuario.findFirst({
+    where: { id: targetUserId, empresaId },
     select: { nivel: true },
   });
 

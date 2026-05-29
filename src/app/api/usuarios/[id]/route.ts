@@ -620,9 +620,22 @@ export const DELETE = withErrorHandler(
       );
     }
 
-    // Verificar se o usuário existe (empresaId no where para prevenir IDOR cross-tenant)
-    const user = await prisma.usuario.findUnique({
-      where: { id, empresaId: Number(authUser.empresaId ?? 1) },
+    // Garantir que empresaId está presente — falha explícita se auth estiver mal configurado
+    const empresaId = authUser.empresaId;
+    if (!empresaId) {
+      return NextResponse.json(
+        {
+          error: 'Internal Server Error',
+          message: 'Auth misconfiguration: empresaId ausente',
+          success: false,
+        },
+        { status: 500 },
+      );
+    }
+
+    // Verificar se o usuário existe (findFirst com empresaId garante escopo por tenant)
+    const user = await prisma.usuario.findFirst({
+      where: { id, empresaId },
       select: { id: true, email: true, status: true, nivel: true },
     });
 
@@ -666,7 +679,7 @@ export const DELETE = withErrorHandler(
     // Soft delete: marcar como inativo em vez de excluir
     // @bug:USUARIOS-P2-003 — tokenVersion incrementado no DELETE para invalidar JWTs ativos
     await prisma.usuario.updateMany({
-      where: { id, empresaId: authUser.empresaId },
+      where: { id, empresaId },
       data: {
         status: 'INATIVO',
         tokenVersion: { increment: 1 },

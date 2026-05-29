@@ -57,6 +57,7 @@ jest.mock('@/lib/prisma', () => ({
     usuario: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
@@ -190,7 +191,7 @@ describe('DELETE /api/usuarios/:id', () => {
       email: 'a@test.com',
       empresaId: 1,
     } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const { DELETE } = await import('@/app/api/usuarios/[id]/route');
     const res = await DELETE(makeDeleteRequest('999'), { params: Promise.resolve({ id: '999' }) });
     expect(res.status).toBe(404);
@@ -203,7 +204,7 @@ describe('DELETE /api/usuarios/:id', () => {
       email: 'a@test.com',
       empresaId: 1,
     } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 2,
       email: 'admin2@test.com',
       status: 'ATIVO',
@@ -224,7 +225,7 @@ describe('DELETE /api/usuarios/:id', () => {
       email: 'a@test.com',
       empresaId: 1,
     } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 5,
       email: 'user@test.com',
       status: 'ATIVO',
@@ -250,7 +251,7 @@ describe('DELETE /api/usuarios/:id', () => {
       email: 'a@test.com',
       empresaId: 1,
     } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 5,
       email: 'user@test.com',
       status: 'ATIVO',

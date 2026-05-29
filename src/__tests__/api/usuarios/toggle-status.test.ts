@@ -1,17 +1,44 @@
 jest.mock('next/server', () => {
   const makeSearchParams = (url: string) => {
-    try { return new URLSearchParams(url.includes('?') ? url.split('?')[1] ?? '' : ''); }
-    catch { return new URLSearchParams(); }
+    try {
+      return new URLSearchParams(url.includes('?') ? (url.split('?')[1] ?? '') : '');
+    } catch {
+      return new URLSearchParams();
+    }
   };
   return {
-    NextRequest: jest.fn().mockImplementation((url: string, init?: { method?: string; body?: string; headers?: Record<string, string> }) => ({
-      url,
-      method: (init?.method ?? 'GET').toUpperCase(),
-      nextUrl: { searchParams: makeSearchParams(url), pathname: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0] },
-      headers: { get: (name: string) => { const h = (init?.headers ?? {}) as Record<string, string>; return h[name] ?? h[name.toLowerCase()] ?? null; } },
-      json: jest.fn().mockImplementation(() => { if (init?.body) { try { return Promise.resolve(JSON.parse(init.body)); } catch { return Promise.resolve({}); } } return Promise.resolve({}); }),
-      text: jest.fn().mockResolvedValue(init?.body ?? ''),
-    })),
+    NextRequest: jest
+      .fn()
+      .mockImplementation(
+        (
+          url: string,
+          init?: { method?: string; body?: string; headers?: Record<string, string> },
+        ) => ({
+          url,
+          method: (init?.method ?? 'GET').toUpperCase(),
+          nextUrl: {
+            searchParams: makeSearchParams(url),
+            pathname: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0],
+          },
+          headers: {
+            get: (name: string) => {
+              const h = (init?.headers ?? {}) as Record<string, string>;
+              return h[name] ?? h[name.toLowerCase()] ?? null;
+            },
+          },
+          json: jest.fn().mockImplementation(() => {
+            if (init?.body) {
+              try {
+                return Promise.resolve(JSON.parse(init.body));
+              } catch {
+                return Promise.resolve({});
+              }
+            }
+            return Promise.resolve({});
+          }),
+          text: jest.fn().mockResolvedValue(init?.body ?? ''),
+        }),
+      ),
     NextResponse: {
       json: jest.fn().mockImplementation((data: unknown, options?: { status?: number }) => ({
         status: options?.status ?? 200,
@@ -30,8 +57,10 @@ jest.mock('@/lib/prisma', () => ({
     usuario: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
     },
@@ -55,7 +84,14 @@ jest.mock('@/shared/lib/audit', () => ({
 }));
 
 jest.mock('@/shared/lib/user-hierarchy', () => ({
-  UserRole: { ADMIN: 'ADMIN', GERENTE: 'GERENTE', FINANCEIRO: 'FINANCEIRO', USUARIO: 'USUARIO', ESTOQUE: 'ESTOQUE', CLIENTE: 'CLIENTE' },
+  UserRole: {
+    ADMIN: 'ADMIN',
+    GERENTE: 'GERENTE',
+    FINANCEIRO: 'FINANCEIRO',
+    USUARIO: 'USUARIO',
+    ESTOQUE: 'ESTOQUE',
+    CLIENTE: 'CLIENTE',
+  },
   canManageRole: jest.fn().mockReturnValue(true),
 }));
 
@@ -64,19 +100,33 @@ jest.mock('@/lib/api/logger', () => ({
 }));
 
 jest.mock('@/lib/api/error-handler', () => ({
-  withErrorHandler: jest.fn().mockImplementation((handler: Function) => async (...args: unknown[]) => {
-    try {
-      return await handler(...args);
-    } catch (error) {
-      if (error instanceof Error && error.message === 'UNAUTHENTICATED') {
-        return { status: 401, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Unauthorized', success: false }) };
+  withErrorHandler: jest
+    .fn()
+    .mockImplementation((handler: Function) => async (...args: unknown[]) => {
+      try {
+        return await handler(...args);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'UNAUTHENTICATED') {
+          return {
+            status: 401,
+            headers: new Map(),
+            json: jest.fn().mockResolvedValue({ error: 'Unauthorized', success: false }),
+          };
+        }
+        if (error instanceof Error && error.message === 'FORBIDDEN') {
+          return {
+            status: 403,
+            headers: new Map(),
+            json: jest.fn().mockResolvedValue({ error: 'Forbidden', success: false }),
+          };
+        }
+        return {
+          status: 500,
+          headers: new Map(),
+          json: jest.fn().mockResolvedValue({ error: 'Internal server error', success: false }),
+        };
       }
-      if (error instanceof Error && error.message === 'FORBIDDEN') {
-        return { status: 403, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Forbidden', success: false }) };
-      }
-      return { status: 500, headers: new Map(), json: jest.fn().mockResolvedValue({ error: 'Internal server error', success: false }) };
-    }
-  }),
+    }),
 }));
 
 import { requireUser } from '@/shared/lib/rbac';
@@ -101,16 +151,29 @@ describe('PUT /api/usuarios/:id/toggle-status', () => {
   });
 
   it('403 — USUARIO role denied', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'USUARIO', email: 'u@test.com' } as any);
+    mockRequireUser.mockResolvedValueOnce({
+      id: 1,
+      role: 'USUARIO',
+      email: 'u@test.com',
+      empresaId: 1,
+    } as any);
     const { PUT } = await import('@/app/api/usuarios/[id]/toggle-status/route');
     const res = await PUT(makePutRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(403);
   });
 
   it('400 — trying to toggle self', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 5, role: 'ADMIN', email: 'a@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
-      id: 5, status: 'ATIVO', email: 'a@test.com', nivel: 'ADMIN',
+    mockRequireUser.mockResolvedValueOnce({
+      id: 5,
+      role: 'ADMIN',
+      email: 'a@test.com',
+      empresaId: 1,
+    } as any);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 5,
+      status: 'ATIVO',
+      email: 'a@test.com',
+      nivel: 'ADMIN',
     });
     const { PUT } = await import('@/app/api/usuarios/[id]/toggle-status/route');
     const res = await PUT(makePutRequest('5'), { params: Promise.resolve({ id: '5' }) });
@@ -118,19 +181,32 @@ describe('PUT /api/usuarios/:id/toggle-status', () => {
   });
 
   it('404 — user not found', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    mockRequireUser.mockResolvedValueOnce({
+      id: 1,
+      role: 'ADMIN',
+      email: 'a@test.com',
+      empresaId: 1,
+    } as any);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const { PUT } = await import('@/app/api/usuarios/[id]/toggle-status/route');
     const res = await PUT(makePutRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(404);
   });
 
   it('200 — happy path toggles status', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
-      id: 5, status: 'ATIVO', email: 'user@test.com', nivel: 'USUARIO',
+    mockRequireUser.mockResolvedValueOnce({
+      id: 1,
+      role: 'ADMIN',
+      email: 'a@test.com',
+      empresaId: 1,
+    } as any);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 5,
+      status: 'ATIVO',
+      email: 'user@test.com',
+      nivel: 'USUARIO',
     });
-    (prisma.usuario.update as jest.Mock).mockResolvedValueOnce({ id: 5, status: 'INATIVO' });
+    (prisma.usuario.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
     const { PUT } = await import('@/app/api/usuarios/[id]/toggle-status/route');
     const res = await PUT(makePutRequest('5'), { params: Promise.resolve({ id: '5' }) });
     expect(res.status).toBe(200);
@@ -140,28 +216,44 @@ describe('PUT /api/usuarios/:id/toggle-status', () => {
   });
 
   it('desativar — incrementa tokenVersion para invalidar sessões existentes', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
-      id: 5, status: 'ATIVO', email: 'user@test.com', nivel: 'USUARIO',
+    mockRequireUser.mockResolvedValueOnce({
+      id: 1,
+      role: 'ADMIN',
+      email: 'a@test.com',
+      empresaId: 1,
+    } as any);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 5,
+      status: 'ATIVO',
+      email: 'user@test.com',
+      nivel: 'USUARIO',
     });
-    (prisma.usuario.update as jest.Mock).mockResolvedValueOnce({ id: 5, status: 'INATIVO', tokenVersion: 1 });
+    (prisma.usuario.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
     (prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([{ cnt: 0 }]); // não é ADMIN
     const { PUT } = await import('@/app/api/usuarios/[id]/toggle-status/route');
     await PUT(makePutRequest('5'), { params: Promise.resolve({ id: '5' }) });
-    const updateCall = (prisma.usuario.update as jest.Mock).mock.calls[0][0];
+    const updateCall = (prisma.usuario.updateMany as jest.Mock).mock.calls[0][0];
     // tokenVersion deve ser incrementado ao desativar
     expect(updateCall.data).toMatchObject({ status: 'INATIVO', tokenVersion: { increment: 1 } });
   });
 
   it('reativar — NÃO incrementa tokenVersion (não invalida sessões)', async () => {
-    mockRequireUser.mockResolvedValueOnce({ id: 1, role: 'ADMIN', email: 'a@test.com' } as any);
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce({
-      id: 5, status: 'INATIVO', email: 'user@test.com', nivel: 'USUARIO',
+    mockRequireUser.mockResolvedValueOnce({
+      id: 1,
+      role: 'ADMIN',
+      email: 'a@test.com',
+      empresaId: 1,
+    } as any);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 5,
+      status: 'INATIVO',
+      email: 'user@test.com',
+      nivel: 'USUARIO',
     });
-    (prisma.usuario.update as jest.Mock).mockResolvedValueOnce({ id: 5, status: 'ATIVO' });
+    (prisma.usuario.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
     const { PUT } = await import('@/app/api/usuarios/[id]/toggle-status/route');
     await PUT(makePutRequest('5'), { params: Promise.resolve({ id: '5' }) });
-    const updateCall = (prisma.usuario.update as jest.Mock).mock.calls[0][0];
+    const updateCall = (prisma.usuario.updateMany as jest.Mock).mock.calls[0][0];
     // ao reativar, tokenVersion NÃO deve estar presente
     expect(updateCall.data.tokenVersion).toBeUndefined();
   });

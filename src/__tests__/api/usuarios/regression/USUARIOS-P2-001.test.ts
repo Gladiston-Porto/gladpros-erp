@@ -22,7 +22,9 @@ jest.mock('@/lib/prisma', () => ({
   prisma: {
     usuario: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
   },
 }));
@@ -106,7 +108,7 @@ describe('REGRESSION USUARIOS-P2-001', () => {
   });
 
   it('toggle-status retorna success:false quando usuario nao existe', async () => {
-    (prisma.usuario.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    (prisma.usuario.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
     const { PUT } = await import('@/app/api/usuarios/[id]/toggle-status/route');
     const req = new NextRequest('http://localhost/api/usuarios/999/toggle-status', {

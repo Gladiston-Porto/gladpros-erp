@@ -35,9 +35,22 @@ export const PUT = withErrorHandler(
       );
     }
 
-    // @bug:USUARIOS-P2-005 — empresaId no where para prevenir IDOR cross-tenant
-    const existingUser = await prisma.usuario.findUnique({
-      where: { id, empresaId: Number(user.empresaId ?? 1) },
+    // Garantir que empresaId está presente no token — falha explícita se auth estiver mal configurado
+    const empresaId = user.empresaId;
+    if (!empresaId) {
+      return NextResponse.json(
+        {
+          error: 'Internal Server Error',
+          message: 'Auth misconfiguration: empresaId ausente',
+          success: false,
+        },
+        { status: 500 },
+      );
+    }
+
+    // @bug:USUARIOS-P2-005 — findFirst com empresaId garante escopo por tenant sem depender de @@unique
+    const existingUser = await prisma.usuario.findFirst({
+      where: { id, empresaId },
       select: { id: true, status: true, email: true, nivel: true },
     });
 
@@ -100,8 +113,9 @@ export const PUT = withErrorHandler(
     // Com RBAC_TRUST_JWT=1: tokenVersion é ignorado — o bloqueio ocorre apenas quando
     // o cookie expirar (~8h) ou o JWT bruto expirar (7d). Para bloqueio imediato,
     // rotacionar JWT_SECRET no ambiente (invalida todos os tokens globalmente).
-    await prisma.usuario.update({
-      where: { id, empresaId: Number(user.empresaId ?? 1) },
+    // updateMany com empresaId garante escopo por tenant sem precisar de @@unique composto
+    await prisma.usuario.updateMany({
+      where: { id, empresaId },
       data: {
         status: newStatus,
         ...(newStatus === 'INATIVO' ? { tokenVersion: { increment: 1 } } : {}),

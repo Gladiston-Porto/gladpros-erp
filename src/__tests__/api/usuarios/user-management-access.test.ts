@@ -5,6 +5,7 @@ jest.mock('@/lib/prisma', () => ({
   prisma: {
     usuario: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     $queryRaw: jest.fn(),
   },
@@ -33,7 +34,7 @@ const {
 } = require('@/app/api/usuarios/_helpers/access');
 
 describe('user management hierarchy access', () => {
-  const findUniqueMock = prisma.usuario.findUnique as jest.Mock;
+  const findFirstMock = prisma.usuario.findFirst as jest.Mock;
   const queryRawMock = prisma.$queryRaw as jest.Mock;
 
   beforeEach(() => {
@@ -41,7 +42,7 @@ describe('user management hierarchy access', () => {
   });
 
   it('blocks GERENTE from managing ADMIN security side endpoints', async () => {
-    findUniqueMock.mockResolvedValue({ nivel: UserRole.ADMIN });
+    findFirstMock.mockResolvedValue({ nivel: UserRole.ADMIN });
 
     const result = await checkUserManagementAccess(
       { id: 2, role: UserRole.GERENTE, empresaId: 1 },
@@ -54,7 +55,7 @@ describe('user management hierarchy access', () => {
   });
 
   it('allows GERENTE to manage USUARIO side endpoints', async () => {
-    findUniqueMock.mockResolvedValue({ nivel: UserRole.USUARIO });
+    findFirstMock.mockResolvedValue({ nivel: UserRole.USUARIO });
 
     const result = await checkUserManagementAccess(
       { id: 2, role: UserRole.GERENTE, empresaId: 1 },
@@ -66,7 +67,7 @@ describe('user management hierarchy access', () => {
   });
 
   it('allows users to access their own session/security data when explicitly allowed', async () => {
-    findUniqueMock.mockResolvedValue({ nivel: UserRole.ADMIN });
+    findFirstMock.mockResolvedValue({ nivel: UserRole.ADMIN });
 
     const result = await checkUserManagementAccess(
       { id: 1, role: UserRole.ADMIN, empresaId: 1 },
@@ -87,15 +88,15 @@ describe('user management hierarchy access', () => {
     expect(canAccessSessionOwner({ id: 1, role: UserRole.ADMIN }, owner!)).toBe(true);
   });
 
-  // @bug:USUARIOS-P2-005 — regressão: empresaId deve ser passado ao findUnique
-  it('passes empresaId to findUnique to prevent cross-tenant IDOR', async () => {
-    findUniqueMock.mockResolvedValue({ nivel: UserRole.USUARIO });
+  // @bug:USUARIOS-P2-005 — regressão: empresaId deve ser passado ao findFirst para prevenir IDOR cross-tenant
+  it('passes empresaId to findFirst to prevent cross-tenant IDOR', async () => {
+    findFirstMock.mockResolvedValue({ nivel: UserRole.USUARIO });
 
     await checkUserManagementAccess({ id: 2, role: UserRole.GERENTE, empresaId: 1 }, 3, {
       allowSelf: false,
     });
 
-    expect(findUniqueMock).toHaveBeenCalledWith(
+    expect(findFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: 3, empresaId: 1 }),
       }),
