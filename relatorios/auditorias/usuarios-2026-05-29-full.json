@@ -1,0 +1,138 @@
+{
+  "module": "usuarios",
+  "startedAt": "2026-05-29T01:51:45.043Z",
+  "finishedAt": "2026-05-29T01:53:03.151Z",
+  "orchestrator": "scripts/run-full-audit.mjs",
+  "status": "Production Ready",
+  "exitCode": 0,
+  "baselineReviewedAt": "2026-05-27",
+  "steps": [
+    {
+      "name": "validate:known-bugs",
+      "command": "node scripts/validate-known-bugs.mjs",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 549
+    },
+    {
+      "name": "audit:module",
+      "command": "node scripts/run-audit.mjs --module=usuarios",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 33313
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P1-001.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P1-001.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1858
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P1-002.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P1-002.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1789
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P2-001.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P2-001.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 2152
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P2-002.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P2-002.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1617
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P2-004.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P2-004.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 1842
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P3-001.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P3-001.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 2978
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/regression/USUARIOS-P3-002.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/regression/USUARIOS-P3-002.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 2527
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/user-management-access.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/user-management-access.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 2459
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/delete-id.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/delete-id.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 2486
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/get-list.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/get-list.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 3331
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/get-id.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/get-id.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 4796
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/status.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/status.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 4108
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/resend-welcome.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/resend-welcome.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 3947
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/security.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/security.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 2116
+    },
+    {
+      "name": "regression:src/__tests__/api/usuarios/export.test.ts",
+      "command": "npx jest src/__tests__/api/usuarios/export.test.ts --runInBand --silent",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 2101
+    },
+    {
+      "name": "module-test:npx jest src/__tests__/api/usuarios --runInBand",
+      "command": "npx jest src/__tests__/api/usuarios --runInBand",
+      "exitCode": 0,
+      "passed": true,
+      "durationMs": 4095
+    }
+  ],
+  "findings": []
+}
