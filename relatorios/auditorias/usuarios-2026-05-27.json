@@ -1,7 +1,7 @@
 {
   "module": "usuarios",
-  "startedAt": "2026-05-29T02:45:51.785Z",
-  "finishedAt": "2026-05-29T02:46:13.869Z",
+  "startedAt": "2026-05-27T04:11:29.556Z",
+  "finishedAt": "2026-05-27T04:11:47.131Z",
   "orchestrator": "scripts/run-audit.mjs",
   "steps": [
     {
@@ -9,7 +9,7 @@
       "command": "node scripts/validate-known-bugs.mjs",
       "exitCode": 0,
       "passed": true,
-      "durationMs": 259
+      "durationMs": 164
     },
     {
       "name": "canary:health-check-detects-INFORMATION_SCHEMA",
@@ -23,14 +23,14 @@
       "command": "node scripts/check-module-health.mjs --module=usuarios",
       "exitCode": 0,
       "passed": true,
-      "durationMs": 775
+      "durationMs": 941
     },
     {
       "name": "certify:module",
       "command": "node scripts/certify-module.mjs --module=usuarios",
       "exitCode": 0,
       "passed": true,
-      "durationMs": 20125
+      "durationMs": 15740
     }
   ],
   "transitions": [],
