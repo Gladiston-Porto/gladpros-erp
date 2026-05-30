@@ -4,50 +4,67 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createRecurrenceSchema } from '@/schemas/revenue.schema';
-import { requireUser } from "@/shared/lib/rbac";
-import { can, type Role } from "@/shared/lib/rbac-core";
+import { requireUser } from '@/shared/lib/rbac';
+import { can, type Role } from '@/shared/lib/rbac-core';
 import { withErrorHandler } from '@/lib/api/error-handler';
 
 /**
  * POST /api/financeiro/receitas/[id]/recorrencia
  * Configurar recorrência em receita existente (que ainda não é recorrente)
  */
-export const POST = withErrorHandler(async (request: NextRequest,
-  context: { params: Promise<{ id: string }> }) => {
+export const POST = withErrorHandler(
+  async (request: NextRequest, context: { params: Promise<{ id: string }> }) => {
     const params = await context.params;
     const user = await requireUser(request);
-    if (!can(user.role as Role, "financeiro", "create")) {
-      return NextResponse.json({ error: "Forbidden", message: "Sem permissão", success: false }, { status: 403 });
+    if (!can(user.role as Role, 'financeiro', 'create')) {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Sem permissão', success: false },
+        { status: 403 },
+      );
     }
 
     const id = parseInt(params.id);
     if (isNaN(id)) {
-      return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'ID inválido', message: 'ID inválido', success: false },
+        { status: 400 },
+      );
     }
 
     // Buscar receita
     const existing = await prisma.revenue.findFirst({
       where: { id, empresaId: user.empresaId },
-      include: { recorrencia: true }
+      include: { recorrencia: true },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: 'Receita não encontrada' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Receita não encontrada', message: 'Receita não encontrada', success: false },
+        { status: 404 },
+      );
     }
 
     // Validar: Receita já possui recorrência
     if (existing.recorrencia) {
       return NextResponse.json(
-        { error: 'Receita já possui configuração de recorrência' },
-        { status: 400 }
+        {
+          error: 'Receita já possui configuração de recorrência',
+          message: 'Receita já possui configuração de recorrência',
+          success: false,
+        },
+        { status: 400 },
       );
     }
 
     // Validar: Não pode adicionar recorrência em receita já recebida
     if (existing.status === 'RECEBIDA') {
       return NextResponse.json(
-        { error: 'Não é possível adicionar recorrência em receita já recebida' },
-        { status: 403 }
+        {
+          error: 'Não é possível adicionar recorrência em receita já recebida',
+          message: 'Não é possível adicionar recorrência em receita já recebida',
+          success: false,
+        },
+        { status: 403 },
       );
     }
 
@@ -67,10 +84,10 @@ export const POST = withErrorHandler(async (request: NextRequest,
           dataFim: validatedData.dataFim ? new Date(validatedData.dataFim) : null,
           proximaGeracao: calculateNextGeneration(
             new Date(validatedData.dataInicio),
-            validatedData.frequencia
+            validatedData.frequencia,
           ),
           ativo: true,
-        }
+        },
       });
 
       // Atualizar Revenue com recorrenciaId e recorrente = true
@@ -78,25 +95,28 @@ export const POST = withErrorHandler(async (request: NextRequest,
         where: { id },
         data: {
           recorrente: true,
-          recorrenciaId: recorrencia.id
+          recorrenciaId: recorrencia.id,
         },
         include: {
           categoria: true,
           cliente: true,
           recorrencia: true,
-        }
+        },
       });
 
       return { revenue: updated, recorrencia };
     });
 
-    return NextResponse.json({
-      success: true,
-      data: result.revenue,
-      message: 'Recorrência configurada com sucesso'
-    }, { status: 201 });
-
-  });
+    return NextResponse.json(
+      {
+        success: true,
+        data: result.revenue,
+        message: 'Recorrência configurada com sucesso',
+      },
+      { status: 201 },
+    );
+  },
+);
 
 /**
  * Calcula a próxima data de geração baseado na frequência
