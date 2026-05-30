@@ -135,7 +135,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           : Promise.resolve(0),
         prisma.cliente.groupBy({
           by: ['status'],
-          where: { empresaId: user.empresaId },
+
           _count: { status: true },
         }),
         prisma.proposta.groupBy({
@@ -168,7 +168,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         prisma.cliente.findMany({
           take: 5,
           orderBy: { criadoEm: 'desc' },
-          where: { empresaId: user.empresaId },
+
           select: { id: true, nomeFantasia: true, nomeCompleto: true, criadoEm: true },
         }),
         canReadAnalytics

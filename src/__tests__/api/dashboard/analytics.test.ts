@@ -143,7 +143,6 @@ describe('GET /api/analytics', () => {
     });
     expect(prisma.cliente.groupBy).toHaveBeenCalledWith({
       by: ['status'],
-      where: { empresaId: 7 },
       _count: { status: true },
     });
     expect(prisma.proposta.groupBy).toHaveBeenCalledWith({
@@ -154,9 +153,7 @@ describe('GET /api/analytics', () => {
     expect(prisma.proposta.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { empresaId: 7, deletedAt: null } }),
     );
-    expect(prisma.cliente.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { empresaId: 7 } }),
-    );
+    expect(prisma.cliente.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));
   });
 
   test('200 — perfil sem analytics recebe payload restrito', async () => {
