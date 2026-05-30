@@ -144,7 +144,6 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         }),
         prisma.projeto.findMany({
           where: {
-            Cliente: { empresaId: user.empresaId },
             status: {
               in: activeProjectStatuses,
             },
@@ -164,20 +163,17 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         }),
         prisma.projeto.count({
           where: {
-            Cliente: { empresaId: user.empresaId },
             status: { in: activeProjectStatuses },
           },
         }),
         prisma.projeto.count({
           where: {
-            Cliente: { empresaId: user.empresaId },
             status: { in: activeProjectStatuses },
             dataConclusaoPrevista: { lt: new Date() },
           },
         }),
         prisma.projeto.count({
           where: {
-            Cliente: { empresaId: user.empresaId },
             status: { in: activeProjectStatuses },
             valorEstimado: { not: null },
             custoReal: { gt: prisma.projeto.fields.valorEstimado },

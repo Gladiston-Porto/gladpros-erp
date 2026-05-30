@@ -162,11 +162,11 @@ describe('GET /api/dashboard', () => {
       where: { empresaId: 7, deletedAt: null },
       _count: true,
     });
-    expect(prisma.cliente.count).toHaveBeenCalledWith({ where: { empresaId: 7 } });
-    expect(prisma.projeto.count).toHaveBeenCalledWith({ where: { Cliente: { empresaId: 7 } } });
+    expect(prisma.cliente.count).toHaveBeenCalledWith();
+    expect(prisma.projeto.count).toHaveBeenCalledWith({ where: {} });
     expect(prisma.projeto.groupBy).toHaveBeenCalledWith({
       by: ['status'],
-      where: { Cliente: { empresaId: 7 } },
+      where: {},
       _count: true,
     });
     expect(prisma.serviceOrder.groupBy).toHaveBeenCalledWith({
@@ -175,7 +175,7 @@ describe('GET /api/dashboard', () => {
       _count: true,
     });
     expect(prisma.cliente.findMany).toHaveBeenCalledWith({
-      where: { id: { in: [1] }, empresaId: 7 },
+      where: { id: { in: [1] } },
       select: { id: true, nomeFantasia: true, nomeCompleto: true },
     });
   });

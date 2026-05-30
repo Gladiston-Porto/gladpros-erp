@@ -77,12 +77,12 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       _count: true,
     }),
     // Clients
-    prisma.cliente.count({ where: { empresaId: user.empresaId } }),
+    prisma.cliente.count(),
     // Projects
-    prisma.projeto.count({ where: { Cliente: { empresaId: user.empresaId } } }),
+    prisma.projeto.count({ where: {} }),
     prisma.projeto.groupBy({
       by: ['status'],
-      where: { Cliente: { empresaId: user.empresaId } },
+      where: {},
       _count: true,
     }),
     // Revenue current period
@@ -171,7 +171,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     clienteIds.length > 0
       ? await prisma.cliente
           .findMany({
-            where: { id: { in: clienteIds }, empresaId: user.empresaId },
+            where: { id: { in: clienteIds } },
             select: { id: true, nomeFantasia: true, nomeCompleto: true },
           })
           .then((cs) => new Map(cs.map((c) => [c.id, c])))
