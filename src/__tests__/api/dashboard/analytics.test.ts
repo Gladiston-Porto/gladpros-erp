@@ -137,7 +137,7 @@ describe('GET /api/analytics', () => {
     expect(prisma.usuario.count).toHaveBeenNthCalledWith(2, {
       where: { empresaId: 7, ultimoLoginEm: { gte: expect.any(Date) } },
     });
-    expect(prisma.cliente.count).toHaveBeenCalledWith({ where: { empresaId: 7 } });
+    expect(prisma.cliente.count).toHaveBeenCalledWith();
     expect(prisma.proposta.count).toHaveBeenCalledWith({
       where: { empresaId: 7, deletedAt: null, dataCriacao: { gte: expect.any(Date) } },
     });

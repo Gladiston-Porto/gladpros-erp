@@ -120,7 +120,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       ] = await Promise.all([
         prisma.usuario.count({ where: { ...roleFilter } }),
         prisma.usuario.count({ where: { ...roleFilter, ultimoLoginEm: { gte: startDate } } }),
-        prisma.cliente.count({ where: { empresaId: user.empresaId } }),
+        prisma.cliente.count(),
         prisma.proposta.count({
           where: { empresaId: user.empresaId, deletedAt: null, dataCriacao: { gte: startDate } },
         }),
