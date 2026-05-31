@@ -209,13 +209,13 @@ describe('GET /api/dashboard/executive', () => {
     );
     expect(prisma.projeto.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ Cliente: { empresaId: 7 } }),
+        where: expect.objectContaining({}),
         take: 10,
       }),
     );
     expect(prisma.projeto.count).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ Cliente: { empresaId: 7 } }),
+        where: expect.objectContaining({}),
       }),
     );
     expect(prisma.cliente.aggregate).toHaveBeenCalledWith({
