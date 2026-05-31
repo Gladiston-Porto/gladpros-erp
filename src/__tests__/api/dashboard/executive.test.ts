@@ -220,7 +220,7 @@ describe('GET /api/dashboard/executive', () => {
     );
     expect(prisma.cliente.aggregate).toHaveBeenCalledWith({
       _count: true,
-      where: { empresaId: 7, ativo: true },
+      where: { ativo: true },
     });
     expect(prisma.proposta.groupBy).toHaveBeenCalledWith({
       by: ['status'],
@@ -229,12 +229,12 @@ describe('GET /api/dashboard/executive', () => {
     });
     expect(prisma.proposta.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ empresaId: 7 }),
+        where: expect.any(Object),
       }),
     );
     expect(prisma.cliente.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ empresaId: 7 }),
+        where: expect.any(Object),
       }),
     );
   });

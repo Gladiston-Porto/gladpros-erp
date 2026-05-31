@@ -134,7 +134,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           ? prisma.bankAccount.aggregate({
               _sum: { saldoAtual: true },
               _count: true,
-              where: { empresaId: user.empresaId, ativo: true },
+              where: { ativo: true },
             })
           : Promise.resolve(null),
         prisma.material.aggregate({ _count: true }),
@@ -182,7 +182,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         prisma.worker.count({ where: { status: 'ACTIVE' } }),
         prisma.cliente.aggregate({
           _count: true,
-          where: { empresaId: user.empresaId, ativo: true },
+          where: { ativo: true },
         }),
         prisma.proposta.groupBy({
           by: ['status'],
